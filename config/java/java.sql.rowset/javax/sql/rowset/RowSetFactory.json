@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset",
+  "binaryName" : "javax.sql.rowset.RowSetFactory",
+  "canonicalName" : "javax.sql.rowset.RowSetFactory",
+  "simpleName" : "RowSetFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createCachedRowSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.CachedRowSet createCachedRowSet() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.CachedRowSet",
+    "genericReturnType" : "javax.sql.rowset.CachedRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFilteredRowSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.FilteredRowSet createFilteredRowSet() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.FilteredRowSet",
+    "genericReturnType" : "javax.sql.rowset.FilteredRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createJdbcRowSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.JdbcRowSet createJdbcRowSet() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.JdbcRowSet",
+    "genericReturnType" : "javax.sql.rowset.JdbcRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createJoinRowSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.JoinRowSet createJoinRowSet() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.JoinRowSet",
+    "genericReturnType" : "javax.sql.rowset.JoinRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createWebRowSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.WebRowSet createWebRowSet() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.WebRowSet",
+    "genericReturnType" : "javax.sql.rowset.WebRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

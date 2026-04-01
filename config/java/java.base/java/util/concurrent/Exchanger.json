@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Exchanger",
+  "canonicalName" : "java.util.concurrent.Exchanger",
+  "simpleName" : "Exchanger",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.Exchanger",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Exchanger()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "exchange",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object exchange(java.lang.Object) throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exchange",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object exchange(java.lang.Object, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException, java.util.concurrent.TimeoutException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.TimeoutException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

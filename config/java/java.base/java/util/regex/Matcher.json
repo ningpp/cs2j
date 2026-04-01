@@ -1,0 +1,587 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.regex",
+  "binaryName" : "java.util.regex.Matcher",
+  "canonicalName" : "java.util.regex.Matcher",
+  "simpleName" : "Matcher",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.regex.MatchResult" ],
+  "declaredPublicMethods" : [ {
+    "name" : "appendReplacement",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher appendReplacement(java.lang.StringBuffer, java.lang.String)",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "parameters" : [ {
+      "name" : "sb",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "replacement",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appendReplacement",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher appendReplacement(java.lang.StringBuilder, java.lang.String)",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "parameters" : [ {
+      "name" : "sb",
+      "type" : "java.lang.StringBuilder",
+      "genericType" : "java.lang.StringBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "replacement",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appendTail",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer appendTail(java.lang.StringBuffer)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "sb",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appendTail",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuilder appendTail(java.lang.StringBuilder)",
+    "returnType" : "java.lang.StringBuilder",
+    "genericReturnType" : "java.lang.StringBuilder",
+    "parameters" : [ {
+      "name" : "sb",
+      "type" : "java.lang.StringBuilder",
+      "genericType" : "java.lang.StringBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "end",
+    "modifiers" : "public",
+    "signature" : "public int end()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "end",
+    "modifiers" : "public",
+    "signature" : "public int end(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "end",
+    "modifiers" : "public",
+    "signature" : "public int end(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "find",
+    "modifiers" : "public",
+    "signature" : "public boolean find()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "find",
+    "modifiers" : "public",
+    "signature" : "public boolean find(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "group",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String group()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "group",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String group(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "group",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String group(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupCount",
+    "modifiers" : "public",
+    "signature" : "public int groupCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasAnchoringBounds",
+    "modifiers" : "public",
+    "signature" : "public boolean hasAnchoringBounds()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasMatch",
+    "modifiers" : "public",
+    "signature" : "public boolean hasMatch()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasTransparentBounds",
+    "modifiers" : "public",
+    "signature" : "public boolean hasTransparentBounds()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hitEnd",
+    "modifiers" : "public",
+    "signature" : "public boolean hitEnd()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookingAt",
+    "modifiers" : "public",
+    "signature" : "public boolean lookingAt()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matches",
+    "modifiers" : "public",
+    "signature" : "public boolean matches()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "namedGroups",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map namedGroups()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pattern",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Pattern pattern()",
+    "returnType" : "java.util.regex.Pattern",
+    "genericReturnType" : "java.util.regex.Pattern",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quoteReplacement",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String quoteReplacement(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "region",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher region(int, int)",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "regionEnd",
+    "modifiers" : "public",
+    "signature" : "public int regionEnd()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "regionStart",
+    "modifiers" : "public",
+    "signature" : "public int regionStart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceAll",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String replaceAll(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "replacement",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceAll",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String replaceAll(java.util.function.Function)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "replacer",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String replaceFirst(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "replacement",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String replaceFirst(java.util.function.Function)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "replacer",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requireEnd",
+    "modifiers" : "public",
+    "signature" : "public boolean requireEnd()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher reset()",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher reset(java.lang.CharSequence)",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "results",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream results()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public",
+    "signature" : "public int start()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public",
+    "signature" : "public int start(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public",
+    "signature" : "public int start(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMatchResult",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.MatchResult toMatchResult()",
+    "returnType" : "java.util.regex.MatchResult",
+    "genericReturnType" : "java.util.regex.MatchResult",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "useAnchoringBounds",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher useAnchoringBounds(boolean)",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "usePattern",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher usePattern(java.util.regex.Pattern)",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "parameters" : [ {
+      "name" : "newPattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "useTransparentBounds",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Matcher useTransparentBounds(boolean)",
+    "returnType" : "java.util.regex.Matcher",
+    "genericReturnType" : "java.util.regex.Matcher",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

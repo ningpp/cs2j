@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.StreamPrintServiceFactory",
+  "canonicalName" : "javax.print.StreamPrintServiceFactory",
+  "simpleName" : "StreamPrintServiceFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getOutputFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getOutputFormat()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintService",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.StreamPrintService getPrintService(java.io.OutputStream)",
+    "returnType" : "javax.print.StreamPrintService",
+    "genericReturnType" : "javax.print.StreamPrintService",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedDocFlavors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.DocFlavor[] getSupportedDocFlavors()",
+    "returnType" : "javax.print.DocFlavor[]",
+    "genericReturnType" : "javax.print.DocFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupStreamPrintServiceFactories",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.StreamPrintServiceFactory[] lookupStreamPrintServiceFactories(javax.print.DocFlavor, java.lang.String)",
+    "returnType" : "javax.print.StreamPrintServiceFactory[]",
+    "genericReturnType" : "javax.print.StreamPrintServiceFactory[]",
+    "parameters" : [ {
+      "name" : "flavor",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outputMimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

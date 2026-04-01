@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicComboPopup$ListDataHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicComboPopup.ListDataHandler",
+  "simpleName" : "ListDataHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicComboPopup",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.event.ListDataListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicComboPopup$ListDataHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicComboPopup$ListDataHandler(javax.swing.plaf.basic.BasicComboPopup)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicComboPopup",
+      "genericType" : "javax.swing.plaf.basic.BasicComboPopup",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "contentsChanged",
+    "modifiers" : "public",
+    "signature" : "public void contentsChanged(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intervalAdded",
+    "modifiers" : "public",
+    "signature" : "public void intervalAdded(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intervalRemoved",
+    "modifiers" : "public",
+    "signature" : "public void intervalRemoved(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

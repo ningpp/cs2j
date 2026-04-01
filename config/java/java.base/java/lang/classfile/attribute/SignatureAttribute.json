@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.SignatureAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.SignatureAttribute",
+  "simpleName" : "SignatureAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement", "java.lang.classfile.FieldElement", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asClassSignature",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassSignature asClassSignature()",
+    "returnType" : "java.lang.classfile.ClassSignature",
+    "genericReturnType" : "java.lang.classfile.ClassSignature",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "asMethodSignature",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.MethodSignature asMethodSignature()",
+    "returnType" : "java.lang.classfile.MethodSignature",
+    "genericReturnType" : "java.lang.classfile.MethodSignature",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "asTypeSignature",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.Signature asTypeSignature()",
+    "returnType" : "java.lang.classfile.Signature",
+    "genericReturnType" : "java.lang.classfile.Signature",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.SignatureAttribute of(java.lang.classfile.ClassSignature)",
+    "returnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "parameters" : [ {
+      "name" : "classSignature",
+      "type" : "java.lang.classfile.ClassSignature",
+      "genericType" : "java.lang.classfile.ClassSignature",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.SignatureAttribute of(java.lang.classfile.MethodSignature)",
+    "returnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "parameters" : [ {
+      "name" : "methodSignature",
+      "type" : "java.lang.classfile.MethodSignature",
+      "genericType" : "java.lang.classfile.MethodSignature",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.SignatureAttribute of(java.lang.classfile.Signature)",
+    "returnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "parameters" : [ {
+      "name" : "signature",
+      "type" : "java.lang.classfile.Signature",
+      "genericType" : "java.lang.classfile.Signature",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.SignatureAttribute of(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.SignatureAttribute",
+    "parameters" : [ {
+      "name" : "signature",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "signature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry signature()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

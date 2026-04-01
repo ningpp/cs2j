@@ -1,0 +1,271 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Phaser",
+  "canonicalName" : "java.util.concurrent.Phaser",
+  "simpleName" : "Phaser",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.Phaser",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Phaser()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.Phaser",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Phaser(int)",
+    "parameters" : [ {
+      "name" : "parties",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.Phaser",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Phaser(java.util.concurrent.Phaser)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.util.concurrent.Phaser",
+      "genericType" : "java.util.concurrent.Phaser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.Phaser",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Phaser(java.util.concurrent.Phaser, int)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.util.concurrent.Phaser",
+      "genericType" : "java.util.concurrent.Phaser",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parties",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "arrive",
+    "modifiers" : "public",
+    "signature" : "public int arrive()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "arriveAndAwaitAdvance",
+    "modifiers" : "public",
+    "signature" : "public int arriveAndAwaitAdvance()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "arriveAndDeregister",
+    "modifiers" : "public",
+    "signature" : "public int arriveAndDeregister()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitAdvance",
+    "modifiers" : "public",
+    "signature" : "public int awaitAdvance(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "phase",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitAdvanceInterruptibly",
+    "modifiers" : "public",
+    "signature" : "public int awaitAdvanceInterruptibly(int) throws java.lang.InterruptedException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "phase",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitAdvanceInterruptibly",
+    "modifiers" : "public",
+    "signature" : "public int awaitAdvanceInterruptibly(int, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException, java.util.concurrent.TimeoutException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "phase",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.TimeoutException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bulkRegister",
+    "modifiers" : "public",
+    "signature" : "public int bulkRegister(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "parties",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forceTermination",
+    "modifiers" : "public",
+    "signature" : "public void forceTermination()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getArrivedParties",
+    "modifiers" : "public",
+    "signature" : "public int getArrivedParties()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Phaser getParent()",
+    "returnType" : "java.util.concurrent.Phaser",
+    "genericReturnType" : "java.util.concurrent.Phaser",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPhase",
+    "modifiers" : "public final",
+    "signature" : "public final int getPhase()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRegisteredParties",
+    "modifiers" : "public",
+    "signature" : "public int getRegisteredParties()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoot",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Phaser getRoot()",
+    "returnType" : "java.util.concurrent.Phaser",
+    "genericReturnType" : "java.util.concurrent.Phaser",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnarrivedParties",
+    "modifiers" : "public",
+    "signature" : "public int getUnarrivedParties()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTerminated",
+    "modifiers" : "public",
+    "signature" : "public boolean isTerminated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "register",
+    "modifiers" : "public",
+    "signature" : "public int register()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

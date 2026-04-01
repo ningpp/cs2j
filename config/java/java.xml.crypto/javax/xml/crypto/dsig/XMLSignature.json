@@ -1,0 +1,107 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig",
+  "binaryName" : "javax.xml.crypto.dsig.XMLSignature",
+  "canonicalName" : "javax.xml.crypto.dsig.XMLSignature",
+  "simpleName" : "XMLSignature",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.KeyInfo getKeyInfo()",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeySelectorResult",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.KeySelectorResult getKeySelectorResult()",
+    "returnType" : "javax.xml.crypto.KeySelectorResult",
+    "genericReturnType" : "javax.xml.crypto.KeySelectorResult",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjects",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getObjects()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSignatureValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.XMLSignature$SignatureValue getSignatureValue()",
+    "returnType" : "javax.xml.crypto.dsig.XMLSignature$SignatureValue",
+    "genericReturnType" : "javax.xml.crypto.dsig.XMLSignature$SignatureValue",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSignedInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.SignedInfo getSignedInfo()",
+    "returnType" : "javax.xml.crypto.dsig.SignedInfo",
+    "genericReturnType" : "javax.xml.crypto.dsig.SignedInfo",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sign",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sign(javax.xml.crypto.dsig.XMLSignContext) throws javax.xml.crypto.MarshalException, javax.xml.crypto.dsig.XMLSignatureException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.dsig.XMLSignContext",
+      "genericType" : "javax.xml.crypto.dsig.XMLSignContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.MarshalException", "javax.xml.crypto.dsig.XMLSignatureException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean validate(javax.xml.crypto.dsig.XMLValidateContext) throws javax.xml.crypto.dsig.XMLSignatureException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.dsig.XMLValidateContext",
+      "genericType" : "javax.xml.crypto.dsig.XMLValidateContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.dsig.XMLSignatureException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

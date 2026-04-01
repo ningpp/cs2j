@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.ChangeListener",
+  "canonicalName" : "javax.swing.event.ChangeListener",
+  "simpleName" : "ChangeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "stateChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void stateChanged(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

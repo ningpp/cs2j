@@ -1,0 +1,497 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Double",
+  "canonicalName" : "java.lang.Double",
+  "simpleName" : "Double",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Number",
+  "interfaces" : [ "java.lang.Comparable", "java.lang.constant.Constable", "java.lang.constant.ConstantDesc" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.Double",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Double(double)",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Double",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Double(java.lang.String) throws java.lang.NumberFormatException",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NumberFormatException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "byteValue",
+    "modifiers" : "public",
+    "signature" : "public byte byteValue()",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compare",
+    "modifiers" : "public static",
+    "signature" : "public static int compare(double, double)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "d1",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "d2",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.lang.Double)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "anotherDouble",
+      "type" : "java.lang.Double",
+      "genericType" : "java.lang.Double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "describeConstable",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional describeConstable()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doubleToLongBits",
+    "modifiers" : "public static",
+    "signature" : "public static long doubleToLongBits(double)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doubleToRawLongBits",
+    "modifiers" : "public static native",
+    "signature" : "public static native long doubleToRawLongBits(double)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doubleValue",
+    "modifiers" : "public",
+    "signature" : "public double doubleValue()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "floatValue",
+    "modifiers" : "public",
+    "signature" : "public float floatValue()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public static",
+    "signature" : "public static int hashCode(double)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intValue",
+    "modifiers" : "public",
+    "signature" : "public int intValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFinite",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isFinite(double)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInfinite",
+    "modifiers" : "public",
+    "signature" : "public boolean isInfinite()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInfinite",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isInfinite(double)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNaN",
+    "modifiers" : "public",
+    "signature" : "public boolean isNaN()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNaN",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isNaN(double)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longBitsToDouble",
+    "modifiers" : "public static native",
+    "signature" : "public static native double longBitsToDouble(long)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longValue",
+    "modifiers" : "public",
+    "signature" : "public long longValue()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "max",
+    "modifiers" : "public static",
+    "signature" : "public static double max(double, double)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "min",
+    "modifiers" : "public static",
+    "signature" : "public static double min(double, double)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parseDouble",
+    "modifiers" : "public static",
+    "signature" : "public static double parseDouble(java.lang.String) throws java.lang.NumberFormatException",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NumberFormatException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveConstantDesc",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Double resolveConstantDesc(java.lang.invoke.MethodHandles$Lookup)",
+    "returnType" : "java.lang.Double",
+    "genericReturnType" : "java.lang.Double",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shortValue",
+    "modifiers" : "public",
+    "signature" : "public short shortValue()",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sum",
+    "modifiers" : "public static",
+    "signature" : "public static double sum(double, double)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toHexString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String toHexString(double)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String toString(double)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Double valueOf(double)",
+    "returnType" : "java.lang.Double",
+    "genericReturnType" : "java.lang.Double",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Double valueOf(java.lang.String) throws java.lang.NumberFormatException",
+    "returnType" : "java.lang.Double",
+    "genericReturnType" : "java.lang.Double",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NumberFormatException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

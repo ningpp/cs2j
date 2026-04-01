@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.XMLParseException",
+  "canonicalName" : "javax.management.modelmbean.XMLParseException",
+  "simpleName" : "XMLParseException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.modelmbean.XMLParseException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.XMLParseException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.XMLParseException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.XMLParseException(java.lang.Exception, java.lang.String)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.XMLParseException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.XMLParseException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

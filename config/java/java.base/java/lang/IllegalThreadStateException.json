@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.IllegalThreadStateException",
+  "canonicalName" : "java.lang.IllegalThreadStateException",
+  "simpleName" : "IllegalThreadStateException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.IllegalThreadStateException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalThreadStateException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.IllegalThreadStateException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalThreadStateException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

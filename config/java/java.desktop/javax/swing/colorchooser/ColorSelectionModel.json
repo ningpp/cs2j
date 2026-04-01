@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.colorchooser",
+  "binaryName" : "javax.swing.colorchooser.ColorSelectionModel",
+  "canonicalName" : "javax.swing.colorchooser.ColorSelectionModel",
+  "simpleName" : "ColorSelectionModel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addChangeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addChangeListener(javax.swing.event.ChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ChangeListener",
+      "genericType" : "javax.swing.event.ChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedColor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Color getSelectedColor()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeChangeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeChangeListener(javax.swing.event.ChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ChangeListener",
+      "genericType" : "javax.swing.event.ChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectedColor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSelectedColor(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

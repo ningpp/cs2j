@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.PersistenceDelegate",
+  "canonicalName" : "java.beans.PersistenceDelegate",
+  "simpleName" : "PersistenceDelegate",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "writeObject",
+    "modifiers" : "public",
+    "signature" : "public void writeObject(java.lang.Object, java.beans.Encoder)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "oldInstance",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "out",
+      "type" : "java.beans.Encoder",
+      "genericType" : "java.beans.Encoder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

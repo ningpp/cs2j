@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.DecapsulateException",
+  "canonicalName" : "javax.crypto.DecapsulateException",
+  "simpleName" : "DecapsulateException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.DecapsulateException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.DecapsulateException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.DecapsulateException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.DecapsulateException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

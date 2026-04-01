@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.smartcardio",
+  "packageName" : "javax.smartcardio",
+  "binaryName" : "javax.smartcardio.CardTerminals$State",
+  "canonicalName" : "javax.smartcardio.CardTerminals.State",
+  "simpleName" : "State",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.smartcardio.CardTerminals",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.smartcardio.CardTerminals$State valueOf(java.lang.String)",
+    "returnType" : "javax.smartcardio.CardTerminals$State",
+    "genericReturnType" : "javax.smartcardio.CardTerminals$State",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.smartcardio.CardTerminals$State[] values()",
+    "returnType" : "javax.smartcardio.CardTerminals$State[]",
+    "genericReturnType" : "javax.smartcardio.CardTerminals$State[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

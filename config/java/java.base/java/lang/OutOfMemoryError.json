@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.OutOfMemoryError",
+  "canonicalName" : "java.lang.OutOfMemoryError",
+  "simpleName" : "OutOfMemoryError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.VirtualMachineError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.OutOfMemoryError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.OutOfMemoryError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.OutOfMemoryError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.OutOfMemoryError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

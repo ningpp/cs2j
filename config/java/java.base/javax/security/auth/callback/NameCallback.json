@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.callback",
+  "binaryName" : "javax.security.auth.callback.NameCallback",
+  "canonicalName" : "javax.security.auth.callback.NameCallback",
+  "simpleName" : "NameCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.security.auth.callback.Callback" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.callback.NameCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.callback.NameCallback(java.lang.String)",
+    "parameters" : [ {
+      "name" : "prompt",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.callback.NameCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.callback.NameCallback(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "prompt",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDefaultName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDefaultName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrompt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPrompt()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setName",
+    "modifiers" : "public",
+    "signature" : "public void setName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

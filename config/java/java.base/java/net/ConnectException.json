@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.ConnectException",
+  "canonicalName" : "java.net.ConnectException",
+  "simpleName" : "ConnectException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.net.SocketException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.ConnectException",
+    "modifiers" : "public",
+    "signature" : "public java.net.ConnectException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.ConnectException",
+    "modifiers" : "public",
+    "signature" : "public java.net.ConnectException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

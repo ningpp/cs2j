@@ -1,0 +1,160 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicFileChooserUI$BasicFileView",
+  "canonicalName" : "javax.swing.plaf.basic.BasicFileChooserUI.BasicFileView",
+  "simpleName" : "BasicFileView",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicFileChooserUI",
+  "superClass" : "javax.swing.filechooser.FileView",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicFileChooserUI$BasicFileView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicFileChooserUI$BasicFileView(javax.swing.plaf.basic.BasicFileChooserUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicFileChooserUI",
+      "genericType" : "javax.swing.plaf.basic.BasicFileChooserUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "cacheIcon",
+    "modifiers" : "public",
+    "signature" : "public void cacheIcon(java.io.File, javax.swing.Icon)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clearIconCache",
+    "modifiers" : "public",
+    "signature" : "public void clearIconCache()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCachedIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getCachedIcon(java.io.File)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription(java.io.File)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getIcon(java.io.File)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName(java.io.File)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getTypeDescription(java.io.File)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHidden",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Boolean isHidden(java.io.File)",
+    "returnType" : "java.lang.Boolean",
+    "genericReturnType" : "java.lang.Boolean",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.JMXConnectorProvider",
+  "canonicalName" : "javax.management.remote.JMXConnectorProvider",
+  "simpleName" : "JMXConnectorProvider",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "newJMXConnector",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.remote.JMXConnector newJMXConnector(javax.management.remote.JMXServiceURL, java.util.Map) throws java.io.IOException",
+    "returnType" : "javax.management.remote.JMXConnector",
+    "genericReturnType" : "javax.management.remote.JMXConnector",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.remote.JMXServiceURL",
+      "genericType" : "javax.management.remote.JMXServiceURL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

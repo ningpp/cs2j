@@ -1,0 +1,246 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.table",
+  "binaryName" : "javax.swing.table.DefaultTableCellRenderer",
+  "canonicalName" : "javax.swing.table.DefaultTableCellRenderer",
+  "simpleName" : "DefaultTableCellRenderer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JLabel",
+  "interfaces" : [ "java.io.Serializable", "javax.swing.table.TableCellRenderer" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.table.DefaultTableCellRenderer",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.DefaultTableCellRenderer()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "firePropertyChange",
+    "modifiers" : "public",
+    "signature" : "public void firePropertyChange(java.lang.String, boolean, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTableCellRendererComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getTableCellRendererComponent(javax.swing.JTable, java.lang.Object, boolean, boolean, int, int)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "javax.swing.JTable",
+      "genericType" : "javax.swing.JTable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isSelected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hasFocus",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "column",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invalidate",
+    "modifiers" : "public",
+    "signature" : "public void invalidate()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpaque",
+    "modifiers" : "public",
+    "signature" : "public boolean isOpaque()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "repaint",
+    "modifiers" : "public",
+    "signature" : "public void repaint()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "repaint",
+    "modifiers" : "public",
+    "signature" : "public void repaint(java.awt.Rectangle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "repaint",
+    "modifiers" : "public",
+    "signature" : "public void repaint(long, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tm",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "revalidate",
+    "modifiers" : "public",
+    "signature" : "public void revalidate()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBackground",
+    "modifiers" : "public",
+    "signature" : "public void setBackground(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setForeground",
+    "modifiers" : "public",
+    "signature" : "public void setForeground(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validate",
+    "modifiers" : "public",
+    "signature" : "public void validate()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

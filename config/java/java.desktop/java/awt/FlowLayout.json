@@ -1,0 +1,263 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.FlowLayout",
+  "canonicalName" : "java.awt.FlowLayout",
+  "simpleName" : "FlowLayout",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.LayoutManager", "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.FlowLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FlowLayout()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.FlowLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FlowLayout(int)",
+    "parameters" : [ {
+      "name" : "align",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.FlowLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FlowLayout(int, int, int)",
+    "parameters" : [ {
+      "name" : "align",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hgap",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vgap",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void addLayoutComponent(java.lang.String, java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comp",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlignOnBaseline",
+    "modifiers" : "public",
+    "signature" : "public boolean getAlignOnBaseline()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlignment",
+    "modifiers" : "public",
+    "signature" : "public int getAlignment()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHgap",
+    "modifiers" : "public",
+    "signature" : "public int getHgap()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVgap",
+    "modifiers" : "public",
+    "signature" : "public int getVgap()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "layoutContainer",
+    "modifiers" : "public",
+    "signature" : "public void layoutContainer(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minimumLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension minimumLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferredLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension preferredLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void removeLayoutComponent(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "comp",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAlignOnBaseline",
+    "modifiers" : "public",
+    "signature" : "public void setAlignOnBaseline(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "alignOnBaseline",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAlignment",
+    "modifiers" : "public",
+    "signature" : "public void setAlignment(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "align",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHgap",
+    "modifiers" : "public",
+    "signature" : "public void setHgap(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "hgap",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVgap",
+    "modifiers" : "public",
+    "signature" : "public void setVgap(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "vgap",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

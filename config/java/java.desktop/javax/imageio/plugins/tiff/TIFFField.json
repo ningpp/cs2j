@@ -1,0 +1,522 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.tiff",
+  "binaryName" : "javax.imageio.plugins.tiff.TIFFField",
+  "canonicalName" : "javax.imageio.plugins.tiff.TIFFField",
+  "simpleName" : "TIFFField",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.tiff.TIFFField",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFField(javax.imageio.plugins.tiff.TIFFTag, int, int)",
+    "parameters" : [ {
+      "name" : "tag",
+      "type" : "javax.imageio.plugins.tiff.TIFFTag",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.plugins.tiff.TIFFField",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFField(javax.imageio.plugins.tiff.TIFFTag, int, int, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "tag",
+      "type" : "javax.imageio.plugins.tiff.TIFFTag",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.plugins.tiff.TIFFField",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFField(javax.imageio.plugins.tiff.TIFFTag, int, long, javax.imageio.plugins.tiff.TIFFDirectory)",
+    "parameters" : [ {
+      "name" : "tag",
+      "type" : "javax.imageio.plugins.tiff.TIFFTag",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dir",
+      "type" : "javax.imageio.plugins.tiff.TIFFDirectory",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFDirectory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.plugins.tiff.TIFFField",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFField(javax.imageio.plugins.tiff.TIFFTag, long)",
+    "parameters" : [ {
+      "name" : "tag",
+      "type" : "javax.imageio.plugins.tiff.TIFFTag",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFField clone() throws java.lang.CloneNotSupportedException",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFField",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFField",
+    "exceptions" : [ "java.lang.CloneNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createArrayForType",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object createArrayForType(int, int)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFromMetadataNode",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.plugins.tiff.TIFFField createFromMetadataNode(javax.imageio.plugins.tiff.TIFFTagSet, org.w3c.dom.Node)",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFField",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFField",
+    "parameters" : [ {
+      "name" : "tagSet",
+      "type" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "node",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsBytes",
+    "modifiers" : "public",
+    "signature" : "public byte[] getAsBytes()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsChars",
+    "modifiers" : "public",
+    "signature" : "public char[] getAsChars()",
+    "returnType" : "char[]",
+    "genericReturnType" : "char[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsDouble",
+    "modifiers" : "public",
+    "signature" : "public double getAsDouble(int)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsDoubles",
+    "modifiers" : "public",
+    "signature" : "public double[] getAsDoubles()",
+    "returnType" : "double[]",
+    "genericReturnType" : "double[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsFloat",
+    "modifiers" : "public",
+    "signature" : "public float getAsFloat(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsFloats",
+    "modifiers" : "public",
+    "signature" : "public float[] getAsFloats()",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsInt",
+    "modifiers" : "public",
+    "signature" : "public int getAsInt(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsInts",
+    "modifiers" : "public",
+    "signature" : "public int[] getAsInts()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsLong",
+    "modifiers" : "public",
+    "signature" : "public long getAsLong(int)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsLongs",
+    "modifiers" : "public",
+    "signature" : "public long[] getAsLongs()",
+    "returnType" : "long[]",
+    "genericReturnType" : "long[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsNativeNode",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.Node getAsNativeNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsRational",
+    "modifiers" : "public",
+    "signature" : "public long[] getAsRational(int)",
+    "returnType" : "long[]",
+    "genericReturnType" : "long[]",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsRationals",
+    "modifiers" : "public",
+    "signature" : "public long[][] getAsRationals()",
+    "returnType" : "long[][]",
+    "genericReturnType" : "long[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsSRational",
+    "modifiers" : "public",
+    "signature" : "public int[] getAsSRational(int)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsSRationals",
+    "modifiers" : "public",
+    "signature" : "public int[][] getAsSRationals()",
+    "returnType" : "int[][]",
+    "genericReturnType" : "int[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsShorts",
+    "modifiers" : "public",
+    "signature" : "public short[] getAsShorts()",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAsString(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCount",
+    "modifiers" : "public",
+    "signature" : "public int getCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getData()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDirectory",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFDirectory getDirectory()",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFDirectory",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFDirectory",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTag",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFTag getTag()",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTagNumber",
+    "modifiers" : "public",
+    "signature" : "public int getTagNumber()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeByName",
+    "modifiers" : "public static",
+    "signature" : "public static int getTypeByName(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "typeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String getTypeName(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValueAsString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getValueAsString(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasDirectory",
+    "modifiers" : "public",
+    "signature" : "public boolean hasDirectory()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIntegral",
+    "modifiers" : "public",
+    "signature" : "public boolean isIntegral()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

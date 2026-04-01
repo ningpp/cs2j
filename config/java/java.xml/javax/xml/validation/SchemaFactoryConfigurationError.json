@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.validation",
+  "binaryName" : "javax.xml.validation.SchemaFactoryConfigurationError",
+  "canonicalName" : "javax.xml.validation.SchemaFactoryConfigurationError",
+  "simpleName" : "SchemaFactoryConfigurationError",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.validation.SchemaFactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.SchemaFactoryConfigurationError()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.validation.SchemaFactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.SchemaFactoryConfigurationError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.validation.SchemaFactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.SchemaFactoryConfigurationError(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.validation.SchemaFactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.SchemaFactoryConfigurationError(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

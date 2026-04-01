@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+  "simpleName" : "InvokeDynamicEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.DynamicConstantPoolEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.DynamicCallSiteDesc asSymbol()",
+    "returnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "genericReturnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "typeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodTypeDesc typeSymbol()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.VariableElement",
+  "canonicalName" : "javax.lang.model.element.VariableElement",
+  "simpleName" : "VariableElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.element.Element" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.TypeMirror asType()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConstantValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getConstantValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosingElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Element getEnclosingElement()",
+    "returnType" : "javax.lang.model.element.Element",
+    "genericReturnType" : "javax.lang.model.element.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSimpleName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Name getSimpleName()",
+    "returnType" : "javax.lang.model.element.Name",
+    "genericReturnType" : "javax.lang.model.element.Name",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUnnamed",
+    "modifiers" : "public",
+    "signature" : "public boolean isUnnamed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

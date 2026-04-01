@@ -1,0 +1,507 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.BlockingDeque",
+  "canonicalName" : "java.util.concurrent.BlockingDeque",
+  "simpleName" : "BlockingDeque",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.Deque", "java.util.concurrent.BlockingQueue" ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean add(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addFirst(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addLast",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addLast(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean contains(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "element",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object element()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean offer(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean offer(java.lang.Object, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offerFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean offerFirst(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offerFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean offerFirst(java.lang.Object, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offerLast",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean offerLast(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offerLast",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean offerLast(java.lang.Object, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "peek",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object peek()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "poll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object poll()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "poll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object poll(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pollFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object pollFirst(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pollLast",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object pollLast(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "push",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void push(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void put(java.lang.Object) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void putFirst(java.lang.Object) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putLast",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void putLast(java.lang.Object) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object remove()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean remove(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeFirstOccurrence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean removeFirstOccurrence(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeLastOccurrence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean removeLastOccurrence(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "take",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object take() throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "takeFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object takeFirst() throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "takeLast",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object takeLast() throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

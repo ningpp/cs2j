@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ModuleElement$DirectiveKind",
+  "canonicalName" : "javax.lang.model.element.ModuleElement.DirectiveKind",
+  "simpleName" : "DirectiveKind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.lang.model.element.ModuleElement",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.element.ModuleElement$DirectiveKind valueOf(java.lang.String)",
+    "returnType" : "javax.lang.model.element.ModuleElement$DirectiveKind",
+    "genericReturnType" : "javax.lang.model.element.ModuleElement$DirectiveKind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.element.ModuleElement$DirectiveKind[] values()",
+    "returnType" : "javax.lang.model.element.ModuleElement$DirectiveKind[]",
+    "genericReturnType" : "javax.lang.model.element.ModuleElement$DirectiveKind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

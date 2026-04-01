@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.TypeParameterBoundTarget",
+  "simpleName" : "TypeParameterBoundTarget",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "interfaces" : [ "java.lang.classfile.TypeAnnotation$TargetInfo" ],
+  "declaredPublicMethods" : [ {
+    "name" : "boundIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int boundIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeParameterIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int typeParameterIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

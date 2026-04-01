@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.IntConsumer",
+  "canonicalName" : "java.util.function.IntConsumer",
+  "simpleName" : "IntConsumer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.IntConsumer andThen(java.util.function.IntConsumer)",
+    "returnType" : "java.util.function.IntConsumer",
+    "genericReturnType" : "java.util.function.IntConsumer",
+    "parameters" : [ {
+      "name" : "after",
+      "type" : "java.util.function.IntConsumer",
+      "genericType" : "java.util.function.IntConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

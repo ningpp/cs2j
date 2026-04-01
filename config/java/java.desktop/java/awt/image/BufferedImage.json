@@ -1,0 +1,838 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.BufferedImage",
+  "canonicalName" : "java.awt.image.BufferedImage",
+  "simpleName" : "BufferedImage",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Image",
+  "interfaces" : [ "java.awt.Transparency", "java.awt.image.WritableRenderedImage" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.BufferedImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage(int, int, int)",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.BufferedImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage(int, int, int, java.awt.image.IndexColorModel)",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cm",
+      "type" : "java.awt.image.IndexColorModel",
+      "genericType" : "java.awt.image.IndexColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.BufferedImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage(java.awt.image.ColorModel, java.awt.image.WritableRaster, boolean, java.util.Hashtable)",
+    "parameters" : [ {
+      "name" : "cm",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "raster",
+      "type" : "java.awt.image.WritableRaster",
+      "genericType" : "java.awt.image.WritableRaster",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isRasterPremultiplied",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "properties",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addTileObserver",
+    "modifiers" : "public",
+    "signature" : "public void addTileObserver(java.awt.image.TileObserver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "to",
+      "type" : "java.awt.image.TileObserver",
+      "genericType" : "java.awt.image.TileObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "coerceData",
+    "modifiers" : "public",
+    "signature" : "public void coerceData(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "isAlphaPremultiplied",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyData",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.WritableRaster copyData(java.awt.image.WritableRaster)",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "parameters" : [ {
+      "name" : "outRaster",
+      "type" : "java.awt.image.WritableRaster",
+      "genericType" : "java.awt.image.WritableRaster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGraphics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Graphics2D createGraphics()",
+    "returnType" : "java.awt.Graphics2D",
+    "genericReturnType" : "java.awt.Graphics2D",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlphaRaster",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.WritableRaster getAlphaRaster()",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColorModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ColorModel getColorModel()",
+    "returnType" : "java.awt.image.ColorModel",
+    "genericReturnType" : "java.awt.image.ColorModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.Raster getData()",
+    "returnType" : "java.awt.image.Raster",
+    "genericReturnType" : "java.awt.image.Raster",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.Raster getData(java.awt.Rectangle)",
+    "returnType" : "java.awt.image.Raster",
+    "genericReturnType" : "java.awt.image.Raster",
+    "parameters" : [ {
+      "name" : "rect",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGraphics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Graphics getGraphics()",
+    "returnType" : "java.awt.Graphics",
+    "genericReturnType" : "java.awt.Graphics",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public",
+    "signature" : "public int getHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public",
+    "signature" : "public int getHeight(java.awt.image.ImageObserver)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "observer",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinTileX",
+    "modifiers" : "public",
+    "signature" : "public int getMinTileX()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinTileY",
+    "modifiers" : "public",
+    "signature" : "public int getMinTileY()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinX",
+    "modifiers" : "public",
+    "signature" : "public int getMinX()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinY",
+    "modifiers" : "public",
+    "signature" : "public int getMinY()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumXTiles",
+    "modifiers" : "public",
+    "signature" : "public int getNumXTiles()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumYTiles",
+    "modifiers" : "public",
+    "signature" : "public int getNumYTiles()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String, java.awt.image.ImageObserver)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "observer",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getPropertyNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRGB",
+    "modifiers" : "public",
+    "signature" : "public int getRGB(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRGB",
+    "modifiers" : "public",
+    "signature" : "public int[] getRGB(int, int, int, int, int[], int, int)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "startX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rgbArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scansize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRaster",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.WritableRaster getRaster()",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.SampleModel getSampleModel()",
+    "returnType" : "java.awt.image.SampleModel",
+    "genericReturnType" : "java.awt.image.SampleModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ImageProducer getSource()",
+    "returnType" : "java.awt.image.ImageProducer",
+    "genericReturnType" : "java.awt.image.ImageProducer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSources",
+    "modifiers" : "public",
+    "signature" : "public java.util.Vector getSources()",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubimage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage getSubimage(int, int, int, int)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTile",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.Raster getTile(int, int)",
+    "returnType" : "java.awt.image.Raster",
+    "genericReturnType" : "java.awt.image.Raster",
+    "parameters" : [ {
+      "name" : "tileX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tileY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTileGridXOffset",
+    "modifiers" : "public",
+    "signature" : "public int getTileGridXOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTileGridYOffset",
+    "modifiers" : "public",
+    "signature" : "public int getTileGridYOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTileHeight",
+    "modifiers" : "public",
+    "signature" : "public int getTileHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTileWidth",
+    "modifiers" : "public",
+    "signature" : "public int getTileWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransparency",
+    "modifiers" : "public",
+    "signature" : "public int getTransparency()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public",
+    "signature" : "public int getWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public",
+    "signature" : "public int getWidth(java.awt.image.ImageObserver)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "observer",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWritableTile",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.WritableRaster getWritableTile(int, int)",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "parameters" : [ {
+      "name" : "tileX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tileY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWritableTileIndices",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point[] getWritableTileIndices()",
+    "returnType" : "java.awt.Point[]",
+    "genericReturnType" : "java.awt.Point[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasTileWriters",
+    "modifiers" : "public",
+    "signature" : "public boolean hasTileWriters()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAlphaPremultiplied",
+    "modifiers" : "public",
+    "signature" : "public boolean isAlphaPremultiplied()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTileWritable",
+    "modifiers" : "public",
+    "signature" : "public boolean isTileWritable(int, int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "tileX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tileY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseWritableTile",
+    "modifiers" : "public",
+    "signature" : "public void releaseWritableTile(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tileX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tileY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTileObserver",
+    "modifiers" : "public",
+    "signature" : "public void removeTileObserver(java.awt.image.TileObserver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "to",
+      "type" : "java.awt.image.TileObserver",
+      "genericType" : "java.awt.image.TileObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setData",
+    "modifiers" : "public",
+    "signature" : "public void setData(java.awt.image.Raster)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRGB",
+    "modifiers" : "public",
+    "signature" : "public void setRGB(int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rgb",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRGB",
+    "modifiers" : "public",
+    "signature" : "public void setRGB(int, int, int, int, int[], int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rgbArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scansize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,142 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.InputMap",
+  "canonicalName" : "javax.swing.InputMap",
+  "simpleName" : "InputMap",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.InputMap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.InputMap()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "allKeys",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.KeyStroke[] allKeys()",
+    "returnType" : "javax.swing.KeyStroke[]",
+    "genericReturnType" : "javax.swing.KeyStroke[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clear",
+    "modifiers" : "public",
+    "signature" : "public void clear()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(javax.swing.KeyStroke)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "keyStroke",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.InputMap getParent()",
+    "returnType" : "javax.swing.InputMap",
+    "genericReturnType" : "javax.swing.InputMap",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keys",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.KeyStroke[] keys()",
+    "returnType" : "javax.swing.KeyStroke[]",
+    "genericReturnType" : "javax.swing.KeyStroke[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public void put(javax.swing.KeyStroke, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "keyStroke",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actionMapKey",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(javax.swing.KeyStroke)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParent",
+    "modifiers" : "public",
+    "signature" : "public void setParent(javax.swing.InputMap)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "javax.swing.InputMap",
+      "genericType" : "javax.swing.InputMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public",
+    "signature" : "public int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

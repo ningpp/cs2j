@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.LinkOption",
+  "canonicalName" : "java.nio.file.LinkOption",
+  "simpleName" : "LinkOption",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "interfaces" : [ "java.nio.file.CopyOption", "java.nio.file.OpenOption" ],
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.LinkOption valueOf(java.lang.String)",
+    "returnType" : "java.nio.file.LinkOption",
+    "genericReturnType" : "java.nio.file.LinkOption",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.LinkOption[] values()",
+    "returnType" : "java.nio.file.LinkOption[]",
+    "genericReturnType" : "java.nio.file.LinkOption[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

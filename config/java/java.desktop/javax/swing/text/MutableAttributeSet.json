@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.MutableAttributeSet",
+  "canonicalName" : "javax.swing.text.MutableAttributeSet",
+  "simpleName" : "MutableAttributeSet",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.swing.text.AttributeSet" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addAttribute(java.lang.Object, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addAttributes(javax.swing.text.AttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeAttribute(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeAttributes(java.util.Enumeration)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Enumeration",
+      "genericType" : "java.util.Enumeration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeAttributes(javax.swing.text.AttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResolveParent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setResolveParent(javax.swing.text.AttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

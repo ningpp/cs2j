@@ -1,0 +1,171 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.AbstractExecutorService",
+  "canonicalName" : "java.util.concurrent.AbstractExecutorService",
+  "simpleName" : "AbstractExecutorService",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.concurrent.ExecutorService" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.AbstractExecutorService",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.AbstractExecutorService()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "invokeAll",
+    "modifiers" : "public",
+    "signature" : "public java.util.List invokeAll(java.util.Collection) throws java.lang.InterruptedException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAll",
+    "modifiers" : "public",
+    "signature" : "public java.util.List invokeAll(java.util.Collection, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAny",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invokeAny(java.util.Collection) throws java.lang.InterruptedException, java.util.concurrent.ExecutionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.ExecutionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAny",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invokeAny(java.util.Collection, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException, java.util.concurrent.ExecutionException, java.util.concurrent.TimeoutException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.ExecutionException", "java.util.concurrent.TimeoutException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.lang.Runnable, java.lang.Object)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

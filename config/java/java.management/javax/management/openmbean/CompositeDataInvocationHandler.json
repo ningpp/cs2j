@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.CompositeDataInvocationHandler",
+  "canonicalName" : "javax.management.openmbean.CompositeDataInvocationHandler",
+  "simpleName" : "CompositeDataInvocationHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.reflect.InvocationHandler" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.CompositeDataInvocationHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.CompositeDataInvocationHandler(javax.management.openmbean.CompositeData)",
+    "parameters" : [ {
+      "name" : "compositeData",
+      "type" : "javax.management.openmbean.CompositeData",
+      "genericType" : "javax.management.openmbean.CompositeData",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCompositeData",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.CompositeData getCompositeData()",
+    "returnType" : "javax.management.openmbean.CompositeData",
+    "genericReturnType" : "javax.management.openmbean.CompositeData",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invoke(java.lang.Object, java.lang.reflect.Method, java.lang.Object[]) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "proxy",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "method",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "args",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

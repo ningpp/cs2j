@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.Text",
+  "canonicalName" : "org.w3c.dom.Text",
+  "simpleName" : "Text",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.CharacterData" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getWholeText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getWholeText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isElementContentWhitespace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isElementContentWhitespace()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceWholeText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Text replaceWholeText(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Text",
+    "genericReturnType" : "org.w3c.dom.Text",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "splitText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Text splitText(int) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Text",
+    "genericReturnType" : "org.w3c.dom.Text",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

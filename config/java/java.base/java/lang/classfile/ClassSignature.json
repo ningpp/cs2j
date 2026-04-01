@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassSignature",
+  "canonicalName" : "java.lang.classfile.ClassSignature",
+  "simpleName" : "ClassSignature",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassSignature of(java.lang.classfile.Signature$ClassTypeSig, java.lang.classfile.Signature$ClassTypeSig...)",
+    "returnType" : "java.lang.classfile.ClassSignature",
+    "genericReturnType" : "java.lang.classfile.ClassSignature",
+    "parameters" : [ {
+      "name" : "superclassSignature",
+      "type" : "java.lang.classfile.Signature$ClassTypeSig",
+      "genericType" : "java.lang.classfile.Signature$ClassTypeSig",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "superinterfaceSignatures",
+      "type" : "java.lang.classfile.Signature$ClassTypeSig[]",
+      "genericType" : "java.lang.classfile.Signature$ClassTypeSig[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassSignature of(java.util.List, java.lang.classfile.Signature$ClassTypeSig, java.lang.classfile.Signature$ClassTypeSig...)",
+    "returnType" : "java.lang.classfile.ClassSignature",
+    "genericReturnType" : "java.lang.classfile.ClassSignature",
+    "parameters" : [ {
+      "name" : "typeParameters",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "superclassSignature",
+      "type" : "java.lang.classfile.Signature$ClassTypeSig",
+      "genericType" : "java.lang.classfile.Signature$ClassTypeSig",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "superinterfaceSignatures",
+      "type" : "java.lang.classfile.Signature$ClassTypeSig[]",
+      "genericType" : "java.lang.classfile.Signature$ClassTypeSig[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "parseFrom",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassSignature parseFrom(java.lang.String)",
+    "returnType" : "java.lang.classfile.ClassSignature",
+    "genericReturnType" : "java.lang.classfile.ClassSignature",
+    "parameters" : [ {
+      "name" : "classSignature",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "signatureString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String signatureString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superclassSignature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Signature$ClassTypeSig superclassSignature()",
+    "returnType" : "java.lang.classfile.Signature$ClassTypeSig",
+    "genericReturnType" : "java.lang.classfile.Signature$ClassTypeSig",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superinterfaceSignatures",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List superinterfaceSignatures()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List typeParameters()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

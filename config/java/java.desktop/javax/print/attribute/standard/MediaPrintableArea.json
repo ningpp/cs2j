@@ -1,0 +1,250 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute.standard",
+  "binaryName" : "javax.print.attribute.standard.MediaPrintableArea",
+  "canonicalName" : "javax.print.attribute.standard.MediaPrintableArea",
+  "simpleName" : "MediaPrintableArea",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.print.attribute.DocAttribute", "javax.print.attribute.PrintJobAttribute", "javax.print.attribute.PrintRequestAttribute" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.standard.MediaPrintableArea",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.MediaPrintableArea(float, float, float, float, int)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.standard.MediaPrintableArea",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.MediaPrintableArea(int, int, int, int, int)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCategory",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Class getCategory()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public",
+    "signature" : "public float getHeight(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintableArea",
+    "modifiers" : "public",
+    "signature" : "public float[] getPrintableArea(int)",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public",
+    "signature" : "public float getWidth(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getX",
+    "modifiers" : "public",
+    "signature" : "public float getX(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getY",
+    "modifiers" : "public",
+    "signature" : "public float getY(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString(int, java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unitsName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

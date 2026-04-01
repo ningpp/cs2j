@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.InvalidPropertiesFormatException",
+  "canonicalName" : "java.util.InvalidPropertiesFormatException",
+  "simpleName" : "InvalidPropertiesFormatException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.InvalidPropertiesFormatException",
+    "modifiers" : "public",
+    "signature" : "public java.util.InvalidPropertiesFormatException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.InvalidPropertiesFormatException",
+    "modifiers" : "public",
+    "signature" : "public java.util.InvalidPropertiesFormatException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

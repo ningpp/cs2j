@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.prefs",
+  "packageName" : "java.util.prefs",
+  "binaryName" : "java.util.prefs.PreferenceChangeListener",
+  "canonicalName" : "java.util.prefs.PreferenceChangeListener",
+  "simpleName" : "PreferenceChangeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "preferenceChange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void preferenceChange(java.util.prefs.PreferenceChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.prefs.PreferenceChangeEvent",
+      "genericType" : "java.util.prefs.PreferenceChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

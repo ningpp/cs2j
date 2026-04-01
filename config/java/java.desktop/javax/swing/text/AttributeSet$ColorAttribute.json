@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.AttributeSet$ColorAttribute",
+  "canonicalName" : "javax.swing.text.AttributeSet.ColorAttribute",
+  "simpleName" : "ColorAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.AttributeSet"
+}

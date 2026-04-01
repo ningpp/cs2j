@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RemoteStub",
+  "canonicalName" : "java.rmi.server.RemoteStub",
+  "simpleName" : "RemoteStub",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.rmi.server.RemoteObject"
+}

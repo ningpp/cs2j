@@ -1,0 +1,198 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax",
+  "binaryName" : "org.xml.sax.InputSource",
+  "canonicalName" : "org.xml.sax.InputSource",
+  "simpleName" : "InputSource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "org.xml.sax.InputSource",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.InputSource()",
+    "varArgs" : false
+  }, {
+    "name" : "org.xml.sax.InputSource",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.InputSource(java.io.InputStream)",
+    "parameters" : [ {
+      "name" : "byteStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "org.xml.sax.InputSource",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.InputSource(java.io.Reader)",
+    "parameters" : [ {
+      "name" : "characterStream",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "org.xml.sax.InputSource",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.InputSource(java.lang.String)",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getByteStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream getByteStream()",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.Reader getCharacterStream()",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoding",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getEncoding()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublicId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPublicId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setByteStream",
+    "modifiers" : "public",
+    "signature" : "public void setByteStream(java.io.InputStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "byteStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharacterStream",
+    "modifiers" : "public",
+    "signature" : "public void setCharacterStream(java.io.Reader)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "characterStream",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEncoding",
+    "modifiers" : "public",
+    "signature" : "public void setEncoding(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "encoding",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPublicId",
+    "modifiers" : "public",
+    "signature" : "public void setPublicId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "publicId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

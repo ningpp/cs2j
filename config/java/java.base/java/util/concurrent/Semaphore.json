@@ -1,0 +1,267 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Semaphore",
+  "canonicalName" : "java.util.concurrent.Semaphore",
+  "simpleName" : "Semaphore",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.Semaphore",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Semaphore(int)",
+    "parameters" : [ {
+      "name" : "permits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.Semaphore",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Semaphore(int, boolean)",
+    "parameters" : [ {
+      "name" : "permits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fair",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "acquire",
+    "modifiers" : "public",
+    "signature" : "public void acquire() throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acquire",
+    "modifiers" : "public",
+    "signature" : "public void acquire(int) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "permits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acquireUninterruptibly",
+    "modifiers" : "public",
+    "signature" : "public void acquireUninterruptibly()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acquireUninterruptibly",
+    "modifiers" : "public",
+    "signature" : "public void acquireUninterruptibly(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "permits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "availablePermits",
+    "modifiers" : "public",
+    "signature" : "public int availablePermits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "drainPermits",
+    "modifiers" : "public",
+    "signature" : "public int drainPermits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueueLength",
+    "modifiers" : "public final",
+    "signature" : "public final int getQueueLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasQueuedThreads",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasQueuedThreads()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFair",
+    "modifiers" : "public",
+    "signature" : "public boolean isFair()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "release",
+    "modifiers" : "public",
+    "signature" : "public void release()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "release",
+    "modifiers" : "public",
+    "signature" : "public void release(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "permits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryAcquire",
+    "modifiers" : "public",
+    "signature" : "public boolean tryAcquire()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryAcquire",
+    "modifiers" : "public",
+    "signature" : "public boolean tryAcquire(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "permits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryAcquire",
+    "modifiers" : "public",
+    "signature" : "public boolean tryAcquire(int, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "permits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryAcquire",
+    "modifiers" : "public",
+    "signature" : "public boolean tryAcquire(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JApplet$AccessibleJApplet",
+  "canonicalName" : "javax.swing.JApplet.AccessibleJApplet",
+  "simpleName" : "AccessibleJApplet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JApplet",
+  "superClass" : "java.applet.Applet$AccessibleApplet"
+}

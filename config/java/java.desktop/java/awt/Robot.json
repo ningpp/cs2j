@@ -1,0 +1,287 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Robot",
+  "canonicalName" : "java.awt.Robot",
+  "simpleName" : "Robot",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.Robot",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Robot() throws java.awt.AWTException",
+    "exceptions" : [ "java.awt.AWTException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Robot",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Robot(java.awt.GraphicsDevice) throws java.awt.AWTException",
+    "parameters" : [ {
+      "name" : "screen",
+      "type" : "java.awt.GraphicsDevice",
+      "genericType" : "java.awt.GraphicsDevice",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.AWTException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createMultiResolutionScreenCapture",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.image.MultiResolutionImage createMultiResolutionScreenCapture(java.awt.Rectangle)",
+    "returnType" : "java.awt.image.MultiResolutionImage",
+    "genericReturnType" : "java.awt.image.MultiResolutionImage",
+    "parameters" : [ {
+      "name" : "screenRect",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createScreenCapture",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.image.BufferedImage createScreenCapture(java.awt.Rectangle)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "screenRect",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "delay",
+    "modifiers" : "public",
+    "signature" : "public void delay(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAutoDelay",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int getAutoDelay()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPixelColor",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.Color getPixelColor(int, int)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAutoWaitForIdle",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isAutoWaitForIdle()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyPress",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void keyPress(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "keycode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyRelease",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void keyRelease(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "keycode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseMove",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void mouseMove(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mousePress",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void mousePress(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "buttons",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseRelease",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void mouseRelease(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "buttons",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseWheel",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void mouseWheel(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "wheelAmt",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAutoDelay",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setAutoDelay(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAutoWaitForIdle",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setAutoWaitForIdle(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "isOn",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "waitForIdle",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void waitForIdle()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

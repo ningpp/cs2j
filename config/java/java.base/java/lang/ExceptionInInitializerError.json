@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ExceptionInInitializerError",
+  "canonicalName" : "java.lang.ExceptionInInitializerError",
+  "simpleName" : "ExceptionInInitializerError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ExceptionInInitializerError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ExceptionInInitializerError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ExceptionInInitializerError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ExceptionInInitializerError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ExceptionInInitializerError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ExceptionInInitializerError(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getException()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

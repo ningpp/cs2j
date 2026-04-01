@@ -1,0 +1,79 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.MenuDragMouseListener",
+  "canonicalName" : "javax.swing.event.MenuDragMouseListener",
+  "simpleName" : "MenuDragMouseListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "menuDragMouseDragged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuDragMouseDragged(javax.swing.event.MenuDragMouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuDragMouseEvent",
+      "genericType" : "javax.swing.event.MenuDragMouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuDragMouseEntered",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuDragMouseEntered(javax.swing.event.MenuDragMouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuDragMouseEvent",
+      "genericType" : "javax.swing.event.MenuDragMouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuDragMouseExited",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuDragMouseExited(javax.swing.event.MenuDragMouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuDragMouseEvent",
+      "genericType" : "javax.swing.event.MenuDragMouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuDragMouseReleased",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuDragMouseReleased(javax.swing.event.MenuDragMouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuDragMouseEvent",
+      "genericType" : "javax.swing.event.MenuDragMouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

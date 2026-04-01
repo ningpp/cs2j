@@ -1,0 +1,219 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.im.spi",
+  "binaryName" : "java.awt.im.spi.InputMethod",
+  "canonicalName" : "java.awt.im.spi.InputMethod",
+  "simpleName" : "InputMethod",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "activate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void activate()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deactivate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void deactivate(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispatchEvent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dispatchEvent(java.awt.AWTEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.AWTEvent",
+      "genericType" : "java.awt.AWTEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dispose()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endComposition",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void endComposition()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlObject",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getControlObject()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hideWindows",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void hideWindows()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCompositionEnabled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCompositionEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "notifyClientWindowChange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void notifyClientWindowChange(java.awt.Rectangle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reconvert",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void reconvert()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharacterSubsets",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setCharacterSubsets(java.lang.Character$Subset[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Character$Subset[]",
+      "genericType" : "java.lang.Character$Subset[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCompositionEnabled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setCompositionEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInputMethodContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setInputMethodContext(java.awt.im.spi.InputMethodContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.im.spi.InputMethodContext",
+      "genericType" : "java.awt.im.spi.InputMethodContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocale",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean setLocale(java.util.Locale)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.AWTEventListener",
+  "canonicalName" : "java.awt.event.AWTEventListener",
+  "simpleName" : "AWTEventListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "eventDispatched",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void eventDispatched(java.awt.AWTEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.AWTEvent",
+      "genericType" : "java.awt.AWTEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

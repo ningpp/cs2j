@@ -1,0 +1,229 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.PropertyEditorSupport",
+  "canonicalName" : "java.beans.PropertyEditorSupport",
+  "simpleName" : "PropertyEditorSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.beans.PropertyEditor" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.PropertyEditorSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyEditorSupport()",
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.PropertyEditorSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyEditorSupport(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addPropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firePropertyChange",
+    "modifiers" : "public",
+    "signature" : "public void firePropertyChange()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAsText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCustomEditor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getCustomEditor()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJavaInitializationString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getJavaInitializationString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSource",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getSource()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getTags()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPaintable",
+    "modifiers" : "public",
+    "signature" : "public boolean isPaintable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintValue",
+    "modifiers" : "public",
+    "signature" : "public void paintValue(java.awt.Graphics, java.awt.Rectangle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "gfx",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "box",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removePropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAsText",
+    "modifiers" : "public",
+    "signature" : "public void setAsText(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSource",
+    "modifiers" : "public",
+    "signature" : "public void setSource(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public",
+    "signature" : "public void setValue(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCustomEditor",
+    "modifiers" : "public",
+    "signature" : "public boolean supportsCustomEditor()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

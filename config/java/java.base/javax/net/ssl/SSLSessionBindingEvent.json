@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLSessionBindingEvent",
+  "canonicalName" : "javax.net.ssl.SSLSessionBindingEvent",
+  "simpleName" : "SSLSessionBindingEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SSLSessionBindingEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLSessionBindingEvent(javax.net.ssl.SSLSession, java.lang.String)",
+    "parameters" : [ {
+      "name" : "session",
+      "type" : "javax.net.ssl.SSLSession",
+      "genericType" : "javax.net.ssl.SSLSession",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSession",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLSession getSession()",
+    "returnType" : "javax.net.ssl.SSLSession",
+    "genericReturnType" : "javax.net.ssl.SSLSession",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

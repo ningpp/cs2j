@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.LoggingPermission",
+  "canonicalName" : "java.util.logging.LoggingPermission",
+  "simpleName" : "LoggingPermission",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.BasicPermission",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.logging.LoggingPermission",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.LoggingPermission(java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "varArgs" : false
+  } ]
+}

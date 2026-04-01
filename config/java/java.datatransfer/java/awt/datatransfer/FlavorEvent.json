@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.FlavorEvent",
+  "canonicalName" : "java.awt.datatransfer.FlavorEvent",
+  "simpleName" : "FlavorEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.datatransfer.FlavorEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.FlavorEvent(java.awt.datatransfer.Clipboard)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.datatransfer.Clipboard",
+      "genericType" : "java.awt.datatransfer.Clipboard",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

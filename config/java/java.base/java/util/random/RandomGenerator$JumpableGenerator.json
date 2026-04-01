@@ -1,0 +1,123 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.random",
+  "binaryName" : "java.util.random.RandomGenerator$JumpableGenerator",
+  "canonicalName" : "java.util.random.RandomGenerator.JumpableGenerator",
+  "simpleName" : "JumpableGenerator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.random.RandomGenerator",
+  "interfaces" : [ "java.util.random.RandomGenerator$StreamableGenerator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "copy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.random.RandomGenerator$JumpableGenerator copy()",
+    "returnType" : "java.util.random.RandomGenerator$JumpableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$JumpableGenerator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyAndJump",
+    "modifiers" : "public",
+    "signature" : "public java.util.random.RandomGenerator copyAndJump()",
+    "returnType" : "java.util.random.RandomGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "jump",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void jump()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "jumpDistance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double jumpDistance()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "jumps",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream jumps()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "jumps",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream jumps(long)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "streamSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.random.RandomGenerator$JumpableGenerator of(java.lang.String)",
+    "returnType" : "java.util.random.RandomGenerator$JumpableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$JumpableGenerator",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rngs",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream rngs()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "rngs",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream rngs(long)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "streamSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,727 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.Utilities",
+  "canonicalName" : "javax.swing.text.Utilities",
+  "simpleName" : "Utilities",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.Utilities",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Utilities()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "drawTabbedText",
+    "modifiers" : "public static final",
+    "signature" : "public static final float drawTabbedText(javax.swing.text.Segment, float, float, java.awt.Graphics2D, javax.swing.text.TabExpander, int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics2D",
+      "genericType" : "java.awt.Graphics2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "drawTabbedText",
+    "modifiers" : "public static final",
+    "signature" : "public static final int drawTabbedText(javax.swing.text.Segment, int, int, java.awt.Graphics, javax.swing.text.TabExpander, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBreakLocation",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getBreakLocation(javax.swing.text.Segment, java.awt.FontMetrics, float, float, javax.swing.text.TabExpander, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metrics",
+      "type" : "java.awt.FontMetrics",
+      "genericType" : "java.awt.FontMetrics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x0",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBreakLocation",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getBreakLocation(javax.swing.text.Segment, java.awt.FontMetrics, int, int, javax.swing.text.TabExpander, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metrics",
+      "type" : "java.awt.FontMetrics",
+      "genericType" : "java.awt.FontMetrics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextWord",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getNextWord(javax.swing.text.JTextComponent, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParagraphElement",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.swing.text.Element getParagraphElement(javax.swing.text.JTextComponent, int)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPositionAbove",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getPositionAbove(javax.swing.text.JTextComponent, int, float) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPositionAbove",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getPositionAbove(javax.swing.text.JTextComponent, int, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPositionBelow",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getPositionBelow(javax.swing.text.JTextComponent, int, float) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPositionBelow",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getPositionBelow(javax.swing.text.JTextComponent, int, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreviousWord",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getPreviousWord(javax.swing.text.JTextComponent, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowEnd",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getRowEnd(javax.swing.text.JTextComponent, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowStart",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getRowStart(javax.swing.text.JTextComponent, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTabbedTextOffset",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getTabbedTextOffset(javax.swing.text.Segment, java.awt.FontMetrics, float, float, javax.swing.text.TabExpander, int, boolean)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metrics",
+      "type" : "java.awt.FontMetrics",
+      "genericType" : "java.awt.FontMetrics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x0",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "round",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTabbedTextOffset",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getTabbedTextOffset(javax.swing.text.Segment, java.awt.FontMetrics, int, int, javax.swing.text.TabExpander, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metrics",
+      "type" : "java.awt.FontMetrics",
+      "genericType" : "java.awt.FontMetrics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTabbedTextOffset",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getTabbedTextOffset(javax.swing.text.Segment, java.awt.FontMetrics, int, int, javax.swing.text.TabExpander, int, boolean)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metrics",
+      "type" : "java.awt.FontMetrics",
+      "genericType" : "java.awt.FontMetrics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "round",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTabbedTextWidth",
+    "modifiers" : "public static final",
+    "signature" : "public static final float getTabbedTextWidth(javax.swing.text.Segment, java.awt.FontMetrics, float, javax.swing.text.TabExpander, int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metrics",
+      "type" : "java.awt.FontMetrics",
+      "genericType" : "java.awt.FontMetrics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTabbedTextWidth",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getTabbedTextWidth(javax.swing.text.Segment, java.awt.FontMetrics, int, javax.swing.text.TabExpander, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.text.Segment",
+      "genericType" : "javax.swing.text.Segment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metrics",
+      "type" : "java.awt.FontMetrics",
+      "genericType" : "java.awt.FontMetrics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.TabExpander",
+      "genericType" : "javax.swing.text.TabExpander",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWordEnd",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getWordEnd(javax.swing.text.JTextComponent, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWordStart",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getWordStart(javax.swing.text.JTextComponent, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dom",
+  "binaryName" : "javax.xml.crypto.dom.DOMURIReference",
+  "canonicalName" : "javax.xml.crypto.dom.DOMURIReference",
+  "simpleName" : "DOMURIReference",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.URIReference" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getHere",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getHere()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

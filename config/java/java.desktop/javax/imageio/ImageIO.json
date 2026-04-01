@@ -1,0 +1,532 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio",
+  "binaryName" : "javax.imageio.ImageIO",
+  "canonicalName" : "javax.imageio.ImageIO",
+  "simpleName" : "ImageIO",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createImageInputStream",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.stream.ImageInputStream createImageInputStream(java.lang.Object) throws java.io.IOException",
+    "returnType" : "javax.imageio.stream.ImageInputStream",
+    "genericReturnType" : "javax.imageio.stream.ImageInputStream",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createImageOutputStream",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.stream.ImageOutputStream createImageOutputStream(java.lang.Object) throws java.io.IOException",
+    "returnType" : "javax.imageio.stream.ImageOutputStream",
+    "genericReturnType" : "javax.imageio.stream.ImageOutputStream",
+    "parameters" : [ {
+      "name" : "output",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCacheDirectory",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.File getCacheDirectory()",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageReader",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageReader getImageReader(javax.imageio.ImageWriter)",
+    "returnType" : "javax.imageio.ImageReader",
+    "genericReturnType" : "javax.imageio.ImageReader",
+    "parameters" : [ {
+      "name" : "writer",
+      "type" : "javax.imageio.ImageWriter",
+      "genericType" : "javax.imageio.ImageWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageReaders",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageReaders(java.lang.Object)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageReadersByFormatName",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageReadersByFormatName(java.lang.String)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageReadersByMIMEType",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageReadersByMIMEType(java.lang.String)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "MIMEType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageReadersBySuffix",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageReadersBySuffix(java.lang.String)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "fileSuffix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageTranscoders",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageTranscoders(javax.imageio.ImageReader, javax.imageio.ImageWriter)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "javax.imageio.ImageReader",
+      "genericType" : "javax.imageio.ImageReader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "writer",
+      "type" : "javax.imageio.ImageWriter",
+      "genericType" : "javax.imageio.ImageWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageWriter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageWriter getImageWriter(javax.imageio.ImageReader)",
+    "returnType" : "javax.imageio.ImageWriter",
+    "genericReturnType" : "javax.imageio.ImageWriter",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "javax.imageio.ImageReader",
+      "genericType" : "javax.imageio.ImageReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageWriters",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageWriters(javax.imageio.ImageTypeSpecifier, java.lang.String)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageWritersByFormatName",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageWritersByFormatName(java.lang.String)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageWritersByMIMEType",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageWritersByMIMEType(java.lang.String)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "MIMEType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageWritersBySuffix",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator getImageWritersBySuffix(java.lang.String)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "fileSuffix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReaderFileSuffixes",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getReaderFileSuffixes()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReaderFormatNames",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getReaderFormatNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReaderMIMETypes",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getReaderMIMETypes()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUseCache",
+    "modifiers" : "public static",
+    "signature" : "public static boolean getUseCache()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWriterFileSuffixes",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getWriterFileSuffixes()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWriterFormatNames",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getWriterFormatNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWriterMIMETypes",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getWriterMIMETypes()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.image.BufferedImage read(java.io.File) throws java.io.IOException",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.image.BufferedImage read(java.io.InputStream) throws java.io.IOException",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.image.BufferedImage read(java.net.URL) throws java.io.IOException",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.image.BufferedImage read(javax.imageio.stream.ImageInputStream) throws java.io.IOException",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "stream",
+      "type" : "javax.imageio.stream.ImageInputStream",
+      "genericType" : "javax.imageio.stream.ImageInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scanForPlugins",
+    "modifiers" : "public static",
+    "signature" : "public static void scanForPlugins()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCacheDirectory",
+    "modifiers" : "public static",
+    "signature" : "public static void setCacheDirectory(java.io.File)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cacheDirectory",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUseCache",
+    "modifiers" : "public static",
+    "signature" : "public static void setUseCache(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "useCache",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static boolean write(java.awt.image.RenderedImage, java.lang.String, java.io.File) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "im",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static boolean write(java.awt.image.RenderedImage, java.lang.String, java.io.OutputStream) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "im",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static boolean write(java.awt.image.RenderedImage, java.lang.String, javax.imageio.stream.ImageOutputStream) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "im",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "javax.imageio.stream.ImageOutputStream",
+      "genericType" : "javax.imageio.stream.ImageOutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

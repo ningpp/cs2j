@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.dom",
+  "binaryName" : "javax.xml.transform.dom.DOMLocator",
+  "canonicalName" : "javax.xml.transform.dom.DOMLocator",
+  "simpleName" : "DOMLocator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.transform.SourceLocator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getOriginatingNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getOriginatingNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

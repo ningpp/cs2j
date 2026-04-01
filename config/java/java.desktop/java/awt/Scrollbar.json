@@ -1,0 +1,465 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Scrollbar",
+  "canonicalName" : "java.awt.Scrollbar",
+  "simpleName" : "Scrollbar",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Component",
+  "interfaces" : [ "java.awt.Adjustable", "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.Scrollbar",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Scrollbar() throws java.awt.HeadlessException",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Scrollbar",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Scrollbar(int) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "orientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Scrollbar",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Scrollbar(int, int, int, int, int) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "orientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visible",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAdjustmentListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addAdjustmentListener(java.awt.event.AdjustmentListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.AdjustmentListener",
+      "genericType" : "java.awt.event.AdjustmentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAdjustmentListeners",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.event.AdjustmentListener[] getAdjustmentListeners()",
+    "returnType" : "java.awt.event.AdjustmentListener[]",
+    "genericReturnType" : "java.awt.event.AdjustmentListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBlockIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getBlockIncrement()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getLineIncrement()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListeners",
+    "modifiers" : "public",
+    "signature" : "public java.util.EventListener[] getListeners(java.lang.Class)",
+    "returnType" : "java.util.EventListener[]",
+    "genericReturnType" : "java.util.EventListener[]",
+    "parameters" : [ {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximum",
+    "modifiers" : "public",
+    "signature" : "public int getMaximum()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimum",
+    "modifiers" : "public",
+    "signature" : "public int getMinimum()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrientation",
+    "modifiers" : "public",
+    "signature" : "public int getOrientation()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPageIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getPageIncrement()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnitIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getUnitIncrement()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public int getValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValueIsAdjusting",
+    "modifiers" : "public",
+    "signature" : "public boolean getValueIsAdjusting()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisible",
+    "modifiers" : "public",
+    "signature" : "public int getVisible()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisibleAmount",
+    "modifiers" : "public",
+    "signature" : "public int getVisibleAmount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAdjustmentListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeAdjustmentListener(java.awt.event.AdjustmentListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.AdjustmentListener",
+      "genericType" : "java.awt.event.AdjustmentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBlockIncrement",
+    "modifiers" : "public",
+    "signature" : "public void setBlockIncrement(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLineIncrement",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setLineIncrement(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximum",
+    "modifiers" : "public",
+    "signature" : "public void setMaximum(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newMaximum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinimum",
+    "modifiers" : "public",
+    "signature" : "public void setMinimum(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newMinimum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOrientation",
+    "modifiers" : "public",
+    "signature" : "public void setOrientation(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "orientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPageIncrement",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setPageIncrement(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUnitIncrement",
+    "modifiers" : "public",
+    "signature" : "public void setUnitIncrement(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public",
+    "signature" : "public void setValue(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValueIsAdjusting",
+    "modifiers" : "public",
+    "signature" : "public void setValueIsAdjusting(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValues",
+    "modifiers" : "public",
+    "signature" : "public void setValues(int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visible",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVisibleAmount",
+    "modifiers" : "public",
+    "signature" : "public void setVisibleAmount(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newAmount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

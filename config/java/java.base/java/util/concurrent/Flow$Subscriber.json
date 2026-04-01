@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Flow$Subscriber",
+  "canonicalName" : "java.util.concurrent.Flow.Subscriber",
+  "simpleName" : "Subscriber",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.Flow",
+  "declaredPublicMethods" : [ {
+    "name" : "onComplete",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void onComplete()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onError",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void onError(java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onNext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void onNext(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onSubscribe",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void onSubscribe(java.util.concurrent.Flow$Subscription)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.Flow$Subscription",
+      "genericType" : "java.util.concurrent.Flow$Subscription",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

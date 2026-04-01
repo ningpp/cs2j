@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.AWTException",
+  "canonicalName" : "java.awt.AWTException",
+  "simpleName" : "AWTException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.AWTException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AWTException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

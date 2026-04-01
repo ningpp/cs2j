@@ -1,0 +1,29 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.WritableByteChannel",
+  "canonicalName" : "java.nio.channels.WritableByteChannel",
+  "simpleName" : "WritableByteChannel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.channels.Channel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int write(java.nio.ByteBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.DoubleConsumer",
+  "canonicalName" : "java.util.function.DoubleConsumer",
+  "simpleName" : "DoubleConsumer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.DoubleConsumer andThen(java.util.function.DoubleConsumer)",
+    "returnType" : "java.util.function.DoubleConsumer",
+    "genericReturnType" : "java.util.function.DoubleConsumer",
+    "parameters" : [ {
+      "name" : "after",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

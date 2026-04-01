@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.PKIXCertPathBuilderResult",
+  "canonicalName" : "java.security.cert.PKIXCertPathBuilderResult",
+  "simpleName" : "PKIXCertPathBuilderResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.cert.PKIXCertPathValidatorResult",
+  "interfaces" : [ "java.security.cert.CertPathBuilderResult" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.PKIXCertPathBuilderResult",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.PKIXCertPathBuilderResult(java.security.cert.CertPath, java.security.cert.TrustAnchor, java.security.cert.PolicyNode, java.security.PublicKey)",
+    "parameters" : [ {
+      "name" : "certPath",
+      "type" : "java.security.cert.CertPath",
+      "genericType" : "java.security.cert.CertPath",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "trustAnchor",
+      "type" : "java.security.cert.TrustAnchor",
+      "genericType" : "java.security.cert.TrustAnchor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "policyTree",
+      "type" : "java.security.cert.PolicyNode",
+      "genericType" : "java.security.cert.PolicyNode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "subjectPublicKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCertPath",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPath getCertPath()",
+    "returnType" : "java.security.cert.CertPath",
+    "genericReturnType" : "java.security.cert.CertPath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

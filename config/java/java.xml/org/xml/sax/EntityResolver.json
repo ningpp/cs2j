@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax",
+  "binaryName" : "org.xml.sax.EntityResolver",
+  "canonicalName" : "org.xml.sax.EntityResolver",
+  "simpleName" : "EntityResolver",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "resolveEntity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.InputSource resolveEntity(java.lang.String, java.lang.String) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "org.xml.sax.InputSource",
+    "genericReturnType" : "org.xml.sax.InputSource",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

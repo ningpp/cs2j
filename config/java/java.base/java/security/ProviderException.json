@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.ProviderException",
+  "canonicalName" : "java.security.ProviderException",
+  "simpleName" : "ProviderException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.ProviderException",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProviderException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.ProviderException",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProviderException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.ProviderException",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProviderException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.ProviderException",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProviderException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AnnotationValue$OfChar",
+  "canonicalName" : "java.lang.classfile.AnnotationValue.OfChar",
+  "simpleName" : "OfChar",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.AnnotationValue",
+  "interfaces" : [ "java.lang.classfile.AnnotationValue$OfConstant" ],
+  "declaredPublicMethods" : [ {
+    "name" : "charValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char charValue()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.IntegerEntry constant()",
+    "returnType" : "java.lang.classfile.constantpool.IntegerEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.IntegerEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolvedValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Character resolvedValue()",
+    "returnType" : "java.lang.Character",
+    "genericReturnType" : "java.lang.Character",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

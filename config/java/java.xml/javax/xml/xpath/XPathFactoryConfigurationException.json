@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathFactoryConfigurationException",
+  "canonicalName" : "javax.xml.xpath.XPathFactoryConfigurationException",
+  "simpleName" : "XPathFactoryConfigurationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.xml.xpath.XPathException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.xpath.XPathFactoryConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathFactoryConfigurationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.xpath.XPathFactoryConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathFactoryConfigurationException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

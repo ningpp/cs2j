@@ -1,0 +1,872 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Properties",
+  "canonicalName" : "java.util.Properties",
+  "simpleName" : "Properties",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.Hashtable",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.Properties",
+    "modifiers" : "public",
+    "signature" : "public java.util.Properties()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Properties",
+    "modifiers" : "public",
+    "signature" : "public java.util.Properties(int)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Properties",
+    "modifiers" : "public",
+    "signature" : "public java.util.Properties(java.util.Properties)",
+    "parameters" : [ {
+      "name" : "defaults",
+      "type" : "java.util.Properties",
+      "genericType" : "java.util.Properties",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clear",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void clear()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compute",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object compute(java.lang.Object, java.util.function.BiFunction)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "remappingFunction",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "computeIfAbsent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object computeIfAbsent(java.lang.Object, java.util.function.Function)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mappingFunction",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "computeIfPresent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object computeIfPresent(java.lang.Object, java.util.function.BiFunction)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "remappingFunction",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsKey",
+    "modifiers" : "public",
+    "signature" : "public boolean containsKey(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsValue",
+    "modifiers" : "public",
+    "signature" : "public boolean containsValue(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "elements",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration elements()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "entrySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set entrySet()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forEach",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void forEach(java.util.function.BiConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrDefault",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getOrDefault(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getProperty(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getProperty(java.lang.String, java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set keySet()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keys",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration keys()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public",
+    "signature" : "public void list(java.io.PrintStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.PrintStream",
+      "genericType" : "java.io.PrintStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public",
+    "signature" : "public void list(java.io.PrintWriter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.PrintWriter",
+      "genericType" : "java.io.PrintWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void load(java.io.InputStream) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void load(java.io.Reader) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadFromXML",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void loadFromXML(java.io.InputStream) throws java.io.IOException, java.util.InvalidPropertiesFormatException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.util.InvalidPropertiesFormatException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "merge",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object merge(java.lang.Object, java.lang.Object, java.util.function.BiFunction)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "remappingFunction",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "propertyNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration propertyNames()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object put(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putAll",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void putAll(java.util.Map)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putIfAbsent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object putIfAbsent(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object remove(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean remove(java.lang.Object, java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replace",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object replace(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replace",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean replace(java.lang.Object, java.lang.Object, java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceAll",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void replaceAll(java.util.function.BiFunction)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "function",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "save",
+    "modifiers" : "public",
+    "signature" : "public void save(java.io.OutputStream, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comments",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProperty",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object setProperty(java.lang.String, java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public",
+    "signature" : "public int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "store",
+    "modifiers" : "public",
+    "signature" : "public void store(java.io.OutputStream, java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comments",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "store",
+    "modifiers" : "public",
+    "signature" : "public void store(java.io.Writer, java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "writer",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comments",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storeToXML",
+    "modifiers" : "public",
+    "signature" : "public void storeToXML(java.io.OutputStream, java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comment",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storeToXML",
+    "modifiers" : "public",
+    "signature" : "public void storeToXML(java.io.OutputStream, java.lang.String, java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comment",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "encoding",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storeToXML",
+    "modifiers" : "public",
+    "signature" : "public void storeToXML(java.io.OutputStream, java.lang.String, java.nio.charset.Charset) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comment",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stringPropertyNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set stringPropertyNames()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public",
+    "signature" : "public java.util.Collection values()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

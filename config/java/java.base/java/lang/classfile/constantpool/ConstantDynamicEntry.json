@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.ConstantDynamicEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.ConstantDynamicEntry",
+  "simpleName" : "ConstantDynamicEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.DynamicConstantPoolEntry", "java.lang.classfile.constantpool.LoadableConstantEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.DynamicConstantDesc asSymbol()",
+    "returnType" : "java.lang.constant.DynamicConstantDesc",
+    "genericReturnType" : "java.lang.constant.DynamicConstantDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "constantValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ConstantDesc constantValue()",
+    "returnType" : "java.lang.constant.ConstantDesc",
+    "genericReturnType" : "java.lang.constant.ConstantDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "typeKind",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.TypeKind typeKind()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "typeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ClassDesc typeSymbol()",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

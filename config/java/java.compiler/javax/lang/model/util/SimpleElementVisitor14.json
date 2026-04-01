@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.SimpleElementVisitor14",
+  "canonicalName" : "javax.lang.model.util.SimpleElementVisitor14",
+  "simpleName" : "SimpleElementVisitor14",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.util.SimpleElementVisitor9",
+  "declaredPublicMethods" : [ {
+    "name" : "visitRecordComponent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitRecordComponent(javax.lang.model.element.RecordComponentElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.RecordComponentElement",
+      "genericType" : "javax.lang.model.element.RecordComponentElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

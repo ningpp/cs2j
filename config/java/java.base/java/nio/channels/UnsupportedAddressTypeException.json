@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.UnsupportedAddressTypeException",
+  "canonicalName" : "java.nio.channels.UnsupportedAddressTypeException",
+  "simpleName" : "UnsupportedAddressTypeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.UnsupportedAddressTypeException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.UnsupportedAddressTypeException()",
+    "varArgs" : false
+  } ]
+}

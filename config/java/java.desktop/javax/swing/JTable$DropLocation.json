@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTable$DropLocation",
+  "canonicalName" : "javax.swing.JTable.DropLocation",
+  "simpleName" : "DropLocation",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.JTable",
+  "superClass" : "javax.swing.TransferHandler$DropLocation",
+  "declaredPublicMethods" : [ {
+    "name" : "getColumn",
+    "modifiers" : "public",
+    "signature" : "public int getColumn()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRow",
+    "modifiers" : "public",
+    "signature" : "public int getRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInsertColumn",
+    "modifiers" : "public",
+    "signature" : "public boolean isInsertColumn()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInsertRow",
+    "modifiers" : "public",
+    "signature" : "public boolean isInsertRow()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

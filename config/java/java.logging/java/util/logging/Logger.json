@@ -1,0 +1,1463 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.Logger",
+  "canonicalName" : "java.util.logging.Logger",
+  "simpleName" : "Logger",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addHandler",
+    "modifiers" : "public",
+    "signature" : "public void addHandler(java.util.logging.Handler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "java.util.logging.Handler",
+      "genericType" : "java.util.logging.Handler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "config",
+    "modifiers" : "public",
+    "signature" : "public void config(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "config",
+    "modifiers" : "public",
+    "signature" : "public void config(java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "entering",
+    "modifiers" : "public",
+    "signature" : "public void entering(java.lang.String, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "entering",
+    "modifiers" : "public",
+    "signature" : "public void entering(java.lang.String, java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "entering",
+    "modifiers" : "public",
+    "signature" : "public void entering(java.lang.String, java.lang.String, java.lang.Object[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exiting",
+    "modifiers" : "public",
+    "signature" : "public void exiting(java.lang.String, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exiting",
+    "modifiers" : "public",
+    "signature" : "public void exiting(java.lang.String, java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fine",
+    "modifiers" : "public",
+    "signature" : "public void fine(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fine",
+    "modifiers" : "public",
+    "signature" : "public void fine(java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finer",
+    "modifiers" : "public",
+    "signature" : "public void finer(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finer",
+    "modifiers" : "public",
+    "signature" : "public void finer(java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finest",
+    "modifiers" : "public",
+    "signature" : "public void finest(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finest",
+    "modifiers" : "public",
+    "signature" : "public void finest(java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnonymousLogger",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.logging.Logger getAnonymousLogger()",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnonymousLogger",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.logging.Logger getAnonymousLogger(java.lang.String)",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "parameters" : [ {
+      "name" : "resourceBundleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFilter",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.Filter getFilter()",
+    "returnType" : "java.util.logging.Filter",
+    "genericReturnType" : "java.util.logging.Filter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGlobal",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.logging.Logger getGlobal()",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHandlers",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.Handler[] getHandlers()",
+    "returnType" : "java.util.logging.Handler[]",
+    "genericReturnType" : "java.util.logging.Handler[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLevel",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.Level getLevel()",
+    "returnType" : "java.util.logging.Level",
+    "genericReturnType" : "java.util.logging.Level",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogger",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.logging.Logger getLogger(java.lang.String)",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogger",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.logging.Logger getLogger(java.lang.String, java.lang.String)",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "resourceBundleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.Logger getParent()",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceBundle",
+    "modifiers" : "public",
+    "signature" : "public java.util.ResourceBundle getResourceBundle()",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceBundleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getResourceBundleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUseParentHandlers",
+    "modifiers" : "public",
+    "signature" : "public boolean getUseParentHandlers()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "info",
+    "modifiers" : "public",
+    "signature" : "public void info(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "info",
+    "modifiers" : "public",
+    "signature" : "public void info(java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLoggable",
+    "modifiers" : "public",
+    "signature" : "public boolean isLoggable(java.util.logging.Level)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "log",
+    "modifiers" : "public",
+    "signature" : "public void log(java.util.logging.Level, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "log",
+    "modifiers" : "public",
+    "signature" : "public void log(java.util.logging.Level, java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "log",
+    "modifiers" : "public",
+    "signature" : "public void log(java.util.logging.Level, java.lang.String, java.lang.Object[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "log",
+    "modifiers" : "public",
+    "signature" : "public void log(java.util.logging.Level, java.lang.String, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "log",
+    "modifiers" : "public",
+    "signature" : "public void log(java.util.logging.Level, java.lang.Throwable, java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "log",
+    "modifiers" : "public",
+    "signature" : "public void log(java.util.logging.Level, java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "log",
+    "modifiers" : "public",
+    "signature" : "public void log(java.util.logging.LogRecord)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "record",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logp",
+    "modifiers" : "public",
+    "signature" : "public void logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logp",
+    "modifiers" : "public",
+    "signature" : "public void logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logp",
+    "modifiers" : "public",
+    "signature" : "public void logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.Object[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logp",
+    "modifiers" : "public",
+    "signature" : "public void logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logp",
+    "modifiers" : "public",
+    "signature" : "public void logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.Throwable, java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logp",
+    "modifiers" : "public",
+    "signature" : "public void logp(java.util.logging.Level, java.lang.String, java.lang.String, java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.Object[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.util.ResourceBundle, java.lang.String, java.lang.Object...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundle",
+      "type" : "java.util.ResourceBundle",
+      "genericType" : "java.util.ResourceBundle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.util.ResourceBundle, java.lang.String, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundle",
+      "type" : "java.util.ResourceBundle",
+      "genericType" : "java.util.ResourceBundle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.util.ResourceBundle, java.lang.String, java.lang.Object...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundle",
+      "type" : "java.util.ResourceBundle",
+      "genericType" : "java.util.ResourceBundle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "logrb",
+    "modifiers" : "public",
+    "signature" : "public void logrb(java.util.logging.Level, java.util.ResourceBundle, java.lang.String, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundle",
+      "type" : "java.util.ResourceBundle",
+      "genericType" : "java.util.ResourceBundle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeHandler",
+    "modifiers" : "public",
+    "signature" : "public void removeHandler(java.util.logging.Handler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "java.util.logging.Handler",
+      "genericType" : "java.util.logging.Handler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFilter",
+    "modifiers" : "public",
+    "signature" : "public void setFilter(java.util.logging.Filter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newFilter",
+      "type" : "java.util.logging.Filter",
+      "genericType" : "java.util.logging.Filter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLevel",
+    "modifiers" : "public",
+    "signature" : "public void setLevel(java.util.logging.Level)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newLevel",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParent",
+    "modifiers" : "public",
+    "signature" : "public void setParent(java.util.logging.Logger)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.util.logging.Logger",
+      "genericType" : "java.util.logging.Logger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResourceBundle",
+    "modifiers" : "public",
+    "signature" : "public void setResourceBundle(java.util.ResourceBundle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bundle",
+      "type" : "java.util.ResourceBundle",
+      "genericType" : "java.util.ResourceBundle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUseParentHandlers",
+    "modifiers" : "public",
+    "signature" : "public void setUseParentHandlers(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "useParentHandlers",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "severe",
+    "modifiers" : "public",
+    "signature" : "public void severe(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "severe",
+    "modifiers" : "public",
+    "signature" : "public void severe(java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "throwing",
+    "modifiers" : "public",
+    "signature" : "public void throwing(java.lang.String, java.lang.String, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceMethod",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thrown",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "warning",
+    "modifiers" : "public",
+    "signature" : "public void warning(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "warning",
+    "modifiers" : "public",
+    "signature" : "public void warning(java.util.function.Supplier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msgSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

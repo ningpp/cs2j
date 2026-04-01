@@ -1,0 +1,92 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AttributeMapper",
+  "canonicalName" : "java.lang.classfile.AttributeMapper",
+  "simpleName" : "AttributeMapper",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "allowMultiple",
+    "modifiers" : "public",
+    "signature" : "public boolean allowMultiple()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String name()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Attribute readAttribute(java.lang.classfile.AttributedElement, java.lang.classfile.ClassReader, int)",
+    "returnType" : "java.lang.classfile.Attribute",
+    "genericReturnType" : "java.lang.classfile.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.AttributedElement",
+      "genericType" : "java.lang.classfile.AttributedElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.ClassReader",
+      "genericType" : "java.lang.classfile.ClassReader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stability",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.AttributeMapper$AttributeStability stability()",
+    "returnType" : "java.lang.classfile.AttributeMapper$AttributeStability",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper$AttributeStability",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeAttribute(java.lang.classfile.BufWriter, java.lang.classfile.Attribute)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.BufWriter",
+      "genericType" : "java.lang.classfile.BufWriter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.Attribute",
+      "genericType" : "java.lang.classfile.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

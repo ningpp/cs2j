@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.CellEditorListener",
+  "canonicalName" : "javax.swing.event.CellEditorListener",
+  "simpleName" : "CellEditorListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "editingCanceled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void editingCanceled(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "editingStopped",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void editingStopped(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

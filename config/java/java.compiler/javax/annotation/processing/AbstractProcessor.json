@@ -1,0 +1,117 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.annotation.processing",
+  "binaryName" : "javax.annotation.processing.AbstractProcessor",
+  "canonicalName" : "javax.annotation.processing.AbstractProcessor",
+  "simpleName" : "AbstractProcessor",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.annotation.processing.Processor" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCompletions",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Iterable getCompletions(javax.lang.model.element.Element, javax.lang.model.element.AnnotationMirror, javax.lang.model.element.ExecutableElement, java.lang.String)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "element",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "annotation",
+      "type" : "javax.lang.model.element.AnnotationMirror",
+      "genericType" : "javax.lang.model.element.AnnotationMirror",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "member",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "userText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedAnnotationTypes",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getSupportedAnnotationTypes()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedOptions",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getSupportedOptions()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedSourceVersion",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.SourceVersion getSupportedSourceVersion()",
+    "returnType" : "javax.lang.model.SourceVersion",
+    "genericReturnType" : "javax.lang.model.SourceVersion",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void init(javax.annotation.processing.ProcessingEnvironment)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "processingEnv",
+      "type" : "javax.annotation.processing.ProcessingEnvironment",
+      "genericType" : "javax.annotation.processing.ProcessingEnvironment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "process",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean process(java.util.Set, javax.annotation.processing.RoundEnvironment)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.annotation.processing.RoundEnvironment",
+      "genericType" : "javax.annotation.processing.RoundEnvironment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

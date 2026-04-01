@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.PKIXCertPathChecker",
+  "canonicalName" : "java.security.cert.PKIXCertPathChecker",
+  "simpleName" : "PKIXCertPathChecker",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable", "java.security.cert.CertPathChecker" ],
+  "declaredPublicMethods" : [ {
+    "name" : "check",
+    "modifiers" : "public",
+    "signature" : "public void check(java.security.cert.Certificate) throws java.security.cert.CertPathValidatorException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cert",
+      "type" : "java.security.cert.Certificate",
+      "genericType" : "java.security.cert.Certificate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertPathValidatorException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "check",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void check(java.security.cert.Certificate, java.util.Collection) throws java.security.cert.CertPathValidatorException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.cert.Certificate",
+      "genericType" : "java.security.cert.Certificate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertPathValidatorException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedExtensions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getSupportedExtensions()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void init(boolean) throws java.security.cert.CertPathValidatorException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertPathValidatorException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isForwardCheckingSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isForwardCheckingSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

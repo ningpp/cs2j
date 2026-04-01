@@ -1,0 +1,243 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JSpinner",
+  "canonicalName" : "javax.swing.JSpinner",
+  "simpleName" : "JSpinner",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JSpinner",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JSpinner()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JSpinner",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JSpinner(javax.swing.SpinnerModel)",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "javax.swing.SpinnerModel",
+      "genericType" : "javax.swing.SpinnerModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addChangeListener(javax.swing.event.ChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.swing.event.ChangeListener",
+      "genericType" : "javax.swing.event.ChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "commitEdit",
+    "modifiers" : "public",
+    "signature" : "public void commitEdit() throws java.text.ParseException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChangeListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.ChangeListener[] getChangeListeners()",
+    "returnType" : "javax.swing.event.ChangeListener[]",
+    "genericReturnType" : "javax.swing.event.ChangeListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JComponent getEditor()",
+    "returnType" : "javax.swing.JComponent",
+    "genericReturnType" : "javax.swing.JComponent",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpinnerModel getModel()",
+    "returnType" : "javax.swing.SpinnerModel",
+    "genericReturnType" : "javax.swing.SpinnerModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getNextValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreviousValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getPreviousValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.SpinnerUI getUI()",
+    "returnType" : "javax.swing.plaf.SpinnerUI",
+    "genericReturnType" : "javax.swing.plaf.SpinnerUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removeChangeListener(javax.swing.event.ChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.swing.event.ChangeListener",
+      "genericType" : "javax.swing.event.ChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEditor",
+    "modifiers" : "public",
+    "signature" : "public void setEditor(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "editor",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModel",
+    "modifiers" : "public",
+    "signature" : "public void setModel(javax.swing.SpinnerModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "javax.swing.SpinnerModel",
+      "genericType" : "javax.swing.SpinnerModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.SpinnerUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.SpinnerUI",
+      "genericType" : "javax.swing.plaf.SpinnerUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public",
+    "signature" : "public void setValue(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

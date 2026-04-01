@@ -1,0 +1,142 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ActionMap",
+  "canonicalName" : "javax.swing.ActionMap",
+  "simpleName" : "ActionMap",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.ActionMap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ActionMap()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "allKeys",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] allKeys()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clear",
+    "modifiers" : "public",
+    "signature" : "public void clear()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action get(java.lang.Object)",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ActionMap getParent()",
+    "returnType" : "javax.swing.ActionMap",
+    "genericReturnType" : "javax.swing.ActionMap",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keys",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] keys()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public void put(java.lang.Object, javax.swing.Action)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "javax.swing.Action",
+      "genericType" : "javax.swing.Action",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParent",
+    "modifiers" : "public",
+    "signature" : "public void setParent(javax.swing.ActionMap)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "javax.swing.ActionMap",
+      "genericType" : "javax.swing.ActionMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public",
+    "signature" : "public int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

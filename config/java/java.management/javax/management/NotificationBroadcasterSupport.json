@@ -1,0 +1,164 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.NotificationBroadcasterSupport",
+  "canonicalName" : "javax.management.NotificationBroadcasterSupport",
+  "simpleName" : "NotificationBroadcasterSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.management.NotificationEmitter" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.NotificationBroadcasterSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.NotificationBroadcasterSupport()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.NotificationBroadcasterSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.NotificationBroadcasterSupport(java.util.concurrent.Executor)",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.NotificationBroadcasterSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.NotificationBroadcasterSupport(java.util.concurrent.Executor, javax.management.MBeanNotificationInfo...)",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "info",
+      "type" : "javax.management.MBeanNotificationInfo[]",
+      "genericType" : "javax.management.MBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : true
+  }, {
+    "name" : "javax.management.NotificationBroadcasterSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.NotificationBroadcasterSupport(javax.management.MBeanNotificationInfo...)",
+    "parameters" : [ {
+      "name" : "info",
+      "type" : "javax.management.MBeanNotificationInfo[]",
+      "genericType" : "javax.management.MBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : true
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void addNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "javax.management.NotificationFilter",
+      "genericType" : "javax.management.NotificationFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handback",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanNotificationInfo[] getNotificationInfo()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListener(javax.management.NotificationListener) throws javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object) throws javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "javax.management.NotificationFilter",
+      "genericType" : "javax.management.NotificationFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handback",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendNotification",
+    "modifiers" : "public",
+    "signature" : "public void sendNotification(javax.management.Notification)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "notification",
+      "type" : "javax.management.Notification",
+      "genericType" : "javax.management.Notification",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

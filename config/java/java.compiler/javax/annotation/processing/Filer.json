@@ -1,0 +1,124 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.annotation.processing",
+  "binaryName" : "javax.annotation.processing.Filer",
+  "canonicalName" : "javax.annotation.processing.Filer",
+  "simpleName" : "Filer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createClassFile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.tools.JavaFileObject createClassFile(java.lang.CharSequence, javax.lang.model.element.Element...) throws java.io.IOException",
+    "returnType" : "javax.tools.JavaFileObject",
+    "genericReturnType" : "javax.tools.JavaFileObject",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.lang.model.element.Element[]",
+      "genericType" : "javax.lang.model.element.Element[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createResource",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.tools.FileObject createResource(javax.tools.JavaFileManager$Location, java.lang.CharSequence, java.lang.CharSequence, javax.lang.model.element.Element...) throws java.io.IOException",
+    "returnType" : "javax.tools.FileObject",
+    "genericReturnType" : "javax.tools.FileObject",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "javax.lang.model.element.Element[]",
+      "genericType" : "javax.lang.model.element.Element[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createSourceFile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.tools.JavaFileObject createSourceFile(java.lang.CharSequence, javax.lang.model.element.Element...) throws java.io.IOException",
+    "returnType" : "javax.tools.JavaFileObject",
+    "genericReturnType" : "javax.tools.JavaFileObject",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.lang.model.element.Element[]",
+      "genericType" : "javax.lang.model.element.Element[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getResource",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.tools.FileObject getResource(javax.tools.JavaFileManager$Location, java.lang.CharSequence, java.lang.CharSequence) throws java.io.IOException",
+    "returnType" : "javax.tools.FileObject",
+    "genericReturnType" : "javax.tools.FileObject",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

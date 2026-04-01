@@ -1,0 +1,886 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Toolkit",
+  "canonicalName" : "java.awt.Toolkit",
+  "simpleName" : "Toolkit",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addAWTEventListener",
+    "modifiers" : "public",
+    "signature" : "public void addAWTEventListener(java.awt.event.AWTEventListener, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.awt.event.AWTEventListener",
+      "genericType" : "java.awt.event.AWTEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "eventMask",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addPropertyChangeListener(java.lang.String, java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pcl",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "areExtraMouseButtonsEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean areExtraMouseButtonsEnabled() throws java.awt.HeadlessException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "beep",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void beep()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int checkImage(java.awt.Image, int, int, java.awt.image.ImageObserver)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCustomCursor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Cursor createCustomCursor(java.awt.Image, java.awt.Point, java.lang.String) throws java.lang.IndexOutOfBoundsException, java.awt.HeadlessException",
+    "returnType" : "java.awt.Cursor",
+    "genericReturnType" : "java.awt.Cursor",
+    "parameters" : [ {
+      "name" : "cursor",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hotSpot",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IndexOutOfBoundsException", "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDragGestureRecognizer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragGestureRecognizer createDragGestureRecognizer(java.lang.Class, java.awt.dnd.DragSource, java.awt.Component, int, java.awt.dnd.DragGestureListener)",
+    "returnType" : "java.awt.dnd.DragGestureRecognizer",
+    "genericReturnType" : "java.awt.dnd.DragGestureRecognizer",
+    "parameters" : [ {
+      "name" : "abstractRecognizerClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ds",
+      "type" : "java.awt.dnd.DragSource",
+      "genericType" : "java.awt.dnd.DragSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcActions",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dgl",
+      "type" : "java.awt.dnd.DragGestureListener",
+      "genericType" : "java.awt.dnd.DragGestureListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image createImage(byte[])",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "imagedata",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image createImage(byte[], int, int)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image createImage(java.awt.image.ImageProducer)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageProducer",
+      "genericType" : "java.awt.image.ImageProducer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image createImage(java.lang.String)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image createImage(java.net.URL)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTEventListeners",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.AWTEventListener[] getAWTEventListeners()",
+    "returnType" : "java.awt.event.AWTEventListener[]",
+    "genericReturnType" : "java.awt.event.AWTEventListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTEventListeners",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.AWTEventListener[] getAWTEventListeners(long)",
+    "returnType" : "java.awt.event.AWTEventListener[]",
+    "genericReturnType" : "java.awt.event.AWTEventListener[]",
+    "parameters" : [ {
+      "name" : "eventMask",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBestCursorSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getBestCursorSize(int, int) throws java.awt.HeadlessException",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "preferredWidth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "preferredHeight",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColorModel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.ColorModel getColorModel() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.image.ColorModel",
+    "genericReturnType" : "java.awt.image.ColorModel",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultToolkit",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized java.awt.Toolkit getDefaultToolkit()",
+    "returnType" : "java.awt.Toolkit",
+    "genericReturnType" : "java.awt.Toolkit",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDesktopProperty",
+    "modifiers" : "public final synchronized",
+    "signature" : "public final synchronized java.lang.Object getDesktopProperty(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFontList",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getFontList()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFontMetrics",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.FontMetrics getFontMetrics(java.awt.Font)",
+    "returnType" : "java.awt.FontMetrics",
+    "genericReturnType" : "java.awt.FontMetrics",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image getImage(java.lang.String)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image getImage(java.net.URL)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockingKeyState",
+    "modifiers" : "public",
+    "signature" : "public boolean getLockingKeyState(int) throws java.lang.UnsupportedOperationException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "keyCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.UnsupportedOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumCursorColors",
+    "modifiers" : "public",
+    "signature" : "public int getMaximumCursorColors() throws java.awt.HeadlessException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuShortcutKeyMask",
+    "modifiers" : "public",
+    "signature" : "public int getMenuShortcutKeyMask() throws java.awt.HeadlessException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuShortcutKeyMaskEx",
+    "modifiers" : "public",
+    "signature" : "public int getMenuShortcutKeyMaskEx() throws java.awt.HeadlessException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintJob",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PrintJob getPrintJob(java.awt.Frame, java.lang.String, java.awt.JobAttributes, java.awt.PageAttributes)",
+    "returnType" : "java.awt.PrintJob",
+    "genericReturnType" : "java.awt.PrintJob",
+    "parameters" : [ {
+      "name" : "frame",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "jobtitle",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "jobAttributes",
+      "type" : "java.awt.JobAttributes",
+      "genericType" : "java.awt.JobAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pageAttributes",
+      "type" : "java.awt.PageAttributes",
+      "genericType" : "java.awt.PageAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintJob",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.PrintJob getPrintJob(java.awt.Frame, java.lang.String, java.util.Properties)",
+    "returnType" : "java.awt.PrintJob",
+    "genericReturnType" : "java.awt.PrintJob",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.Properties",
+      "genericType" : "java.util.Properties",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String getProperty(java.lang.String, java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyChangeListeners",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyChangeListener[] getPropertyChangeListeners()",
+    "returnType" : "java.beans.PropertyChangeListener[]",
+    "genericReturnType" : "java.beans.PropertyChangeListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyChangeListeners",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyChangeListener[] getPropertyChangeListeners(java.lang.String)",
+    "returnType" : "java.beans.PropertyChangeListener[]",
+    "genericReturnType" : "java.beans.PropertyChangeListener[]",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScreenInsets",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getScreenInsets(java.awt.GraphicsConfiguration) throws java.awt.HeadlessException",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScreenResolution",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getScreenResolution() throws java.awt.HeadlessException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScreenSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Dimension getScreenSize() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemClipboard",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.datatransfer.Clipboard getSystemClipboard() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.datatransfer.Clipboard",
+    "genericReturnType" : "java.awt.datatransfer.Clipboard",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemEventQueue",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.EventQueue getSystemEventQueue()",
+    "returnType" : "java.awt.EventQueue",
+    "genericReturnType" : "java.awt.EventQueue",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemSelection",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.Clipboard getSystemSelection() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.datatransfer.Clipboard",
+    "genericReturnType" : "java.awt.datatransfer.Clipboard",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAlwaysOnTopSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isAlwaysOnTopSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDynamicLayoutActive",
+    "modifiers" : "public",
+    "signature" : "public boolean isDynamicLayoutActive() throws java.awt.HeadlessException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFrameStateSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isFrameStateSupported(int) throws java.awt.HeadlessException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "state",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isModalExclusionTypeSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isModalExclusionTypeSupported(java.awt.Dialog$ModalExclusionType)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Dialog$ModalExclusionType",
+      "genericType" : "java.awt.Dialog$ModalExclusionType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isModalityTypeSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isModalityTypeSupported(java.awt.Dialog$ModalityType)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Dialog$ModalityType",
+      "genericType" : "java.awt.Dialog$ModalityType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapInputMethodHighlight",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map mapInputMethodHighlight(java.awt.im.InputMethodHighlight) throws java.awt.HeadlessException",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.im.InputMethodHighlight",
+      "genericType" : "java.awt.im.InputMethodHighlight",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prepareImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean prepareImage(java.awt.Image, int, int, java.awt.image.ImageObserver)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAWTEventListener",
+    "modifiers" : "public",
+    "signature" : "public void removeAWTEventListener(java.awt.event.AWTEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.awt.event.AWTEventListener",
+      "genericType" : "java.awt.event.AWTEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removePropertyChangeListener(java.lang.String, java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pcl",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDynamicLayout",
+    "modifiers" : "public",
+    "signature" : "public void setDynamicLayout(boolean) throws java.awt.HeadlessException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dynamic",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLockingKeyState",
+    "modifiers" : "public",
+    "signature" : "public void setLockingKeyState(int, boolean) throws java.lang.UnsupportedOperationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "keyCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "on",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.UnsupportedOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sync()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

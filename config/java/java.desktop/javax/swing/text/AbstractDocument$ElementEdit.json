@@ -1,0 +1,106 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.AbstractDocument$ElementEdit",
+  "canonicalName" : "javax.swing.text.AbstractDocument.ElementEdit",
+  "simpleName" : "ElementEdit",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.AbstractDocument",
+  "superClass" : "javax.swing.undo.AbstractUndoableEdit",
+  "interfaces" : [ "javax.swing.event.DocumentEvent$ElementChange" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.AbstractDocument$ElementEdit",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AbstractDocument$ElementEdit(javax.swing.text.Element, int, javax.swing.text.Element[], javax.swing.text.Element[])",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "removed",
+      "type" : "javax.swing.text.Element[]",
+      "genericType" : "javax.swing.text.Element[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "added",
+      "type" : "javax.swing.text.Element[]",
+      "genericType" : "javax.swing.text.Element[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getChildrenAdded",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element[] getChildrenAdded()",
+    "returnType" : "javax.swing.text.Element[]",
+    "genericReturnType" : "javax.swing.text.Element[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChildrenRemoved",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element[] getChildrenRemoved()",
+    "returnType" : "javax.swing.text.Element[]",
+    "genericReturnType" : "javax.swing.text.Element[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getElement()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndex",
+    "modifiers" : "public",
+    "signature" : "public int getIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redo",
+    "modifiers" : "public",
+    "signature" : "public void redo() throws javax.swing.undo.CannotRedoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotRedoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undo",
+    "modifiers" : "public",
+    "signature" : "public void undo() throws javax.swing.undo.CannotUndoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotUndoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

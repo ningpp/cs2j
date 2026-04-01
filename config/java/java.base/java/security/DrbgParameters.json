@@ -1,0 +1,92 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.DrbgParameters",
+  "canonicalName" : "java.security.DrbgParameters",
+  "simpleName" : "DrbgParameters",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "instantiation",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.DrbgParameters$Instantiation instantiation(int, java.security.DrbgParameters$Capability, byte[])",
+    "returnType" : "java.security.DrbgParameters$Instantiation",
+    "genericReturnType" : "java.security.DrbgParameters$Instantiation",
+    "parameters" : [ {
+      "name" : "strength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "capability",
+      "type" : "java.security.DrbgParameters$Capability",
+      "genericType" : "java.security.DrbgParameters$Capability",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "personalizationString",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextBytes",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.DrbgParameters$NextBytes nextBytes(int, boolean, byte[])",
+    "returnType" : "java.security.DrbgParameters$NextBytes",
+    "genericReturnType" : "java.security.DrbgParameters$NextBytes",
+    "parameters" : [ {
+      "name" : "strength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "predictionResistance",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalInput",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reseed",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.DrbgParameters$Reseed reseed(boolean, byte[])",
+    "returnType" : "java.security.DrbgParameters$Reseed",
+    "genericReturnType" : "java.security.DrbgParameters$Reseed",
+    "parameters" : [ {
+      "name" : "predictionResistance",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalInput",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

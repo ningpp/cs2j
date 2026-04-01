@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.security.sasl",
+  "packageName" : "javax.security.sasl",
+  "binaryName" : "javax.security.sasl.SaslException",
+  "canonicalName" : "javax.security.sasl.SaslException",
+  "simpleName" : "SaslException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.sasl.SaslException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.sasl.SaslException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.sasl.SaslException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.sasl.SaslException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "detail",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.sasl.SaslException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.sasl.SaslException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "detail",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ex",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable initCause(java.lang.Throwable)",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

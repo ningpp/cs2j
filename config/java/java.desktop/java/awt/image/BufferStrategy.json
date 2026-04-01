@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.BufferStrategy",
+  "canonicalName" : "java.awt.image.BufferStrategy",
+  "simpleName" : "BufferStrategy",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "contentsLost",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean contentsLost()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contentsRestored",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean contentsRestored()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispose",
+    "modifiers" : "public",
+    "signature" : "public void dispose()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCapabilities",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.BufferCapabilities getCapabilities()",
+    "returnType" : "java.awt.BufferCapabilities",
+    "genericReturnType" : "java.awt.BufferCapabilities",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDrawGraphics",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Graphics getDrawGraphics()",
+    "returnType" : "java.awt.Graphics",
+    "genericReturnType" : "java.awt.Graphics",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "show",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void show()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

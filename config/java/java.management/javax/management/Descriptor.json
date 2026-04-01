@@ -1,0 +1,180 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.Descriptor",
+  "canonicalName" : "javax.management.Descriptor",
+  "simpleName" : "Descriptor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object clone() throws javax.management.RuntimeOperationsException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFieldNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getFieldNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFieldValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getFieldValue(java.lang.String) throws javax.management.RuntimeOperationsException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFieldValues",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object[] getFieldValues(java.lang.String...)",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getFields",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getFields()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValid() throws javax.management.RuntimeOperationsException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeField",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeField(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setField",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setField(java.lang.String, java.lang.Object) throws javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFields",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFields(java.lang.String[], java.lang.Object[]) throws javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

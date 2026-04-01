@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels.spi",
+  "binaryName" : "java.nio.channels.spi.AbstractSelectionKey",
+  "canonicalName" : "java.nio.channels.spi.AbstractSelectionKey",
+  "simpleName" : "AbstractSelectionKey",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.channels.SelectionKey",
+  "declaredPublicMethods" : [ {
+    "name" : "cancel",
+    "modifiers" : "public final",
+    "signature" : "public final void cancel()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

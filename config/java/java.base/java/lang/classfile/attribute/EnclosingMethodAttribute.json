@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.EnclosingMethodAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.EnclosingMethodAttribute",
+  "simpleName" : "EnclosingMethodAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "enclosingClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ClassEntry enclosingClass()",
+    "returnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enclosingMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional enclosingMethod()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enclosingMethodName",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional enclosingMethodName()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "enclosingMethodType",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional enclosingMethodType()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "enclosingMethodTypeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional enclosingMethodTypeSymbol()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.EnclosingMethodAttribute of(java.lang.classfile.constantpool.ClassEntry, java.util.Optional)",
+    "returnType" : "java.lang.classfile.attribute.EnclosingMethodAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.EnclosingMethodAttribute",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "method",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.EnclosingMethodAttribute of(java.lang.constant.ClassDesc, java.util.Optional, java.util.Optional)",
+    "returnType" : "java.lang.classfile.attribute.EnclosingMethodAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.EnclosingMethodAttribute",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "methodName",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "methodType",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

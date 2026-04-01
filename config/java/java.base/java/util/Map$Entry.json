@@ -1,0 +1,146 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Map$Entry",
+  "canonicalName" : "java.util.Map.Entry",
+  "simpleName" : "Entry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.Map",
+  "declaredPublicMethods" : [ {
+    "name" : "comparingByKey",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparingByKey()",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparingByKey",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparingByKey(java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "cmp",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparingByValue",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparingByValue()",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparingByValue",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparingByValue(java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "cmp",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Map$Entry copyOf(java.util.Map$Entry)",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.util.Map$Entry",
+      "genericType" : "java.util.Map$Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getKey()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object setValue(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,344 @@
+{
+  "moduleName" : "java.security.jgss",
+  "packageName" : "javax.security.auth.kerberos",
+  "binaryName" : "javax.security.auth.kerberos.KerberosTicket",
+  "canonicalName" : "javax.security.auth.kerberos.KerberosTicket",
+  "simpleName" : "KerberosTicket",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.security.auth.Destroyable", "javax.security.auth.Refreshable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.kerberos.KerberosTicket",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.kerberos.KerberosTicket(byte[], javax.security.auth.kerberos.KerberosPrincipal, javax.security.auth.kerberos.KerberosPrincipal, byte[], int, boolean[], java.util.Date, java.util.Date, java.util.Date, java.util.Date, java.net.InetAddress[])",
+    "parameters" : [ {
+      "name" : "asn1Encoding",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "client",
+      "type" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "genericType" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "server",
+      "type" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "genericType" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sessionKey",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "boolean[]",
+      "genericType" : "boolean[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "authTime",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startTime",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endTime",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "renewTill",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "clientAddresses",
+      "type" : "java.net.InetAddress[]",
+      "genericType" : "java.net.InetAddress[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "destroy",
+    "modifiers" : "public",
+    "signature" : "public void destroy() throws javax.security.auth.DestroyFailedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.auth.DestroyFailedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAuthTime",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Date getAuthTime()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClient",
+    "modifiers" : "public final",
+    "signature" : "public final javax.security.auth.kerberos.KerberosPrincipal getClient()",
+    "returnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "genericReturnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClientAddresses",
+    "modifiers" : "public final",
+    "signature" : "public final java.net.InetAddress[] getClientAddresses()",
+    "returnType" : "java.net.InetAddress[]",
+    "genericReturnType" : "java.net.InetAddress[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoded",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] getEncoded()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndTime",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Date getEndTime()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFlags",
+    "modifiers" : "public final",
+    "signature" : "public final boolean[] getFlags()",
+    "returnType" : "boolean[]",
+    "genericReturnType" : "boolean[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRenewTill",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Date getRenewTill()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServer",
+    "modifiers" : "public final",
+    "signature" : "public final javax.security.auth.kerberos.KerberosPrincipal getServer()",
+    "returnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "genericReturnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSessionKey",
+    "modifiers" : "public final",
+    "signature" : "public final javax.crypto.SecretKey getSessionKey()",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSessionKeyType",
+    "modifiers" : "public final",
+    "signature" : "public final int getSessionKeyType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartTime",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Date getStartTime()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCurrent",
+    "modifiers" : "public",
+    "signature" : "public boolean isCurrent()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDestroyed",
+    "modifiers" : "public",
+    "signature" : "public boolean isDestroyed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isForwardable",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isForwardable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isForwarded",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isForwarded()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInitial",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isInitial()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPostdated",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isPostdated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isProxiable",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isProxiable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isProxy",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isProxy()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRenewable",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isRenewable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "refresh",
+    "modifiers" : "public",
+    "signature" : "public void refresh() throws javax.security.auth.RefreshFailedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.auth.RefreshFailedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

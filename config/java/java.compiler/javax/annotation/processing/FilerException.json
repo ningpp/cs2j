@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.annotation.processing",
+  "binaryName" : "javax.annotation.processing.FilerException",
+  "canonicalName" : "javax.annotation.processing.FilerException",
+  "simpleName" : "FilerException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.annotation.processing.FilerException",
+    "modifiers" : "public",
+    "signature" : "public javax.annotation.processing.FilerException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

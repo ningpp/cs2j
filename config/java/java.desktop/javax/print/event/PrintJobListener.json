@@ -1,0 +1,112 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.event",
+  "binaryName" : "javax.print.event.PrintJobListener",
+  "canonicalName" : "javax.print.event.PrintJobListener",
+  "simpleName" : "PrintJobListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "printDataTransferCompleted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printDataTransferCompleted(javax.print.event.PrintJobEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobEvent",
+      "genericType" : "javax.print.event.PrintJobEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printJobCanceled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printJobCanceled(javax.print.event.PrintJobEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobEvent",
+      "genericType" : "javax.print.event.PrintJobEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printJobCompleted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printJobCompleted(javax.print.event.PrintJobEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobEvent",
+      "genericType" : "javax.print.event.PrintJobEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printJobFailed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printJobFailed(javax.print.event.PrintJobEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobEvent",
+      "genericType" : "javax.print.event.PrintJobEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printJobNoMoreEvents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printJobNoMoreEvents(javax.print.event.PrintJobEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobEvent",
+      "genericType" : "javax.print.event.PrintJobEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printJobRequiresAttention",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printJobRequiresAttention(javax.print.event.PrintJobEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobEvent",
+      "genericType" : "javax.print.event.PrintJobEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

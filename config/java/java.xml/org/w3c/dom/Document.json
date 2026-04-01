@@ -1,0 +1,508 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.Document",
+  "canonicalName" : "org.w3c.dom.Document",
+  "simpleName" : "Document",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.Node" ],
+  "declaredPublicMethods" : [ {
+    "name" : "adoptNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node adoptNode(org.w3c.dom.Node) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Attr createAttribute(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Attr",
+    "genericReturnType" : "org.w3c.dom.Attr",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createAttributeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Attr createAttributeNS(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Attr",
+    "genericReturnType" : "org.w3c.dom.Attr",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCDATASection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.CDATASection createCDATASection(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.CDATASection",
+    "genericReturnType" : "org.w3c.dom.CDATASection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createComment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Comment createComment(java.lang.String)",
+    "returnType" : "org.w3c.dom.Comment",
+    "genericReturnType" : "org.w3c.dom.Comment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDocumentFragment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.DocumentFragment createDocumentFragment()",
+    "returnType" : "org.w3c.dom.DocumentFragment",
+    "genericReturnType" : "org.w3c.dom.DocumentFragment",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element createElement(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createElementNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element createElementNS(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEntityReference",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.EntityReference createEntityReference(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.EntityReference",
+    "genericReturnType" : "org.w3c.dom.EntityReference",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createProcessingInstruction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ProcessingInstruction createProcessingInstruction(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.ProcessingInstruction",
+    "genericReturnType" : "org.w3c.dom.ProcessingInstruction",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTextNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Text createTextNode(java.lang.String)",
+    "returnType" : "org.w3c.dom.Text",
+    "genericReturnType" : "org.w3c.dom.Text",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDoctype",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.DocumentType getDoctype()",
+    "returnType" : "org.w3c.dom.DocumentType",
+    "genericReturnType" : "org.w3c.dom.DocumentType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocumentElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element getDocumentElement()",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocumentURI",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDocumentURI()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDomConfig",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.DOMConfiguration getDomConfig()",
+    "returnType" : "org.w3c.dom.DOMConfiguration",
+    "genericReturnType" : "org.w3c.dom.DOMConfiguration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementById",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element getElementById(java.lang.String)",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsByTagName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.NodeList getElementsByTagName(java.lang.String)",
+    "returnType" : "org.w3c.dom.NodeList",
+    "genericReturnType" : "org.w3c.dom.NodeList",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsByTagNameNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.NodeList getElementsByTagNameNS(java.lang.String, java.lang.String)",
+    "returnType" : "org.w3c.dom.NodeList",
+    "genericReturnType" : "org.w3c.dom.NodeList",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImplementation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.DOMImplementation getImplementation()",
+    "returnType" : "org.w3c.dom.DOMImplementation",
+    "genericReturnType" : "org.w3c.dom.DOMImplementation",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputEncoding",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getInputEncoding()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStrictErrorChecking",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getStrictErrorChecking()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXmlEncoding",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getXmlEncoding()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXmlStandalone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getXmlStandalone()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXmlVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getXmlVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "importNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node importNode(org.w3c.dom.Node, boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "normalizeDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void normalizeDocument()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "renameNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node renameNode(org.w3c.dom.Node, java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDocumentURI",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDocumentURI(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStrictErrorChecking",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setStrictErrorChecking(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXmlStandalone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setXmlStandalone(boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXmlVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setXmlVersion(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

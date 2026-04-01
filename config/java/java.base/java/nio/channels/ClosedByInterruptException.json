@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ClosedByInterruptException",
+  "canonicalName" : "java.nio.channels.ClosedByInterruptException",
+  "simpleName" : "ClosedByInterruptException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.nio.channels.AsynchronousCloseException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.ClosedByInterruptException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.ClosedByInterruptException()",
+    "varArgs" : false
+  } ]
+}

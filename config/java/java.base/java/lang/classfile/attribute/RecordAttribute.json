@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.RecordAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.RecordAttribute",
+  "simpleName" : "RecordAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "components",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List components()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.RecordAttribute of(java.lang.classfile.attribute.RecordComponentInfo...)",
+    "returnType" : "java.lang.classfile.attribute.RecordAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.RecordAttribute",
+    "parameters" : [ {
+      "name" : "components",
+      "type" : "java.lang.classfile.attribute.RecordComponentInfo[]",
+      "genericType" : "java.lang.classfile.attribute.RecordComponentInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.RecordAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.RecordAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.RecordAttribute",
+    "parameters" : [ {
+      "name" : "components",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

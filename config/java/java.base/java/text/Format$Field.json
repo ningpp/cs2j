@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.Format$Field",
+  "canonicalName" : "java.text.Format.Field",
+  "simpleName" : "Field",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.text.Format",
+  "superClass" : "java.text.AttributedCharacterIterator$Attribute"
+}

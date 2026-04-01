@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.catalog",
+  "binaryName" : "javax.xml.catalog.Catalog",
+  "canonicalName" : "javax.xml.catalog.Catalog",
+  "simpleName" : "Catalog",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "catalogs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream catalogs()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matchPublic",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String matchPublic(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matchSystem",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String matchSystem(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matchURI",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String matchURI(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

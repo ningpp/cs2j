@@ -1,0 +1,219 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.StreamSupport",
+  "canonicalName" : "java.util.stream.StreamSupport",
+  "simpleName" : "StreamSupport",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "doubleStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream doubleStream(java.util.Spliterator$OfDouble, boolean)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator$OfDouble",
+      "genericType" : "java.util.Spliterator$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doubleStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream doubleStream(java.util.function.Supplier, int, boolean)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream intStream(java.util.Spliterator$OfInt, boolean)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator$OfInt",
+      "genericType" : "java.util.Spliterator$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream intStream(java.util.function.Supplier, int, boolean)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.LongStream longStream(java.util.Spliterator$OfLong, boolean)",
+    "returnType" : "java.util.stream.LongStream",
+    "genericReturnType" : "java.util.stream.LongStream",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator$OfLong",
+      "genericType" : "java.util.Spliterator$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.LongStream longStream(java.util.function.Supplier, int, boolean)",
+    "returnType" : "java.util.stream.LongStream",
+    "genericReturnType" : "java.util.stream.LongStream",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream stream(java.util.Spliterator, boolean)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator",
+      "genericType" : "java.util.Spliterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stream",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream stream(java.util.function.Supplier, int, boolean)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parallel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

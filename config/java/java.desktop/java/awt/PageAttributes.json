@@ -1,0 +1,389 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.PageAttributes",
+  "canonicalName" : "java.awt.PageAttributes",
+  "simpleName" : "PageAttributes",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.PageAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.PageAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes(java.awt.PageAttributes)",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.awt.PageAttributes",
+      "genericType" : "java.awt.PageAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.PageAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes(java.awt.PageAttributes$ColorType, java.awt.PageAttributes$MediaType, java.awt.PageAttributes$OrientationRequestedType, java.awt.PageAttributes$OriginType, java.awt.PageAttributes$PrintQualityType, int[])",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.PageAttributes$ColorType",
+      "genericType" : "java.awt.PageAttributes$ColorType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "media",
+      "type" : "java.awt.PageAttributes$MediaType",
+      "genericType" : "java.awt.PageAttributes$MediaType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "orientationRequested",
+      "type" : "java.awt.PageAttributes$OrientationRequestedType",
+      "genericType" : "java.awt.PageAttributes$OrientationRequestedType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "origin",
+      "type" : "java.awt.PageAttributes$OriginType",
+      "genericType" : "java.awt.PageAttributes$OriginType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "printQuality",
+      "type" : "java.awt.PageAttributes$PrintQualityType",
+      "genericType" : "java.awt.PageAttributes$PrintQualityType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "printerResolution",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes$ColorType getColor()",
+    "returnType" : "java.awt.PageAttributes$ColorType",
+    "genericReturnType" : "java.awt.PageAttributes$ColorType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMedia",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes$MediaType getMedia()",
+    "returnType" : "java.awt.PageAttributes$MediaType",
+    "genericReturnType" : "java.awt.PageAttributes$MediaType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrientationRequested",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes$OrientationRequestedType getOrientationRequested()",
+    "returnType" : "java.awt.PageAttributes$OrientationRequestedType",
+    "genericReturnType" : "java.awt.PageAttributes$OrientationRequestedType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrigin",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes$OriginType getOrigin()",
+    "returnType" : "java.awt.PageAttributes$OriginType",
+    "genericReturnType" : "java.awt.PageAttributes$OriginType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintQuality",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PageAttributes$PrintQualityType getPrintQuality()",
+    "returnType" : "java.awt.PageAttributes$PrintQualityType",
+    "genericReturnType" : "java.awt.PageAttributes$PrintQualityType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrinterResolution",
+    "modifiers" : "public",
+    "signature" : "public int[] getPrinterResolution()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public",
+    "signature" : "public void set(java.awt.PageAttributes)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.awt.PageAttributes",
+      "genericType" : "java.awt.PageAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColor",
+    "modifiers" : "public",
+    "signature" : "public void setColor(java.awt.PageAttributes$ColorType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.PageAttributes$ColorType",
+      "genericType" : "java.awt.PageAttributes$ColorType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMedia",
+    "modifiers" : "public",
+    "signature" : "public void setMedia(java.awt.PageAttributes$MediaType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "media",
+      "type" : "java.awt.PageAttributes$MediaType",
+      "genericType" : "java.awt.PageAttributes$MediaType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMediaToDefault",
+    "modifiers" : "public",
+    "signature" : "public void setMediaToDefault()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOrientationRequested",
+    "modifiers" : "public",
+    "signature" : "public void setOrientationRequested(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "orientationRequested",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOrientationRequested",
+    "modifiers" : "public",
+    "signature" : "public void setOrientationRequested(java.awt.PageAttributes$OrientationRequestedType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "orientationRequested",
+      "type" : "java.awt.PageAttributes$OrientationRequestedType",
+      "genericType" : "java.awt.PageAttributes$OrientationRequestedType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOrientationRequestedToDefault",
+    "modifiers" : "public",
+    "signature" : "public void setOrientationRequestedToDefault()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOrigin",
+    "modifiers" : "public",
+    "signature" : "public void setOrigin(java.awt.PageAttributes$OriginType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "origin",
+      "type" : "java.awt.PageAttributes$OriginType",
+      "genericType" : "java.awt.PageAttributes$OriginType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrintQuality",
+    "modifiers" : "public",
+    "signature" : "public void setPrintQuality(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "printQuality",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrintQuality",
+    "modifiers" : "public",
+    "signature" : "public void setPrintQuality(java.awt.PageAttributes$PrintQualityType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "printQuality",
+      "type" : "java.awt.PageAttributes$PrintQualityType",
+      "genericType" : "java.awt.PageAttributes$PrintQualityType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrintQualityToDefault",
+    "modifiers" : "public",
+    "signature" : "public void setPrintQualityToDefault()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrinterResolution",
+    "modifiers" : "public",
+    "signature" : "public void setPrinterResolution(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "printerResolution",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrinterResolution",
+    "modifiers" : "public",
+    "signature" : "public void setPrinterResolution(int[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "printerResolution",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrinterResolutionToDefault",
+    "modifiers" : "public",
+    "signature" : "public void setPrinterResolutionToDefault()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

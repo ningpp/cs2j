@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JFrame$AccessibleJFrame",
+  "canonicalName" : "javax.swing.JFrame.AccessibleJFrame",
+  "simpleName" : "AccessibleJFrame",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JFrame",
+  "superClass" : "java.awt.Frame$AccessibleAWTFrame",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

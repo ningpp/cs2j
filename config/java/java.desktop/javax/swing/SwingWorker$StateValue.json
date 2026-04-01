@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.SwingWorker$StateValue",
+  "canonicalName" : "javax.swing.SwingWorker.StateValue",
+  "simpleName" : "StateValue",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.SwingWorker",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.SwingWorker$StateValue valueOf(java.lang.String)",
+    "returnType" : "javax.swing.SwingWorker$StateValue",
+    "genericReturnType" : "javax.swing.SwingWorker$StateValue",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.SwingWorker$StateValue[] values()",
+    "returnType" : "javax.swing.SwingWorker$StateValue[]",
+    "genericReturnType" : "javax.swing.SwingWorker$StateValue[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.catalog",
+  "binaryName" : "javax.xml.catalog.CatalogResolver$NotFoundAction",
+  "canonicalName" : "javax.xml.catalog.CatalogResolver.NotFoundAction",
+  "simpleName" : "NotFoundAction",
+  "kind" : "enum",
+  "modifiers" : "public",
+  "declaringType" : "javax.xml.catalog.CatalogResolver",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "getType",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogResolver$NotFoundAction getType(java.lang.String)",
+    "returnType" : "javax.xml.catalog.CatalogResolver$NotFoundAction",
+    "genericReturnType" : "javax.xml.catalog.CatalogResolver$NotFoundAction",
+    "parameters" : [ {
+      "name" : "resolve",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogResolver$NotFoundAction valueOf(java.lang.String)",
+    "returnType" : "javax.xml.catalog.CatalogResolver$NotFoundAction",
+    "genericReturnType" : "javax.xml.catalog.CatalogResolver$NotFoundAction",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogResolver$NotFoundAction[] values()",
+    "returnType" : "javax.xml.catalog.CatalogResolver$NotFoundAction[]",
+    "genericReturnType" : "javax.xml.catalog.CatalogResolver$NotFoundAction[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

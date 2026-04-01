@@ -1,0 +1,59 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.System$Logger$Level",
+  "canonicalName" : "java.lang.System.Logger.Level",
+  "simpleName" : "Level",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.System$Logger",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "getName",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeverity",
+    "modifiers" : "public final",
+    "signature" : "public final int getSeverity()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.System$Logger$Level valueOf(java.lang.String)",
+    "returnType" : "java.lang.System$Logger$Level",
+    "genericReturnType" : "java.lang.System$Logger$Level",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.System$Logger$Level[] values()",
+    "returnType" : "java.lang.System$Logger$Level[]",
+    "genericReturnType" : "java.lang.System$Logger$Level[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

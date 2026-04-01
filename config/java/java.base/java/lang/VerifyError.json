@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.VerifyError",
+  "canonicalName" : "java.lang.VerifyError",
+  "simpleName" : "VerifyError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.VerifyError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.VerifyError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.VerifyError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.VerifyError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

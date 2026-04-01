@@ -1,0 +1,529 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicTextUI",
+  "canonicalName" : "javax.swing.plaf.basic.BasicTextUI",
+  "simpleName" : "BasicTextUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.TextUI",
+  "interfaces" : [ "javax.swing.text.ViewFactory" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicTextUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicTextUI()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "create",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.View create(javax.swing.text.Element)",
+    "returnType" : "javax.swing.text.View",
+    "genericReturnType" : "javax.swing.text.View",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "create",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.View create(javax.swing.text.Element, int, int)",
+    "returnType" : "javax.swing.text.View",
+    "genericReturnType" : "javax.swing.text.View",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "damageRange",
+    "modifiers" : "public",
+    "signature" : "public void damageRange(javax.swing.text.JTextComponent, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "damageRange",
+    "modifiers" : "public",
+    "signature" : "public void damageRange(javax.swing.text.JTextComponent, int, int, javax.swing.text.Position$Bias, javax.swing.text.Position$Bias)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p0Bias",
+      "type" : "javax.swing.text.Position$Bias",
+      "genericType" : "javax.swing.text.Position$Bias",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p1Bias",
+      "type" : "javax.swing.text.Position$Bias",
+      "genericType" : "javax.swing.text.Position$Bias",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEditorKit",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.EditorKit getEditorKit(javax.swing.text.JTextComponent)",
+    "returnType" : "javax.swing.text.EditorKit",
+    "genericReturnType" : "javax.swing.text.EditorKit",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getMaximumSize(javax.swing.JComponent)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getMinimumSize(javax.swing.JComponent)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextVisualPositionFrom",
+    "modifiers" : "public",
+    "signature" : "public int getNextVisualPositionFrom(javax.swing.text.JTextComponent, int, javax.swing.text.Position$Bias, int, javax.swing.text.Position$Bias[]) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.text.Position$Bias",
+      "genericType" : "javax.swing.text.Position$Bias",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "direction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "biasRet",
+      "type" : "javax.swing.text.Position$Bias[]",
+      "genericType" : "javax.swing.text.Position$Bias[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize(javax.swing.JComponent)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRootView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.View getRootView(javax.swing.text.JTextComponent)",
+    "returnType" : "javax.swing.text.View",
+    "genericReturnType" : "javax.swing.text.View",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToolTipText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getToolTipText(javax.swing.text.JTextComponent, java.awt.Point)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pt",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installUI",
+    "modifiers" : "public",
+    "signature" : "public void installUI(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modelToView",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle modelToView(javax.swing.text.JTextComponent, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modelToView",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle modelToView(javax.swing.text.JTextComponent, int, javax.swing.text.Position$Bias) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bias",
+      "type" : "javax.swing.text.Position$Bias",
+      "genericType" : "javax.swing.text.Position$Bias",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modelToView2D",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D modelToView2D(javax.swing.text.JTextComponent, int, javax.swing.text.Position$Bias) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bias",
+      "type" : "javax.swing.text.Position$Bias",
+      "genericType" : "javax.swing.text.Position$Bias",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paint",
+    "modifiers" : "public final",
+    "signature" : "public final void paint(java.awt.Graphics, javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallUI",
+    "modifiers" : "public",
+    "signature" : "public void uninstallUI(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public",
+    "signature" : "public void update(java.awt.Graphics, javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "viewToModel",
+    "modifiers" : "public",
+    "signature" : "public int viewToModel(javax.swing.text.JTextComponent, java.awt.Point)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pt",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "viewToModel",
+    "modifiers" : "public",
+    "signature" : "public int viewToModel(javax.swing.text.JTextComponent, java.awt.Point, javax.swing.text.Position$Bias[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pt",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "biasReturn",
+      "type" : "javax.swing.text.Position$Bias[]",
+      "genericType" : "javax.swing.text.Position$Bias[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "viewToModel2D",
+    "modifiers" : "public",
+    "signature" : "public int viewToModel2D(javax.swing.text.JTextComponent, java.awt.geom.Point2D, javax.swing.text.Position$Bias[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pt",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "biasReturn",
+      "type" : "javax.swing.text.Position$Bias[]",
+      "genericType" : "javax.swing.text.Position$Bias[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.cert",
+  "binaryName" : "javax.security.cert.CertificateParsingException",
+  "canonicalName" : "javax.security.cert.CertificateParsingException",
+  "simpleName" : "CertificateParsingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.security.cert.CertificateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.cert.CertificateParsingException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.CertificateParsingException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.cert.CertificateParsingException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.CertificateParsingException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

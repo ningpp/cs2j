@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute.standard",
+  "binaryName" : "javax.print.attribute.standard.JobMessageFromOperator",
+  "canonicalName" : "javax.print.attribute.standard.JobMessageFromOperator",
+  "simpleName" : "JobMessageFromOperator",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.print.attribute.TextSyntax",
+  "interfaces" : [ "javax.print.attribute.PrintJobAttribute" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.standard.JobMessageFromOperator",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.JobMessageFromOperator(java.lang.String, java.util.Locale)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCategory",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Class getCategory()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.DHParameterSpec",
+  "canonicalName" : "javax.crypto.spec.DHParameterSpec",
+  "simpleName" : "DHParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.spec.DHParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.DHParameterSpec(java.math.BigInteger, java.math.BigInteger)",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.spec.DHParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.DHParameterSpec(java.math.BigInteger, java.math.BigInteger, int)",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getG",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getG()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getL",
+    "modifiers" : "public",
+    "signature" : "public int getL()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getP",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getP()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

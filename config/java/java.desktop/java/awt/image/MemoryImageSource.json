@@ -1,0 +1,546 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.MemoryImageSource",
+  "canonicalName" : "java.awt.image.MemoryImageSource",
+  "simpleName" : "MemoryImageSource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.image.ImageProducer" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.MemoryImageSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.MemoryImageSource(int, int, int[], int, int)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pix",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scan",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.MemoryImageSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.MemoryImageSource(int, int, int[], int, int, java.util.Hashtable)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pix",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scan",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "props",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.MemoryImageSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.MemoryImageSource(int, int, java.awt.image.ColorModel, byte[], int, int)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cm",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pix",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scan",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.MemoryImageSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.MemoryImageSource(int, int, java.awt.image.ColorModel, byte[], int, int, java.util.Hashtable)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cm",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pix",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scan",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "props",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.MemoryImageSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.MemoryImageSource(int, int, java.awt.image.ColorModel, int[], int, int)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cm",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pix",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scan",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.MemoryImageSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.MemoryImageSource(int, int, java.awt.image.ColorModel, int[], int, int, java.util.Hashtable)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cm",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pix",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scan",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "props",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addConsumer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConsumer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPixels",
+    "modifiers" : "public",
+    "signature" : "public void newPixels()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPixels",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void newPixels(byte[], java.awt.image.ColorModel, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newpix",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newmodel",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scansize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPixels",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void newPixels(int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPixels",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void newPixels(int, int, int, int, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "framenotify",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPixels",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void newPixels(int[], java.awt.image.ColorModel, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newpix",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newmodel",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scansize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeConsumer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestTopDownLeftRightResend",
+    "modifiers" : "public",
+    "signature" : "public void requestTopDownLeftRightResend(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAnimated",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setAnimated(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "animated",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFullBufferUpdates",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setFullBufferUpdates(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fullbuffers",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startProduction",
+    "modifiers" : "public",
+    "signature" : "public void startProduction(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

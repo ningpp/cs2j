@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KEM$Encapsulated",
+  "canonicalName" : "javax.crypto.KEM.Encapsulated",
+  "simpleName" : "Encapsulated",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.crypto.KEM",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.KEM$Encapsulated",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Encapsulated(javax.crypto.SecretKey, byte[], byte[])",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "javax.crypto.SecretKey",
+      "genericType" : "javax.crypto.SecretKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "encapsulation",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "encapsulation",
+    "modifiers" : "public",
+    "signature" : "public byte[] encapsulation()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "key",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.SecretKey key()",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "params",
+    "modifiers" : "public",
+    "signature" : "public byte[] params()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

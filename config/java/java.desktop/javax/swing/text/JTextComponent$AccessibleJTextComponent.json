@@ -1,0 +1,657 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.JTextComponent$AccessibleJTextComponent",
+  "canonicalName" : "javax.swing.text.JTextComponent.AccessibleJTextComponent",
+  "simpleName" : "AccessibleJTextComponent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.JTextComponent",
+  "superClass" : "javax.swing.JComponent$AccessibleJComponent",
+  "interfaces" : [ "javax.accessibility.AccessibleAction", "javax.accessibility.AccessibleEditableText", "javax.accessibility.AccessibleExtendedText", "javax.accessibility.AccessibleText", "javax.swing.event.CaretListener", "javax.swing.event.DocumentListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.JTextComponent$AccessibleJTextComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.JTextComponent$AccessibleJTextComponent(javax.swing.text.JTextComponent)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.JTextComponent",
+      "genericType" : "javax.swing.text.JTextComponent",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "caretUpdate",
+    "modifiers" : "public",
+    "signature" : "public void caretUpdate(javax.swing.event.CaretEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.CaretEvent",
+      "genericType" : "javax.swing.event.CaretEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "changedUpdate",
+    "modifiers" : "public",
+    "signature" : "public void changedUpdate(javax.swing.event.DocumentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cut",
+    "modifiers" : "public",
+    "signature" : "public void cut(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "delete",
+    "modifiers" : "public",
+    "signature" : "public void delete(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doAccessibleAction",
+    "modifiers" : "public",
+    "signature" : "public boolean doAccessibleAction(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleAction",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleAction getAccessibleAction()",
+    "returnType" : "javax.accessibility.AccessibleAction",
+    "genericReturnType" : "javax.accessibility.AccessibleAction",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleActionCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleActionCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleActionDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleActionDescription(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleEditableText",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleEditableText getAccessibleEditableText()",
+    "returnType" : "javax.accessibility.AccessibleEditableText",
+    "genericReturnType" : "javax.accessibility.AccessibleEditableText",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleText",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleText getAccessibleText()",
+    "returnType" : "javax.accessibility.AccessibleText",
+    "genericReturnType" : "javax.accessibility.AccessibleText",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAfterIndex",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAfterIndex(int, int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "part",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAtIndex(int, int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "part",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeforeIndex",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getBeforeIndex(int, int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "part",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretPosition",
+    "modifiers" : "public",
+    "signature" : "public int getCaretPosition()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharCount",
+    "modifiers" : "public",
+    "signature" : "public int getCharCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterAttribute",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet getCharacterAttribute(int)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getCharacterBounds(int)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndexAtPoint",
+    "modifiers" : "public",
+    "signature" : "public int getIndexAtPoint(java.awt.Point)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSelectedText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionEnd",
+    "modifiers" : "public",
+    "signature" : "public int getSelectionEnd()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionStart",
+    "modifiers" : "public",
+    "signature" : "public int getSelectionStart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getTextBounds(int, int)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextRange",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getTextRange(int, int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextSequenceAfter",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleTextSequence getTextSequenceAfter(int, int)",
+    "returnType" : "javax.accessibility.AccessibleTextSequence",
+    "genericReturnType" : "javax.accessibility.AccessibleTextSequence",
+    "parameters" : [ {
+      "name" : "part",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextSequenceAt",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleTextSequence getTextSequenceAt(int, int)",
+    "returnType" : "javax.accessibility.AccessibleTextSequence",
+    "genericReturnType" : "javax.accessibility.AccessibleTextSequence",
+    "parameters" : [ {
+      "name" : "part",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextSequenceBefore",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleTextSequence getTextSequenceBefore(int, int)",
+    "returnType" : "javax.accessibility.AccessibleTextSequence",
+    "genericReturnType" : "javax.accessibility.AccessibleTextSequence",
+    "parameters" : [ {
+      "name" : "part",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertTextAtIndex",
+    "modifiers" : "public",
+    "signature" : "public void insertTextAtIndex(int, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertUpdate",
+    "modifiers" : "public",
+    "signature" : "public void insertUpdate(javax.swing.event.DocumentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paste",
+    "modifiers" : "public",
+    "signature" : "public void paste(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeUpdate",
+    "modifiers" : "public",
+    "signature" : "public void removeUpdate(javax.swing.event.DocumentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceText",
+    "modifiers" : "public",
+    "signature" : "public void replaceText(int, int, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectText",
+    "modifiers" : "public",
+    "signature" : "public void selectText(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributes",
+    "modifiers" : "public",
+    "signature" : "public void setAttributes(int, int, javax.swing.text.AttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "as",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTextContents",
+    "modifiers" : "public",
+    "signature" : "public void setTextContents(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

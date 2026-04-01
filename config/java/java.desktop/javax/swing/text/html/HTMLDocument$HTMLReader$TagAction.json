@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLDocument$HTMLReader$TagAction",
+  "canonicalName" : "javax.swing.text.html.HTMLDocument.HTMLReader.TagAction",
+  "simpleName" : "TagAction",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.html.HTMLDocument$HTMLReader",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLDocument$HTMLReader$TagAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLDocument$HTMLReader$TagAction(javax.swing.text.html.HTMLDocument$HTMLReader)",
+    "parameters" : [ {
+      "name" : "this$1",
+      "type" : "javax.swing.text.html.HTMLDocument$HTMLReader",
+      "genericType" : "javax.swing.text.html.HTMLDocument$HTMLReader",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "end",
+    "modifiers" : "public",
+    "signature" : "public void end(javax.swing.text.html.HTML$Tag)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public",
+    "signature" : "public void start(javax.swing.text.html.HTML$Tag, javax.swing.text.MutableAttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "javax.swing.text.MutableAttributeSet",
+      "genericType" : "javax.swing.text.MutableAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

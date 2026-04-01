@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.CompositeDataView",
+  "canonicalName" : "javax.management.openmbean.CompositeDataView",
+  "simpleName" : "CompositeDataView",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "toCompositeData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.openmbean.CompositeData toCompositeData(javax.management.openmbean.CompositeType)",
+    "returnType" : "javax.management.openmbean.CompositeData",
+    "genericReturnType" : "javax.management.openmbean.CompositeData",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.openmbean.CompositeType",
+      "genericType" : "javax.management.openmbean.CompositeType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

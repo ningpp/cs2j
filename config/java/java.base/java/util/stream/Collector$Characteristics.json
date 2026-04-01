@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Collector$Characteristics",
+  "canonicalName" : "java.util.stream.Collector.Characteristics",
+  "simpleName" : "Characteristics",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.util.stream.Collector",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector$Characteristics valueOf(java.lang.String)",
+    "returnType" : "java.util.stream.Collector$Characteristics",
+    "genericReturnType" : "java.util.stream.Collector$Characteristics",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector$Characteristics[] values()",
+    "returnType" : "java.util.stream.Collector$Characteristics[]",
+    "genericReturnType" : "java.util.stream.Collector$Characteristics[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

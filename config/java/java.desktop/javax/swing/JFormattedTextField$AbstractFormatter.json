@@ -1,0 +1,76 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JFormattedTextField$AbstractFormatter",
+  "canonicalName" : "javax.swing.JFormattedTextField.AbstractFormatter",
+  "simpleName" : "AbstractFormatter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "javax.swing.JFormattedTextField",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "install",
+    "modifiers" : "public",
+    "signature" : "public void install(javax.swing.JFormattedTextField)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ftf",
+      "type" : "javax.swing.JFormattedTextField",
+      "genericType" : "javax.swing.JFormattedTextField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stringToValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object stringToValue(java.lang.String) throws java.text.ParseException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstall",
+    "modifiers" : "public",
+    "signature" : "public void uninstall()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueToString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String valueToString(java.lang.Object) throws java.text.ParseException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

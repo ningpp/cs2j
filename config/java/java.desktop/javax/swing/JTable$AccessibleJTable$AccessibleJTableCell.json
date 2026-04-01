@@ -1,0 +1,643 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTable$AccessibleJTable$AccessibleJTableCell",
+  "canonicalName" : "javax.swing.JTable.AccessibleJTable.AccessibleJTableCell",
+  "simpleName" : "AccessibleJTableCell",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JTable$AccessibleJTable",
+  "superClass" : "javax.accessibility.AccessibleContext",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.accessibility.AccessibleComponent" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JTable$AccessibleJTable$AccessibleJTableCell",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTable$AccessibleJTable$AccessibleJTableCell(javax.swing.JTable$AccessibleJTable, javax.swing.JTable, int, int, int)",
+    "parameters" : [ {
+      "name" : "this$1",
+      "type" : "javax.swing.JTable$AccessibleJTable",
+      "genericType" : "javax.swing.JTable$AccessibleJTable",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "t",
+      "type" : "javax.swing.JTable",
+      "genericType" : "javax.swing.JTable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "r",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addFocusListener",
+    "modifiers" : "public",
+    "signature" : "public void addFocusListener(java.awt.event.FocusListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.FocusListener",
+      "genericType" : "java.awt.event.FocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addPropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(java.awt.Point)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleAction",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleAction getAccessibleAction()",
+    "returnType" : "javax.accessibility.AccessibleAction",
+    "genericReturnType" : "javax.accessibility.AccessibleAction",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleAt",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleAt(java.awt.Point)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChild",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleChild(int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChildrenCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleChildrenCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleComponent getAccessibleComponent()",
+    "returnType" : "javax.accessibility.AccessibleComponent",
+    "genericReturnType" : "javax.accessibility.AccessibleComponent",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleIndexInParent",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleIndexInParent()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleParent",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleParent()",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleSelection getAccessibleSelection()",
+    "returnType" : "javax.accessibility.AccessibleSelection",
+    "genericReturnType" : "javax.accessibility.AccessibleSelection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleText",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleText getAccessibleText()",
+    "returnType" : "javax.accessibility.AccessibleText",
+    "genericReturnType" : "javax.accessibility.AccessibleText",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleValue",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleValue getAccessibleValue()",
+    "returnType" : "javax.accessibility.AccessibleValue",
+    "genericReturnType" : "javax.accessibility.AccessibleValue",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBackground",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getBackground()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getBounds()",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCursor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Cursor getCursor()",
+    "returnType" : "java.awt.Cursor",
+    "genericReturnType" : "java.awt.Cursor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font getFont()",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFontMetrics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FontMetrics getFontMetrics(java.awt.Font)",
+    "returnType" : "java.awt.FontMetrics",
+    "genericReturnType" : "java.awt.FontMetrics",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getForeground",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getForeground()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocation",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point getLocation()",
+    "returnType" : "java.awt.Point",
+    "genericReturnType" : "java.awt.Point",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocationOnScreen",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point getLocationOnScreen()",
+    "returnType" : "java.awt.Point",
+    "genericReturnType" : "java.awt.Point",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFocusTraversable",
+    "modifiers" : "public",
+    "signature" : "public boolean isFocusTraversable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isShowing",
+    "modifiers" : "public",
+    "signature" : "public boolean isShowing()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVisible",
+    "modifiers" : "public",
+    "signature" : "public boolean isVisible()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeFocusListener",
+    "modifiers" : "public",
+    "signature" : "public void removeFocusListener(java.awt.event.FocusListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.FocusListener",
+      "genericType" : "java.awt.event.FocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removePropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestFocus",
+    "modifiers" : "public",
+    "signature" : "public void requestFocus()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleDescription",
+    "modifiers" : "public",
+    "signature" : "public void setAccessibleDescription(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleName",
+    "modifiers" : "public",
+    "signature" : "public void setAccessibleName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBackground",
+    "modifiers" : "public",
+    "signature" : "public void setBackground(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBounds",
+    "modifiers" : "public",
+    "signature" : "public void setBounds(java.awt.Rectangle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCursor",
+    "modifiers" : "public",
+    "signature" : "public void setCursor(java.awt.Cursor)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Cursor",
+      "genericType" : "java.awt.Cursor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFont",
+    "modifiers" : "public",
+    "signature" : "public void setFont(java.awt.Font)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setForeground",
+    "modifiers" : "public",
+    "signature" : "public void setForeground(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocation",
+    "modifiers" : "public",
+    "signature" : "public void setLocation(java.awt.Point)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSize",
+    "modifiers" : "public",
+    "signature" : "public void setSize(java.awt.Dimension)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "java.awt.Dimension",
+      "genericType" : "java.awt.Dimension",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVisible",
+    "modifiers" : "public",
+    "signature" : "public void setVisible(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

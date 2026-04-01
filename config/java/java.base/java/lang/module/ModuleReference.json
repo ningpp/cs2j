@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.ModuleReference",
+  "canonicalName" : "java.lang.module.ModuleReference",
+  "simpleName" : "ModuleReference",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "descriptor",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.module.ModuleDescriptor descriptor()",
+    "returnType" : "java.lang.module.ModuleDescriptor",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "location",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Optional location()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.module.ModuleReader open() throws java.io.IOException",
+    "returnType" : "java.lang.module.ModuleReader",
+    "genericReturnType" : "java.lang.module.ModuleReader",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

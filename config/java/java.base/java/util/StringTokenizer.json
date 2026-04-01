@@ -1,0 +1,134 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.StringTokenizer",
+  "canonicalName" : "java.util.StringTokenizer",
+  "simpleName" : "StringTokenizer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.Enumeration" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.StringTokenizer",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringTokenizer(java.lang.String)",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.StringTokenizer",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringTokenizer(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delim",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.StringTokenizer",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringTokenizer(java.lang.String, java.lang.String, boolean)",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delim",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "returnDelims",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "countTokens",
+    "modifiers" : "public",
+    "signature" : "public int countTokens()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasMoreElements",
+    "modifiers" : "public",
+    "signature" : "public boolean hasMoreElements()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasMoreTokens",
+    "modifiers" : "public",
+    "signature" : "public boolean hasMoreTokens()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextElement",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object nextElement()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextToken",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String nextToken()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextToken",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String nextToken(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "delim",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.PropertyChangeListener",
+  "canonicalName" : "java.beans.PropertyChangeListener",
+  "simpleName" : "PropertyChangeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "propertyChange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void propertyChange(java.beans.PropertyChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

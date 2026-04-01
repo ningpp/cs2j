@@ -1,0 +1,210 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.Date",
+  "canonicalName" : "java.sql.Date",
+  "simpleName" : "Date",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.Date",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.sql.Date",
+    "modifiers" : "public",
+    "signature" : "public java.sql.Date(int, int, int)",
+    "parameters" : [ {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "day",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.Date",
+    "modifiers" : "public",
+    "signature" : "public java.sql.Date(long)",
+    "parameters" : [ {
+      "name" : "date",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getHours",
+    "modifiers" : "public",
+    "signature" : "public int getHours()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinutes",
+    "modifiers" : "public",
+    "signature" : "public int getMinutes()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeconds",
+    "modifiers" : "public",
+    "signature" : "public int getSeconds()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHours",
+    "modifiers" : "public",
+    "signature" : "public void setHours(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinutes",
+    "modifiers" : "public",
+    "signature" : "public void setMinutes(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSeconds",
+    "modifiers" : "public",
+    "signature" : "public void setSeconds(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTime",
+    "modifiers" : "public",
+    "signature" : "public void setTime(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "date",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toInstant",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant toInstant()",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalDate",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalDate toLocalDate()",
+    "returnType" : "java.time.LocalDate",
+    "genericReturnType" : "java.time.LocalDate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.Date valueOf(java.lang.String)",
+    "returnType" : "java.sql.Date",
+    "genericReturnType" : "java.sql.Date",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.Date valueOf(java.time.LocalDate)",
+    "returnType" : "java.sql.Date",
+    "genericReturnType" : "java.sql.Date",
+    "parameters" : [ {
+      "name" : "date",
+      "type" : "java.time.LocalDate",
+      "genericType" : "java.time.LocalDate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

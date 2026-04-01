@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.Naming",
+  "canonicalName" : "java.rmi.Naming",
+  "simpleName" : "Naming",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "bind",
+    "modifiers" : "public static",
+    "signature" : "public static void bind(java.lang.String, java.rmi.Remote) throws java.rmi.AlreadyBoundException, java.net.MalformedURLException, java.rmi.RemoteException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.AlreadyBoundException", "java.net.MalformedURLException", "java.rmi.RemoteException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] list(java.lang.String) throws java.rmi.RemoteException, java.net.MalformedURLException",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.net.MalformedURLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookup",
+    "modifiers" : "public static",
+    "signature" : "public static java.rmi.Remote lookup(java.lang.String) throws java.rmi.NotBoundException, java.net.MalformedURLException, java.rmi.RemoteException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.NotBoundException", "java.net.MalformedURLException", "java.rmi.RemoteException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rebind",
+    "modifiers" : "public static",
+    "signature" : "public static void rebind(java.lang.String, java.rmi.Remote) throws java.rmi.RemoteException, java.net.MalformedURLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.net.MalformedURLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unbind",
+    "modifiers" : "public static",
+    "signature" : "public static void unbind(java.lang.String) throws java.rmi.RemoteException, java.rmi.NotBoundException, java.net.MalformedURLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.rmi.NotBoundException", "java.net.MalformedURLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

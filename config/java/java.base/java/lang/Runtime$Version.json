@@ -1,0 +1,228 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Runtime$Version",
+  "canonicalName" : "java.lang.Runtime.Version",
+  "simpleName" : "Version",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.Runtime",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional build()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.lang.Runtime$Version)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Runtime$Version",
+      "genericType" : "java.lang.Runtime$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareToIgnoreOptional",
+    "modifiers" : "public",
+    "signature" : "public int compareToIgnoreOptional(java.lang.Runtime$Version)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Runtime$Version",
+      "genericType" : "java.lang.Runtime$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equalsIgnoreOptional",
+    "modifiers" : "public",
+    "signature" : "public boolean equalsIgnoreOptional(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "feature",
+    "modifiers" : "public",
+    "signature" : "public int feature()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interim",
+    "modifiers" : "public",
+    "signature" : "public int interim()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "major",
+    "modifiers" : "public",
+    "signature" : "public int major()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minor",
+    "modifiers" : "public",
+    "signature" : "public int minor()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "optional",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional optional()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Runtime$Version parse(java.lang.String)",
+    "returnType" : "java.lang.Runtime$Version",
+    "genericReturnType" : "java.lang.Runtime$Version",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "patch",
+    "modifiers" : "public",
+    "signature" : "public int patch()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pre",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional pre()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "security",
+    "modifiers" : "public",
+    "signature" : "public int security()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public",
+    "signature" : "public int update()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public",
+    "signature" : "public java.util.List version()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

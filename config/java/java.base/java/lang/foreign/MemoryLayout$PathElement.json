@@ -1,0 +1,105 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.MemoryLayout$PathElement",
+  "canonicalName" : "java.lang.foreign.MemoryLayout.PathElement",
+  "simpleName" : "PathElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.foreign.MemoryLayout",
+  "declaredPublicMethods" : [ {
+    "name" : "dereferenceElement",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemoryLayout$PathElement dereferenceElement()",
+    "returnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupElement",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemoryLayout$PathElement groupElement(java.lang.String)",
+    "returnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupElement",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemoryLayout$PathElement groupElement(long)",
+    "returnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequenceElement",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemoryLayout$PathElement sequenceElement()",
+    "returnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequenceElement",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemoryLayout$PathElement sequenceElement(long)",
+    "returnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequenceElement",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemoryLayout$PathElement sequenceElement(long, long)",
+    "returnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout$PathElement",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "step",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

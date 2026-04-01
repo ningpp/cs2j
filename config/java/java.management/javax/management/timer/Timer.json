@@ -1,0 +1,539 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.timer",
+  "binaryName" : "javax.management.timer.Timer",
+  "canonicalName" : "javax.management.timer.Timer",
+  "simpleName" : "Timer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.NotificationBroadcasterSupport",
+  "interfaces" : [ "javax.management.MBeanRegistration", "javax.management.timer.TimerMBean" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.timer.Timer",
+    "modifiers" : "public",
+    "signature" : "public javax.management.timer.Timer()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotification",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Integer addNotification(java.lang.String, java.lang.String, java.lang.Object, java.util.Date) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "userData",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotification",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Integer addNotification(java.lang.String, java.lang.String, java.lang.Object, java.util.Date, long) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "userData",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotification",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Integer addNotification(java.lang.String, java.lang.String, java.lang.Object, java.util.Date, long, long) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "userData",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nbOccurences",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotification",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Integer addNotification(java.lang.String, java.lang.String, java.lang.Object, java.util.Date, long, long, boolean) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "userData",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nbOccurences",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fixedRate",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllNotificationIDs",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.util.Vector getAllNotificationIDs()",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDate",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.util.Date getDate(java.lang.Integer)",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFixedRate",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Boolean getFixedRate(java.lang.Integer)",
+    "returnType" : "java.lang.Boolean",
+    "genericReturnType" : "java.lang.Boolean",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNbNotifications",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int getNbNotifications()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNbOccurences",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Long getNbOccurences(java.lang.Integer)",
+    "returnType" : "java.lang.Long",
+    "genericReturnType" : "java.lang.Long",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationIDs",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.util.Vector getNotificationIDs(java.lang.String)",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationInfo",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized javax.management.MBeanNotificationInfo[] getNotificationInfo()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationMessage",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String getNotificationMessage(java.lang.Integer)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationType",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String getNotificationType(java.lang.Integer)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationUserData",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object getNotificationUserData(java.lang.Integer)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeriod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Long getPeriod(java.lang.Integer)",
+    "returnType" : "java.lang.Long",
+    "genericReturnType" : "java.lang.Long",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSendPastNotifications",
+    "modifiers" : "public",
+    "signature" : "public boolean getSendPastNotifications()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isActive",
+    "modifiers" : "public",
+    "signature" : "public boolean isActive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postDeregister",
+    "modifiers" : "public",
+    "signature" : "public void postDeregister()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postRegister",
+    "modifiers" : "public",
+    "signature" : "public void postRegister(java.lang.Boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "registrationDone",
+      "type" : "java.lang.Boolean",
+      "genericType" : "java.lang.Boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preDeregister",
+    "modifiers" : "public",
+    "signature" : "public void preDeregister() throws java.lang.Exception",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preRegister",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectName preRegister(javax.management.MBeanServer, javax.management.ObjectName) throws java.lang.Exception",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "server",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAllNotifications",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeAllNotifications()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotification",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeNotification(java.lang.Integer) throws javax.management.InstanceNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotifications",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeNotifications(java.lang.String) throws javax.management.InstanceNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSendPastNotifications",
+    "modifiers" : "public",
+    "signature" : "public void setSendPastNotifications(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void start()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void stop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

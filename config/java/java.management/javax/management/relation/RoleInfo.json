@@ -1,0 +1,239 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RoleInfo",
+  "canonicalName" : "javax.management.relation.RoleInfo",
+  "simpleName" : "RoleInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RoleInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleInfo(java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException, java.lang.ClassNotFoundException, javax.management.NotCompliantMBeanException",
+    "parameters" : [ {
+      "name" : "roleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "java.lang.ClassNotFoundException", "javax.management.NotCompliantMBeanException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.RoleInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleInfo(java.lang.String, java.lang.String, boolean, boolean) throws java.lang.IllegalArgumentException, java.lang.ClassNotFoundException, javax.management.NotCompliantMBeanException",
+    "parameters" : [ {
+      "name" : "roleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "read",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "write",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "java.lang.ClassNotFoundException", "javax.management.NotCompliantMBeanException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.RoleInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleInfo(java.lang.String, java.lang.String, boolean, boolean, int, int, java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.InvalidRoleInfoException, java.lang.ClassNotFoundException, javax.management.NotCompliantMBeanException",
+    "parameters" : [ {
+      "name" : "roleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "read",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "write",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descr",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.InvalidRoleInfoException", "java.lang.ClassNotFoundException", "javax.management.NotCompliantMBeanException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.RoleInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleInfo(javax.management.relation.RoleInfo) throws java.lang.IllegalArgumentException",
+    "parameters" : [ {
+      "name" : "roleInfo",
+      "type" : "javax.management.relation.RoleInfo",
+      "genericType" : "javax.management.relation.RoleInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "checkMaxDegree",
+    "modifiers" : "public",
+    "signature" : "public boolean checkMaxDegree(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkMinDegree",
+    "modifiers" : "public",
+    "signature" : "public boolean checkMinDegree(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxDegree",
+    "modifiers" : "public",
+    "signature" : "public int getMaxDegree()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinDegree",
+    "modifiers" : "public",
+    "signature" : "public int getMinDegree()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRefMBeanClassName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getRefMBeanClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadable",
+    "modifiers" : "public",
+    "signature" : "public boolean isReadable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWritable",
+    "modifiers" : "public",
+    "signature" : "public boolean isWritable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

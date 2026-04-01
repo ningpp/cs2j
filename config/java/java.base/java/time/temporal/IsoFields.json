@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.IsoFields",
+  "canonicalName" : "java.time.temporal.IsoFields",
+  "simpleName" : "IsoFields",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

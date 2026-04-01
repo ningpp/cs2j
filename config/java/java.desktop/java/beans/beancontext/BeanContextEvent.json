@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextEvent",
+  "canonicalName" : "java.beans.beancontext.BeanContextEvent",
+  "simpleName" : "BeanContextEvent",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicMethods" : [ {
+    "name" : "getBeanContext",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContext getBeanContext()",
+    "returnType" : "java.beans.beancontext.BeanContext",
+    "genericReturnType" : "java.beans.beancontext.BeanContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropagatedFrom",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.beans.beancontext.BeanContext getPropagatedFrom()",
+    "returnType" : "java.beans.beancontext.BeanContext",
+    "genericReturnType" : "java.beans.beancontext.BeanContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPropagated",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isPropagated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPropagatedFrom",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setPropagatedFrom(java.beans.beancontext.BeanContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bc",
+      "type" : "java.beans.beancontext.BeanContext",
+      "genericType" : "java.beans.beancontext.BeanContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

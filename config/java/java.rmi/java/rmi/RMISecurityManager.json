@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.RMISecurityManager",
+  "canonicalName" : "java.rmi.RMISecurityManager",
+  "simpleName" : "RMISecurityManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.SecurityManager",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.RMISecurityManager",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.RMISecurityManager()",
+    "varArgs" : false
+  } ]
+}

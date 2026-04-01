@@ -1,0 +1,270 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KeyAgreement",
+  "canonicalName" : "javax.crypto.KeyAgreement",
+  "simpleName" : "KeyAgreement",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "doPhase",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Key doPhase(java.security.Key, boolean) throws java.security.InvalidKeyException, java.lang.IllegalStateException",
+    "returnType" : "java.security.Key",
+    "genericReturnType" : "java.security.Key",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lastPhase",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "generateSecret",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] generateSecret() throws java.lang.IllegalStateException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "generateSecret",
+    "modifiers" : "public final",
+    "signature" : "public final int generateSecret(byte[], int) throws java.lang.IllegalStateException, javax.crypto.ShortBufferException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "sharedSecret",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalStateException", "javax.crypto.ShortBufferException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "generateSecret",
+    "modifiers" : "public final",
+    "signature" : "public final javax.crypto.SecretKey generateSecret(java.lang.String) throws java.lang.IllegalStateException, java.security.NoSuchAlgorithmException, java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalStateException", "java.security.NoSuchAlgorithmException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlgorithm",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.KeyAgreement getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.KeyAgreement",
+    "genericReturnType" : "javax.crypto.KeyAgreement",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.KeyAgreement getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException",
+    "returnType" : "javax.crypto.KeyAgreement",
+    "genericReturnType" : "javax.crypto.KeyAgreement",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.KeyAgreement getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.KeyAgreement",
+    "genericReturnType" : "javax.crypto.KeyAgreement",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(java.security.Key) throws java.security.InvalidKeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(java.security.Key, java.security.SecureRandom) throws java.security.InvalidKeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(java.security.Key, java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidKeyException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(java.security.Key, java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom) throws java.security.InvalidKeyException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

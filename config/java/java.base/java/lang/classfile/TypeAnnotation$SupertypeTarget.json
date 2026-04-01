@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$SupertypeTarget",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.SupertypeTarget",
+  "simpleName" : "SupertypeTarget",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "interfaces" : [ "java.lang.classfile.TypeAnnotation$TargetInfo" ],
+  "declaredPublicMethods" : [ {
+    "name" : "supertypeIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int supertypeIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

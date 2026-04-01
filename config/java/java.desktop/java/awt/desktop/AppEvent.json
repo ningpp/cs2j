@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.AppEvent",
+  "canonicalName" : "java.awt.desktop.AppEvent",
+  "simpleName" : "AppEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject"
+}

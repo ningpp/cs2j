@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.StructLayout",
+  "canonicalName" : "java.lang.foreign.StructLayout",
+  "simpleName" : "StructLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.foreign.GroupLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.StructLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.StructLayout",
+    "genericReturnType" : "java.lang.foreign.StructLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.StructLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.StructLayout",
+    "genericReturnType" : "java.lang.foreign.StructLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.StructLayout withoutName()",
+    "returnType" : "java.lang.foreign.StructLayout",
+    "genericReturnType" : "java.lang.foreign.StructLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

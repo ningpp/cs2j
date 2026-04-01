@@ -1,0 +1,239 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.tiff",
+  "binaryName" : "javax.imageio.plugins.tiff.TIFFDirectory",
+  "canonicalName" : "javax.imageio.plugins.tiff.TIFFDirectory",
+  "simpleName" : "TIFFDirectory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.tiff.TIFFDirectory",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFDirectory(javax.imageio.plugins.tiff.TIFFTagSet[], javax.imageio.plugins.tiff.TIFFTag)",
+    "parameters" : [ {
+      "name" : "tagSets",
+      "type" : "javax.imageio.plugins.tiff.TIFFTagSet[]",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTagSet[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentTag",
+      "type" : "javax.imageio.plugins.tiff.TIFFTag",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addTIFFField",
+    "modifiers" : "public",
+    "signature" : "public void addTIFFField(javax.imageio.plugins.tiff.TIFFField)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.imageio.plugins.tiff.TIFFField",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addTagSet",
+    "modifiers" : "public",
+    "signature" : "public void addTagSet(javax.imageio.plugins.tiff.TIFFTagSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tagSet",
+      "type" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFDirectory clone() throws java.lang.CloneNotSupportedException",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFDirectory",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFDirectory",
+    "exceptions" : [ "java.lang.CloneNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsTIFFField",
+    "modifiers" : "public",
+    "signature" : "public boolean containsTIFFField(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "tagNumber",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFromMetadata",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.plugins.tiff.TIFFDirectory createFromMetadata(javax.imageio.metadata.IIOMetadata) throws javax.imageio.metadata.IIOInvalidTreeException",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFDirectory",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFDirectory",
+    "parameters" : [ {
+      "name" : "tiffImageMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.imageio.metadata.IIOInvalidTreeException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsMetadata",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.metadata.IIOMetadata getAsMetadata()",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumTIFFFields",
+    "modifiers" : "public",
+    "signature" : "public int getNumTIFFFields()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParentTag",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFTag getParentTag()",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTIFFField",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFField getTIFFField(int)",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFField",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFField",
+    "parameters" : [ {
+      "name" : "tagNumber",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTIFFFields",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFField[] getTIFFFields()",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFField[]",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFField[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTag",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFTag getTag(int)",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "parameters" : [ {
+      "name" : "tagNumber",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTagSets",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFTagSet[] getTagSets()",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFTagSet[]",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFTagSet[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTIFFField",
+    "modifiers" : "public",
+    "signature" : "public void removeTIFFField(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tagNumber",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTIFFFields",
+    "modifiers" : "public",
+    "signature" : "public void removeTIFFFields()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTagSet",
+    "modifiers" : "public",
+    "signature" : "public void removeTagSet(javax.imageio.plugins.tiff.TIFFTagSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tagSet",
+      "type" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

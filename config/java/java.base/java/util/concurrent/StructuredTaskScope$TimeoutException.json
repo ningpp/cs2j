@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.StructuredTaskScope$TimeoutException",
+  "canonicalName" : "java.util.concurrent.StructuredTaskScope.TimeoutException",
+  "simpleName" : "TimeoutException",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.util.concurrent.StructuredTaskScope",
+  "superClass" : "java.lang.RuntimeException"
+}

@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RoleResult",
+  "canonicalName" : "javax.management.relation.RoleResult",
+  "simpleName" : "RoleResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RoleResult",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleResult(javax.management.relation.RoleList, javax.management.relation.RoleUnresolvedList)",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "javax.management.relation.RoleList",
+      "genericType" : "javax.management.relation.RoleList",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unresolvedList",
+      "type" : "javax.management.relation.RoleUnresolvedList",
+      "genericType" : "javax.management.relation.RoleUnresolvedList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getRoles",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleList getRoles()",
+    "returnType" : "javax.management.relation.RoleList",
+    "genericReturnType" : "javax.management.relation.RoleList",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRolesUnresolved",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleUnresolvedList getRolesUnresolved()",
+    "returnType" : "javax.management.relation.RoleUnresolvedList",
+    "genericReturnType" : "javax.management.relation.RoleUnresolvedList",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRoles",
+    "modifiers" : "public",
+    "signature" : "public void setRoles(javax.management.relation.RoleList)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "javax.management.relation.RoleList",
+      "genericType" : "javax.management.relation.RoleList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRolesUnresolved",
+    "modifiers" : "public",
+    "signature" : "public void setRolesUnresolved(javax.management.relation.RoleUnresolvedList)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "unresolvedList",
+      "type" : "javax.management.relation.RoleUnresolvedList",
+      "genericType" : "javax.management.relation.RoleUnresolvedList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

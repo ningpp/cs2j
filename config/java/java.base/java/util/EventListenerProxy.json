@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.EventListenerProxy",
+  "canonicalName" : "java.util.EventListenerProxy",
+  "simpleName" : "EventListenerProxy",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.EventListenerProxy",
+    "modifiers" : "public",
+    "signature" : "public java.util.EventListenerProxy(java.util.EventListener)",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.util.EventListener",
+      "genericType" : "java.util.EventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getListener",
+    "modifiers" : "public",
+    "signature" : "public java.util.EventListener getListener()",
+    "returnType" : "java.util.EventListener",
+    "genericReturnType" : "java.util.EventListener",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

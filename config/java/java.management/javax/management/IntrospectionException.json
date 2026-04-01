@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.IntrospectionException",
+  "canonicalName" : "javax.management.IntrospectionException",
+  "simpleName" : "IntrospectionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.OperationsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.IntrospectionException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.IntrospectionException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.IntrospectionException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.IntrospectionException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

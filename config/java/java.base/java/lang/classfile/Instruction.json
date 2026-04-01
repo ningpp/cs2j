@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Instruction",
+  "canonicalName" : "java.lang.classfile.Instruction",
+  "simpleName" : "Instruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.CodeElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "opcode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Opcode opcode()",
+    "returnType" : "java.lang.classfile.Opcode",
+    "genericReturnType" : "java.lang.classfile.Opcode",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sizeInBytes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int sizeInBytes()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

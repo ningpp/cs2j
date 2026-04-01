@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.callback",
+  "binaryName" : "javax.security.auth.callback.LanguageCallback",
+  "canonicalName" : "javax.security.auth.callback.LanguageCallback",
+  "simpleName" : "LanguageCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.security.auth.callback.Callback" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.callback.LanguageCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.callback.LanguageCallback()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocale",
+    "modifiers" : "public",
+    "signature" : "public void setLocale(java.util.Locale)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

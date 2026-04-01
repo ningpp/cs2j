@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.Instrument",
+  "canonicalName" : "javax.sound.midi.Instrument",
+  "simpleName" : "Instrument",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.sound.midi.SoundbankResource",
+  "declaredPublicMethods" : [ {
+    "name" : "getPatch",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.Patch getPatch()",
+    "returnType" : "javax.sound.midi.Patch",
+    "genericReturnType" : "javax.sound.midi.Patch",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

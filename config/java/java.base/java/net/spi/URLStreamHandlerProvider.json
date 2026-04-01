@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net.spi",
+  "binaryName" : "java.net.spi.URLStreamHandlerProvider",
+  "canonicalName" : "java.net.spi.URLStreamHandlerProvider",
+  "simpleName" : "URLStreamHandlerProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.net.URLStreamHandlerFactory" ]
+}

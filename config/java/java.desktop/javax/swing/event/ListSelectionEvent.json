@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.ListSelectionEvent",
+  "canonicalName" : "javax.swing.event.ListSelectionEvent",
+  "simpleName" : "ListSelectionEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.ListSelectionEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.ListSelectionEvent(java.lang.Object, int, int, boolean)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lastIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isAdjusting",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFirstIndex",
+    "modifiers" : "public",
+    "signature" : "public int getFirstIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastIndex",
+    "modifiers" : "public",
+    "signature" : "public int getLastIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValueIsAdjusting",
+    "modifiers" : "public",
+    "signature" : "public boolean getValueIsAdjusting()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

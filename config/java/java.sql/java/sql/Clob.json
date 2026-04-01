@@ -1,0 +1,264 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.Clob",
+  "canonicalName" : "java.sql.Clob",
+  "simpleName" : "Clob",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "free",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void free() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsciiStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getAsciiStream() throws java.sql.SQLException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.Reader getCharacterStream() throws java.sql.SQLException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.Reader getCharacterStream(long, long) throws java.sql.SQLException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSubString(long, int) throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long length() throws java.sql.SQLException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long position(java.lang.String, long) throws java.sql.SQLException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long position(java.sql.Clob, long) throws java.sql.SQLException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.Clob",
+      "genericType" : "java.sql.Clob",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAsciiStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.OutputStream setAsciiStream(long) throws java.sql.SQLException",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharacterStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.Writer setCharacterStream(long) throws java.sql.SQLException",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int setString(long, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int setString(long, java.lang.String, int, int) throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "truncate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void truncate(long) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

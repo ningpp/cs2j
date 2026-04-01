@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.DatagramSocketImplFactory",
+  "canonicalName" : "java.net.DatagramSocketImplFactory",
+  "simpleName" : "DatagramSocketImplFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createDatagramSocketImpl",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.DatagramSocketImpl createDatagramSocketImpl()",
+    "returnType" : "java.net.DatagramSocketImpl",
+    "genericReturnType" : "java.net.DatagramSocketImpl",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

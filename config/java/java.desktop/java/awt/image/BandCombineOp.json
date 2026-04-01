@@ -1,0 +1,131 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.BandCombineOp",
+  "canonicalName" : "java.awt.image.BandCombineOp",
+  "simpleName" : "BandCombineOp",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.image.RasterOp" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.BandCombineOp",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BandCombineOp(float[][], java.awt.RenderingHints)",
+    "parameters" : [ {
+      "name" : "matrix",
+      "type" : "float[][]",
+      "genericType" : "float[][]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createCompatibleDestRaster",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.WritableRaster createCompatibleDestRaster(java.awt.image.Raster)",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "filter",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.WritableRaster filter(java.awt.image.Raster, java.awt.image.WritableRaster)",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "java.awt.image.WritableRaster",
+      "genericType" : "java.awt.image.WritableRaster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds2D",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.geom.Rectangle2D getBounds2D(java.awt.image.Raster)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMatrix",
+    "modifiers" : "public final",
+    "signature" : "public final float[][] getMatrix()",
+    "returnType" : "float[][]",
+    "genericReturnType" : "float[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoint2D",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.geom.Point2D getPoint2D(java.awt.geom.Point2D, java.awt.geom.Point2D)",
+    "returnType" : "java.awt.geom.Point2D",
+    "genericReturnType" : "java.awt.geom.Point2D",
+    "parameters" : [ {
+      "name" : "srcPt",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstPt",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRenderingHints",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.RenderingHints getRenderingHints()",
+    "returnType" : "java.awt.RenderingHints",
+    "genericReturnType" : "java.awt.RenderingHints",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

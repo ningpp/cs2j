@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.im.spi",
+  "binaryName" : "java.awt.im.spi.InputMethodContext",
+  "canonicalName" : "java.awt.im.spi.InputMethodContext",
+  "simpleName" : "InputMethodContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.im.InputMethodRequests" ],
+  "declaredPublicMethods" : [ {
+    "name" : "createInputMethodJFrame",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.JFrame createInputMethodJFrame(java.lang.String, boolean)",
+    "returnType" : "javax.swing.JFrame",
+    "genericReturnType" : "javax.swing.JFrame",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createInputMethodWindow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Window createInputMethodWindow(java.lang.String, boolean)",
+    "returnType" : "java.awt.Window",
+    "genericReturnType" : "java.awt.Window",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispatchInputMethodEvent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dispatchInputMethodEvent(int, java.text.AttributedCharacterIterator, int, java.awt.font.TextHitInfo, java.awt.font.TextHitInfo)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableClientWindowNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void enableClientWindowNotification(java.awt.im.spi.InputMethod, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.im.spi.InputMethod",
+      "genericType" : "java.awt.im.spi.InputMethod",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$FormalParameterTarget",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.FormalParameterTarget",
+  "simpleName" : "FormalParameterTarget",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "interfaces" : [ "java.lang.classfile.TypeAnnotation$TargetInfo" ],
+  "declaredPublicMethods" : [ {
+    "name" : "formalParameterIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int formalParameterIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

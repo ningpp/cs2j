@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.FileSystemNotFoundException",
+  "canonicalName" : "java.nio.file.FileSystemNotFoundException",
+  "simpleName" : "FileSystemNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.FileSystemNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileSystemNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.nio.file.FileSystemNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileSystemNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

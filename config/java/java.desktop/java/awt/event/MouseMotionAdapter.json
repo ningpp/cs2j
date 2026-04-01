@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.MouseMotionAdapter",
+  "canonicalName" : "java.awt.event.MouseMotionAdapter",
+  "simpleName" : "MouseMotionAdapter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.MouseMotionListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "mouseDragged",
+    "modifiers" : "public",
+    "signature" : "public void mouseDragged(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseMoved",
+    "modifiers" : "public",
+    "signature" : "public void mouseMoved(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

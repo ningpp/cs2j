@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax",
+  "binaryName" : "org.xml.sax.XMLFilter",
+  "canonicalName" : "org.xml.sax.XMLFilter",
+  "simpleName" : "XMLFilter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.xml.sax.XMLReader" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.XMLReader getParent()",
+    "returnType" : "org.xml.sax.XMLReader",
+    "genericReturnType" : "org.xml.sax.XMLReader",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setParent(org.xml.sax.XMLReader)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.XMLReader",
+      "genericType" : "org.xml.sax.XMLReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

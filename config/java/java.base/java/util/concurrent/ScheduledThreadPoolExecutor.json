@@ -1,0 +1,398 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ScheduledThreadPoolExecutor",
+  "canonicalName" : "java.util.concurrent.ScheduledThreadPoolExecutor",
+  "simpleName" : "ScheduledThreadPoolExecutor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.concurrent.ThreadPoolExecutor",
+  "interfaces" : [ "java.util.concurrent.ScheduledExecutorService" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.ScheduledThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledThreadPoolExecutor(int)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ScheduledThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledThreadPoolExecutor(int, java.util.concurrent.RejectedExecutionHandler)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.concurrent.RejectedExecutionHandler",
+      "genericType" : "java.util.concurrent.RejectedExecutionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ScheduledThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledThreadPoolExecutor(int, java.util.concurrent.ThreadFactory)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ScheduledThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledThreadPoolExecutor(int, java.util.concurrent.ThreadFactory, java.util.concurrent.RejectedExecutionHandler)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.concurrent.RejectedExecutionHandler",
+      "genericType" : "java.util.concurrent.RejectedExecutionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "execute",
+    "modifiers" : "public",
+    "signature" : "public void execute(java.lang.Runnable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContinueExistingPeriodicTasksAfterShutdownPolicy",
+    "modifiers" : "public",
+    "signature" : "public boolean getContinueExistingPeriodicTasksAfterShutdownPolicy()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExecuteExistingDelayedTasksAfterShutdownPolicy",
+    "modifiers" : "public",
+    "signature" : "public boolean getExecuteExistingDelayedTasksAfterShutdownPolicy()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueue",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.BlockingQueue getQueue()",
+    "returnType" : "java.util.concurrent.BlockingQueue",
+    "genericReturnType" : "java.util.concurrent.BlockingQueue",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRemoveOnCancelPolicy",
+    "modifiers" : "public",
+    "signature" : "public boolean getRemoveOnCancelPolicy()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture schedule(java.lang.Runnable, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture schedule(java.util.concurrent.Callable, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "callable",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleAtFixedRate",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture scheduleAtFixedRate(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialDelay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleWithFixedDelay",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture scheduleWithFixedDelay(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialDelay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContinueExistingPeriodicTasksAfterShutdownPolicy",
+    "modifiers" : "public",
+    "signature" : "public void setContinueExistingPeriodicTasksAfterShutdownPolicy(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExecuteExistingDelayedTasksAfterShutdownPolicy",
+    "modifiers" : "public",
+    "signature" : "public void setExecuteExistingDelayedTasksAfterShutdownPolicy(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRemoveOnCancelPolicy",
+    "modifiers" : "public",
+    "signature" : "public void setRemoveOnCancelPolicy(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdown",
+    "modifiers" : "public",
+    "signature" : "public void shutdown()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdownNow",
+    "modifiers" : "public",
+    "signature" : "public java.util.List shutdownNow()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.lang.Runnable, java.lang.Object)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,477 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTextArea",
+  "canonicalName" : "javax.swing.JTextArea",
+  "simpleName" : "JTextArea",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.JTextComponent",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JTextArea",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextArea()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextArea",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextArea(int, int)",
+    "parameters" : [ {
+      "name" : "rows",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextArea",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextArea(java.lang.String)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextArea",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextArea(java.lang.String, int, int)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rows",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextArea",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextArea(javax.swing.text.Document)",
+    "parameters" : [ {
+      "name" : "doc",
+      "type" : "javax.swing.text.Document",
+      "genericType" : "javax.swing.text.Document",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextArea",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextArea(javax.swing.text.Document, java.lang.String, int, int)",
+    "parameters" : [ {
+      "name" : "doc",
+      "type" : "javax.swing.text.Document",
+      "genericType" : "javax.swing.text.Document",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rows",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "append",
+    "modifiers" : "public",
+    "signature" : "public void append(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumns",
+    "modifiers" : "public",
+    "signature" : "public int getColumns()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineCount",
+    "modifiers" : "public",
+    "signature" : "public int getLineCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineEndOffset",
+    "modifiers" : "public",
+    "signature" : "public int getLineEndOffset(int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "line",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineOfOffset",
+    "modifiers" : "public",
+    "signature" : "public int getLineOfOffset(int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineStartOffset",
+    "modifiers" : "public",
+    "signature" : "public int getLineStartOffset(int) throws javax.swing.text.BadLocationException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "line",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineWrap",
+    "modifiers" : "public",
+    "signature" : "public boolean getLineWrap()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredScrollableViewportSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredScrollableViewportSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRows",
+    "modifiers" : "public",
+    "signature" : "public int getRows()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollableTracksViewportWidth",
+    "modifiers" : "public",
+    "signature" : "public boolean getScrollableTracksViewportWidth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollableUnitIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getScrollableUnitIncrement(java.awt.Rectangle, int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "visibleRect",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "orientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "direction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTabSize",
+    "modifiers" : "public",
+    "signature" : "public int getTabSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWrapStyleWord",
+    "modifiers" : "public",
+    "signature" : "public boolean getWrapStyleWord()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public void insert(java.lang.String, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceRange",
+    "modifiers" : "public",
+    "signature" : "public void replaceRange(java.lang.String, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumns",
+    "modifiers" : "public",
+    "signature" : "public void setColumns(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFont",
+    "modifiers" : "public",
+    "signature" : "public void setFont(java.awt.Font)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLineWrap",
+    "modifiers" : "public",
+    "signature" : "public void setLineWrap(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "wrap",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRows",
+    "modifiers" : "public",
+    "signature" : "public void setRows(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "rows",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTabSize",
+    "modifiers" : "public",
+    "signature" : "public void setTabSize(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWrapStyleWord",
+    "modifiers" : "public",
+    "signature" : "public void setWrapStyleWord(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "word",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

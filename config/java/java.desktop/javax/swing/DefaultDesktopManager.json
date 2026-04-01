@@ -1,0 +1,339 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.DefaultDesktopManager",
+  "canonicalName" : "javax.swing.DefaultDesktopManager",
+  "simpleName" : "DefaultDesktopManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.swing.DesktopManager" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.DefaultDesktopManager",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.DefaultDesktopManager()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "activateFrame",
+    "modifiers" : "public",
+    "signature" : "public void activateFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "beginDraggingFrame",
+    "modifiers" : "public",
+    "signature" : "public void beginDraggingFrame(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "beginResizingFrame",
+    "modifiers" : "public",
+    "signature" : "public void beginResizingFrame(javax.swing.JComponent, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "direction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "closeFrame",
+    "modifiers" : "public",
+    "signature" : "public void closeFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deactivateFrame",
+    "modifiers" : "public",
+    "signature" : "public void deactivateFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deiconifyFrame",
+    "modifiers" : "public",
+    "signature" : "public void deiconifyFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragFrame",
+    "modifiers" : "public",
+    "signature" : "public void dragFrame(javax.swing.JComponent, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endDraggingFrame",
+    "modifiers" : "public",
+    "signature" : "public void endDraggingFrame(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endResizingFrame",
+    "modifiers" : "public",
+    "signature" : "public void endResizingFrame(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iconifyFrame",
+    "modifiers" : "public",
+    "signature" : "public void iconifyFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maximizeFrame",
+    "modifiers" : "public",
+    "signature" : "public void maximizeFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minimizeFrame",
+    "modifiers" : "public",
+    "signature" : "public void minimizeFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openFrame",
+    "modifiers" : "public",
+    "signature" : "public void openFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resizeFrame",
+    "modifiers" : "public",
+    "signature" : "public void resizeFrame(javax.swing.JComponent, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newWidth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newHeight",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBoundsForFrame",
+    "modifiers" : "public",
+    "signature" : "public void setBoundsForFrame(javax.swing.JComponent, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newX",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newY",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newWidth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newHeight",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

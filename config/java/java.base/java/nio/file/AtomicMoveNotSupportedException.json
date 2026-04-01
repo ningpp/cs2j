@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.AtomicMoveNotSupportedException",
+  "canonicalName" : "java.nio.file.AtomicMoveNotSupportedException",
+  "simpleName" : "AtomicMoveNotSupportedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.nio.file.FileSystemException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.AtomicMoveNotSupportedException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.AtomicMoveNotSupportedException(java.lang.String, java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

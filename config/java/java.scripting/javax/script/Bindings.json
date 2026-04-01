@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.scripting",
+  "packageName" : "javax.script",
+  "binaryName" : "javax.script.Bindings",
+  "canonicalName" : "javax.script.Bindings",
+  "simpleName" : "Bindings",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.Map" ],
+  "declaredPublicMethods" : [ {
+    "name" : "containsKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean containsKey(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object get(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object put(java.lang.String, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putAll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void putAll(java.util.Map)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object remove(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

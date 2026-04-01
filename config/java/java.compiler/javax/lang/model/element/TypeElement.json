@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.TypeElement",
+  "canonicalName" : "javax.lang.model.element.TypeElement",
+  "simpleName" : "TypeElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.element.Element", "javax.lang.model.element.Parameterizable", "javax.lang.model.element.QualifiedNameable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.TypeMirror asType()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosedElements",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getEnclosedElements()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosingElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Element getEnclosingElement()",
+    "returnType" : "javax.lang.model.element.Element",
+    "genericReturnType" : "javax.lang.model.element.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInterfaces",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getInterfaces()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNestingKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.NestingKind getNestingKind()",
+    "returnType" : "javax.lang.model.element.NestingKind",
+    "genericReturnType" : "javax.lang.model.element.NestingKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPermittedSubclasses",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getPermittedSubclasses()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getQualifiedName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Name getQualifiedName()",
+    "returnType" : "javax.lang.model.element.Name",
+    "genericReturnType" : "javax.lang.model.element.Name",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRecordComponents",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getRecordComponents()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getSimpleName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Name getSimpleName()",
+    "returnType" : "javax.lang.model.element.Name",
+    "genericReturnType" : "javax.lang.model.element.Name",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSuperclass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.TypeMirror getSuperclass()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getTypeParameters()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

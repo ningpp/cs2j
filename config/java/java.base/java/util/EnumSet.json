@@ -1,0 +1,298 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.EnumSet",
+  "canonicalName" : "java.util.EnumSet",
+  "simpleName" : "EnumSet",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.AbstractSet",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "allOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet allOf(java.lang.Class)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "elementType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.util.EnumSet clone()",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "complementOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet complementOf(java.util.EnumSet)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.EnumSet",
+      "genericType" : "java.util.EnumSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet copyOf(java.util.Collection)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet copyOf(java.util.EnumSet)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.EnumSet",
+      "genericType" : "java.util.EnumSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "noneOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet noneOf(java.lang.Class)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "elementType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet of(java.lang.Enum)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet of(java.lang.Enum, java.lang.Enum)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "e1",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e2",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet of(java.lang.Enum, java.lang.Enum, java.lang.Enum)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "e1",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e2",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e3",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet of(java.lang.Enum, java.lang.Enum, java.lang.Enum, java.lang.Enum)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "e1",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e2",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e3",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e4",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet of(java.lang.Enum, java.lang.Enum, java.lang.Enum, java.lang.Enum, java.lang.Enum)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "e1",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e2",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e3",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e4",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e5",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet of(java.lang.Enum, java.lang.Enum...)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "first",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rest",
+      "type" : "java.lang.Enum[]",
+      "genericType" : "java.lang.Enum[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "range",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EnumSet range(java.lang.Enum, java.lang.Enum)",
+    "returnType" : "java.util.EnumSet",
+    "genericReturnType" : "java.util.EnumSet",
+    "parameters" : [ {
+      "name" : "from",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "to",
+      "type" : "java.lang.Enum",
+      "genericType" : "java.lang.Enum",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

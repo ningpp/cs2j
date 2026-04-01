@@ -1,0 +1,225 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Throwable",
+  "canonicalName" : "java.lang.Throwable",
+  "simpleName" : "Throwable",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.Throwable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Throwable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Throwable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Throwable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addSuppressed",
+    "modifiers" : "public final synchronized",
+    "signature" : "public final synchronized void addSuppressed(java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "exception",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fillInStackTrace",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Throwable fillInStackTrace()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCause",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalizedMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getLocalizedMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStackTrace",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StackTraceElement[] getStackTrace()",
+    "returnType" : "java.lang.StackTraceElement[]",
+    "genericReturnType" : "java.lang.StackTraceElement[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSuppressed",
+    "modifiers" : "public final synchronized",
+    "signature" : "public final synchronized java.lang.Throwable[] getSuppressed()",
+    "returnType" : "java.lang.Throwable[]",
+    "genericReturnType" : "java.lang.Throwable[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initCause",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Throwable initCause(java.lang.Throwable)",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printStackTrace",
+    "modifiers" : "public",
+    "signature" : "public void printStackTrace()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printStackTrace",
+    "modifiers" : "public",
+    "signature" : "public void printStackTrace(java.io.PrintStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.io.PrintStream",
+      "genericType" : "java.io.PrintStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printStackTrace",
+    "modifiers" : "public",
+    "signature" : "public void printStackTrace(java.io.PrintWriter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.io.PrintWriter",
+      "genericType" : "java.io.PrintWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStackTrace",
+    "modifiers" : "public",
+    "signature" : "public void setStackTrace(java.lang.StackTraceElement[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "stackTrace",
+      "type" : "java.lang.StackTraceElement[]",
+      "genericType" : "java.lang.StackTraceElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

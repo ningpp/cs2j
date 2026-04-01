@@ -1,0 +1,162 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.AlphaComposite",
+  "canonicalName" : "java.awt.AlphaComposite",
+  "simpleName" : "AlphaComposite",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.Composite" ],
+  "declaredPublicMethods" : [ {
+    "name" : "createContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.CompositeContext createContext(java.awt.image.ColorModel, java.awt.image.ColorModel, java.awt.RenderingHints)",
+    "returnType" : "java.awt.CompositeContext",
+    "genericReturnType" : "java.awt.CompositeContext",
+    "parameters" : [ {
+      "name" : "srcColorModel",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstColorModel",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "derive",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AlphaComposite derive(float)",
+    "returnType" : "java.awt.AlphaComposite",
+    "genericReturnType" : "java.awt.AlphaComposite",
+    "parameters" : [ {
+      "name" : "alpha",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "derive",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AlphaComposite derive(int)",
+    "returnType" : "java.awt.AlphaComposite",
+    "genericReturnType" : "java.awt.AlphaComposite",
+    "parameters" : [ {
+      "name" : "rule",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlpha",
+    "modifiers" : "public",
+    "signature" : "public float getAlpha()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AlphaComposite getInstance(int)",
+    "returnType" : "java.awt.AlphaComposite",
+    "genericReturnType" : "java.awt.AlphaComposite",
+    "parameters" : [ {
+      "name" : "rule",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AlphaComposite getInstance(int, float)",
+    "returnType" : "java.awt.AlphaComposite",
+    "genericReturnType" : "java.awt.AlphaComposite",
+    "parameters" : [ {
+      "name" : "rule",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "alpha",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRule",
+    "modifiers" : "public",
+    "signature" : "public int getRule()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

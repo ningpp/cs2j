@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.KeySelector$Purpose",
+  "canonicalName" : "javax.xml.crypto.KeySelector.Purpose",
+  "simpleName" : "Purpose",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.xml.crypto.KeySelector",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

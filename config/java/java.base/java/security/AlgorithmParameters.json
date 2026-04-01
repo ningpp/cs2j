@@ -1,0 +1,214 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.AlgorithmParameters",
+  "canonicalName" : "java.security.AlgorithmParameters",
+  "simpleName" : "AlgorithmParameters",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAlgorithm",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoded",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] getEncoded() throws java.io.IOException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoded",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] getEncoded(java.lang.String) throws java.io.IOException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.AlgorithmParameters getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.AlgorithmParameters",
+    "genericReturnType" : "java.security.AlgorithmParameters",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.AlgorithmParameters getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException",
+    "returnType" : "java.security.AlgorithmParameters",
+    "genericReturnType" : "java.security.AlgorithmParameters",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.AlgorithmParameters getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.AlgorithmParameters",
+    "genericReturnType" : "java.security.AlgorithmParameters",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterSpec",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.spec.AlgorithmParameterSpec getParameterSpec(java.lang.Class) throws java.security.spec.InvalidParameterSpecException",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "parameters" : [ {
+      "name" : "paramSpec",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.spec.InvalidParameterSpecException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(byte[]) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(byte[], java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(java.security.spec.AlgorithmParameterSpec) throws java.security.spec.InvalidParameterSpecException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "paramSpec",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.spec.InvalidParameterSpecException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,108 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Observable",
+  "canonicalName" : "java.util.Observable",
+  "simpleName" : "Observable",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.Observable",
+    "modifiers" : "public",
+    "signature" : "public java.util.Observable()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addObserver",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addObserver(java.util.Observer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.util.Observer",
+      "genericType" : "java.util.Observer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "countObservers",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int countObservers()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteObserver",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void deleteObserver(java.util.Observer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.util.Observer",
+      "genericType" : "java.util.Observer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteObservers",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void deleteObservers()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasChanged",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean hasChanged()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "notifyObservers",
+    "modifiers" : "public",
+    "signature" : "public void notifyObservers()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "notifyObservers",
+    "modifiers" : "public",
+    "signature" : "public void notifyObservers(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.geom",
+  "binaryName" : "java.awt.geom.Dimension2D",
+  "canonicalName" : "java.awt.geom.Dimension2D",
+  "simpleName" : "Dimension2D",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double getHeight()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double getWidth()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSize(double, double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSize",
+    "modifiers" : "public",
+    "signature" : "public void setSize(java.awt.geom.Dimension2D)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "java.awt.geom.Dimension2D",
+      "genericType" : "java.awt.geom.Dimension2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

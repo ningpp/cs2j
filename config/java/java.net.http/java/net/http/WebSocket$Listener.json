@@ -1,0 +1,184 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.WebSocket$Listener",
+  "canonicalName" : "java.net.http.WebSocket.Listener",
+  "simpleName" : "Listener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.WebSocket",
+  "declaredPublicMethods" : [ {
+    "name" : "onBinary",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage onBinary(java.net.http.WebSocket, java.nio.ByteBuffer, boolean)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "webSocket",
+      "type" : "java.net.http.WebSocket",
+      "genericType" : "java.net.http.WebSocket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "last",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "onClose",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage onClose(java.net.http.WebSocket, int, java.lang.String)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "webSocket",
+      "type" : "java.net.http.WebSocket",
+      "genericType" : "java.net.http.WebSocket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "statusCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "onError",
+    "modifiers" : "public",
+    "signature" : "public void onError(java.net.http.WebSocket, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "webSocket",
+      "type" : "java.net.http.WebSocket",
+      "genericType" : "java.net.http.WebSocket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "error",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "onOpen",
+    "modifiers" : "public",
+    "signature" : "public void onOpen(java.net.http.WebSocket)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "webSocket",
+      "type" : "java.net.http.WebSocket",
+      "genericType" : "java.net.http.WebSocket",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "onPing",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage onPing(java.net.http.WebSocket, java.nio.ByteBuffer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "webSocket",
+      "type" : "java.net.http.WebSocket",
+      "genericType" : "java.net.http.WebSocket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "onPong",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage onPong(java.net.http.WebSocket, java.nio.ByteBuffer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "webSocket",
+      "type" : "java.net.http.WebSocket",
+      "genericType" : "java.net.http.WebSocket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "onText",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage onText(java.net.http.WebSocket, java.lang.CharSequence, boolean)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "webSocket",
+      "type" : "java.net.http.WebSocket",
+      "genericType" : "java.net.http.WebSocket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "last",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

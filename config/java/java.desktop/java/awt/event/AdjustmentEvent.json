@@ -1,0 +1,128 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.AdjustmentEvent",
+  "canonicalName" : "java.awt.event.AdjustmentEvent",
+  "simpleName" : "AdjustmentEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.AWTEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.event.AdjustmentEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.AdjustmentEvent(java.awt.Adjustable, int, int, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Adjustable",
+      "genericType" : "java.awt.Adjustable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.AdjustmentEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.AdjustmentEvent(java.awt.Adjustable, int, int, int, boolean)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Adjustable",
+      "genericType" : "java.awt.Adjustable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isAdjusting",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAdjustable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Adjustable getAdjustable()",
+    "returnType" : "java.awt.Adjustable",
+    "genericReturnType" : "java.awt.Adjustable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAdjustmentType",
+    "modifiers" : "public",
+    "signature" : "public int getAdjustmentType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public int getValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValueIsAdjusting",
+    "modifiers" : "public",
+    "signature" : "public boolean getValueIsAdjusting()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

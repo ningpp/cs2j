@@ -1,0 +1,326 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.SimpleAttributeSet",
+  "canonicalName" : "javax.swing.text.SimpleAttributeSet",
+  "simpleName" : "SimpleAttributeSet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable", "javax.swing.text.MutableAttributeSet" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.SimpleAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.SimpleAttributeSet()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.SimpleAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.SimpleAttributeSet(javax.swing.text.AttributeSet)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAttribute",
+    "modifiers" : "public",
+    "signature" : "public void addAttribute(java.lang.Object, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAttributes",
+    "modifiers" : "public",
+    "signature" : "public void addAttributes(javax.swing.text.AttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsAttribute",
+    "modifiers" : "public",
+    "signature" : "public boolean containsAttribute(java.lang.Object, java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsAttributes",
+    "modifiers" : "public",
+    "signature" : "public boolean containsAttributes(javax.swing.text.AttributeSet)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet copyAttributes()",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getAttribute(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributeCount",
+    "modifiers" : "public",
+    "signature" : "public int getAttributeCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributeNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration getAttributeNames()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolveParent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet getResolveParent()",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDefined",
+    "modifiers" : "public",
+    "signature" : "public boolean isDefined(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "attrName",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEqual",
+    "modifiers" : "public",
+    "signature" : "public boolean isEqual(javax.swing.text.AttributeSet)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttribute",
+    "modifiers" : "public",
+    "signature" : "public void removeAttribute(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributes",
+    "modifiers" : "public",
+    "signature" : "public void removeAttributes(java.util.Enumeration)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "names",
+      "type" : "java.util.Enumeration",
+      "genericType" : "java.util.Enumeration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributes",
+    "modifiers" : "public",
+    "signature" : "public void removeAttributes(javax.swing.text.AttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResolveParent",
+    "modifiers" : "public",
+    "signature" : "public void setResolveParent(javax.swing.text.AttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

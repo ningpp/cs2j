@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ls",
+  "binaryName" : "org.w3c.dom.ls.DOMImplementationLS",
+  "canonicalName" : "org.w3c.dom.ls.DOMImplementationLS",
+  "simpleName" : "DOMImplementationLS",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createLSInput",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSInput createLSInput()",
+    "returnType" : "org.w3c.dom.ls.LSInput",
+    "genericReturnType" : "org.w3c.dom.ls.LSInput",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLSOutput",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSOutput createLSOutput()",
+    "returnType" : "org.w3c.dom.ls.LSOutput",
+    "genericReturnType" : "org.w3c.dom.ls.LSOutput",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLSParser",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSParser createLSParser(short, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.ls.LSParser",
+    "genericReturnType" : "org.w3c.dom.ls.LSParser",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLSSerializer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSSerializer createLSSerializer()",
+    "returnType" : "org.w3c.dom.ls.LSSerializer",
+    "genericReturnType" : "org.w3c.dom.ls.LSSerializer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

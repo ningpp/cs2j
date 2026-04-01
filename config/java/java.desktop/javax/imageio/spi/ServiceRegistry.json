@@ -1,0 +1,353 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.ServiceRegistry",
+  "canonicalName" : "javax.imageio.spi.ServiceRegistry",
+  "simpleName" : "ServiceRegistry",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.spi.ServiceRegistry",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.ServiceRegistry(java.util.Iterator)",
+    "parameters" : [ {
+      "name" : "categories",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "provider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deregisterAll",
+    "modifiers" : "public",
+    "signature" : "public void deregisterAll()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deregisterAll",
+    "modifiers" : "public",
+    "signature" : "public void deregisterAll(java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deregisterServiceProvider",
+    "modifiers" : "public",
+    "signature" : "public void deregisterServiceProvider(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "provider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deregisterServiceProvider",
+    "modifiers" : "public",
+    "signature" : "public boolean deregisterServiceProvider(java.lang.Object, java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "provider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finalize",
+    "modifiers" : "public",
+    "signature" : "public void finalize() throws java.lang.Throwable",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCategories",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator getCategories()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServiceProviderByClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getServiceProviderByClass(java.lang.Class)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "providerClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServiceProviders",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator getServiceProviders(java.lang.Class, boolean)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "useOrdering",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServiceProviders",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator getServiceProviders(java.lang.Class, javax.imageio.spi.ServiceRegistry$Filter, boolean)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "javax.imageio.spi.ServiceRegistry$Filter",
+      "genericType" : "javax.imageio.spi.ServiceRegistry$Filter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "useOrdering",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupProviders",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator lookupProviders(java.lang.Class)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "providerClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupProviders",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator lookupProviders(java.lang.Class, java.lang.ClassLoader)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "providerClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerServiceProvider",
+    "modifiers" : "public",
+    "signature" : "public void registerServiceProvider(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "provider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerServiceProvider",
+    "modifiers" : "public",
+    "signature" : "public boolean registerServiceProvider(java.lang.Object, java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "provider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerServiceProviders",
+    "modifiers" : "public",
+    "signature" : "public void registerServiceProviders(java.util.Iterator)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "providers",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOrdering",
+    "modifiers" : "public",
+    "signature" : "public boolean setOrdering(java.lang.Class, java.lang.Object, java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstProvider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondProvider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unsetOrdering",
+    "modifiers" : "public",
+    "signature" : "public boolean unsetOrdering(java.lang.Class, java.lang.Object, java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstProvider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondProvider",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

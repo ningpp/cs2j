@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.StackMapFrameInfo$UninitializedVerificationTypeInfo",
+  "canonicalName" : "java.lang.classfile.attribute.StackMapFrameInfo.UninitializedVerificationTypeInfo",
+  "simpleName" : "UninitializedVerificationTypeInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.attribute.StackMapFrameInfo",
+  "interfaces" : [ "java.lang.classfile.attribute.StackMapFrameInfo$VerificationTypeInfo" ],
+  "declaredPublicMethods" : [ {
+    "name" : "newTarget",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label newTarget()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.StackMapFrameInfo$UninitializedVerificationTypeInfo of(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.attribute.StackMapFrameInfo$UninitializedVerificationTypeInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.StackMapFrameInfo$UninitializedVerificationTypeInfo",
+    "parameters" : [ {
+      "name" : "newTarget",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

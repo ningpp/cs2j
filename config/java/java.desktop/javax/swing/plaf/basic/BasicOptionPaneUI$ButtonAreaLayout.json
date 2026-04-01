@@ -1,0 +1,204 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicOptionPaneUI$ButtonAreaLayout",
+  "canonicalName" : "javax.swing.plaf.basic.BasicOptionPaneUI.ButtonAreaLayout",
+  "simpleName" : "ButtonAreaLayout",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicOptionPaneUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.LayoutManager" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicOptionPaneUI$ButtonAreaLayout",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicOptionPaneUI$ButtonAreaLayout(boolean, int)",
+    "parameters" : [ {
+      "name" : "syncAllWidths",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "padding",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void addLayoutComponent(java.lang.String, java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "string",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comp",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCentersChildren",
+    "modifiers" : "public",
+    "signature" : "public boolean getCentersChildren()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPadding",
+    "modifiers" : "public",
+    "signature" : "public int getPadding()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSyncAllWidths",
+    "modifiers" : "public",
+    "signature" : "public boolean getSyncAllWidths()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "layoutContainer",
+    "modifiers" : "public",
+    "signature" : "public void layoutContainer(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "container",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minimumLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension minimumLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferredLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension preferredLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void removeLayoutComponent(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCentersChildren",
+    "modifiers" : "public",
+    "signature" : "public void setCentersChildren(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPadding",
+    "modifiers" : "public",
+    "signature" : "public void setPadding(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newPadding",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSyncAllWidths",
+    "modifiers" : "public",
+    "signature" : "public void setSyncAllWidths(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

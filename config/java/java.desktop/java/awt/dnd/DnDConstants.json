@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DnDConstants",
+  "canonicalName" : "java.awt.dnd.DnDConstants",
+  "simpleName" : "DnDConstants",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

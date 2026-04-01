@@ -1,0 +1,114 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Gatherers",
+  "canonicalName" : "java.util.stream.Gatherers",
+  "simpleName" : "Gatherers",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "fold",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer fold(java.util.function.Supplier, java.util.function.BiFunction)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "initial",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "folder",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapConcurrent",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer mapConcurrent(int, java.util.function.Function)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "maxConcurrency",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scan",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer scan(java.util.function.Supplier, java.util.function.BiFunction)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "initial",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scanner",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowFixed",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer windowFixed(int)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "windowSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowSliding",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer windowSliding(int)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "windowSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

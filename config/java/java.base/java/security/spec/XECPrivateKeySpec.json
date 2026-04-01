@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.XECPrivateKeySpec",
+  "canonicalName" : "java.security.spec.XECPrivateKeySpec",
+  "simpleName" : "XECPrivateKeySpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.KeySpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.XECPrivateKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.XECPrivateKeySpec(java.security.spec.AlgorithmParameterSpec, byte[])",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scalar",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParams",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.AlgorithmParameterSpec getParams()",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScalar",
+    "modifiers" : "public",
+    "signature" : "public byte[] getScalar()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

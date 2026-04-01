@@ -1,0 +1,141 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels.spi",
+  "binaryName" : "java.nio.channels.spi.SelectorProvider",
+  "canonicalName" : "java.nio.channels.spi.SelectorProvider",
+  "simpleName" : "SelectorProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "inheritedChannel",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.Channel inheritedChannel() throws java.io.IOException",
+    "returnType" : "java.nio.channels.Channel",
+    "genericReturnType" : "java.nio.channels.Channel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openDatagramChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.DatagramChannel openDatagramChannel() throws java.io.IOException",
+    "returnType" : "java.nio.channels.DatagramChannel",
+    "genericReturnType" : "java.nio.channels.DatagramChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openDatagramChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.DatagramChannel openDatagramChannel(java.net.ProtocolFamily) throws java.io.IOException",
+    "returnType" : "java.nio.channels.DatagramChannel",
+    "genericReturnType" : "java.nio.channels.DatagramChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.ProtocolFamily",
+      "genericType" : "java.net.ProtocolFamily",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openPipe",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.Pipe openPipe() throws java.io.IOException",
+    "returnType" : "java.nio.channels.Pipe",
+    "genericReturnType" : "java.nio.channels.Pipe",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openSelector",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.spi.AbstractSelector openSelector() throws java.io.IOException",
+    "returnType" : "java.nio.channels.spi.AbstractSelector",
+    "genericReturnType" : "java.nio.channels.spi.AbstractSelector",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openServerSocketChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.ServerSocketChannel openServerSocketChannel() throws java.io.IOException",
+    "returnType" : "java.nio.channels.ServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.ServerSocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openServerSocketChannel",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.ServerSocketChannel openServerSocketChannel(java.net.ProtocolFamily) throws java.io.IOException",
+    "returnType" : "java.nio.channels.ServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.ServerSocketChannel",
+    "parameters" : [ {
+      "name" : "family",
+      "type" : "java.net.ProtocolFamily",
+      "genericType" : "java.net.ProtocolFamily",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openSocketChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SocketChannel openSocketChannel() throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openSocketChannel",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.SocketChannel openSocketChannel(java.net.ProtocolFamily) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "parameters" : [ {
+      "name" : "family",
+      "type" : "java.net.ProtocolFamily",
+      "genericType" : "java.net.ProtocolFamily",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.spi.SelectorProvider provider()",
+    "returnType" : "java.nio.channels.spi.SelectorProvider",
+    "genericReturnType" : "java.nio.channels.spi.SelectorProvider",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

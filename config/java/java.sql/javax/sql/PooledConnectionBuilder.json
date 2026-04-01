@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.PooledConnectionBuilder",
+  "canonicalName" : "javax.sql.PooledConnectionBuilder",
+  "simpleName" : "PooledConnectionBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.PooledConnection build() throws java.sql.SQLException",
+    "returnType" : "javax.sql.PooledConnection",
+    "genericReturnType" : "javax.sql.PooledConnection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "password",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.PooledConnectionBuilder password(java.lang.String)",
+    "returnType" : "javax.sql.PooledConnectionBuilder",
+    "genericReturnType" : "javax.sql.PooledConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shardingKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.PooledConnectionBuilder shardingKey(java.sql.ShardingKey)",
+    "returnType" : "javax.sql.PooledConnectionBuilder",
+    "genericReturnType" : "javax.sql.PooledConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ShardingKey",
+      "genericType" : "java.sql.ShardingKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superShardingKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.PooledConnectionBuilder superShardingKey(java.sql.ShardingKey)",
+    "returnType" : "javax.sql.PooledConnectionBuilder",
+    "genericReturnType" : "javax.sql.PooledConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ShardingKey",
+      "genericType" : "java.sql.ShardingKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "user",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.PooledConnectionBuilder user(java.lang.String)",
+    "returnType" : "javax.sql.PooledConnectionBuilder",
+    "genericReturnType" : "javax.sql.PooledConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

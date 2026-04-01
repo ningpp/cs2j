@@ -1,0 +1,390 @@
+{
+  "moduleName" : "java.security.jgss",
+  "packageName" : "org.ietf.jgss",
+  "binaryName" : "org.ietf.jgss.GSSManager",
+  "canonicalName" : "org.ietf.jgss.GSSManager",
+  "simpleName" : "GSSManager",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "org.ietf.jgss.GSSManager",
+    "modifiers" : "public",
+    "signature" : "public org.ietf.jgss.GSSManager()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addProviderAtEnd",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addProviderAtEnd(java.security.Provider, org.ietf.jgss.Oid) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addProviderAtFront",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addProviderAtFront(java.security.Provider, org.ietf.jgss.Oid) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSContext createContext(byte[]) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSContext",
+    "genericReturnType" : "org.ietf.jgss.GSSContext",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSContext createContext(org.ietf.jgss.GSSCredential) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSContext",
+    "genericReturnType" : "org.ietf.jgss.GSSContext",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.ietf.jgss.GSSCredential",
+      "genericType" : "org.ietf.jgss.GSSCredential",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSContext createContext(org.ietf.jgss.GSSName, org.ietf.jgss.Oid, org.ietf.jgss.GSSCredential, int) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSContext",
+    "genericReturnType" : "org.ietf.jgss.GSSContext",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.ietf.jgss.GSSName",
+      "genericType" : "org.ietf.jgss.GSSName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.GSSCredential",
+      "genericType" : "org.ietf.jgss.GSSCredential",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCredential",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSCredential createCredential(int) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSCredential",
+    "genericReturnType" : "org.ietf.jgss.GSSCredential",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCredential",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSCredential createCredential(org.ietf.jgss.GSSName, int, org.ietf.jgss.Oid, int) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSCredential",
+    "genericReturnType" : "org.ietf.jgss.GSSCredential",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.ietf.jgss.GSSName",
+      "genericType" : "org.ietf.jgss.GSSName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCredential",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSCredential createCredential(org.ietf.jgss.GSSName, int, org.ietf.jgss.Oid[], int) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSCredential",
+    "genericReturnType" : "org.ietf.jgss.GSSCredential",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.ietf.jgss.GSSName",
+      "genericType" : "org.ietf.jgss.GSSName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.Oid[]",
+      "genericType" : "org.ietf.jgss.Oid[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSName createName(byte[], org.ietf.jgss.Oid) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSName",
+    "genericReturnType" : "org.ietf.jgss.GSSName",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSName createName(byte[], org.ietf.jgss.Oid, org.ietf.jgss.Oid) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSName",
+    "genericReturnType" : "org.ietf.jgss.GSSName",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSName createName(java.lang.String, org.ietf.jgss.Oid) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSName",
+    "genericReturnType" : "org.ietf.jgss.GSSName",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSName createName(java.lang.String, org.ietf.jgss.Oid, org.ietf.jgss.Oid) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSName",
+    "genericReturnType" : "org.ietf.jgss.GSSName",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static org.ietf.jgss.GSSManager getInstance()",
+    "returnType" : "org.ietf.jgss.GSSManager",
+    "genericReturnType" : "org.ietf.jgss.GSSManager",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMechs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.Oid[] getMechs()",
+    "returnType" : "org.ietf.jgss.Oid[]",
+    "genericReturnType" : "org.ietf.jgss.Oid[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMechsForName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.Oid[] getMechsForName(org.ietf.jgss.Oid)",
+    "returnType" : "org.ietf.jgss.Oid[]",
+    "genericReturnType" : "org.ietf.jgss.Oid[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNamesForMech",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.Oid[] getNamesForMech(org.ietf.jgss.Oid) throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.Oid[]",
+    "genericReturnType" : "org.ietf.jgss.Oid[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.ietf.jgss.Oid",
+      "genericType" : "org.ietf.jgss.Oid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

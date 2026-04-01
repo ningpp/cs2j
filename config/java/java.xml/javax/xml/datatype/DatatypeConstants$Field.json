@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.datatype",
+  "binaryName" : "javax.xml.datatype.DatatypeConstants$Field",
+  "canonicalName" : "javax.xml.datatype.DatatypeConstants.Field",
+  "simpleName" : "Field",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.xml.datatype.DatatypeConstants",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getId",
+    "modifiers" : "public",
+    "signature" : "public int getId()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,145 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.MethodHandleInfo",
+  "canonicalName" : "java.lang.invoke.MethodHandleInfo",
+  "simpleName" : "MethodHandleInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getDeclaringClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class getDeclaringClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethodType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodType getMethodType()",
+    "returnType" : "java.lang.invoke.MethodType",
+    "genericReturnType" : "java.lang.invoke.MethodType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getModifiers()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReferenceKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getReferenceKind()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVarArgs",
+    "modifiers" : "public",
+    "signature" : "public boolean isVarArgs()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "referenceKindToString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String referenceKindToString(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "referenceKind",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reflectAs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.Member reflectAs(java.lang.Class, java.lang.invoke.MethodHandles$Lookup)",
+    "returnType" : "java.lang.reflect.Member",
+    "genericReturnType" : "java.lang.reflect.Member",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String toString(int, java.lang.Class, java.lang.String, java.lang.invoke.MethodType)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "kind",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

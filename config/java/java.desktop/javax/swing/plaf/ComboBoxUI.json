@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.ComboBoxUI",
+  "canonicalName" : "javax.swing.plaf.ComboBoxUI",
+  "simpleName" : "ComboBoxUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI",
+  "declaredPublicMethods" : [ {
+    "name" : "isFocusTraversable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isFocusTraversable(javax.swing.JComboBox)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPopupVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isPopupVisible(javax.swing.JComboBox)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPopupVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setPopupVisible(javax.swing.JComboBox, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

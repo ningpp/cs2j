@@ -1,0 +1,334 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.ElementFilter",
+  "canonicalName" : "javax.lang.model.util.ElementFilter",
+  "simpleName" : "ElementFilter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "constructorsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List constructorsIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constructorsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set constructorsIn(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List exportsIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "directives",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fieldsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List fieldsIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fieldsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set fieldsIn(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List methodsIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set methodsIn(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modulesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List modulesIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modulesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set modulesIn(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opensIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List opensIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "directives",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "packagesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List packagesIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "packagesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set packagesIn(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "providesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List providesIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "directives",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "recordComponentsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List recordComponentsIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "recordComponentsIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set recordComponentsIn(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requiresIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List requiresIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "directives",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List typesIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set typesIn(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "usesIn",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List usesIn(java.lang.Iterable)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "directives",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

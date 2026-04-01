@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.Savepoint",
+  "canonicalName" : "java.sql.Savepoint",
+  "simpleName" : "Savepoint",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getSavepointId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getSavepointId() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSavepointName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSavepointName() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

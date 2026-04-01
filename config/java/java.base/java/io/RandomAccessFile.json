@@ -1,0 +1,662 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.RandomAccessFile",
+  "canonicalName" : "java.io.RandomAccessFile",
+  "simpleName" : "RandomAccessFile",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Closeable", "java.io.DataInput", "java.io.DataOutput" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.RandomAccessFile",
+    "modifiers" : "public",
+    "signature" : "public java.io.RandomAccessFile(java.io.File, java.lang.String) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mode",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.RandomAccessFile",
+    "modifiers" : "public",
+    "signature" : "public java.io.RandomAccessFile(java.lang.String, java.lang.String) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "pathname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mode",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChannel",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.FileChannel getChannel()",
+    "returnType" : "java.nio.channels.FileChannel",
+    "genericReturnType" : "java.nio.channels.FileChannel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFD",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.FileDescriptor getFD() throws java.io.IOException",
+    "returnType" : "java.io.FileDescriptor",
+    "genericReturnType" : "java.io.FileDescriptor",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFilePointer",
+    "modifiers" : "public native",
+    "signature" : "public native long getFilePointer() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public",
+    "signature" : "public long length() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(byte[]) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(byte[], int, int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readBoolean",
+    "modifiers" : "public final",
+    "signature" : "public final boolean readBoolean() throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readByte",
+    "modifiers" : "public final",
+    "signature" : "public final byte readByte() throws java.io.IOException",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readChar",
+    "modifiers" : "public final",
+    "signature" : "public final char readChar() throws java.io.IOException",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readDouble",
+    "modifiers" : "public final",
+    "signature" : "public final double readDouble() throws java.io.IOException",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readFloat",
+    "modifiers" : "public final",
+    "signature" : "public final float readFloat() throws java.io.IOException",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readFully",
+    "modifiers" : "public final",
+    "signature" : "public final void readFully(byte[]) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readFully",
+    "modifiers" : "public final",
+    "signature" : "public final void readFully(byte[], int, int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readInt",
+    "modifiers" : "public final",
+    "signature" : "public final int readInt() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readLine",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String readLine() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readLong",
+    "modifiers" : "public final",
+    "signature" : "public final long readLong() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readShort",
+    "modifiers" : "public final",
+    "signature" : "public final short readShort() throws java.io.IOException",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readUTF",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String readUTF() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readUnsignedByte",
+    "modifiers" : "public final",
+    "signature" : "public final int readUnsignedByte() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readUnsignedShort",
+    "modifiers" : "public final",
+    "signature" : "public final int readUnsignedShort() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "seek",
+    "modifiers" : "public",
+    "signature" : "public void seek(long) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLength",
+    "modifiers" : "public",
+    "signature" : "public void setLength(long) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newLength",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skipBytes",
+    "modifiers" : "public",
+    "signature" : "public int skipBytes(int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(byte[]) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(byte[], int, int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeBoolean",
+    "modifiers" : "public final",
+    "signature" : "public final void writeBoolean(boolean) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeByte",
+    "modifiers" : "public final",
+    "signature" : "public final void writeByte(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeBytes",
+    "modifiers" : "public final",
+    "signature" : "public final void writeBytes(java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeChar",
+    "modifiers" : "public final",
+    "signature" : "public final void writeChar(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeChars",
+    "modifiers" : "public final",
+    "signature" : "public final void writeChars(java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeDouble",
+    "modifiers" : "public final",
+    "signature" : "public final void writeDouble(double) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeFloat",
+    "modifiers" : "public final",
+    "signature" : "public final void writeFloat(float) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeInt",
+    "modifiers" : "public final",
+    "signature" : "public final void writeInt(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeLong",
+    "modifiers" : "public final",
+    "signature" : "public final void writeLong(long) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeShort",
+    "modifiers" : "public final",
+    "signature" : "public final void writeShort(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeUTF",
+    "modifiers" : "public final",
+    "signature" : "public final void writeUTF(java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

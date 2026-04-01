@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.RuntimeOperationsException",
+  "canonicalName" : "javax.management.RuntimeOperationsException",
+  "simpleName" : "RuntimeOperationsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.JMRuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.RuntimeOperationsException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.RuntimeOperationsException(java.lang.RuntimeException)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.RuntimeException",
+      "genericType" : "java.lang.RuntimeException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.RuntimeOperationsException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.RuntimeOperationsException(java.lang.RuntimeException, java.lang.String)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.RuntimeException",
+      "genericType" : "java.lang.RuntimeException",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.RuntimeException getTargetException()",
+    "returnType" : "java.lang.RuntimeException",
+    "genericReturnType" : "java.lang.RuntimeException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

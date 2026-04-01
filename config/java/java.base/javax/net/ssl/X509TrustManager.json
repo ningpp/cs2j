@@ -1,0 +1,69 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.X509TrustManager",
+  "canonicalName" : "javax.net.ssl.X509TrustManager",
+  "simpleName" : "X509TrustManager",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.net.ssl.TrustManager" ],
+  "declaredPublicMethods" : [ {
+    "name" : "checkClientTrusted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void checkClientTrusted(java.security.cert.X509Certificate[], java.lang.String) throws java.security.cert.CertificateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.cert.X509Certificate[]",
+      "genericType" : "java.security.cert.X509Certificate[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkServerTrusted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void checkServerTrusted(java.security.cert.X509Certificate[], java.lang.String) throws java.security.cert.CertificateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.cert.X509Certificate[]",
+      "genericType" : "java.security.cert.X509Certificate[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAcceptedIssuers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.X509Certificate[] getAcceptedIssuers()",
+    "returnType" : "java.security.cert.X509Certificate[]",
+    "genericReturnType" : "java.security.cert.X509Certificate[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

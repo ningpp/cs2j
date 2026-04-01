@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.TextLayout$CaretPolicy",
+  "canonicalName" : "java.awt.font.TextLayout.CaretPolicy",
+  "simpleName" : "CaretPolicy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.font.TextLayout",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.font.TextLayout$CaretPolicy",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextLayout$CaretPolicy()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getStrongCaret",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getStrongCaret(java.awt.font.TextHitInfo, java.awt.font.TextHitInfo, java.awt.font.TextLayout)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "hit1",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hit2",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "layout",
+      "type" : "java.awt.font.TextLayout",
+      "genericType" : "java.awt.font.TextLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

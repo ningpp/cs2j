@@ -1,0 +1,73 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.VolatileCallSite",
+  "canonicalName" : "java.lang.invoke.VolatileCallSite",
+  "simpleName" : "VolatileCallSite",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.invoke.CallSite",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.invoke.VolatileCallSite",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.VolatileCallSite(java.lang.invoke.MethodHandle)",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.invoke.VolatileCallSite",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.VolatileCallSite(java.lang.invoke.MethodType)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "dynamicInvoker",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodHandle dynamicInvoker()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTarget",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodHandle getTarget()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTarget",
+    "modifiers" : "public",
+    "signature" : "public void setTarget(java.lang.invoke.MethodHandle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newTarget",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

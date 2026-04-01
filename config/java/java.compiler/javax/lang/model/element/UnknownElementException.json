@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.UnknownElementException",
+  "canonicalName" : "javax.lang.model.element.UnknownElementException",
+  "simpleName" : "UnknownElementException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.UnknownEntityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.lang.model.element.UnknownElementException",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.UnknownElementException(javax.lang.model.element.Element, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getArgument",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getArgument()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnknownElement",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.Element getUnknownElement()",
+    "returnType" : "javax.lang.model.element.Element",
+    "genericReturnType" : "javax.lang.model.element.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

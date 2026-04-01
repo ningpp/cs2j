@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.DragRecognitionSupport$BeforeDrag",
+  "canonicalName" : "javax.swing.plaf.basic.DragRecognitionSupport.BeforeDrag",
+  "simpleName" : "BeforeDrag",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.DragRecognitionSupport",
+  "declaredPublicMethods" : [ {
+    "name" : "dragStarting",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dragStarting(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

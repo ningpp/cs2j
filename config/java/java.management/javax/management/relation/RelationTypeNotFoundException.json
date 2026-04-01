@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RelationTypeNotFoundException",
+  "canonicalName" : "javax.management.relation.RelationTypeNotFoundException",
+  "simpleName" : "RelationTypeNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.relation.RelationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RelationTypeNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RelationTypeNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.RelationTypeNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RelationTypeNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.datatype",
+  "binaryName" : "javax.xml.datatype.DatatypeConfigurationException",
+  "canonicalName" : "javax.xml.datatype.DatatypeConfigurationException",
+  "simpleName" : "DatatypeConfigurationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.datatype.DatatypeConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.DatatypeConfigurationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.datatype.DatatypeConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.DatatypeConfigurationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.datatype.DatatypeConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.DatatypeConfigurationException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.datatype.DatatypeConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.DatatypeConfigurationException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

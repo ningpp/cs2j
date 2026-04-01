@@ -1,0 +1,291 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Process",
+  "canonicalName" : "java.lang.Process",
+  "simpleName" : "Process",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.Process",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "children",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream children()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descendants",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream descendants()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "destroy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void destroy()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "destroyForcibly",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process destroyForcibly()",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "errorReader",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.BufferedReader errorReader()",
+    "returnType" : "java.io.BufferedReader",
+    "genericReturnType" : "java.io.BufferedReader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "errorReader",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.BufferedReader errorReader(java.nio.charset.Charset)",
+    "returnType" : "java.io.BufferedReader",
+    "genericReturnType" : "java.io.BufferedReader",
+    "parameters" : [ {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exitValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int exitValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getErrorStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getErrorStream()",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getInputStream()",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.OutputStream getOutputStream()",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "info",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessHandle$Info info()",
+    "returnType" : "java.lang.ProcessHandle$Info",
+    "genericReturnType" : "java.lang.ProcessHandle$Info",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inputReader",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.BufferedReader inputReader()",
+    "returnType" : "java.io.BufferedReader",
+    "genericReturnType" : "java.io.BufferedReader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inputReader",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.BufferedReader inputReader(java.nio.charset.Charset)",
+    "returnType" : "java.io.BufferedReader",
+    "genericReturnType" : "java.io.BufferedReader",
+    "parameters" : [ {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAlive",
+    "modifiers" : "public",
+    "signature" : "public boolean isAlive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onExit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletableFuture onExit()",
+    "returnType" : "java.util.concurrent.CompletableFuture",
+    "genericReturnType" : "java.util.concurrent.CompletableFuture",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "outputWriter",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.BufferedWriter outputWriter()",
+    "returnType" : "java.io.BufferedWriter",
+    "genericReturnType" : "java.io.BufferedWriter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "outputWriter",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.BufferedWriter outputWriter(java.nio.charset.Charset)",
+    "returnType" : "java.io.BufferedWriter",
+    "genericReturnType" : "java.io.BufferedWriter",
+    "parameters" : [ {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pid",
+    "modifiers" : "public",
+    "signature" : "public long pid()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsNormalTermination",
+    "modifiers" : "public",
+    "signature" : "public boolean supportsNormalTermination()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toHandle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessHandle toHandle()",
+    "returnType" : "java.lang.ProcessHandle",
+    "genericReturnType" : "java.lang.ProcessHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "waitFor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int waitFor() throws java.lang.InterruptedException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "waitFor",
+    "modifiers" : "public",
+    "signature" : "public boolean waitFor(java.time.Duration) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "waitFor",
+    "modifiers" : "public",
+    "signature" : "public boolean waitFor(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

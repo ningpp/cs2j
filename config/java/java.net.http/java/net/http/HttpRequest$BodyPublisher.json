@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpRequest$BodyPublisher",
+  "canonicalName" : "java.net.http.HttpRequest.BodyPublisher",
+  "simpleName" : "BodyPublisher",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpRequest",
+  "interfaces" : [ "java.util.concurrent.Flow$Publisher" ],
+  "declaredPublicMethods" : [ {
+    "name" : "contentLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long contentLength()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

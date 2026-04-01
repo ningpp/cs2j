@@ -1,0 +1,371 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Attributes",
+  "canonicalName" : "java.lang.classfile.Attributes",
+  "simpleName" : "Attributes",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "annotationDefault",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper annotationDefault()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bootstrapMethods",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper bootstrapMethods()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "characterRangeTable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper characterRangeTable()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "code",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper code()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compilationId",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper compilationId()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constantValue",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper constantValue()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deprecated",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper deprecated()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enclosingMethod",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper enclosingMethod()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exceptions",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper exceptions()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "innerClasses",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper innerClasses()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lineNumberTable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper lineNumberTable()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localVariableTable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper localVariableTable()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localVariableTypeTable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper localVariableTypeTable()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodParameters",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper methodParameters()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "module",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper module()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleHashes",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper moduleHashes()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleMainClass",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper moduleMainClass()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modulePackages",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper modulePackages()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleResolution",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper moduleResolution()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleTarget",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper moduleTarget()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nestHost",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper nestHost()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nestMembers",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper nestMembers()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "permittedSubclasses",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper permittedSubclasses()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "record",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper record()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeInvisibleAnnotations",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper runtimeInvisibleAnnotations()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeInvisibleParameterAnnotations",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper runtimeInvisibleParameterAnnotations()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeInvisibleTypeAnnotations",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper runtimeInvisibleTypeAnnotations()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeVisibleAnnotations",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper runtimeVisibleAnnotations()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeVisibleParameterAnnotations",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper runtimeVisibleParameterAnnotations()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeVisibleTypeAnnotations",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper runtimeVisibleTypeAnnotations()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "signature",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper signature()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sourceDebugExtension",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper sourceDebugExtension()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sourceFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper sourceFile()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sourceId",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper sourceId()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stackMapTable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper stackMapTable()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synthetic",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AttributeMapper synthetic()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

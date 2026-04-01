@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.KeyRep$Type",
+  "canonicalName" : "java.security.KeyRep.Type",
+  "simpleName" : "Type",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.security.KeyRep",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.KeyRep$Type valueOf(java.lang.String)",
+    "returnType" : "java.security.KeyRep$Type",
+    "genericReturnType" : "java.security.KeyRep$Type",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.KeyRep$Type[] values()",
+    "returnType" : "java.security.KeyRep$Type[]",
+    "genericReturnType" : "java.security.KeyRep$Type[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

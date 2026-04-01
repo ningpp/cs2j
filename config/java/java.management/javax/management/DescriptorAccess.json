@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.DescriptorAccess",
+  "canonicalName" : "javax.management.DescriptorAccess",
+  "simpleName" : "DescriptorAccess",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.DescriptorRead" ],
+  "declaredPublicMethods" : [ {
+    "name" : "setDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDescriptor(javax.management.Descriptor)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

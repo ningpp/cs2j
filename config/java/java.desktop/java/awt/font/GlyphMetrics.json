@@ -1,0 +1,192 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.GlyphMetrics",
+  "canonicalName" : "java.awt.font.GlyphMetrics",
+  "simpleName" : "GlyphMetrics",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.font.GlyphMetrics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.GlyphMetrics(boolean, float, float, java.awt.geom.Rectangle2D, byte)",
+    "parameters" : [ {
+      "name" : "horizontal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "advanceX",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "advanceY",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "glyphType",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.font.GlyphMetrics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.GlyphMetrics(float, java.awt.geom.Rectangle2D, byte)",
+    "parameters" : [ {
+      "name" : "advance",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "glyphType",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAdvance",
+    "modifiers" : "public",
+    "signature" : "public float getAdvance()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAdvanceX",
+    "modifiers" : "public",
+    "signature" : "public float getAdvanceX()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAdvanceY",
+    "modifiers" : "public",
+    "signature" : "public float getAdvanceY()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds2D",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D getBounds2D()",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLSB",
+    "modifiers" : "public",
+    "signature" : "public float getLSB()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRSB",
+    "modifiers" : "public",
+    "signature" : "public float getRSB()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCombining",
+    "modifiers" : "public",
+    "signature" : "public boolean isCombining()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isComponent",
+    "modifiers" : "public",
+    "signature" : "public boolean isComponent()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLigature",
+    "modifiers" : "public",
+    "signature" : "public boolean isLigature()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStandard",
+    "modifiers" : "public",
+    "signature" : "public boolean isStandard()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWhitespace",
+    "modifiers" : "public",
+    "signature" : "public boolean isWhitespace()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

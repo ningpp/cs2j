@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Delayed",
+  "canonicalName" : "java.util.concurrent.Delayed",
+  "simpleName" : "Delayed",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDelay",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getDelay(java.util.concurrent.TimeUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

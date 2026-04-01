@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.InterruptedException",
+  "canonicalName" : "java.lang.InterruptedException",
+  "simpleName" : "InterruptedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.InterruptedException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.InterruptedException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.InterruptedException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.InterruptedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

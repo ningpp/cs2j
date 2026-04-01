@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.SwitchPoint",
+  "canonicalName" : "java.lang.invoke.SwitchPoint",
+  "simpleName" : "SwitchPoint",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.invoke.SwitchPoint",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.SwitchPoint()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "guardWithTest",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle guardWithTest(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fallback",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasBeenInvalidated",
+    "modifiers" : "public",
+    "signature" : "public boolean hasBeenInvalidated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invalidateAll",
+    "modifiers" : "public static",
+    "signature" : "public static void invalidateAll(java.lang.invoke.SwitchPoint[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "switchPoints",
+      "type" : "java.lang.invoke.SwitchPoint[]",
+      "genericType" : "java.lang.invoke.SwitchPoint[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.AcceptPendingException",
+  "canonicalName" : "java.nio.channels.AcceptPendingException",
+  "simpleName" : "AcceptPendingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.AcceptPendingException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.AcceptPendingException()",
+    "varArgs" : false
+  } ]
+}

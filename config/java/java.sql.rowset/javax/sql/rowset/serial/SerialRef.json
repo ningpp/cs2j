@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.serial",
+  "binaryName" : "javax.sql.rowset.serial.SerialRef",
+  "canonicalName" : "javax.sql.rowset.serial.SerialRef",
+  "simpleName" : "SerialRef",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable", "java.sql.Ref" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.rowset.serial.SerialRef",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.serial.SerialRef(java.sql.Ref) throws javax.sql.rowset.serial.SerialException, java.sql.SQLException",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.sql.Ref",
+      "genericType" : "java.sql.Ref",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException", "java.sql.SQLException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaseTypeName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getBaseTypeName() throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getObject() throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getObject(java.util.Map) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setObject",
+    "modifiers" : "public",
+    "signature" : "public void setObject(java.lang.Object) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

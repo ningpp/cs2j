@@ -1,0 +1,264 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Gatherer",
+  "canonicalName" : "java.util.stream.Gatherer",
+  "simpleName" : "Gatherer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Gatherer andThen(java.util.stream.Gatherer)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.util.stream.Gatherer",
+      "genericType" : "java.util.stream.Gatherer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "combiner",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.BinaryOperator combiner()",
+    "returnType" : "java.util.function.BinaryOperator",
+    "genericReturnType" : "java.util.function.BinaryOperator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "defaultCombiner",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.BinaryOperator defaultCombiner()",
+    "returnType" : "java.util.function.BinaryOperator",
+    "genericReturnType" : "java.util.function.BinaryOperator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultFinisher",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.BiConsumer defaultFinisher()",
+    "returnType" : "java.util.function.BiConsumer",
+    "genericReturnType" : "java.util.function.BiConsumer",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultInitializer",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.Supplier defaultInitializer()",
+    "returnType" : "java.util.function.Supplier",
+    "genericReturnType" : "java.util.function.Supplier",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finisher",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.BiConsumer finisher()",
+    "returnType" : "java.util.function.BiConsumer",
+    "genericReturnType" : "java.util.function.BiConsumer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "initializer",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.Supplier initializer()",
+    "returnType" : "java.util.function.Supplier",
+    "genericReturnType" : "java.util.function.Supplier",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "integrator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Gatherer$Integrator integrator()",
+    "returnType" : "java.util.stream.Gatherer$Integrator",
+    "genericReturnType" : "java.util.stream.Gatherer$Integrator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer of(java.util.function.Supplier, java.util.stream.Gatherer$Integrator, java.util.function.BinaryOperator, java.util.function.BiConsumer)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "initializer",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "combiner",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer of(java.util.stream.Gatherer$Integrator)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer of(java.util.stream.Gatherer$Integrator, java.util.function.BiConsumer)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSequential",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer ofSequential(java.util.function.Supplier, java.util.stream.Gatherer$Integrator)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "initializer",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSequential",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer ofSequential(java.util.function.Supplier, java.util.stream.Gatherer$Integrator, java.util.function.BiConsumer)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "initializer",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSequential",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer ofSequential(java.util.stream.Gatherer$Integrator)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSequential",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer ofSequential(java.util.stream.Gatherer$Integrator, java.util.function.BiConsumer)",
+    "returnType" : "java.util.stream.Gatherer",
+    "genericReturnType" : "java.util.stream.Gatherer",
+    "parameters" : [ {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,244 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image.renderable",
+  "binaryName" : "java.awt.image.renderable.RenderContext",
+  "canonicalName" : "java.awt.image.renderable.RenderContext",
+  "simpleName" : "RenderContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.renderable.RenderContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.renderable.RenderContext(java.awt.geom.AffineTransform)",
+    "parameters" : [ {
+      "name" : "usr2dev",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.renderable.RenderContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.renderable.RenderContext(java.awt.geom.AffineTransform, java.awt.RenderingHints)",
+    "parameters" : [ {
+      "name" : "usr2dev",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.renderable.RenderContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.renderable.RenderContext(java.awt.geom.AffineTransform, java.awt.Shape)",
+    "parameters" : [ {
+      "name" : "usr2dev",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aoi",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.renderable.RenderContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.renderable.RenderContext(java.awt.geom.AffineTransform, java.awt.Shape, java.awt.RenderingHints)",
+    "parameters" : [ {
+      "name" : "usr2dev",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aoi",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "concatenateTransform",
+    "modifiers" : "public",
+    "signature" : "public void concatenateTransform(java.awt.geom.AffineTransform)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "modTransform",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "concetenateTransform",
+    "modifiers" : "public",
+    "signature" : "public void concetenateTransform(java.awt.geom.AffineTransform)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "modTransform",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAreaOfInterest",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getAreaOfInterest()",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRenderingHints",
+    "modifiers" : "public",
+    "signature" : "public java.awt.RenderingHints getRenderingHints()",
+    "returnType" : "java.awt.RenderingHints",
+    "genericReturnType" : "java.awt.RenderingHints",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransform",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.AffineTransform getTransform()",
+    "returnType" : "java.awt.geom.AffineTransform",
+    "genericReturnType" : "java.awt.geom.AffineTransform",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preConcatenateTransform",
+    "modifiers" : "public",
+    "signature" : "public void preConcatenateTransform(java.awt.geom.AffineTransform)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "modTransform",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preConcetenateTransform",
+    "modifiers" : "public",
+    "signature" : "public void preConcetenateTransform(java.awt.geom.AffineTransform)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "modTransform",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAreaOfInterest",
+    "modifiers" : "public",
+    "signature" : "public void setAreaOfInterest(java.awt.Shape)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newAoi",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRenderingHints",
+    "modifiers" : "public",
+    "signature" : "public void setRenderingHints(java.awt.RenderingHints)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTransform",
+    "modifiers" : "public",
+    "signature" : "public void setTransform(java.awt.geom.AffineTransform)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newTransform",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

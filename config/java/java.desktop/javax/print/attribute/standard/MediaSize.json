@@ -1,0 +1,214 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute.standard",
+  "binaryName" : "javax.print.attribute.standard.MediaSize",
+  "canonicalName" : "javax.print.attribute.standard.MediaSize",
+  "simpleName" : "MediaSize",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.attribute.Size2DSyntax",
+  "interfaces" : [ "javax.print.attribute.Attribute" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.standard.MediaSize",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.MediaSize(float, float, int)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.standard.MediaSize",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.MediaSize(float, float, int, javax.print.attribute.standard.MediaSizeName)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "media",
+      "type" : "javax.print.attribute.standard.MediaSizeName",
+      "genericType" : "javax.print.attribute.standard.MediaSizeName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.standard.MediaSize",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.MediaSize(int, int, int)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.standard.MediaSize",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.MediaSize(int, int, int, javax.print.attribute.standard.MediaSizeName)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "media",
+      "type" : "javax.print.attribute.standard.MediaSizeName",
+      "genericType" : "javax.print.attribute.standard.MediaSizeName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findMedia",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.standard.MediaSizeName findMedia(float, float, int)",
+    "returnType" : "javax.print.attribute.standard.MediaSizeName",
+    "genericReturnType" : "javax.print.attribute.standard.MediaSizeName",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "units",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCategory",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Class getCategory()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMediaSizeForName",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.standard.MediaSize getMediaSizeForName(javax.print.attribute.standard.MediaSizeName)",
+    "returnType" : "javax.print.attribute.standard.MediaSize",
+    "genericReturnType" : "javax.print.attribute.standard.MediaSize",
+    "parameters" : [ {
+      "name" : "media",
+      "type" : "javax.print.attribute.standard.MediaSizeName",
+      "genericType" : "javax.print.attribute.standard.MediaSizeName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMediaSizeName",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.MediaSizeName getMediaSizeName()",
+    "returnType" : "javax.print.attribute.standard.MediaSizeName",
+    "genericReturnType" : "javax.print.attribute.standard.MediaSizeName",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.prefs",
+  "packageName" : "java.util.prefs",
+  "binaryName" : "java.util.prefs.PreferencesFactory",
+  "canonicalName" : "java.util.prefs.PreferencesFactory",
+  "simpleName" : "PreferencesFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "systemRoot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.prefs.Preferences systemRoot()",
+    "returnType" : "java.util.prefs.Preferences",
+    "genericReturnType" : "java.util.prefs.Preferences",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "userRoot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.prefs.Preferences userRoot()",
+    "returnType" : "java.util.prefs.Preferences",
+    "genericReturnType" : "java.util.prefs.Preferences",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

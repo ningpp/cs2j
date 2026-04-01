@@ -1,0 +1,191 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.InternationalFormatter",
+  "canonicalName" : "javax.swing.text.InternationalFormatter",
+  "simpleName" : "InternationalFormatter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.DefaultFormatter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.InternationalFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.InternationalFormatter()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.InternationalFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.InternationalFormatter(java.text.Format)",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "java.text.Format",
+      "genericType" : "java.text.Format",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone() throws java.lang.CloneNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.CloneNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFields",
+    "modifiers" : "public",
+    "signature" : "public java.text.Format$Field[] getFields(int)",
+    "returnType" : "java.text.Format$Field[]",
+    "genericReturnType" : "java.text.Format$Field[]",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.Format getFormat()",
+    "returnType" : "java.text.Format",
+    "genericReturnType" : "java.text.Format",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximum",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Comparable getMaximum()",
+    "returnType" : "java.lang.Comparable",
+    "genericReturnType" : "java.lang.Comparable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimum",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Comparable getMinimum()",
+    "returnType" : "java.lang.Comparable",
+    "genericReturnType" : "java.lang.Comparable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "install",
+    "modifiers" : "public",
+    "signature" : "public void install(javax.swing.JFormattedTextField)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ftf",
+      "type" : "javax.swing.JFormattedTextField",
+      "genericType" : "javax.swing.JFormattedTextField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFormat",
+    "modifiers" : "public",
+    "signature" : "public void setFormat(java.text.Format)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "java.text.Format",
+      "genericType" : "java.text.Format",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximum",
+    "modifiers" : "public",
+    "signature" : "public void setMaximum(java.lang.Comparable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "max",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinimum",
+    "modifiers" : "public",
+    "signature" : "public void setMinimum(java.lang.Comparable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "minimum",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stringToValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object stringToValue(java.lang.String) throws java.text.ParseException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueToString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String valueToString(java.lang.Object) throws java.text.ParseException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

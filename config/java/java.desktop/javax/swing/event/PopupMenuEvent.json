@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.PopupMenuEvent",
+  "canonicalName" : "javax.swing.event.PopupMenuEvent",
+  "simpleName" : "PopupMenuEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.PopupMenuEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.PopupMenuEvent(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

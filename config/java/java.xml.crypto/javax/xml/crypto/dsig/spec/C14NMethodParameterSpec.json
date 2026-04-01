@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.C14NMethodParameterSpec",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.C14NMethodParameterSpec",
+  "simpleName" : "C14NMethodParameterSpec",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.dsig.spec.TransformParameterSpec" ]
+}

@@ -1,0 +1,769 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+  "canonicalName" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+  "simpleName" : "ConstantPoolBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.ConstantPool" ],
+  "declaredPublicMethods" : [ {
+    "name" : "bsmEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.BootstrapMethodEntry bsmEntry(java.lang.classfile.constantpool.MethodHandleEntry, java.util.List)",
+    "returnType" : "java.lang.classfile.BootstrapMethodEntry",
+    "genericReturnType" : "java.lang.classfile.BootstrapMethodEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.MethodHandleEntry",
+      "genericType" : "java.lang.classfile.constantpool.MethodHandleEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bsmEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.BootstrapMethodEntry bsmEntry(java.lang.constant.DirectMethodHandleDesc, java.util.List)",
+    "returnType" : "java.lang.classfile.BootstrapMethodEntry",
+    "genericReturnType" : "java.lang.classfile.BootstrapMethodEntry",
+    "parameters" : [ {
+      "name" : "methodReference",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arguments",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "canWriteDirect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean canWriteDirect(java.lang.classfile.constantpool.ConstantPool)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.ConstantPool",
+      "genericType" : "java.lang.classfile.constantpool.ConstantPool",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "classEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ClassEntry classEntry(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "classEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ClassEntry classEntry(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "parameters" : [ {
+      "name" : "classDesc",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "constantDynamicEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ConstantDynamicEntry constantDynamicEntry(java.lang.classfile.BootstrapMethodEntry, java.lang.classfile.constantpool.NameAndTypeEntry)",
+    "returnType" : "java.lang.classfile.constantpool.ConstantDynamicEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ConstantDynamicEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.BootstrapMethodEntry",
+      "genericType" : "java.lang.classfile.BootstrapMethodEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "genericType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constantDynamicEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ConstantDynamicEntry constantDynamicEntry(java.lang.constant.DynamicConstantDesc)",
+    "returnType" : "java.lang.classfile.constantpool.ConstantDynamicEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ConstantDynamicEntry",
+    "parameters" : [ {
+      "name" : "dcd",
+      "type" : "java.lang.constant.DynamicConstantDesc",
+      "genericType" : "java.lang.constant.DynamicConstantDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "constantValueEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ConstantValueEntry constantValueEntry(java.lang.constant.ConstantDesc)",
+    "returnType" : "java.lang.classfile.constantpool.ConstantValueEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ConstantValueEntry",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.constant.ConstantDesc",
+      "genericType" : "java.lang.constant.ConstantDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "doubleEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.DoubleEntry doubleEntry(double)",
+    "returnType" : "java.lang.classfile.constantpool.DoubleEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.DoubleEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fieldRefEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.FieldRefEntry fieldRefEntry(java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.NameAndTypeEntry)",
+    "returnType" : "java.lang.classfile.constantpool.FieldRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.FieldRefEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "genericType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fieldRefEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.FieldRefEntry fieldRefEntry(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.constantpool.FieldRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.FieldRefEntry",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "floatEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.FloatEntry floatEntry(float)",
+    "returnType" : "java.lang.classfile.constantpool.FloatEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.FloatEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.IntegerEntry intEntry(int)",
+    "returnType" : "java.lang.classfile.constantpool.IntegerEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.IntegerEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interfaceMethodRefEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.InterfaceMethodRefEntry interfaceMethodRefEntry(java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.NameAndTypeEntry)",
+    "returnType" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "genericType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interfaceMethodRefEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.InterfaceMethodRefEntry interfaceMethodRefEntry(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokeDynamicEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.InvokeDynamicEntry invokeDynamicEntry(java.lang.classfile.BootstrapMethodEntry, java.lang.classfile.constantpool.NameAndTypeEntry)",
+    "returnType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.BootstrapMethodEntry",
+      "genericType" : "java.lang.classfile.BootstrapMethodEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "genericType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeDynamicEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.InvokeDynamicEntry invokeDynamicEntry(java.lang.constant.DynamicCallSiteDesc)",
+    "returnType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+    "parameters" : [ {
+      "name" : "dcsd",
+      "type" : "java.lang.constant.DynamicCallSiteDesc",
+      "genericType" : "java.lang.constant.DynamicCallSiteDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "loadableConstantEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.LoadableConstantEntry loadableConstantEntry(java.lang.constant.ConstantDesc)",
+    "returnType" : "java.lang.classfile.constantpool.LoadableConstantEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.LoadableConstantEntry",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.constant.ConstantDesc",
+      "genericType" : "java.lang.constant.ConstantDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "longEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.LongEntry longEntry(long)",
+    "returnType" : "java.lang.classfile.constantpool.LongEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.LongEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodHandleEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.MethodHandleEntry methodHandleEntry(int, java.lang.classfile.constantpool.MemberRefEntry)",
+    "returnType" : "java.lang.classfile.constantpool.MethodHandleEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MethodHandleEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.MemberRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.MemberRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodHandleEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.MethodHandleEntry methodHandleEntry(java.lang.constant.DirectMethodHandleDesc)",
+    "returnType" : "java.lang.classfile.constantpool.MethodHandleEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MethodHandleEntry",
+    "parameters" : [ {
+      "name" : "descriptor",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "methodRefEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.MethodRefEntry methodRefEntry(java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.NameAndTypeEntry)",
+    "returnType" : "java.lang.classfile.constantpool.MethodRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MethodRefEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "genericType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodRefEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.MethodRefEntry methodRefEntry(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.constantpool.MethodRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MethodRefEntry",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "methodTypeEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.MethodTypeEntry methodTypeEntry(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.constantpool.MethodTypeEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MethodTypeEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodTypeEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.MethodTypeEntry methodTypeEntry(java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.constantpool.MethodTypeEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MethodTypeEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ModuleEntry moduleEntry(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ModuleEntry moduleEntry(java.lang.constant.ModuleDesc)",
+    "returnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "parameters" : [ {
+      "name" : "moduleDesc",
+      "type" : "java.lang.constant.ModuleDesc",
+      "genericType" : "java.lang.constant.ModuleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "nameAndTypeEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.NameAndTypeEntry nameAndTypeEntry(java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "nameAndTypeEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.NameAndTypeEntry nameAndTypeEntry(java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "nameAndTypeEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.NameAndTypeEntry nameAndTypeEntry(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.constantpool.ConstantPoolBuilder of()",
+    "returnType" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+    "genericReturnType" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.constantpool.ConstantPoolBuilder of(java.lang.classfile.ClassModel)",
+    "returnType" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+    "genericReturnType" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+    "parameters" : [ {
+      "name" : "classModel",
+      "type" : "java.lang.classfile.ClassModel",
+      "genericType" : "java.lang.classfile.ClassModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "packageEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.PackageEntry packageEntry(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "packageEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.PackageEntry packageEntry(java.lang.constant.PackageDesc)",
+    "returnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "parameters" : [ {
+      "name" : "packageDesc",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "stringEntry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.StringEntry stringEntry(java.lang.String)",
+    "returnType" : "java.lang.classfile.constantpool.StringEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.StringEntry",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "stringEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.StringEntry stringEntry(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.constantpool.StringEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.StringEntry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "utf8Entry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry utf8Entry(java.lang.String)",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "utf8Entry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry utf8Entry(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "parameters" : [ {
+      "name" : "desc",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "utf8Entry",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry utf8Entry(java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "parameters" : [ {
+      "name" : "desc",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$CatchTarget",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.CatchTarget",
+  "simpleName" : "CatchTarget",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "interfaces" : [ "java.lang.classfile.TypeAnnotation$TargetInfo" ],
+  "declaredPublicMethods" : [ {
+    "name" : "exceptionTableIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int exceptionTableIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.annotation",
+  "binaryName" : "java.lang.annotation.Target",
+  "canonicalName" : "java.lang.annotation.Target",
+  "simpleName" : "Target",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ],
+  "declaredPublicMethods" : [ {
+    "name" : "value",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.annotation.ElementType[] value()",
+    "returnType" : "java.lang.annotation.ElementType[]",
+    "genericReturnType" : "java.lang.annotation.ElementType[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

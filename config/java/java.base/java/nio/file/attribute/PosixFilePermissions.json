@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.PosixFilePermissions",
+  "canonicalName" : "java.nio.file.attribute.PosixFilePermissions",
+  "simpleName" : "PosixFilePermissions",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "asFileAttribute",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.attribute.FileAttribute asFileAttribute(java.util.Set)",
+    "returnType" : "java.nio.file.attribute.FileAttribute",
+    "genericReturnType" : "java.nio.file.attribute.FileAttribute",
+    "parameters" : [ {
+      "name" : "perms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromString",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set fromString(java.lang.String)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "perms",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String toString(java.util.Set)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "perms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

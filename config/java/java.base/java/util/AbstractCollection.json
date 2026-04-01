@@ -1,0 +1,208 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.AbstractCollection",
+  "canonicalName" : "java.util.AbstractCollection",
+  "simpleName" : "AbstractCollection",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.Collection" ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public boolean add(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAll",
+    "modifiers" : "public",
+    "signature" : "public boolean addAll(java.util.Collection)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clear",
+    "modifiers" : "public",
+    "signature" : "public void clear()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsAll",
+    "modifiers" : "public",
+    "signature" : "public boolean containsAll(java.util.Collection)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public boolean remove(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAll",
+    "modifiers" : "public",
+    "signature" : "public boolean removeAll(java.util.Collection)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "retainAll",
+    "modifiers" : "public",
+    "signature" : "public boolean retainAll(java.util.Collection)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] toArray()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] toArray(java.lang.Object[])",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

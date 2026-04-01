@@ -1,0 +1,59 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$TargetType",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.TargetType",
+  "simpleName" : "TargetType",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "sizeIfFixed",
+    "modifiers" : "public",
+    "signature" : "public int sizeIfFixed()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "targetTypeValue",
+    "modifiers" : "public",
+    "signature" : "public int targetTypeValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TargetType valueOf(java.lang.String)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TargetType",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TargetType",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TargetType[] values()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TargetType[]",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TargetType[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

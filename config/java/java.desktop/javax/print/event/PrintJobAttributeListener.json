@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.event",
+  "binaryName" : "javax.print.event.PrintJobAttributeListener",
+  "canonicalName" : "javax.print.event.PrintJobAttributeListener",
+  "simpleName" : "PrintJobAttributeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "attributeUpdate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void attributeUpdate(javax.print.event.PrintJobAttributeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobAttributeEvent",
+      "genericType" : "javax.print.event.PrintJobAttributeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

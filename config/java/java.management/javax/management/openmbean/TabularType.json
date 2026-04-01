@@ -1,0 +1,117 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.TabularType",
+  "canonicalName" : "javax.management.openmbean.TabularType",
+  "simpleName" : "TabularType",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.openmbean.OpenType",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.TabularType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.TabularType(java.lang.String, java.lang.String, javax.management.openmbean.CompositeType, java.lang.String[]) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "typeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rowType",
+      "type" : "javax.management.openmbean.CompositeType",
+      "genericType" : "javax.management.openmbean.CompositeType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "indexNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndexNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getIndexNames()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.CompositeType getRowType()",
+    "returnType" : "javax.management.openmbean.CompositeType",
+    "genericReturnType" : "javax.management.openmbean.CompositeType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValue",
+    "modifiers" : "public",
+    "signature" : "public boolean isValue(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

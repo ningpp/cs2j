@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.random",
+  "binaryName" : "java.util.random.RandomGenerator$StreamableGenerator",
+  "canonicalName" : "java.util.random.RandomGenerator.StreamableGenerator",
+  "simpleName" : "StreamableGenerator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.random.RandomGenerator",
+  "interfaces" : [ "java.util.random.RandomGenerator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.random.RandomGenerator$StreamableGenerator of(java.lang.String)",
+    "returnType" : "java.util.random.RandomGenerator$StreamableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$StreamableGenerator",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rngs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream rngs()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rngs",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream rngs(long)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "streamSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

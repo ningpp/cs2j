@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.UserPrincipalLookupService",
+  "canonicalName" : "java.nio.file.attribute.UserPrincipalLookupService",
+  "simpleName" : "UserPrincipalLookupService",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "lookupPrincipalByGroupName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.GroupPrincipal lookupPrincipalByGroupName(java.lang.String) throws java.io.IOException",
+    "returnType" : "java.nio.file.attribute.GroupPrincipal",
+    "genericReturnType" : "java.nio.file.attribute.GroupPrincipal",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupPrincipalByName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.UserPrincipal lookupPrincipalByName(java.lang.String) throws java.io.IOException",
+    "returnType" : "java.nio.file.attribute.UserPrincipal",
+    "genericReturnType" : "java.nio.file.attribute.UserPrincipal",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

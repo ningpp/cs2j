@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.spi",
+  "binaryName" : "java.util.spi.CalendarDataProvider",
+  "canonicalName" : "java.util.spi.CalendarDataProvider",
+  "simpleName" : "CalendarDataProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.spi.LocaleServiceProvider",
+  "declaredPublicMethods" : [ {
+    "name" : "getFirstDayOfWeek",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getFirstDayOfWeek(java.util.Locale)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimalDaysInFirstWeek",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMinimalDaysInFirstWeek(java.util.Locale)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

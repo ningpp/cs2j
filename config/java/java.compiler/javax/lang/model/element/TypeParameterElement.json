@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.TypeParameterElement",
+  "canonicalName" : "javax.lang.model.element.TypeParameterElement",
+  "simpleName" : "TypeParameterElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.element.Element" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.TypeMirror asType()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getBounds()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosingElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Element getEnclosingElement()",
+    "returnType" : "javax.lang.model.element.Element",
+    "genericReturnType" : "javax.lang.model.element.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGenericElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Element getGenericElement()",
+    "returnType" : "javax.lang.model.element.Element",
+    "genericReturnType" : "javax.lang.model.element.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

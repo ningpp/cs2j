@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.SerializablePermission",
+  "canonicalName" : "java.io.SerializablePermission",
+  "simpleName" : "SerializablePermission",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.BasicPermission",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.SerializablePermission",
+    "modifiers" : "public",
+    "signature" : "public java.io.SerializablePermission(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.SerializablePermission",
+    "modifiers" : "public",
+    "signature" : "public java.io.SerializablePermission(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

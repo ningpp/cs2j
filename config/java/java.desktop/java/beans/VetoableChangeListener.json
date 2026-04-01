@@ -1,0 +1,29 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.VetoableChangeListener",
+  "canonicalName" : "java.beans.VetoableChangeListener",
+  "simpleName" : "VetoableChangeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "vetoableChange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void vetoableChange(java.beans.PropertyChangeEvent) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

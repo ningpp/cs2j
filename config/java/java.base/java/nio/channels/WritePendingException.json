@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.WritePendingException",
+  "canonicalName" : "java.nio.channels.WritePendingException",
+  "simpleName" : "WritePendingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.WritePendingException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.WritePendingException()",
+    "varArgs" : false
+  } ]
+}

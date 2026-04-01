@@ -1,0 +1,166 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.ParameterMetaData",
+  "canonicalName" : "java.sql.ParameterMetaData",
+  "simpleName" : "ParameterMetaData",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.sql.Wrapper" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParameterClassName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getParameterClassName(int) throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getParameterCount() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getParameterMode(int) throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getParameterType(int) throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterTypeName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getParameterTypeName(int) throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrecision",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getPrecision(int) throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScale",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getScale(int) throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNullable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int isNullable(int) throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSigned",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSigned(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

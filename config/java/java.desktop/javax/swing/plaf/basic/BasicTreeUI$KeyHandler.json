@@ -1,0 +1,76 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicTreeUI$KeyHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicTreeUI.KeyHandler",
+  "simpleName" : "KeyHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicTreeUI",
+  "superClass" : "java.awt.event.KeyAdapter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicTreeUI$KeyHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicTreeUI$KeyHandler(javax.swing.plaf.basic.BasicTreeUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicTreeUI",
+      "genericType" : "javax.swing.plaf.basic.BasicTreeUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "keyPressed",
+    "modifiers" : "public",
+    "signature" : "public void keyPressed(java.awt.event.KeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyReleased",
+    "modifiers" : "public",
+    "signature" : "public void keyReleased(java.awt.event.KeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyTyped",
+    "modifiers" : "public",
+    "signature" : "public void keyTyped(java.awt.event.KeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

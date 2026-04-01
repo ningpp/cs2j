@@ -1,0 +1,74 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.StartTlsRequest",
+  "canonicalName" : "javax.naming.ldap.StartTlsRequest",
+  "simpleName" : "StartTlsRequest",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.naming.ldap.ExtendedRequest" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.StartTlsRequest",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.StartTlsRequest()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createExtendedResponse",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.ExtendedResponse createExtendedResponse(java.lang.String, byte[], int, int) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.ExtendedResponse",
+    "genericReturnType" : "javax.naming.ldap.ExtendedResponse",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "berValue",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncodedValue",
+    "modifiers" : "public",
+    "signature" : "public byte[] getEncodedValue()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

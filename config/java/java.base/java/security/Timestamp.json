@@ -1,0 +1,88 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.Timestamp",
+  "canonicalName" : "java.security.Timestamp",
+  "simpleName" : "Timestamp",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.Timestamp",
+    "modifiers" : "public",
+    "signature" : "public java.security.Timestamp(java.util.Date, java.security.cert.CertPath)",
+    "parameters" : [ {
+      "name" : "timestamp",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signerCertPath",
+      "type" : "java.security.cert.CertPath",
+      "genericType" : "java.security.cert.CertPath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSignerCertPath",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPath getSignerCertPath()",
+    "returnType" : "java.security.cert.CertPath",
+    "genericReturnType" : "java.security.cert.CertPath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimestamp",
+    "modifiers" : "public",
+    "signature" : "public java.util.Date getTimestamp()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

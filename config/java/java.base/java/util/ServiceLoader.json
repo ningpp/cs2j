@@ -1,0 +1,142 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.ServiceLoader",
+  "canonicalName" : "java.util.ServiceLoader",
+  "simpleName" : "ServiceLoader",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Iterable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "findFirst",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional findFirst()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ServiceLoader load(java.lang.Class)",
+    "returnType" : "java.util.ServiceLoader",
+    "genericReturnType" : "java.util.ServiceLoader",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ServiceLoader load(java.lang.Class, java.lang.ClassLoader)",
+    "returnType" : "java.util.ServiceLoader",
+    "genericReturnType" : "java.util.ServiceLoader",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ServiceLoader load(java.lang.ModuleLayer, java.lang.Class)",
+    "returnType" : "java.util.ServiceLoader",
+    "genericReturnType" : "java.util.ServiceLoader",
+    "parameters" : [ {
+      "name" : "layer",
+      "type" : "java.lang.ModuleLayer",
+      "genericType" : "java.lang.ModuleLayer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "service",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadInstalled",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ServiceLoader loadInstalled(java.lang.Class)",
+    "returnType" : "java.util.ServiceLoader",
+    "genericReturnType" : "java.util.ServiceLoader",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reload",
+    "modifiers" : "public",
+    "signature" : "public void reload()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stream",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream stream()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

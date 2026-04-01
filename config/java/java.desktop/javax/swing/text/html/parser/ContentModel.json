@@ -1,0 +1,136 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.ContentModel",
+  "canonicalName" : "javax.swing.text.html.parser.ContentModel",
+  "simpleName" : "ContentModel",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.parser.ContentModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.ContentModel()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.parser.ContentModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.ContentModel(int, java.lang.Object, javax.swing.text.html.parser.ContentModel)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "content",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "next",
+      "type" : "javax.swing.text.html.parser.ContentModel",
+      "genericType" : "javax.swing.text.html.parser.ContentModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.parser.ContentModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.ContentModel(int, javax.swing.text.html.parser.ContentModel)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "content",
+      "type" : "javax.swing.text.html.parser.ContentModel",
+      "genericType" : "javax.swing.text.html.parser.ContentModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.parser.ContentModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.ContentModel(javax.swing.text.html.parser.Element)",
+    "parameters" : [ {
+      "name" : "content",
+      "type" : "javax.swing.text.html.parser.Element",
+      "genericType" : "javax.swing.text.html.parser.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "empty",
+    "modifiers" : "public",
+    "signature" : "public boolean empty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "first",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Element first()",
+    "returnType" : "javax.swing.text.html.parser.Element",
+    "genericReturnType" : "javax.swing.text.html.parser.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "first",
+    "modifiers" : "public",
+    "signature" : "public boolean first(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "token",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElements",
+    "modifiers" : "public",
+    "signature" : "public void getElements(java.util.Vector)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elemVec",
+      "type" : "java.util.Vector",
+      "genericType" : "java.util.Vector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

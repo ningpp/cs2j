@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.instrument",
+  "packageName" : "java.lang.instrument",
+  "binaryName" : "java.lang.instrument.UnmodifiableClassException",
+  "canonicalName" : "java.lang.instrument.UnmodifiableClassException",
+  "simpleName" : "UnmodifiableClassException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.instrument.UnmodifiableClassException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.instrument.UnmodifiableClassException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.instrument.UnmodifiableClassException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.instrument.UnmodifiableClassException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

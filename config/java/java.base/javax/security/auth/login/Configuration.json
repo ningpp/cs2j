@@ -1,0 +1,179 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.login",
+  "binaryName" : "javax.security.auth.login.Configuration",
+  "canonicalName" : "javax.security.auth.login.Configuration",
+  "simpleName" : "Configuration",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAppConfigurationEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.security.auth.login.AppConfigurationEntry[] getAppConfigurationEntry(java.lang.String)",
+    "returnType" : "javax.security.auth.login.AppConfigurationEntry[]",
+    "genericReturnType" : "javax.security.auth.login.AppConfigurationEntry[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConfiguration",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.login.Configuration getConfiguration()",
+    "returnType" : "javax.security.auth.login.Configuration",
+    "genericReturnType" : "javax.security.auth.login.Configuration",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.login.Configuration getInstance(java.lang.String, javax.security.auth.login.Configuration$Parameters) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.security.auth.login.Configuration",
+    "genericReturnType" : "javax.security.auth.login.Configuration",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "javax.security.auth.login.Configuration$Parameters",
+      "genericType" : "javax.security.auth.login.Configuration$Parameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.login.Configuration getInstance(java.lang.String, javax.security.auth.login.Configuration$Parameters, java.lang.String) throws java.security.NoSuchProviderException, java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.security.auth.login.Configuration",
+    "genericReturnType" : "javax.security.auth.login.Configuration",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "javax.security.auth.login.Configuration$Parameters",
+      "genericType" : "javax.security.auth.login.Configuration$Parameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchProviderException", "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.login.Configuration getInstance(java.lang.String, javax.security.auth.login.Configuration$Parameters, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.security.auth.login.Configuration",
+    "genericReturnType" : "javax.security.auth.login.Configuration",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "javax.security.auth.login.Configuration$Parameters",
+      "genericType" : "javax.security.auth.login.Configuration$Parameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.Configuration$Parameters getParameters()",
+    "returnType" : "javax.security.auth.login.Configuration$Parameters",
+    "genericReturnType" : "javax.security.auth.login.Configuration$Parameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public",
+    "signature" : "public java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "refresh",
+    "modifiers" : "public",
+    "signature" : "public void refresh()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setConfiguration",
+    "modifiers" : "public static",
+    "signature" : "public static void setConfiguration(javax.security.auth.login.Configuration)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "configuration",
+      "type" : "javax.security.auth.login.Configuration",
+      "genericType" : "javax.security.auth.login.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

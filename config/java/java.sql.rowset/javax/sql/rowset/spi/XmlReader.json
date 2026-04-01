@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.spi",
+  "binaryName" : "javax.sql.rowset.spi.XmlReader",
+  "canonicalName" : "javax.sql.rowset.spi.XmlReader",
+  "simpleName" : "XmlReader",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.RowSetReader" ],
+  "declaredPublicMethods" : [ {
+    "name" : "readXML",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void readXML(javax.sql.rowset.WebRowSet, java.io.Reader) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.rowset.WebRowSet",
+      "genericType" : "javax.sql.rowset.WebRowSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

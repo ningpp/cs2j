@@ -1,0 +1,377 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.parsers",
+  "binaryName" : "javax.xml.parsers.SAXParser",
+  "canonicalName" : "javax.xml.parsers.SAXParser",
+  "simpleName" : "SAXParser",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getParser",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.Parser getParser() throws org.xml.sax.SAXException",
+    "returnType" : "org.xml.sax.Parser",
+    "genericReturnType" : "org.xml.sax.Parser",
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getProperty(java.lang.String) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.Schema getSchema()",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLReader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.XMLReader getXMLReader() throws org.xml.sax.SAXException",
+    "returnType" : "org.xml.sax.XMLReader",
+    "genericReturnType" : "org.xml.sax.XMLReader",
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNamespaceAware",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isNamespaceAware()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValidating",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValidating()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isXIncludeAware",
+    "modifiers" : "public",
+    "signature" : "public boolean isXIncludeAware()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.File, org.xml.sax.HandlerBase) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hb",
+      "type" : "org.xml.sax.HandlerBase",
+      "genericType" : "org.xml.sax.HandlerBase",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.File, org.xml.sax.helpers.DefaultHandler) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dh",
+      "type" : "org.xml.sax.helpers.DefaultHandler",
+      "genericType" : "org.xml.sax.helpers.DefaultHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.InputStream, org.xml.sax.HandlerBase) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hb",
+      "type" : "org.xml.sax.HandlerBase",
+      "genericType" : "org.xml.sax.HandlerBase",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.InputStream, org.xml.sax.HandlerBase, java.lang.String) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hb",
+      "type" : "org.xml.sax.HandlerBase",
+      "genericType" : "org.xml.sax.HandlerBase",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.InputStream, org.xml.sax.helpers.DefaultHandler) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dh",
+      "type" : "org.xml.sax.helpers.DefaultHandler",
+      "genericType" : "org.xml.sax.helpers.DefaultHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.InputStream, org.xml.sax.helpers.DefaultHandler, java.lang.String) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dh",
+      "type" : "org.xml.sax.helpers.DefaultHandler",
+      "genericType" : "org.xml.sax.helpers.DefaultHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.lang.String, org.xml.sax.HandlerBase) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hb",
+      "type" : "org.xml.sax.HandlerBase",
+      "genericType" : "org.xml.sax.HandlerBase",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.lang.String, org.xml.sax.helpers.DefaultHandler) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dh",
+      "type" : "org.xml.sax.helpers.DefaultHandler",
+      "genericType" : "org.xml.sax.helpers.DefaultHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(org.xml.sax.InputSource, org.xml.sax.HandlerBase) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hb",
+      "type" : "org.xml.sax.HandlerBase",
+      "genericType" : "org.xml.sax.HandlerBase",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(org.xml.sax.InputSource, org.xml.sax.helpers.DefaultHandler) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dh",
+      "type" : "org.xml.sax.helpers.DefaultHandler",
+      "genericType" : "org.xml.sax.helpers.DefaultHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public void reset()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setProperty(java.lang.String, java.lang.Object) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

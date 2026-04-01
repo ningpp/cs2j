@@ -1,0 +1,118 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.CipherOutputStream",
+  "canonicalName" : "javax.crypto.CipherOutputStream",
+  "simpleName" : "CipherOutputStream",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.FilterOutputStream",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.CipherOutputStream",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.CipherOutputStream(java.io.OutputStream, javax.crypto.Cipher)",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "javax.crypto.Cipher",
+      "genericType" : "javax.crypto.Cipher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flush",
+    "modifiers" : "public",
+    "signature" : "public void flush() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(byte[]) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(byte[], int, int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

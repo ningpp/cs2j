@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.CSS",
+  "canonicalName" : "javax.swing.text.html.CSS",
+  "simpleName" : "CSS",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.CSS",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.CSS()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAllAttributeKeys",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.html.CSS$Attribute[] getAllAttributeKeys()",
+    "returnType" : "javax.swing.text.html.CSS$Attribute[]",
+    "genericReturnType" : "javax.swing.text.html.CSS$Attribute[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.swing.text.html.CSS$Attribute getAttribute(java.lang.String)",
+    "returnType" : "javax.swing.text.html.CSS$Attribute",
+    "genericReturnType" : "javax.swing.text.html.CSS$Attribute",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

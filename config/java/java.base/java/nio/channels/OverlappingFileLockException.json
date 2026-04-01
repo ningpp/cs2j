@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.OverlappingFileLockException",
+  "canonicalName" : "java.nio.channels.OverlappingFileLockException",
+  "simpleName" : "OverlappingFileLockException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.OverlappingFileLockException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.OverlappingFileLockException()",
+    "varArgs" : false
+  } ]
+}

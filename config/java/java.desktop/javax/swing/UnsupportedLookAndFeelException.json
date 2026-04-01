@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.UnsupportedLookAndFeelException",
+  "canonicalName" : "javax.swing.UnsupportedLookAndFeelException",
+  "simpleName" : "UnsupportedLookAndFeelException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.UnsupportedLookAndFeelException",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UnsupportedLookAndFeelException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

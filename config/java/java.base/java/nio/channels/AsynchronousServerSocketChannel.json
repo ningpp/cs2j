@@ -1,0 +1,161 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.AsynchronousServerSocketChannel",
+  "canonicalName" : "java.nio.channels.AsynchronousServerSocketChannel",
+  "simpleName" : "AsynchronousServerSocketChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.nio.channels.AsynchronousChannel", "java.nio.channels.NetworkChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.Future accept()",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(java.lang.Object, java.nio.channels.CompletionHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.nio.channels.CompletionHandler",
+      "genericType" : "java.nio.channels.CompletionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.AsynchronousServerSocketChannel bind(java.net.SocketAddress) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "parameters" : [ {
+      "name" : "local",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.AsynchronousServerSocketChannel bind(java.net.SocketAddress, int) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalAddress",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.SocketAddress getLocalAddress() throws java.io.IOException",
+    "returnType" : "java.net.SocketAddress",
+    "genericReturnType" : "java.net.SocketAddress",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.AsynchronousServerSocketChannel open() throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.AsynchronousServerSocketChannel open(java.nio.channels.AsynchronousChannelGroup) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "java.nio.channels.AsynchronousChannelGroup",
+      "genericType" : "java.nio.channels.AsynchronousChannelGroup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.spi.AsynchronousChannelProvider provider()",
+    "returnType" : "java.nio.channels.spi.AsynchronousChannelProvider",
+    "genericReturnType" : "java.nio.channels.spi.AsynchronousChannelProvider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOption",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.AsynchronousServerSocketChannel setOption(java.net.SocketOption, java.lang.Object) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.SocketOption",
+      "genericType" : "java.net.SocketOption",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

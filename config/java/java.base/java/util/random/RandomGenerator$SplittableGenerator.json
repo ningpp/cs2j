@@ -1,0 +1,150 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.random",
+  "binaryName" : "java.util.random.RandomGenerator$SplittableGenerator",
+  "canonicalName" : "java.util.random.RandomGenerator.SplittableGenerator",
+  "simpleName" : "SplittableGenerator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.random.RandomGenerator",
+  "interfaces" : [ "java.util.random.RandomGenerator$StreamableGenerator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.random.RandomGenerator$SplittableGenerator of(java.lang.String)",
+    "returnType" : "java.util.random.RandomGenerator$SplittableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$SplittableGenerator",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rngs",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream rngs()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "rngs",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream rngs(long)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "streamSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "split",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.random.RandomGenerator$SplittableGenerator split()",
+    "returnType" : "java.util.random.RandomGenerator$SplittableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$SplittableGenerator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "split",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.random.RandomGenerator$SplittableGenerator split(java.util.random.RandomGenerator$SplittableGenerator)",
+    "returnType" : "java.util.random.RandomGenerator$SplittableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$SplittableGenerator",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.random.RandomGenerator$SplittableGenerator",
+      "genericType" : "java.util.random.RandomGenerator$SplittableGenerator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "splits",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream splits()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "splits",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream splits(java.util.random.RandomGenerator$SplittableGenerator)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.random.RandomGenerator$SplittableGenerator",
+      "genericType" : "java.util.random.RandomGenerator$SplittableGenerator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "splits",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream splits(long)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "splits",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream splits(long, java.util.random.RandomGenerator$SplittableGenerator)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.random.RandomGenerator$SplittableGenerator",
+      "genericType" : "java.util.random.RandomGenerator$SplittableGenerator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

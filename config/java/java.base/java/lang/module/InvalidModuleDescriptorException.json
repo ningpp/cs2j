@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.InvalidModuleDescriptorException",
+  "canonicalName" : "java.lang.module.InvalidModuleDescriptorException",
+  "simpleName" : "InvalidModuleDescriptorException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.module.InvalidModuleDescriptorException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.InvalidModuleDescriptorException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.module.InvalidModuleDescriptorException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.InvalidModuleDescriptorException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

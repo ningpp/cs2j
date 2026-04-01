@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.ElementScanner8",
+  "canonicalName" : "javax.lang.model.util.ElementScanner8",
+  "simpleName" : "ElementScanner8",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.util.ElementScanner7"
+}

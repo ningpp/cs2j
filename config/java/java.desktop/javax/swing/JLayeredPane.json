@@ -1,0 +1,353 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JLayeredPane",
+  "canonicalName" : "javax.swing.JLayeredPane",
+  "simpleName" : "JLayeredPane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JLayeredPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JLayeredPane()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentCountInLayer",
+    "modifiers" : "public",
+    "signature" : "public int getComponentCountInLayer(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "layer",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentsInLayer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component[] getComponentsInLayer(int)",
+    "returnType" : "java.awt.Component[]",
+    "genericReturnType" : "java.awt.Component[]",
+    "parameters" : [ {
+      "name" : "layer",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndexOf",
+    "modifiers" : "public",
+    "signature" : "public int getIndexOf(java.awt.Component)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayer",
+    "modifiers" : "public",
+    "signature" : "public int getLayer(java.awt.Component)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayer",
+    "modifiers" : "public static",
+    "signature" : "public static int getLayer(javax.swing.JComponent)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayeredPaneAbove",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.JLayeredPane getLayeredPaneAbove(java.awt.Component)",
+    "returnType" : "javax.swing.JLayeredPane",
+    "genericReturnType" : "javax.swing.JLayeredPane",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPosition",
+    "modifiers" : "public",
+    "signature" : "public int getPosition(java.awt.Component)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "highestLayer",
+    "modifiers" : "public",
+    "signature" : "public int highestLayer()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOptimizedDrawingEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isOptimizedDrawingEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lowestLayer",
+    "modifiers" : "public",
+    "signature" : "public int lowestLayer()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moveToBack",
+    "modifiers" : "public",
+    "signature" : "public void moveToBack(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moveToFront",
+    "modifiers" : "public",
+    "signature" : "public void moveToFront(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paint",
+    "modifiers" : "public",
+    "signature" : "public void paint(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putLayer",
+    "modifiers" : "public static",
+    "signature" : "public static void putLayer(javax.swing.JComponent, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "layer",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAll",
+    "modifiers" : "public",
+    "signature" : "public void removeAll()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLayer",
+    "modifiers" : "public",
+    "signature" : "public void setLayer(java.awt.Component, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "layer",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLayer",
+    "modifiers" : "public",
+    "signature" : "public void setLayer(java.awt.Component, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "layer",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "position",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPosition",
+    "modifiers" : "public",
+    "signature" : "public void setPosition(java.awt.Component, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "position",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

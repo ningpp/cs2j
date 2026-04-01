@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.AppletInitializer",
+  "canonicalName" : "java.beans.AppletInitializer",
+  "simpleName" : "AppletInitializer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "activate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void activate(java.applet.Applet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.applet.Applet",
+      "genericType" : "java.applet.Applet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void initialize(java.applet.Applet, java.beans.beancontext.BeanContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.applet.Applet",
+      "genericType" : "java.applet.Applet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.beans.beancontext.BeanContext",
+      "genericType" : "java.beans.beancontext.BeanContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

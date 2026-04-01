@@ -1,0 +1,413 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Frame",
+  "canonicalName" : "java.awt.Frame",
+  "simpleName" : "Frame",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Window",
+  "interfaces" : [ "java.awt.MenuContainer" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.Frame",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Frame() throws java.awt.HeadlessException",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Frame",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Frame(java.awt.GraphicsConfiguration)",
+    "parameters" : [ {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Frame",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Frame(java.lang.String) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Frame",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Frame(java.lang.String, java.awt.GraphicsConfiguration)",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCursorType",
+    "modifiers" : "public",
+    "signature" : "public int getCursorType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtendedState",
+    "modifiers" : "public",
+    "signature" : "public int getExtendedState()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFrames",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Frame[] getFrames()",
+    "returnType" : "java.awt.Frame[]",
+    "genericReturnType" : "java.awt.Frame[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIconImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image getIconImage()",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximizedBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getMaximizedBounds()",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuBar",
+    "modifiers" : "public",
+    "signature" : "public java.awt.MenuBar getMenuBar()",
+    "returnType" : "java.awt.MenuBar",
+    "genericReturnType" : "java.awt.MenuBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getState",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int getState()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTitle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getTitle()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isResizable",
+    "modifiers" : "public",
+    "signature" : "public boolean isResizable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUndecorated",
+    "modifiers" : "public",
+    "signature" : "public boolean isUndecorated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(java.awt.MenuComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.awt.MenuComponent",
+      "genericType" : "java.awt.MenuComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public",
+    "signature" : "public void removeNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBackground",
+    "modifiers" : "public",
+    "signature" : "public void setBackground(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bgColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCursor",
+    "modifiers" : "public",
+    "signature" : "public void setCursor(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cursorType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExtendedState",
+    "modifiers" : "public",
+    "signature" : "public void setExtendedState(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "state",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIconImage",
+    "modifiers" : "public",
+    "signature" : "public void setIconImage(java.awt.Image)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximizedBounds",
+    "modifiers" : "public",
+    "signature" : "public void setMaximizedBounds(java.awt.Rectangle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bounds",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMenuBar",
+    "modifiers" : "public",
+    "signature" : "public void setMenuBar(java.awt.MenuBar)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mb",
+      "type" : "java.awt.MenuBar",
+      "genericType" : "java.awt.MenuBar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOpacity",
+    "modifiers" : "public",
+    "signature" : "public void setOpacity(float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opacity",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResizable",
+    "modifiers" : "public",
+    "signature" : "public void setResizable(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "resizable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setShape",
+    "modifiers" : "public",
+    "signature" : "public void setShape(java.awt.Shape)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "shape",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setState",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setState(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "state",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTitle",
+    "modifiers" : "public",
+    "signature" : "public void setTitle(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUndecorated",
+    "modifiers" : "public",
+    "signature" : "public void setUndecorated(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "undecorated",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

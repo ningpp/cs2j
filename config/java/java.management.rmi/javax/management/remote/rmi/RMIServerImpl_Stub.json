@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIServerImpl_Stub",
+  "canonicalName" : "javax.management.remote.rmi.RMIServerImpl_Stub",
+  "simpleName" : "RMIServerImpl_Stub",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.rmi.server.RemoteStub",
+  "interfaces" : [ "javax.management.remote.rmi.RMIServer" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.rmi.RMIServerImpl_Stub",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIServerImpl_Stub(java.rmi.server.RemoteRef)",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.rmi.server.RemoteRef",
+      "genericType" : "java.rmi.server.RemoteRef",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getVersion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getVersion() throws java.rmi.RemoteException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newClient",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnection newClient(java.lang.Object) throws java.io.IOException",
+    "returnType" : "javax.management.remote.rmi.RMIConnection",
+    "genericReturnType" : "javax.management.remote.rmi.RMIConnection",
+    "parameters" : [ {
+      "name" : "$param_Object_1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

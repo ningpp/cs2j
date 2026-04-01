@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalInternalFrameTitlePane",
+  "canonicalName" : "javax.swing.plaf.metal.MetalInternalFrameTitlePane",
+  "simpleName" : "MetalInternalFrameTitlePane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.basic.BasicInternalFrameTitlePane",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalInternalFrameTitlePane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalInternalFrameTitlePane(javax.swing.JInternalFrame)",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintComponent",
+    "modifiers" : "public",
+    "signature" : "public void paintComponent(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintPalette",
+    "modifiers" : "public",
+    "signature" : "public void paintPalette(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPalette",
+    "modifiers" : "public",
+    "signature" : "public void setPalette(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

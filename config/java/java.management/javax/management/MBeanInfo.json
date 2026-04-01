@@ -1,0 +1,222 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MBeanInfo",
+  "canonicalName" : "javax.management.MBeanInfo",
+  "simpleName" : "MBeanInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable", "javax.management.DescriptorRead" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.MBeanInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanInfo(java.lang.String, java.lang.String, javax.management.MBeanAttributeInfo[], javax.management.MBeanConstructorInfo[], javax.management.MBeanOperationInfo[], javax.management.MBeanNotificationInfo[]) throws java.lang.IllegalArgumentException",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.management.MBeanAttributeInfo[]",
+      "genericType" : "javax.management.MBeanAttributeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constructors",
+      "type" : "javax.management.MBeanConstructorInfo[]",
+      "genericType" : "javax.management.MBeanConstructorInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "operations",
+      "type" : "javax.management.MBeanOperationInfo[]",
+      "genericType" : "javax.management.MBeanOperationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifications",
+      "type" : "javax.management.MBeanNotificationInfo[]",
+      "genericType" : "javax.management.MBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.MBeanInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanInfo(java.lang.String, java.lang.String, javax.management.MBeanAttributeInfo[], javax.management.MBeanConstructorInfo[], javax.management.MBeanOperationInfo[], javax.management.MBeanNotificationInfo[], javax.management.Descriptor) throws java.lang.IllegalArgumentException",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.management.MBeanAttributeInfo[]",
+      "genericType" : "javax.management.MBeanAttributeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constructors",
+      "type" : "javax.management.MBeanConstructorInfo[]",
+      "genericType" : "javax.management.MBeanConstructorInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "operations",
+      "type" : "javax.management.MBeanOperationInfo[]",
+      "genericType" : "javax.management.MBeanOperationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifications",
+      "type" : "javax.management.MBeanNotificationInfo[]",
+      "genericType" : "javax.management.MBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanAttributeInfo[] getAttributes()",
+    "returnType" : "javax.management.MBeanAttributeInfo[]",
+    "genericReturnType" : "javax.management.MBeanAttributeInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConstructors",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanConstructorInfo[] getConstructors()",
+    "returnType" : "javax.management.MBeanConstructorInfo[]",
+    "genericReturnType" : "javax.management.MBeanConstructorInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor getDescriptor()",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifications",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanNotificationInfo[] getNotifications()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOperations",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanOperationInfo[] getOperations()",
+    "returnType" : "javax.management.MBeanOperationInfo[]",
+    "genericReturnType" : "javax.management.MBeanOperationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

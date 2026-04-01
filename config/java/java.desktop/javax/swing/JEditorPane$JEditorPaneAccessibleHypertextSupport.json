@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport",
+  "canonicalName" : "javax.swing.JEditorPane.JEditorPaneAccessibleHypertextSupport",
+  "simpleName" : "JEditorPaneAccessibleHypertextSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JEditorPane",
+  "superClass" : "javax.swing.JEditorPane$AccessibleJEditorPane",
+  "interfaces" : [ "javax.accessibility.AccessibleHypertext" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport(javax.swing.JEditorPane)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.JEditorPane",
+      "genericType" : "javax.swing.JEditorPane",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLink",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleHyperlink getLink(int)",
+    "returnType" : "javax.accessibility.AccessibleHyperlink",
+    "genericReturnType" : "javax.accessibility.AccessibleHyperlink",
+    "parameters" : [ {
+      "name" : "linkIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkCount",
+    "modifiers" : "public",
+    "signature" : "public int getLinkCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkIndex",
+    "modifiers" : "public",
+    "signature" : "public int getLinkIndex(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "charIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getLinkText(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "linkIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

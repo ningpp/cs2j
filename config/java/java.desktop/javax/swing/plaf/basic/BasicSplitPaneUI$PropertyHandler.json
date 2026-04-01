@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicSplitPaneUI$PropertyHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicSplitPaneUI.PropertyHandler",
+  "simpleName" : "PropertyHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicSplitPaneUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.beans.PropertyChangeListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicSplitPaneUI$PropertyHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicSplitPaneUI$PropertyHandler(javax.swing.plaf.basic.BasicSplitPaneUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicSplitPaneUI",
+      "genericType" : "javax.swing.plaf.basic.BasicSplitPaneUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "propertyChange",
+    "modifiers" : "public",
+    "signature" : "public void propertyChange(java.beans.PropertyChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

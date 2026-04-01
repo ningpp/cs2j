@@ -1,0 +1,403 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JMenuBar",
+  "canonicalName" : "javax.swing.JMenuBar",
+  "simpleName" : "JMenuBar",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.swing.MenuElement" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JMenuBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuBar()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenu add(javax.swing.JMenu)",
+    "returnType" : "javax.swing.JMenu",
+    "genericReturnType" : "javax.swing.JMenu",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JMenu",
+      "genericType" : "javax.swing.JMenu",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getComponent()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentAtIndex",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getComponentAtIndex(int)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentIndex",
+    "modifiers" : "public",
+    "signature" : "public int getComponentIndex(java.awt.Component)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHelpMenu",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenu getHelpMenu()",
+    "returnType" : "javax.swing.JMenu",
+    "genericReturnType" : "javax.swing.JMenu",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMargin",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getMargin()",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenu",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenu getMenu(int)",
+    "returnType" : "javax.swing.JMenu",
+    "genericReturnType" : "javax.swing.JMenu",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuCount",
+    "modifiers" : "public",
+    "signature" : "public int getMenuCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SingleSelectionModel getSelectionModel()",
+    "returnType" : "javax.swing.SingleSelectionModel",
+    "genericReturnType" : "javax.swing.SingleSelectionModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubElements",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.MenuElement[] getSubElements()",
+    "returnType" : "javax.swing.MenuElement[]",
+    "genericReturnType" : "javax.swing.MenuElement[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.MenuBarUI getUI()",
+    "returnType" : "javax.swing.plaf.MenuBarUI",
+    "genericReturnType" : "javax.swing.plaf.MenuBarUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBorderPainted",
+    "modifiers" : "public",
+    "signature" : "public boolean isBorderPainted()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isSelected()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuSelectionChanged",
+    "modifiers" : "public",
+    "signature" : "public void menuSelectionChanged(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "isIncluded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processKeyEvent",
+    "modifiers" : "public",
+    "signature" : "public void processKeyEvent(java.awt.event.KeyEvent, javax.swing.MenuElement[], javax.swing.MenuSelectionManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path",
+      "type" : "javax.swing.MenuElement[]",
+      "genericType" : "javax.swing.MenuElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "manager",
+      "type" : "javax.swing.MenuSelectionManager",
+      "genericType" : "javax.swing.MenuSelectionManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processMouseEvent",
+    "modifiers" : "public",
+    "signature" : "public void processMouseEvent(java.awt.event.MouseEvent, javax.swing.MenuElement[], javax.swing.MenuSelectionManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path",
+      "type" : "javax.swing.MenuElement[]",
+      "genericType" : "javax.swing.MenuElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "manager",
+      "type" : "javax.swing.MenuSelectionManager",
+      "genericType" : "javax.swing.MenuSelectionManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public",
+    "signature" : "public void removeNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBorderPainted",
+    "modifiers" : "public",
+    "signature" : "public void setBorderPainted(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHelpMenu",
+    "modifiers" : "public",
+    "signature" : "public void setHelpMenu(javax.swing.JMenu)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "menu",
+      "type" : "javax.swing.JMenu",
+      "genericType" : "javax.swing.JMenu",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMargin",
+    "modifiers" : "public",
+    "signature" : "public void setMargin(java.awt.Insets)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelected",
+    "modifiers" : "public",
+    "signature" : "public void setSelected(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sel",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionModel(javax.swing.SingleSelectionModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "javax.swing.SingleSelectionModel",
+      "genericType" : "javax.swing.SingleSelectionModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.MenuBarUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.MenuBarUI",
+      "genericType" : "javax.swing.plaf.MenuBarUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

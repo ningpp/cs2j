@@ -1,0 +1,164 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.LinkException",
+  "canonicalName" : "javax.naming.LinkException",
+  "simpleName" : "LinkException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.LinkException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.LinkException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.LinkException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.LinkException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLinkExplanation",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getLinkExplanation()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkRemainingName",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Name getLinkRemainingName()",
+    "returnType" : "javax.naming.Name",
+    "genericReturnType" : "javax.naming.Name",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkResolvedName",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Name getLinkResolvedName()",
+    "returnType" : "javax.naming.Name",
+    "genericReturnType" : "javax.naming.Name",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkResolvedObj",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getLinkResolvedObj()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLinkExplanation",
+    "modifiers" : "public",
+    "signature" : "public void setLinkExplanation(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLinkRemainingName",
+    "modifiers" : "public",
+    "signature" : "public void setLinkRemainingName(javax.naming.Name)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLinkResolvedName",
+    "modifiers" : "public",
+    "signature" : "public void setLinkResolvedName(javax.naming.Name)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLinkResolvedObj",
+    "modifiers" : "public",
+    "signature" : "public void setLinkResolvedObj(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString(boolean)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "detail",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

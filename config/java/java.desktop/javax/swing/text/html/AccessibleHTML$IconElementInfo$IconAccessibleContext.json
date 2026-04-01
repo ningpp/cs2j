@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.AccessibleHTML$IconElementInfo$IconAccessibleContext",
+  "canonicalName" : "javax.swing.text.html.AccessibleHTML.IconElementInfo.IconAccessibleContext",
+  "simpleName" : "IconAccessibleContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.html.AccessibleHTML$IconElementInfo",
+  "superClass" : "javax.swing.text.html.AccessibleHTML$HTMLAccessibleContext",
+  "interfaces" : [ "javax.accessibility.AccessibleIcon" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.AccessibleHTML$IconElementInfo$IconAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.AccessibleHTML$IconElementInfo$IconAccessibleContext(javax.swing.text.html.AccessibleHTML$IconElementInfo, javax.swing.text.html.AccessibleHTML$ElementInfo)",
+    "parameters" : [ {
+      "name" : "this$1",
+      "type" : "javax.swing.text.html.AccessibleHTML$IconElementInfo",
+      "genericType" : "javax.swing.text.html.AccessibleHTML$IconElementInfo",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "elementInfo",
+      "type" : "javax.swing.text.html.AccessibleHTML$ElementInfo",
+      "genericType" : "javax.swing.text.html.AccessibleHTML$ElementInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleIcon[] getAccessibleIcon()",
+    "returnType" : "javax.accessibility.AccessibleIcon[]",
+    "genericReturnType" : "javax.accessibility.AccessibleIcon[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleIconDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleIconDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleIconHeight",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleIconHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleIconWidth",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleIconWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleIconDescription",
+    "modifiers" : "public",
+    "signature" : "public void setAccessibleIconDescription(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

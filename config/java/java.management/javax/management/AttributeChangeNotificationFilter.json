@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.AttributeChangeNotificationFilter",
+  "canonicalName" : "javax.management.AttributeChangeNotificationFilter",
+  "simpleName" : "AttributeChangeNotificationFilter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.management.NotificationFilter" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.AttributeChangeNotificationFilter",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeChangeNotificationFilter()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "disableAllAttributes",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void disableAllAttributes()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "disableAttribute",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void disableAttribute(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableAttribute",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void enableAttribute(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledAttributes",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.util.Vector getEnabledAttributes()",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNotificationEnabled",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isNotificationEnabled(javax.management.Notification)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "notification",
+      "type" : "javax.management.Notification",
+      "genericType" : "javax.management.Notification",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

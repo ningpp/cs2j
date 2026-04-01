@@ -1,0 +1,48 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.DefaultMenuLayout",
+  "canonicalName" : "javax.swing.plaf.basic.DefaultMenuLayout",
+  "simpleName" : "DefaultMenuLayout",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.BoxLayout",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.DefaultMenuLayout",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.DefaultMenuLayout(java.awt.Container, int)",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "axis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "preferredLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension preferredLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

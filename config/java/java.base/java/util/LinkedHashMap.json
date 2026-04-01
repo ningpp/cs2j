@@ -1,0 +1,318 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.LinkedHashMap",
+  "canonicalName" : "java.util.LinkedHashMap",
+  "simpleName" : "LinkedHashMap",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.HashMap",
+  "interfaces" : [ "java.util.SequencedMap" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.LinkedHashMap",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashMap()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.LinkedHashMap",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashMap(int)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.LinkedHashMap",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashMap(int, float)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loadFactor",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.LinkedHashMap",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashMap(int, float, boolean)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loadFactor",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "accessOrder",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.LinkedHashMap",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashMap(java.util.Map)",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clear",
+    "modifiers" : "public",
+    "signature" : "public void clear()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsValue",
+    "modifiers" : "public",
+    "signature" : "public boolean containsValue(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "entrySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set entrySet()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forEach",
+    "modifiers" : "public",
+    "signature" : "public void forEach(java.util.function.BiConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrDefault",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getOrDefault(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set keySet()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newLinkedHashMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.LinkedHashMap newLinkedHashMap(int)",
+    "returnType" : "java.util.LinkedHashMap",
+    "genericReturnType" : "java.util.LinkedHashMap",
+    "parameters" : [ {
+      "name" : "numMappings",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object putFirst(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "k",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putLast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object putLast(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "k",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceAll",
+    "modifiers" : "public",
+    "signature" : "public void replaceAll(java.util.function.BiFunction)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "function",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reversed",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedMap reversed()",
+    "returnType" : "java.util.SequencedMap",
+    "genericReturnType" : "java.util.SequencedMap",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequencedEntrySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedSet sequencedEntrySet()",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequencedKeySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedSet sequencedKeySet()",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequencedValues",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedCollection sequencedValues()",
+    "returnType" : "java.util.SequencedCollection",
+    "genericReturnType" : "java.util.SequencedCollection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public",
+    "signature" : "public java.util.Collection values()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

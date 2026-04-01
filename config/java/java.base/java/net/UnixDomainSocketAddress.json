@@ -1,0 +1,92 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.UnixDomainSocketAddress",
+  "canonicalName" : "java.net.UnixDomainSocketAddress",
+  "simpleName" : "UnixDomainSocketAddress",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.net.SocketAddress",
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPath",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.Path getPath()",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.UnixDomainSocketAddress of(java.lang.String)",
+    "returnType" : "java.net.UnixDomainSocketAddress",
+    "genericReturnType" : "java.net.UnixDomainSocketAddress",
+    "parameters" : [ {
+      "name" : "pathname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.UnixDomainSocketAddress of(java.nio.file.Path)",
+    "returnType" : "java.net.UnixDomainSocketAddress",
+    "genericReturnType" : "java.net.UnixDomainSocketAddress",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

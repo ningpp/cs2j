@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassFile$AttributeMapperOption",
+  "canonicalName" : "java.lang.classfile.ClassFile.AttributeMapperOption",
+  "simpleName" : "AttributeMapperOption",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.ClassFile",
+  "interfaces" : [ "java.lang.classfile.ClassFile$Option" ],
+  "declaredPublicMethods" : [ {
+    "name" : "attributeMapper",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.function.Function attributeMapper()",
+    "returnType" : "java.util.function.Function",
+    "genericReturnType" : "java.util.function.Function",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassFile$AttributeMapperOption of(java.util.function.Function)",
+    "returnType" : "java.lang.classfile.ClassFile$AttributeMapperOption",
+    "genericReturnType" : "java.lang.classfile.ClassFile$AttributeMapperOption",
+    "parameters" : [ {
+      "name" : "attributeMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

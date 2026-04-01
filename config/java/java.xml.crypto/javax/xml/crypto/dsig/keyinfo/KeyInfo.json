@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.keyinfo",
+  "binaryName" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+  "canonicalName" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+  "simpleName" : "KeyInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getContent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getContent()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "marshal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void marshal(javax.xml.crypto.XMLStructure, javax.xml.crypto.XMLCryptoContext) throws javax.xml.crypto.MarshalException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.XMLStructure",
+      "genericType" : "javax.xml.crypto.XMLStructure",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.crypto.XMLCryptoContext",
+      "genericType" : "javax.xml.crypto.XMLCryptoContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.MarshalException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

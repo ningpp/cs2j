@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ScopedValue$CallableOp",
+  "canonicalName" : "java.lang.ScopedValue.CallableOp",
+  "simpleName" : "CallableOp",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.ScopedValue",
+  "declaredPublicMethods" : [ {
+    "name" : "call",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object call() throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

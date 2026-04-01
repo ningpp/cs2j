@@ -1,0 +1,98 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.BaseStream",
+  "canonicalName" : "java.util.stream.BaseStream",
+  "simpleName" : "BaseStream",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.AutoCloseable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isParallel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isParallel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onClose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.BaseStream onClose(java.lang.Runnable)",
+    "returnType" : "java.util.stream.BaseStream",
+    "genericReturnType" : "java.util.stream.BaseStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parallel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.BaseStream parallel()",
+    "returnType" : "java.util.stream.BaseStream",
+    "genericReturnType" : "java.util.stream.BaseStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequential",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.BaseStream sequential()",
+    "returnType" : "java.util.stream.BaseStream",
+    "genericReturnType" : "java.util.stream.BaseStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Spliterator spliterator()",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unordered",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.BaseStream unordered()",
+    "returnType" : "java.util.stream.BaseStream",
+    "genericReturnType" : "java.util.stream.BaseStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

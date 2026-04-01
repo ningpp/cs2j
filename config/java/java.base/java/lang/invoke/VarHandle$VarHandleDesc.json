@@ -1,0 +1,125 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.VarHandle$VarHandleDesc",
+  "canonicalName" : "java.lang.invoke.VarHandle.VarHandleDesc",
+  "simpleName" : "VarHandleDesc",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.invoke.VarHandle",
+  "superClass" : "java.lang.constant.DynamicConstantDesc",
+  "declaredPublicMethods" : [ {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.VarHandle$VarHandleDesc ofArray(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.invoke.VarHandle$VarHandleDesc",
+    "genericReturnType" : "java.lang.invoke.VarHandle$VarHandleDesc",
+    "parameters" : [ {
+      "name" : "arrayClass",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofField",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.VarHandle$VarHandleDesc ofField(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.invoke.VarHandle$VarHandleDesc",
+    "genericReturnType" : "java.lang.invoke.VarHandle$VarHandleDesc",
+    "parameters" : [ {
+      "name" : "declaringClass",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldType",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofStaticField",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.VarHandle$VarHandleDesc ofStaticField(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.invoke.VarHandle$VarHandleDesc",
+    "genericReturnType" : "java.lang.invoke.VarHandle$VarHandleDesc",
+    "parameters" : [ {
+      "name" : "declaringClass",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldType",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveConstantDesc",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.VarHandle resolveConstantDesc(java.lang.invoke.MethodHandles$Lookup) throws java.lang.ReflectiveOperationException",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ReflectiveOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "varType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ClassDesc varType()",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

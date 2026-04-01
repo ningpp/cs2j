@@ -1,0 +1,303 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.SubmissionPublisher",
+  "canonicalName" : "java.util.concurrent.SubmissionPublisher",
+  "simpleName" : "SubmissionPublisher",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.AutoCloseable", "java.util.concurrent.Flow$Publisher" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.SubmissionPublisher",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.SubmissionPublisher()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.SubmissionPublisher",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.SubmissionPublisher(java.util.concurrent.Executor, int)",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxBufferCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.SubmissionPublisher",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.SubmissionPublisher(java.util.concurrent.Executor, int, java.util.function.BiConsumer)",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxBufferCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "closeExceptionally",
+    "modifiers" : "public",
+    "signature" : "public void closeExceptionally(java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "error",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "consume",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletableFuture consume(java.util.function.Consumer)",
+    "returnType" : "java.util.concurrent.CompletableFuture",
+    "genericReturnType" : "java.util.concurrent.CompletableFuture",
+    "parameters" : [ {
+      "name" : "consumer",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "estimateMaximumLag",
+    "modifiers" : "public",
+    "signature" : "public int estimateMaximumLag()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "estimateMinimumDemand",
+    "modifiers" : "public",
+    "signature" : "public long estimateMinimumDemand()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClosedException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getClosedException()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Executor getExecutor()",
+    "returnType" : "java.util.concurrent.Executor",
+    "genericReturnType" : "java.util.concurrent.Executor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxBufferCapacity",
+    "modifiers" : "public",
+    "signature" : "public int getMaxBufferCapacity()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumberOfSubscribers",
+    "modifiers" : "public",
+    "signature" : "public int getNumberOfSubscribers()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubscribers",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getSubscribers()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasSubscribers",
+    "modifiers" : "public",
+    "signature" : "public boolean hasSubscribers()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isClosed",
+    "modifiers" : "public",
+    "signature" : "public boolean isClosed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSubscribed",
+    "modifiers" : "public",
+    "signature" : "public boolean isSubscribed(java.util.concurrent.Flow$Subscriber)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offer",
+    "modifiers" : "public",
+    "signature" : "public int offer(java.lang.Object, java.util.function.BiPredicate)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "onDrop",
+      "type" : "java.util.function.BiPredicate",
+      "genericType" : "java.util.function.BiPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offer",
+    "modifiers" : "public",
+    "signature" : "public int offer(java.lang.Object, long, java.util.concurrent.TimeUnit, java.util.function.BiPredicate)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "onDrop",
+      "type" : "java.util.function.BiPredicate",
+      "genericType" : "java.util.function.BiPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public int submit(java.lang.Object)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subscribe",
+    "modifiers" : "public",
+    "signature" : "public void subscribe(java.util.concurrent.Flow$Subscriber)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

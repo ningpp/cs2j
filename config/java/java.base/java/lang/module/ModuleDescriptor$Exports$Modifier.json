@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.ModuleDescriptor$Exports$Modifier",
+  "canonicalName" : "java.lang.module.ModuleDescriptor.Exports.Modifier",
+  "simpleName" : "Modifier",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.module.ModuleDescriptor$Exports",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.ModuleDescriptor$Exports$Modifier valueOf(java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Exports$Modifier",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Exports$Modifier",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.ModuleDescriptor$Exports$Modifier[] values()",
+    "returnType" : "java.lang.module.ModuleDescriptor$Exports$Modifier[]",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Exports$Modifier[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

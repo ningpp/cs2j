@@ -1,0 +1,108 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Node$OfLong",
+  "canonicalName" : "java.util.stream.Node.OfLong",
+  "simpleName" : "OfLong",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Node",
+  "interfaces" : [ "java.util.stream.Node$OfPrimitive" ],
+  "declaredPublicMethods" : [ {
+    "name" : "copyInto",
+    "modifiers" : "public",
+    "signature" : "public void copyInto(java.lang.Long[], int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "boxed",
+      "type" : "java.lang.Long[]",
+      "genericType" : "java.lang.Long[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "forEach",
+    "modifiers" : "public",
+    "signature" : "public void forEach(java.util.function.Consumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "consumer",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getShape",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.StreamShape getShape()",
+    "returnType" : "java.util.stream.StreamShape",
+    "genericReturnType" : "java.util.stream.StreamShape",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "newArray",
+    "modifiers" : "public",
+    "signature" : "public long[] newArray(int)",
+    "returnType" : "long[]",
+    "genericReturnType" : "long[]",
+    "parameters" : [ {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "truncate",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Node$OfLong truncate(long, long, java.util.function.IntFunction)",
+    "returnType" : "java.util.stream.Node$OfLong",
+    "genericReturnType" : "java.util.stream.Node$OfLong",
+    "parameters" : [ {
+      "name" : "from",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "to",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "generator",
+      "type" : "java.util.function.IntFunction",
+      "genericType" : "java.util.function.IntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,75 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.BaseMultiResolutionImage",
+  "canonicalName" : "java.awt.image.BaseMultiResolutionImage",
+  "simpleName" : "BaseMultiResolutionImage",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.image.AbstractMultiResolutionImage",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.BaseMultiResolutionImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BaseMultiResolutionImage(int, java.awt.Image...)",
+    "parameters" : [ {
+      "name" : "baseImageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "resolutionVariants",
+      "type" : "java.awt.Image[]",
+      "genericType" : "java.awt.Image[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : true
+  }, {
+    "name" : "java.awt.image.BaseMultiResolutionImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BaseMultiResolutionImage(java.awt.Image...)",
+    "parameters" : [ {
+      "name" : "resolutionVariants",
+      "type" : "java.awt.Image[]",
+      "genericType" : "java.awt.Image[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : true
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getResolutionVariant",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image getResolutionVariant(double, double)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "destImageWidth",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "destImageHeight",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolutionVariants",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getResolutionVariants()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

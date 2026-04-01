@@ -1,0 +1,136 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Collector",
+  "canonicalName" : "java.util.stream.Collector",
+  "simpleName" : "Collector",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "accumulator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.function.BiConsumer accumulator()",
+    "returnType" : "java.util.function.BiConsumer",
+    "genericReturnType" : "java.util.function.BiConsumer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "characteristics",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set characteristics()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "combiner",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.function.BinaryOperator combiner()",
+    "returnType" : "java.util.function.BinaryOperator",
+    "genericReturnType" : "java.util.function.BinaryOperator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finisher",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.function.Function finisher()",
+    "returnType" : "java.util.function.Function",
+    "genericReturnType" : "java.util.function.Function",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector of(java.util.function.Supplier, java.util.function.BiConsumer, java.util.function.BinaryOperator, java.util.function.Function, java.util.stream.Collector$Characteristics...)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "accumulator",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "combiner",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "java.util.stream.Collector$Characteristics[]",
+      "genericType" : "java.util.stream.Collector$Characteristics[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector of(java.util.function.Supplier, java.util.function.BiConsumer, java.util.function.BinaryOperator, java.util.stream.Collector$Characteristics...)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "accumulator",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "combiner",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "java.util.stream.Collector$Characteristics[]",
+      "genericType" : "java.util.stream.Collector$Characteristics[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "supplier",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.function.Supplier supplier()",
+    "returnType" : "java.util.function.Supplier",
+    "genericReturnType" : "java.util.function.Supplier",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

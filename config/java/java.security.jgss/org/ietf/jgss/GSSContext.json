@@ -1,0 +1,780 @@
+{
+  "moduleName" : "java.security.jgss",
+  "packageName" : "org.ietf.jgss",
+  "binaryName" : "org.ietf.jgss.GSSContext",
+  "canonicalName" : "org.ietf.jgss.GSSContext",
+  "simpleName" : "GSSContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "acceptSecContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] acceptSecContext(byte[], int, int) throws org.ietf.jgss.GSSException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acceptSecContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void acceptSecContext(java.io.InputStream, java.io.OutputStream) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dispose() throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "export",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] export() throws org.ietf.jgss.GSSException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnonymityState",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getAnonymityState()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConfState",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getConfState()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCredDelegState",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getCredDelegState()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDelegCred",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSCredential getDelegCred() throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSCredential",
+    "genericReturnType" : "org.ietf.jgss.GSSCredential",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIntegState",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getIntegState()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLifetime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLifetime()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMIC",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getMIC(byte[], int, int, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMIC",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void getMIC(java.io.InputStream, java.io.OutputStream, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMech",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.Oid getMech() throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.Oid",
+    "genericReturnType" : "org.ietf.jgss.Oid",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMutualAuthState",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getMutualAuthState()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReplayDetState",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getReplayDetState()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequenceDetState",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getSequenceDetState()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSrcName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSName getSrcName() throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSName",
+    "genericReturnType" : "org.ietf.jgss.GSSName",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.ietf.jgss.GSSName getTargName() throws org.ietf.jgss.GSSException",
+    "returnType" : "org.ietf.jgss.GSSName",
+    "genericReturnType" : "org.ietf.jgss.GSSName",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWrapSizeLimit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getWrapSizeLimit(int, boolean, int) throws org.ietf.jgss.GSSException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initSecContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] initSecContext(byte[], int, int) throws org.ietf.jgss.GSSException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initSecContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int initSecContext(java.io.InputStream, java.io.OutputStream) throws org.ietf.jgss.GSSException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEstablished",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isEstablished()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInitiator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isInitiator() throws org.ietf.jgss.GSSException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isProtReady",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isProtReady()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTransferable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isTransferable() throws org.ietf.jgss.GSSException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestAnonymity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestAnonymity(boolean) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestConf",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestConf(boolean) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestCredDeleg",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestCredDeleg(boolean) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestInteg",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestInteg(boolean) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestLifetime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestLifetime(int) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestMutualAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestMutualAuth(boolean) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestReplayDet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestReplayDet(boolean) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestSequenceDet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestSequenceDet(boolean) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setChannelBinding",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setChannelBinding(org.ietf.jgss.ChannelBinding) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.ietf.jgss.ChannelBinding",
+      "genericType" : "org.ietf.jgss.ChannelBinding",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unwrap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] unwrap(byte[], int, int, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unwrap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void unwrap(java.io.InputStream, java.io.OutputStream, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verifyMIC",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void verifyMIC(byte[], int, int, byte[], int, int, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg6",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verifyMIC",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void verifyMIC(java.io.InputStream, java.io.InputStream, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] wrap(byte[], int, int, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void wrap(java.io.InputStream, java.io.OutputStream, org.ietf.jgss.MessageProp) throws org.ietf.jgss.GSSException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.ietf.jgss.MessageProp",
+      "genericType" : "org.ietf.jgss.MessageProp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

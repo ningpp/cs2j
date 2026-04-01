@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.IllegalAccessException",
+  "canonicalName" : "java.lang.IllegalAccessException",
+  "simpleName" : "IllegalAccessException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ReflectiveOperationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.IllegalAccessException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalAccessException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.IllegalAccessException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalAccessException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

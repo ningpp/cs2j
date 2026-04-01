@@ -1,0 +1,884 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.Cipher",
+  "canonicalName" : "javax.crypto.Cipher",
+  "simpleName" : "Cipher",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] doFinal() throws javax.crypto.IllegalBlockSizeException, javax.crypto.BadPaddingException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "javax.crypto.IllegalBlockSizeException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] doFinal(byte[]) throws javax.crypto.IllegalBlockSizeException, javax.crypto.BadPaddingException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.IllegalBlockSizeException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final int doFinal(byte[], int) throws javax.crypto.IllegalBlockSizeException, javax.crypto.ShortBufferException, javax.crypto.BadPaddingException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "output",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.IllegalBlockSizeException", "javax.crypto.ShortBufferException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] doFinal(byte[], int, int) throws javax.crypto.IllegalBlockSizeException, javax.crypto.BadPaddingException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.IllegalBlockSizeException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final int doFinal(byte[], int, int, byte[]) throws javax.crypto.ShortBufferException, javax.crypto.IllegalBlockSizeException, javax.crypto.BadPaddingException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.ShortBufferException", "javax.crypto.IllegalBlockSizeException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final int doFinal(byte[], int, int, byte[], int) throws javax.crypto.ShortBufferException, javax.crypto.IllegalBlockSizeException, javax.crypto.BadPaddingException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.ShortBufferException", "javax.crypto.IllegalBlockSizeException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final int doFinal(java.nio.ByteBuffer, java.nio.ByteBuffer) throws javax.crypto.ShortBufferException, javax.crypto.IllegalBlockSizeException, javax.crypto.BadPaddingException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.ShortBufferException", "javax.crypto.IllegalBlockSizeException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlgorithm",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBlockSize",
+    "modifiers" : "public final",
+    "signature" : "public final int getBlockSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExemptionMechanism",
+    "modifiers" : "public final",
+    "signature" : "public final javax.crypto.ExemptionMechanism getExemptionMechanism()",
+    "returnType" : "javax.crypto.ExemptionMechanism",
+    "genericReturnType" : "javax.crypto.ExemptionMechanism",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIV",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] getIV()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.Cipher getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException, javax.crypto.NoSuchPaddingException",
+    "returnType" : "javax.crypto.Cipher",
+    "genericReturnType" : "javax.crypto.Cipher",
+    "parameters" : [ {
+      "name" : "transformation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "javax.crypto.NoSuchPaddingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.Cipher getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException, javax.crypto.NoSuchPaddingException",
+    "returnType" : "javax.crypto.Cipher",
+    "genericReturnType" : "javax.crypto.Cipher",
+    "parameters" : [ {
+      "name" : "transformation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException", "javax.crypto.NoSuchPaddingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.Cipher getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException, javax.crypto.NoSuchPaddingException",
+    "returnType" : "javax.crypto.Cipher",
+    "genericReturnType" : "javax.crypto.Cipher",
+    "parameters" : [ {
+      "name" : "transformation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "javax.crypto.NoSuchPaddingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxAllowedKeyLength",
+    "modifiers" : "public static final",
+    "signature" : "public static final int getMaxAllowedKeyLength(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "transformation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxAllowedParameterSpec",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.security.spec.AlgorithmParameterSpec getMaxAllowedParameterSpec(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "parameters" : [ {
+      "name" : "transformation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutputSize",
+    "modifiers" : "public final",
+    "signature" : "public final int getOutputSize(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "inputLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameters",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.AlgorithmParameters getParameters()",
+    "returnType" : "java.security.AlgorithmParameters",
+    "genericReturnType" : "java.security.AlgorithmParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.Key) throws java.security.InvalidKeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.Key, java.security.AlgorithmParameters) throws java.security.InvalidKeyException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.AlgorithmParameters",
+      "genericType" : "java.security.AlgorithmParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.Key, java.security.AlgorithmParameters, java.security.SecureRandom) throws java.security.InvalidKeyException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.AlgorithmParameters",
+      "genericType" : "java.security.AlgorithmParameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.Key, java.security.SecureRandom) throws java.security.InvalidKeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidKeyException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom) throws java.security.InvalidKeyException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.cert.Certificate) throws java.security.InvalidKeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "certificate",
+      "type" : "java.security.cert.Certificate",
+      "genericType" : "java.security.cert.Certificate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(int, java.security.cert.Certificate, java.security.SecureRandom) throws java.security.InvalidKeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opmode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "certificate",
+      "type" : "java.security.cert.Certificate",
+      "genericType" : "java.security.cert.Certificate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unwrap",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Key unwrap(byte[], java.lang.String, int) throws java.security.InvalidKeyException, java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.Key",
+    "genericReturnType" : "java.security.Key",
+    "parameters" : [ {
+      "name" : "wrappedKey",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "wrappedKeyAlgorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "wrappedKeyType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] update(byte[])",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] update(byte[], int, int)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final int update(byte[], int, int, byte[]) throws javax.crypto.ShortBufferException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.ShortBufferException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final int update(byte[], int, int, byte[], int) throws javax.crypto.ShortBufferException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outputOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.ShortBufferException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final int update(java.nio.ByteBuffer, java.nio.ByteBuffer) throws javax.crypto.ShortBufferException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "output",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.ShortBufferException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateAAD",
+    "modifiers" : "public final",
+    "signature" : "public final void updateAAD(byte[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateAAD",
+    "modifiers" : "public final",
+    "signature" : "public final void updateAAD(byte[], int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateAAD",
+    "modifiers" : "public final",
+    "signature" : "public final void updateAAD(java.nio.ByteBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] wrap(java.security.Key) throws javax.crypto.IllegalBlockSizeException, java.security.InvalidKeyException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.IllegalBlockSizeException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

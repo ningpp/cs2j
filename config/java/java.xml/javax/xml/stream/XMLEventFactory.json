@@ -1,0 +1,699 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.XMLEventFactory",
+  "canonicalName" : "javax.xml.stream.XMLEventFactory",
+  "simpleName" : "XMLEventFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Attribute createAttribute(java.lang.String, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Attribute",
+    "genericReturnType" : "javax.xml.stream.events.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Attribute createAttribute(java.lang.String, java.lang.String, java.lang.String, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Attribute",
+    "genericReturnType" : "javax.xml.stream.events.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Attribute createAttribute(javax.xml.namespace.QName, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Attribute",
+    "genericReturnType" : "javax.xml.stream.events.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Characters createCData(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Characters",
+    "genericReturnType" : "javax.xml.stream.events.Characters",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCharacters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Characters createCharacters(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Characters",
+    "genericReturnType" : "javax.xml.stream.events.Characters",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createComment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Comment createComment(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Comment",
+    "genericReturnType" : "javax.xml.stream.events.Comment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDTD",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.DTD createDTD(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.DTD",
+    "genericReturnType" : "javax.xml.stream.events.DTD",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEndDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.EndDocument createEndDocument()",
+    "returnType" : "javax.xml.stream.events.EndDocument",
+    "genericReturnType" : "javax.xml.stream.events.EndDocument",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEndElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.EndElement createEndElement(java.lang.String, java.lang.String, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.EndElement",
+    "genericReturnType" : "javax.xml.stream.events.EndElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEndElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.EndElement createEndElement(java.lang.String, java.lang.String, java.lang.String, java.util.Iterator)",
+    "returnType" : "javax.xml.stream.events.EndElement",
+    "genericReturnType" : "javax.xml.stream.events.EndElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEndElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.EndElement createEndElement(javax.xml.namespace.QName, java.util.Iterator)",
+    "returnType" : "javax.xml.stream.events.EndElement",
+    "genericReturnType" : "javax.xml.stream.events.EndElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEntityReference",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.EntityReference createEntityReference(java.lang.String, javax.xml.stream.events.EntityDeclaration)",
+    "returnType" : "javax.xml.stream.events.EntityReference",
+    "genericReturnType" : "javax.xml.stream.events.EntityReference",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.stream.events.EntityDeclaration",
+      "genericType" : "javax.xml.stream.events.EntityDeclaration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createIgnorableSpace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Characters createIgnorableSpace(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Characters",
+    "genericReturnType" : "javax.xml.stream.events.Characters",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createNamespace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Namespace createNamespace(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Namespace",
+    "genericReturnType" : "javax.xml.stream.events.Namespace",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createNamespace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Namespace createNamespace(java.lang.String, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Namespace",
+    "genericReturnType" : "javax.xml.stream.events.Namespace",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createProcessingInstruction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.ProcessingInstruction createProcessingInstruction(java.lang.String, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.ProcessingInstruction",
+    "genericReturnType" : "javax.xml.stream.events.ProcessingInstruction",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSpace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Characters createSpace(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.Characters",
+    "genericReturnType" : "javax.xml.stream.events.Characters",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartDocument createStartDocument()",
+    "returnType" : "javax.xml.stream.events.StartDocument",
+    "genericReturnType" : "javax.xml.stream.events.StartDocument",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartDocument createStartDocument(java.lang.String)",
+    "returnType" : "javax.xml.stream.events.StartDocument",
+    "genericReturnType" : "javax.xml.stream.events.StartDocument",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartDocument createStartDocument(java.lang.String, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.StartDocument",
+    "genericReturnType" : "javax.xml.stream.events.StartDocument",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartDocument createStartDocument(java.lang.String, java.lang.String, boolean)",
+    "returnType" : "javax.xml.stream.events.StartDocument",
+    "genericReturnType" : "javax.xml.stream.events.StartDocument",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartElement createStartElement(java.lang.String, java.lang.String, java.lang.String)",
+    "returnType" : "javax.xml.stream.events.StartElement",
+    "genericReturnType" : "javax.xml.stream.events.StartElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartElement createStartElement(java.lang.String, java.lang.String, java.lang.String, java.util.Iterator, java.util.Iterator)",
+    "returnType" : "javax.xml.stream.events.StartElement",
+    "genericReturnType" : "javax.xml.stream.events.StartElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartElement createStartElement(java.lang.String, java.lang.String, java.lang.String, java.util.Iterator, java.util.Iterator, javax.xml.namespace.NamespaceContext)",
+    "returnType" : "javax.xml.stream.events.StartElement",
+    "genericReturnType" : "javax.xml.stream.events.StartElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "javax.xml.namespace.NamespaceContext",
+      "genericType" : "javax.xml.namespace.NamespaceContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStartElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartElement createStartElement(javax.xml.namespace.QName, java.util.Iterator, java.util.Iterator)",
+    "returnType" : "javax.xml.stream.events.StartElement",
+    "genericReturnType" : "javax.xml.stream.events.StartElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLEventFactory newDefaultFactory()",
+    "returnType" : "javax.xml.stream.XMLEventFactory",
+    "genericReturnType" : "javax.xml.stream.XMLEventFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLEventFactory newFactory() throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLEventFactory",
+    "genericReturnType" : "javax.xml.stream.XMLEventFactory",
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLEventFactory newFactory(java.lang.String, java.lang.ClassLoader) throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLEventFactory",
+    "genericReturnType" : "javax.xml.stream.XMLEventFactory",
+    "parameters" : [ {
+      "name" : "factoryId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLEventFactory newInstance() throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLEventFactory",
+    "genericReturnType" : "javax.xml.stream.XMLEventFactory",
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLEventFactory newInstance(java.lang.String, java.lang.ClassLoader) throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLEventFactory",
+    "genericReturnType" : "javax.xml.stream.XMLEventFactory",
+    "parameters" : [ {
+      "name" : "factoryId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLocation(javax.xml.stream.Location)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.stream.Location",
+      "genericType" : "javax.xml.stream.Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

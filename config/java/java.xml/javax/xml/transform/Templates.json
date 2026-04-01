@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform",
+  "binaryName" : "javax.xml.transform.Templates",
+  "canonicalName" : "javax.xml.transform.Templates",
+  "simpleName" : "Templates",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getOutputProperties",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Properties getOutputProperties()",
+    "returnType" : "java.util.Properties",
+    "genericReturnType" : "java.util.Properties",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newTransformer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Transformer newTransformer() throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.Transformer",
+    "genericReturnType" : "javax.xml.transform.Transformer",
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,563 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ThreadPoolExecutor",
+  "canonicalName" : "java.util.concurrent.ThreadPoolExecutor",
+  "simpleName" : "ThreadPoolExecutor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.concurrent.AbstractExecutorService",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.ThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ThreadPoolExecutor(int, int, long, java.util.concurrent.TimeUnit, java.util.concurrent.BlockingQueue)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximumPoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keepAliveTime",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "workQueue",
+      "type" : "java.util.concurrent.BlockingQueue",
+      "genericType" : "java.util.concurrent.BlockingQueue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ThreadPoolExecutor(int, int, long, java.util.concurrent.TimeUnit, java.util.concurrent.BlockingQueue, java.util.concurrent.RejectedExecutionHandler)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximumPoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keepAliveTime",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "workQueue",
+      "type" : "java.util.concurrent.BlockingQueue",
+      "genericType" : "java.util.concurrent.BlockingQueue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.concurrent.RejectedExecutionHandler",
+      "genericType" : "java.util.concurrent.RejectedExecutionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ThreadPoolExecutor(int, int, long, java.util.concurrent.TimeUnit, java.util.concurrent.BlockingQueue, java.util.concurrent.ThreadFactory)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximumPoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keepAliveTime",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "workQueue",
+      "type" : "java.util.concurrent.BlockingQueue",
+      "genericType" : "java.util.concurrent.BlockingQueue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ThreadPoolExecutor",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ThreadPoolExecutor(int, int, long, java.util.concurrent.TimeUnit, java.util.concurrent.BlockingQueue, java.util.concurrent.ThreadFactory, java.util.concurrent.RejectedExecutionHandler)",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximumPoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keepAliveTime",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "workQueue",
+      "type" : "java.util.concurrent.BlockingQueue",
+      "genericType" : "java.util.concurrent.BlockingQueue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.concurrent.RejectedExecutionHandler",
+      "genericType" : "java.util.concurrent.RejectedExecutionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "allowCoreThreadTimeOut",
+    "modifiers" : "public",
+    "signature" : "public void allowCoreThreadTimeOut(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "allowsCoreThreadTimeOut",
+    "modifiers" : "public",
+    "signature" : "public boolean allowsCoreThreadTimeOut()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitTermination",
+    "modifiers" : "public",
+    "signature" : "public boolean awaitTermination(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "execute",
+    "modifiers" : "public",
+    "signature" : "public void execute(java.lang.Runnable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getActiveCount",
+    "modifiers" : "public",
+    "signature" : "public int getActiveCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompletedTaskCount",
+    "modifiers" : "public",
+    "signature" : "public long getCompletedTaskCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCorePoolSize",
+    "modifiers" : "public",
+    "signature" : "public int getCorePoolSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeepAliveTime",
+    "modifiers" : "public",
+    "signature" : "public long getKeepAliveTime(java.util.concurrent.TimeUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLargestPoolSize",
+    "modifiers" : "public",
+    "signature" : "public int getLargestPoolSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumPoolSize",
+    "modifiers" : "public",
+    "signature" : "public int getMaximumPoolSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoolSize",
+    "modifiers" : "public",
+    "signature" : "public int getPoolSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueue",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.BlockingQueue getQueue()",
+    "returnType" : "java.util.concurrent.BlockingQueue",
+    "genericReturnType" : "java.util.concurrent.BlockingQueue",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRejectedExecutionHandler",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.RejectedExecutionHandler getRejectedExecutionHandler()",
+    "returnType" : "java.util.concurrent.RejectedExecutionHandler",
+    "genericReturnType" : "java.util.concurrent.RejectedExecutionHandler",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTaskCount",
+    "modifiers" : "public",
+    "signature" : "public long getTaskCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadFactory",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ThreadFactory getThreadFactory()",
+    "returnType" : "java.util.concurrent.ThreadFactory",
+    "genericReturnType" : "java.util.concurrent.ThreadFactory",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isShutdown",
+    "modifiers" : "public",
+    "signature" : "public boolean isShutdown()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTerminated",
+    "modifiers" : "public",
+    "signature" : "public boolean isTerminated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTerminating",
+    "modifiers" : "public",
+    "signature" : "public boolean isTerminating()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prestartAllCoreThreads",
+    "modifiers" : "public",
+    "signature" : "public int prestartAllCoreThreads()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prestartCoreThread",
+    "modifiers" : "public",
+    "signature" : "public boolean prestartCoreThread()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "purge",
+    "modifiers" : "public",
+    "signature" : "public void purge()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public boolean remove(java.lang.Runnable)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCorePoolSize",
+    "modifiers" : "public",
+    "signature" : "public void setCorePoolSize(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setKeepAliveTime",
+    "modifiers" : "public",
+    "signature" : "public void setKeepAliveTime(long, java.util.concurrent.TimeUnit)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximumPoolSize",
+    "modifiers" : "public",
+    "signature" : "public void setMaximumPoolSize(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maximumPoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRejectedExecutionHandler",
+    "modifiers" : "public",
+    "signature" : "public void setRejectedExecutionHandler(java.util.concurrent.RejectedExecutionHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "java.util.concurrent.RejectedExecutionHandler",
+      "genericType" : "java.util.concurrent.RejectedExecutionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setThreadFactory",
+    "modifiers" : "public",
+    "signature" : "public void setThreadFactory(java.util.concurrent.ThreadFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdown",
+    "modifiers" : "public",
+    "signature" : "public void shutdown()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdownNow",
+    "modifiers" : "public",
+    "signature" : "public java.util.List shutdownNow()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

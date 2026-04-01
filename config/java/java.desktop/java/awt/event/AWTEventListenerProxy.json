@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.AWTEventListenerProxy",
+  "canonicalName" : "java.awt.event.AWTEventListenerProxy",
+  "simpleName" : "AWTEventListenerProxy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventListenerProxy",
+  "interfaces" : [ "java.awt.event.AWTEventListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.event.AWTEventListenerProxy",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.AWTEventListenerProxy(long, java.awt.event.AWTEventListener)",
+    "parameters" : [ {
+      "name" : "eventMask",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "java.awt.event.AWTEventListener",
+      "genericType" : "java.awt.event.AWTEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "eventDispatched",
+    "modifiers" : "public",
+    "signature" : "public void eventDispatched(java.awt.AWTEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.awt.AWTEvent",
+      "genericType" : "java.awt.AWTEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEventMask",
+    "modifiers" : "public",
+    "signature" : "public long getEventMask()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

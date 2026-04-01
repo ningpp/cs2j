@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.NamingEnumeration",
+  "canonicalName" : "javax.naming.NamingEnumeration",
+  "simpleName" : "NamingEnumeration",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.Enumeration" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close() throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasMore",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasMore() throws javax.naming.NamingException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object next() throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

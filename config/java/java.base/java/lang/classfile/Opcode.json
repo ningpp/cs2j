@@ -1,0 +1,78 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Opcode",
+  "canonicalName" : "java.lang.classfile.Opcode",
+  "simpleName" : "Opcode",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "bytecode",
+    "modifiers" : "public",
+    "signature" : "public int bytecode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWide",
+    "modifiers" : "public",
+    "signature" : "public boolean isWide()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "kind",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.Opcode$Kind kind()",
+    "returnType" : "java.lang.classfile.Opcode$Kind",
+    "genericReturnType" : "java.lang.classfile.Opcode$Kind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sizeIfFixed",
+    "modifiers" : "public",
+    "signature" : "public int sizeIfFixed()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Opcode valueOf(java.lang.String)",
+    "returnType" : "java.lang.classfile.Opcode",
+    "genericReturnType" : "java.lang.classfile.Opcode",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Opcode[] values()",
+    "returnType" : "java.lang.classfile.Opcode[]",
+    "genericReturnType" : "java.lang.classfile.Opcode[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

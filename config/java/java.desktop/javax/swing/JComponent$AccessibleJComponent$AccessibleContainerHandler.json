@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JComponent$AccessibleJComponent$AccessibleContainerHandler",
+  "canonicalName" : "javax.swing.JComponent.AccessibleJComponent.AccessibleContainerHandler",
+  "simpleName" : "AccessibleContainerHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JComponent$AccessibleJComponent",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.ContainerListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "componentAdded",
+    "modifiers" : "public",
+    "signature" : "public void componentAdded(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentRemoved",
+    "modifiers" : "public",
+    "signature" : "public void componentRemoved(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

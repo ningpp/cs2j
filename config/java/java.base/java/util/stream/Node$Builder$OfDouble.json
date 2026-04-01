@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Node$Builder$OfDouble",
+  "canonicalName" : "java.util.stream.Node.Builder.OfDouble",
+  "simpleName" : "OfDouble",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Node$Builder",
+  "interfaces" : [ "java.util.stream.Node$Builder", "java.util.stream.Sink$OfDouble" ],
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Node$OfDouble build()",
+    "returnType" : "java.util.stream.Node$OfDouble",
+    "genericReturnType" : "java.util.stream.Node$OfDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

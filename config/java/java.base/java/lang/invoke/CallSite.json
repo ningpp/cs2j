@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.CallSite",
+  "canonicalName" : "java.lang.invoke.CallSite",
+  "simpleName" : "CallSite",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "dynamicInvoker",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle dynamicInvoker()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTarget",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle getTarget()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTarget",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTarget(java.lang.invoke.MethodHandle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "type",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodType type()",
+    "returnType" : "java.lang.invoke.MethodType",
+    "genericReturnType" : "java.lang.invoke.MethodType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

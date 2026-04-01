@@ -1,0 +1,126 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+  "canonicalName" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+  "simpleName" : "ModelMBeanNotificationInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.MBeanNotificationInfo",
+  "interfaces" : [ "javax.management.DescriptorAccess" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanNotificationInfo(java.lang.String[], java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "notifTypes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanNotificationInfo(java.lang.String[], java.lang.String, java.lang.String, javax.management.Descriptor)",
+    "parameters" : [ {
+      "name" : "notifTypes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanNotificationInfo(javax.management.modelmbean.ModelMBeanNotificationInfo)",
+    "parameters" : [ {
+      "name" : "inInfo",
+      "type" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+      "genericType" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor getDescriptor()",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDescriptor",
+    "modifiers" : "public",
+    "signature" : "public void setDescriptor(javax.management.Descriptor)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inDescriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

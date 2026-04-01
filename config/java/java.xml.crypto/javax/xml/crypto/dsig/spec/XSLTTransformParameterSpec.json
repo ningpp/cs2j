@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.XSLTTransformParameterSpec",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.XSLTTransformParameterSpec",
+  "simpleName" : "XSLTTransformParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.crypto.dsig.spec.TransformParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.spec.XSLTTransformParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.XSLTTransformParameterSpec(javax.xml.crypto.XMLStructure)",
+    "parameters" : [ {
+      "name" : "stylesheet",
+      "type" : "javax.xml.crypto.XMLStructure",
+      "genericType" : "javax.xml.crypto.XMLStructure",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getStylesheet",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.XMLStructure getStylesheet()",
+    "returnType" : "javax.xml.crypto.XMLStructure",
+    "genericReturnType" : "javax.xml.crypto.XMLStructure",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

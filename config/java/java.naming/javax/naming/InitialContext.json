@@ -1,0 +1,623 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.InitialContext",
+  "canonicalName" : "javax.naming.InitialContext",
+  "simpleName" : "InitialContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.naming.Context" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.InitialContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.InitialContext() throws javax.naming.NamingException",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.InitialContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.InitialContext(java.util.Hashtable) throws javax.naming.NamingException",
+    "parameters" : [ {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addToEnvironment",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object addToEnvironment(java.lang.String, java.lang.Object) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "propName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "propVal",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public",
+    "signature" : "public void bind(java.lang.String, java.lang.Object) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public",
+    "signature" : "public void bind(javax.naming.Name, java.lang.Object) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "composeName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String composeName(java.lang.String, java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "composeName",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Name composeName(javax.naming.Name, javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Name",
+    "genericReturnType" : "javax.naming.Name",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prefix",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSubcontext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Context createSubcontext(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSubcontext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Context createSubcontext(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "destroySubcontext",
+    "modifiers" : "public",
+    "signature" : "public void destroySubcontext(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "destroySubcontext",
+    "modifiers" : "public",
+    "signature" : "public void destroySubcontext(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doLookup",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doLookup(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doLookup",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doLookup(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnvironment",
+    "modifiers" : "public",
+    "signature" : "public java.util.Hashtable getEnvironment() throws javax.naming.NamingException",
+    "returnType" : "java.util.Hashtable",
+    "genericReturnType" : "java.util.Hashtable",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNameInNamespace",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getNameInNamespace() throws javax.naming.NamingException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNameParser",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NameParser getNameParser(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NameParser",
+    "genericReturnType" : "javax.naming.NameParser",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNameParser",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NameParser getNameParser(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NameParser",
+    "genericReturnType" : "javax.naming.NameParser",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration list(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration list(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "listBindings",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration listBindings(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "listBindings",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration listBindings(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookup",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object lookup(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookup",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object lookup(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupLink",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object lookupLink(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupLink",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object lookupLink(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rebind",
+    "modifiers" : "public",
+    "signature" : "public void rebind(java.lang.String, java.lang.Object) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rebind",
+    "modifiers" : "public",
+    "signature" : "public void rebind(javax.naming.Name, java.lang.Object) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeFromEnvironment",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object removeFromEnvironment(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "propName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rename",
+    "modifiers" : "public",
+    "signature" : "public void rename(java.lang.String, java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "oldName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rename",
+    "modifiers" : "public",
+    "signature" : "public void rename(javax.naming.Name, javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "oldName",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newName",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unbind",
+    "modifiers" : "public",
+    "signature" : "public void unbind(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unbind",
+    "modifiers" : "public",
+    "signature" : "public void unbind(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

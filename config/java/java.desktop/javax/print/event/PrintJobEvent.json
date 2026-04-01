@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.event",
+  "binaryName" : "javax.print.event.PrintJobEvent",
+  "canonicalName" : "javax.print.event.PrintJobEvent",
+  "simpleName" : "PrintJobEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.event.PrintEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.event.PrintJobEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.print.event.PrintJobEvent(javax.print.DocPrintJob, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.print.DocPrintJob",
+      "genericType" : "javax.print.DocPrintJob",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPrintEventType",
+    "modifiers" : "public",
+    "signature" : "public int getPrintEventType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintJob",
+    "modifiers" : "public",
+    "signature" : "public javax.print.DocPrintJob getPrintJob()",
+    "returnType" : "javax.print.DocPrintJob",
+    "genericReturnType" : "javax.print.DocPrintJob",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

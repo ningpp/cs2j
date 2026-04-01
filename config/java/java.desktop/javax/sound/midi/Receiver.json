@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.Receiver",
+  "canonicalName" : "javax.sound.midi.Receiver",
+  "simpleName" : "Receiver",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.AutoCloseable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "send",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void send(javax.sound.midi.MidiMessage, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.MidiMessage",
+      "genericType" : "javax.sound.midi.MidiMessage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,876 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.ComponentSampleModel",
+  "canonicalName" : "java.awt.image.ComponentSampleModel",
+  "simpleName" : "ComponentSampleModel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.image.SampleModel",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.ComponentSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ComponentSampleModel(int, int, int, int, int, int[])",
+    "parameters" : [ {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pixelStride",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scanlineStride",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bandOffsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.ComponentSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ComponentSampleModel(int, int, int, int, int, int[], int[])",
+    "parameters" : [ {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pixelStride",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scanlineStride",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bankIndices",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bandOffsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createCompatibleSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.SampleModel createCompatibleSampleModel(int, int)",
+    "returnType" : "java.awt.image.SampleModel",
+    "genericReturnType" : "java.awt.image.SampleModel",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDataBuffer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.DataBuffer createDataBuffer()",
+    "returnType" : "java.awt.image.DataBuffer",
+    "genericReturnType" : "java.awt.image.DataBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSubsetSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.SampleModel createSubsetSampleModel(int[])",
+    "returnType" : "java.awt.image.SampleModel",
+    "genericReturnType" : "java.awt.image.SampleModel",
+    "parameters" : [ {
+      "name" : "bands",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBandOffsets",
+    "modifiers" : "public final",
+    "signature" : "public final int[] getBandOffsets()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBankIndices",
+    "modifiers" : "public final",
+    "signature" : "public final int[] getBankIndices()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDataElements",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getDataElements(int, int, java.lang.Object, java.awt.image.DataBuffer)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumDataElements",
+    "modifiers" : "public final",
+    "signature" : "public final int getNumDataElements()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public",
+    "signature" : "public int getOffset(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public",
+    "signature" : "public int getOffset(int, int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPixel",
+    "modifiers" : "public",
+    "signature" : "public int[] getPixel(int, int, int[], java.awt.image.DataBuffer)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPixelStride",
+    "modifiers" : "public final",
+    "signature" : "public final int getPixelStride()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPixels",
+    "modifiers" : "public",
+    "signature" : "public int[] getPixels(int, int, int, int, int[], java.awt.image.DataBuffer)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSample",
+    "modifiers" : "public",
+    "signature" : "public int getSample(int, int, int, java.awt.image.DataBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleDouble",
+    "modifiers" : "public",
+    "signature" : "public double getSampleDouble(int, int, int, java.awt.image.DataBuffer)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleFloat",
+    "modifiers" : "public",
+    "signature" : "public float getSampleFloat(int, int, int, java.awt.image.DataBuffer)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleSize",
+    "modifiers" : "public final",
+    "signature" : "public final int[] getSampleSize()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleSize",
+    "modifiers" : "public final",
+    "signature" : "public final int getSampleSize(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "band",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSamples",
+    "modifiers" : "public",
+    "signature" : "public int[] getSamples(int, int, int, int, int, int[], java.awt.image.DataBuffer)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScanlineStride",
+    "modifiers" : "public final",
+    "signature" : "public final int getScanlineStride()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDataElements",
+    "modifiers" : "public",
+    "signature" : "public void setDataElements(int, int, java.lang.Object, java.awt.image.DataBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPixel",
+    "modifiers" : "public",
+    "signature" : "public void setPixel(int, int, int[], java.awt.image.DataBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPixels",
+    "modifiers" : "public",
+    "signature" : "public void setPixels(int, int, int, int, int[], java.awt.image.DataBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSample",
+    "modifiers" : "public",
+    "signature" : "public void setSample(int, int, int, double, java.awt.image.DataBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSample",
+    "modifiers" : "public",
+    "signature" : "public void setSample(int, int, int, float, java.awt.image.DataBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSample",
+    "modifiers" : "public",
+    "signature" : "public void setSample(int, int, int, int, java.awt.image.DataBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSamples",
+    "modifiers" : "public",
+    "signature" : "public void setSamples(int, int, int, int, int, int[], java.awt.image.DataBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.awt.image.DataBuffer",
+      "genericType" : "java.awt.image.DataBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

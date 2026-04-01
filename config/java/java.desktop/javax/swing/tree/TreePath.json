@@ -1,0 +1,165 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.TreePath",
+  "canonicalName" : "javax.swing.tree.TreePath",
+  "simpleName" : "TreePath",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.tree.TreePath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "lastPathComponent",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.tree.TreePath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath(java.lang.Object[])",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastPathComponent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getLastPathComponent()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParentPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getParentPath()",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPath",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] getPath()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPathComponent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getPathComponent(int)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPathCount",
+    "modifiers" : "public",
+    "signature" : "public int getPathCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDescendant",
+    "modifiers" : "public",
+    "signature" : "public boolean isDescendant(javax.swing.tree.TreePath)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "aTreePath",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pathByAddingChild",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath pathByAddingChild(java.lang.Object)",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "parameters" : [ {
+      "name" : "child",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

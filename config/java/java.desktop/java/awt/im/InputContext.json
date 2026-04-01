@@ -1,0 +1,166 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.im",
+  "binaryName" : "java.awt.im.InputContext",
+  "canonicalName" : "java.awt.im.InputContext",
+  "simpleName" : "InputContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "dispatchEvent",
+    "modifiers" : "public",
+    "signature" : "public void dispatchEvent(java.awt.AWTEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.awt.AWTEvent",
+      "genericType" : "java.awt.AWTEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispose",
+    "modifiers" : "public",
+    "signature" : "public void dispose()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endComposition",
+    "modifiers" : "public",
+    "signature" : "public void endComposition()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputMethodControlObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getInputMethodControlObject()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.im.InputContext getInstance()",
+    "returnType" : "java.awt.im.InputContext",
+    "genericReturnType" : "java.awt.im.InputContext",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCompositionEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isCompositionEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reconvert",
+    "modifiers" : "public",
+    "signature" : "public void reconvert()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public",
+    "signature" : "public void removeNotify(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "client",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectInputMethod",
+    "modifiers" : "public",
+    "signature" : "public boolean selectInputMethod(java.util.Locale)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharacterSubsets",
+    "modifiers" : "public",
+    "signature" : "public void setCharacterSubsets(java.lang.Character$Subset[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "subsets",
+      "type" : "java.lang.Character$Subset[]",
+      "genericType" : "java.lang.Character$Subset[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCompositionEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setCompositionEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

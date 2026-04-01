@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.HierarchyListener",
+  "canonicalName" : "java.awt.event.HierarchyListener",
+  "simpleName" : "HierarchyListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "hierarchyChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void hierarchyChanged(java.awt.event.HierarchyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.HierarchyEvent",
+      "genericType" : "java.awt.event.HierarchyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

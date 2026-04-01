@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JPopupMenu$Separator",
+  "canonicalName" : "javax.swing.JPopupMenu.Separator",
+  "simpleName" : "Separator",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JPopupMenu",
+  "superClass" : "javax.swing.JSeparator",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JPopupMenu$Separator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JPopupMenu$Separator()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,151 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.login",
+  "binaryName" : "javax.security.auth.login.LoginContext",
+  "canonicalName" : "javax.security.auth.login.LoginContext",
+  "simpleName" : "LoginContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.login.LoginContext",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.LoginContext(java.lang.String) throws javax.security.auth.login.LoginException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.login.LoginContext",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.LoginContext(java.lang.String, javax.security.auth.Subject) throws javax.security.auth.login.LoginException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.login.LoginContext",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.LoginContext(java.lang.String, javax.security.auth.Subject, javax.security.auth.callback.CallbackHandler) throws javax.security.auth.login.LoginException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "callbackHandler",
+      "type" : "javax.security.auth.callback.CallbackHandler",
+      "genericType" : "javax.security.auth.callback.CallbackHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.login.LoginContext",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.LoginContext(java.lang.String, javax.security.auth.Subject, javax.security.auth.callback.CallbackHandler, javax.security.auth.login.Configuration) throws javax.security.auth.login.LoginException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "callbackHandler",
+      "type" : "javax.security.auth.callback.CallbackHandler",
+      "genericType" : "javax.security.auth.callback.CallbackHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "config",
+      "type" : "javax.security.auth.login.Configuration",
+      "genericType" : "javax.security.auth.login.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.login.LoginContext",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.LoginContext(java.lang.String, javax.security.auth.callback.CallbackHandler) throws javax.security.auth.login.LoginException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "callbackHandler",
+      "type" : "javax.security.auth.callback.CallbackHandler",
+      "genericType" : "javax.security.auth.callback.CallbackHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getSubject",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.Subject getSubject()",
+    "returnType" : "javax.security.auth.Subject",
+    "genericReturnType" : "javax.security.auth.Subject",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "login",
+    "modifiers" : "public",
+    "signature" : "public void login() throws javax.security.auth.login.LoginException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logout",
+    "modifiers" : "public",
+    "signature" : "public void logout() throws javax.security.auth.login.LoginException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalBorders",
+  "canonicalName" : "javax.swing.plaf.metal.MetalBorders",
+  "simpleName" : "MetalBorders",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalBorders",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalBorders()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getButtonBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getButtonBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDesktopIconBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getDesktopIconBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getTextBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextFieldBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getTextFieldBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToggleButtonBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getToggleButtonBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

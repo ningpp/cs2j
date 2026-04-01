@@ -1,0 +1,196 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+  "canonicalName" : "javax.swing.text.html.HTMLEditorKit.ParserCallback",
+  "simpleName" : "ParserCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.html.HTMLEditorKit",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$ParserCallback()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "flush",
+    "modifiers" : "public",
+    "signature" : "public void flush() throws javax.swing.text.BadLocationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleComment",
+    "modifiers" : "public",
+    "signature" : "public void handleComment(char[], int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "data",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleEndOfLineString",
+    "modifiers" : "public",
+    "signature" : "public void handleEndOfLineString(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "eol",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleEndTag",
+    "modifiers" : "public",
+    "signature" : "public void handleEndTag(javax.swing.text.html.HTML$Tag, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleError",
+    "modifiers" : "public",
+    "signature" : "public void handleError(java.lang.String, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "errorMsg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleSimpleTag",
+    "modifiers" : "public",
+    "signature" : "public void handleSimpleTag(javax.swing.text.html.HTML$Tag, javax.swing.text.MutableAttributeSet, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "javax.swing.text.MutableAttributeSet",
+      "genericType" : "javax.swing.text.MutableAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleStartTag",
+    "modifiers" : "public",
+    "signature" : "public void handleStartTag(javax.swing.text.html.HTML$Tag, javax.swing.text.MutableAttributeSet, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "javax.swing.text.MutableAttributeSet",
+      "genericType" : "javax.swing.text.MutableAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleText",
+    "modifiers" : "public",
+    "signature" : "public void handleText(char[], int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "data",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

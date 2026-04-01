@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLSessionBindingListener",
+  "canonicalName" : "javax.net.ssl.SSLSessionBindingListener",
+  "simpleName" : "SSLSessionBindingListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "valueBound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void valueBound(javax.net.ssl.SSLSessionBindingEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.net.ssl.SSLSessionBindingEvent",
+      "genericType" : "javax.net.ssl.SSLSessionBindingEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueUnbound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void valueUnbound(javax.net.ssl.SSLSessionBindingEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.net.ssl.SSLSessionBindingEvent",
+      "genericType" : "javax.net.ssl.SSLSessionBindingEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.PBEParameterSpec",
+  "canonicalName" : "javax.crypto.spec.PBEParameterSpec",
+  "simpleName" : "PBEParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.spec.PBEParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.PBEParameterSpec(byte[], int)",
+    "parameters" : [ {
+      "name" : "salt",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iterationCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.spec.PBEParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.PBEParameterSpec(byte[], int, java.security.spec.AlgorithmParameterSpec)",
+    "parameters" : [ {
+      "name" : "salt",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iterationCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paramSpec",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getIterationCount",
+    "modifiers" : "public",
+    "signature" : "public int getIterationCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.AlgorithmParameterSpec getParameterSpec()",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSalt",
+    "modifiers" : "public",
+    "signature" : "public byte[] getSalt()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

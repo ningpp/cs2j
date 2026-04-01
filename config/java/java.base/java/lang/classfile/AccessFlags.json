@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AccessFlags",
+  "canonicalName" : "java.lang.classfile.AccessFlags",
+  "simpleName" : "AccessFlags",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassElement", "java.lang.classfile.FieldElement", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "flags",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set flags()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flagsMask",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int flagsMask()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "has",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean has(java.lang.reflect.AccessFlag)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.reflect.AccessFlag",
+      "genericType" : "java.lang.reflect.AccessFlag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "location",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.AccessFlag$Location location()",
+    "returnType" : "java.lang.reflect.AccessFlag$Location",
+    "genericReturnType" : "java.lang.reflect.AccessFlag$Location",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

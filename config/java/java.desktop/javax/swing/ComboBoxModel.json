@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ComboBoxModel",
+  "canonicalName" : "javax.swing.ComboBoxModel",
+  "simpleName" : "ComboBoxModel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.swing.ListModel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getSelectedItem",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getSelectedItem()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectedItem",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSelectedItem(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

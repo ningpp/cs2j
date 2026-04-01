@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.MalformedParameterizedTypeException",
+  "canonicalName" : "java.lang.reflect.MalformedParameterizedTypeException",
+  "simpleName" : "MalformedParameterizedTypeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.reflect.MalformedParameterizedTypeException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.MalformedParameterizedTypeException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.reflect.MalformedParameterizedTypeException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.MalformedParameterizedTypeException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

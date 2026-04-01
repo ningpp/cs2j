@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.type",
+  "binaryName" : "javax.lang.model.type.WildcardType",
+  "canonicalName" : "javax.lang.model.type.WildcardType",
+  "simpleName" : "WildcardType",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.type.TypeMirror" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getExtendsBound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.TypeMirror getExtendsBound()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSuperBound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.TypeMirror getSuperBound()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

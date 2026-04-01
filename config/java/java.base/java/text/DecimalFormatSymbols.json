@@ -1,0 +1,546 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.DecimalFormatSymbols",
+  "canonicalName" : "java.text.DecimalFormatSymbols",
+  "simpleName" : "DecimalFormatSymbols",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.text.DecimalFormatSymbols",
+    "modifiers" : "public",
+    "signature" : "public java.text.DecimalFormatSymbols()",
+    "varArgs" : false
+  }, {
+    "name" : "java.text.DecimalFormatSymbols",
+    "modifiers" : "public",
+    "signature" : "public java.text.DecimalFormatSymbols(java.util.Locale)",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableLocales",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Locale[] getAvailableLocales()",
+    "returnType" : "java.util.Locale[]",
+    "genericReturnType" : "java.util.Locale[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrency",
+    "modifiers" : "public",
+    "signature" : "public java.util.Currency getCurrency()",
+    "returnType" : "java.util.Currency",
+    "genericReturnType" : "java.util.Currency",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrencySymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCurrencySymbol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDecimalSeparator",
+    "modifiers" : "public",
+    "signature" : "public char getDecimalSeparator()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDigit",
+    "modifiers" : "public",
+    "signature" : "public char getDigit()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExponentSeparator",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getExponentSeparator()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGroupingSeparator",
+    "modifiers" : "public",
+    "signature" : "public char getGroupingSeparator()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInfinity",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getInfinity()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DecimalFormatSymbols getInstance()",
+    "returnType" : "java.text.DecimalFormatSymbols",
+    "genericReturnType" : "java.text.DecimalFormatSymbols",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DecimalFormatSymbols getInstance(java.util.Locale)",
+    "returnType" : "java.text.DecimalFormatSymbols",
+    "genericReturnType" : "java.text.DecimalFormatSymbols",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternationalCurrencySymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getInternationalCurrencySymbol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinusSign",
+    "modifiers" : "public",
+    "signature" : "public char getMinusSign()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMonetaryDecimalSeparator",
+    "modifiers" : "public",
+    "signature" : "public char getMonetaryDecimalSeparator()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMonetaryGroupingSeparator",
+    "modifiers" : "public",
+    "signature" : "public char getMonetaryGroupingSeparator()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNaN",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getNaN()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPatternSeparator",
+    "modifiers" : "public",
+    "signature" : "public char getPatternSeparator()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPerMill",
+    "modifiers" : "public",
+    "signature" : "public char getPerMill()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPercent",
+    "modifiers" : "public",
+    "signature" : "public char getPercent()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getZeroDigit",
+    "modifiers" : "public",
+    "signature" : "public char getZeroDigit()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrency",
+    "modifiers" : "public",
+    "signature" : "public void setCurrency(java.util.Currency)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "currency",
+      "type" : "java.util.Currency",
+      "genericType" : "java.util.Currency",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrencySymbol",
+    "modifiers" : "public",
+    "signature" : "public void setCurrencySymbol(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "currency",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDecimalSeparator",
+    "modifiers" : "public",
+    "signature" : "public void setDecimalSeparator(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "decimalSeparator",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDigit",
+    "modifiers" : "public",
+    "signature" : "public void setDigit(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "digit",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExponentSeparator",
+    "modifiers" : "public",
+    "signature" : "public void setExponentSeparator(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "exp",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setGroupingSeparator",
+    "modifiers" : "public",
+    "signature" : "public void setGroupingSeparator(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "groupingSeparator",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInfinity",
+    "modifiers" : "public",
+    "signature" : "public void setInfinity(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "infinity",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInternationalCurrencySymbol",
+    "modifiers" : "public",
+    "signature" : "public void setInternationalCurrencySymbol(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "currencyCode",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinusSign",
+    "modifiers" : "public",
+    "signature" : "public void setMinusSign(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "minusSign",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMonetaryDecimalSeparator",
+    "modifiers" : "public",
+    "signature" : "public void setMonetaryDecimalSeparator(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sep",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMonetaryGroupingSeparator",
+    "modifiers" : "public",
+    "signature" : "public void setMonetaryGroupingSeparator(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "monetaryGroupingSeparator",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNaN",
+    "modifiers" : "public",
+    "signature" : "public void setNaN(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "NaN",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPatternSeparator",
+    "modifiers" : "public",
+    "signature" : "public void setPatternSeparator(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "patternSeparator",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPerMill",
+    "modifiers" : "public",
+    "signature" : "public void setPerMill(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "perMill",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPercent",
+    "modifiers" : "public",
+    "signature" : "public void setPercent(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "percent",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setZeroDigit",
+    "modifiers" : "public",
+    "signature" : "public void setZeroDigit(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "zeroDigit",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

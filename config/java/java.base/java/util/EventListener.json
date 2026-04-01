@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.EventListener",
+  "canonicalName" : "java.util.EventListener",
+  "simpleName" : "EventListener",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

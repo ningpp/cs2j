@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.SocketException",
+  "canonicalName" : "java.net.SocketException",
+  "simpleName" : "SocketException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.SocketException",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.SocketException",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.SocketException",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.SocketException",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

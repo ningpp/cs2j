@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CRLReason",
+  "canonicalName" : "java.security.cert.CRLReason",
+  "simpleName" : "CRLReason",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.cert.CRLReason valueOf(java.lang.String)",
+    "returnType" : "java.security.cert.CRLReason",
+    "genericReturnType" : "java.security.cert.CRLReason",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.cert.CRLReason[] values()",
+    "returnType" : "java.security.cert.CRLReason[]",
+    "genericReturnType" : "java.security.cert.CRLReason[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

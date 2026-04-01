@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.PaintContext",
+  "canonicalName" : "java.awt.PaintContext",
+  "simpleName" : "PaintContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "dispose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dispose()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColorModel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.ColorModel getColorModel()",
+    "returnType" : "java.awt.image.ColorModel",
+    "genericReturnType" : "java.awt.image.ColorModel",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRaster",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.Raster getRaster(int, int, int, int)",
+    "returnType" : "java.awt.image.Raster",
+    "genericReturnType" : "java.awt.image.Raster",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

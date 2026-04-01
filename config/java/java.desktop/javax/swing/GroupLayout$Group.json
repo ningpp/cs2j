@@ -1,0 +1,127 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.GroupLayout$Group",
+  "canonicalName" : "javax.swing.GroupLayout.Group",
+  "simpleName" : "Group",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "javax.swing.GroupLayout",
+  "superClass" : "javax.swing.GroupLayout$Spring",
+  "declaredPublicMethods" : [ {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$Group addComponent(java.awt.Component)",
+    "returnType" : "javax.swing.GroupLayout$Group",
+    "genericReturnType" : "javax.swing.GroupLayout$Group",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$Group addComponent(java.awt.Component, int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$Group",
+    "genericReturnType" : "javax.swing.GroupLayout$Group",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$Group addGap(int)",
+    "returnType" : "javax.swing.GroupLayout$Group",
+    "genericReturnType" : "javax.swing.GroupLayout$Group",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$Group addGap(int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$Group",
+    "genericReturnType" : "javax.swing.GroupLayout$Group",
+    "parameters" : [ {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGroup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$Group addGroup(javax.swing.GroupLayout$Group)",
+    "returnType" : "javax.swing.GroupLayout$Group",
+    "genericReturnType" : "javax.swing.GroupLayout$Group",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "javax.swing.GroupLayout$Group",
+      "genericType" : "javax.swing.GroupLayout$Group",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

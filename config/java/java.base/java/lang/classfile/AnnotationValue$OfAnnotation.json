@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AnnotationValue$OfAnnotation",
+  "canonicalName" : "java.lang.classfile.AnnotationValue.OfAnnotation",
+  "simpleName" : "OfAnnotation",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.AnnotationValue",
+  "interfaces" : [ "java.lang.classfile.AnnotationValue" ],
+  "declaredPublicMethods" : [ {
+    "name" : "annotation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Annotation annotation()",
+    "returnType" : "java.lang.classfile.Annotation",
+    "genericReturnType" : "java.lang.classfile.Annotation",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

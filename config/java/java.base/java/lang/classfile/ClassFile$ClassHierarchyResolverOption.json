@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassFile$ClassHierarchyResolverOption",
+  "canonicalName" : "java.lang.classfile.ClassFile.ClassHierarchyResolverOption",
+  "simpleName" : "ClassHierarchyResolverOption",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.ClassFile",
+  "interfaces" : [ "java.lang.classfile.ClassFile$Option" ],
+  "declaredPublicMethods" : [ {
+    "name" : "classHierarchyResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassHierarchyResolver classHierarchyResolver()",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassFile$ClassHierarchyResolverOption of(java.lang.classfile.ClassHierarchyResolver)",
+    "returnType" : "java.lang.classfile.ClassFile$ClassHierarchyResolverOption",
+    "genericReturnType" : "java.lang.classfile.ClassFile$ClassHierarchyResolverOption",
+    "parameters" : [ {
+      "name" : "classHierarchyResolver",
+      "type" : "java.lang.classfile.ClassHierarchyResolver",
+      "genericType" : "java.lang.classfile.ClassHierarchyResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

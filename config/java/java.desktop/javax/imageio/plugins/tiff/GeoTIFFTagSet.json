@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.tiff",
+  "binaryName" : "javax.imageio.plugins.tiff.GeoTIFFTagSet",
+  "canonicalName" : "javax.imageio.plugins.tiff.GeoTIFFTagSet",
+  "simpleName" : "GeoTIFFTagSet",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.imageio.plugins.tiff.TIFFTagSet",
+  "declaredPublicMethods" : [ {
+    "name" : "getInstance",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized javax.imageio.plugins.tiff.GeoTIFFTagSet getInstance()",
+    "returnType" : "javax.imageio.plugins.tiff.GeoTIFFTagSet",
+    "genericReturnType" : "javax.imageio.plugins.tiff.GeoTIFFTagSet",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

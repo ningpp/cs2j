@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.Operation",
+  "canonicalName" : "java.rmi.server.Operation",
+  "simpleName" : "Operation",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.server.Operation",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.Operation(java.lang.String)",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getOperation",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getOperation()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

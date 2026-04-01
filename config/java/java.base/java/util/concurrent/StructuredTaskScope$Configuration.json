@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.StructuredTaskScope$Configuration",
+  "canonicalName" : "java.util.concurrent.StructuredTaskScope.Configuration",
+  "simpleName" : "Configuration",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.StructuredTaskScope",
+  "declaredPublicMethods" : [ {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.StructuredTaskScope$Configuration withName(java.lang.String)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Configuration",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Configuration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withThreadFactory",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.StructuredTaskScope$Configuration withThreadFactory(java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Configuration",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Configuration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.StructuredTaskScope$Configuration withTimeout(java.time.Duration)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Configuration",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Configuration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

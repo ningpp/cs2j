@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.IIORegistry",
+  "canonicalName" : "javax.imageio.spi.IIORegistry",
+  "simpleName" : "IIORegistry",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.imageio.spi.ServiceRegistry",
+  "declaredPublicMethods" : [ {
+    "name" : "getDefaultInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.spi.IIORegistry getDefaultInstance()",
+    "returnType" : "javax.imageio.spi.IIORegistry",
+    "genericReturnType" : "javax.imageio.spi.IIORegistry",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerApplicationClasspathSpis",
+    "modifiers" : "public",
+    "signature" : "public void registerApplicationClasspathSpis()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

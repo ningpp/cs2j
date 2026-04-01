@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.events",
+  "binaryName" : "javax.xml.stream.events.EndDocument",
+  "canonicalName" : "javax.xml.stream.events.EndDocument",
+  "simpleName" : "EndDocument",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.stream.events.XMLEvent" ]
+}

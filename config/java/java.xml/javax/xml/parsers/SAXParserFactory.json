@@ -1,0 +1,258 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.parsers",
+  "binaryName" : "javax.xml.parsers.SAXParserFactory",
+  "canonicalName" : "javax.xml.parsers.SAXParserFactory",
+  "simpleName" : "SAXParserFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getFeature(java.lang.String) throws javax.xml.parsers.ParserConfigurationException, org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.parsers.ParserConfigurationException", "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.Schema getSchema()",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNamespaceAware",
+    "modifiers" : "public",
+    "signature" : "public boolean isNamespaceAware()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValidating",
+    "modifiers" : "public",
+    "signature" : "public boolean isValidating()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isXIncludeAware",
+    "modifiers" : "public",
+    "signature" : "public boolean isXIncludeAware()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.SAXParserFactory newDefaultInstance()",
+    "returnType" : "javax.xml.parsers.SAXParserFactory",
+    "genericReturnType" : "javax.xml.parsers.SAXParserFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultNSInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.SAXParserFactory newDefaultNSInstance()",
+    "returnType" : "javax.xml.parsers.SAXParserFactory",
+    "genericReturnType" : "javax.xml.parsers.SAXParserFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.SAXParserFactory newInstance()",
+    "returnType" : "javax.xml.parsers.SAXParserFactory",
+    "genericReturnType" : "javax.xml.parsers.SAXParserFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.SAXParserFactory newInstance(java.lang.String, java.lang.ClassLoader)",
+    "returnType" : "javax.xml.parsers.SAXParserFactory",
+    "genericReturnType" : "javax.xml.parsers.SAXParserFactory",
+    "parameters" : [ {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newNSInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.SAXParserFactory newNSInstance()",
+    "returnType" : "javax.xml.parsers.SAXParserFactory",
+    "genericReturnType" : "javax.xml.parsers.SAXParserFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newNSInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.SAXParserFactory newNSInstance(java.lang.String, java.lang.ClassLoader)",
+    "returnType" : "javax.xml.parsers.SAXParserFactory",
+    "genericReturnType" : "javax.xml.parsers.SAXParserFactory",
+    "parameters" : [ {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSAXParser",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.parsers.SAXParser newSAXParser() throws javax.xml.parsers.ParserConfigurationException, org.xml.sax.SAXException",
+    "returnType" : "javax.xml.parsers.SAXParser",
+    "genericReturnType" : "javax.xml.parsers.SAXParser",
+    "exceptions" : [ "javax.xml.parsers.ParserConfigurationException", "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFeature(java.lang.String, boolean) throws javax.xml.parsers.ParserConfigurationException, org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.parsers.ParserConfigurationException", "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNamespaceAware",
+    "modifiers" : "public",
+    "signature" : "public void setNamespaceAware(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "awareness",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSchema",
+    "modifiers" : "public",
+    "signature" : "public void setSchema(javax.xml.validation.Schema)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "schema",
+      "type" : "javax.xml.validation.Schema",
+      "genericType" : "javax.xml.validation.Schema",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValidating",
+    "modifiers" : "public",
+    "signature" : "public void setValidating(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "validating",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXIncludeAware",
+    "modifiers" : "public",
+    "signature" : "public void setXIncludeAware(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "state",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

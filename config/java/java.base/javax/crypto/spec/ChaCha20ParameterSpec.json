@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.ChaCha20ParameterSpec",
+  "canonicalName" : "javax.crypto.spec.ChaCha20ParameterSpec",
+  "simpleName" : "ChaCha20ParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.spec.ChaCha20ParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.ChaCha20ParameterSpec(byte[], int)",
+    "parameters" : [ {
+      "name" : "nonce",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "counter",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCounter",
+    "modifiers" : "public",
+    "signature" : "public int getCounter()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNonce",
+    "modifiers" : "public",
+    "signature" : "public byte[] getNonce()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

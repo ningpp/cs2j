@@ -1,0 +1,415 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.ObjectName",
+  "canonicalName" : "javax.management.ObjectName",
+  "simpleName" : "ObjectName",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Comparable", "javax.management.QueryExp" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.ObjectName",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectName(java.lang.String) throws javax.management.MalformedObjectNameException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MalformedObjectNameException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.ObjectName",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectName(java.lang.String, java.lang.String, java.lang.String) throws javax.management.MalformedObjectNameException",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MalformedObjectNameException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.ObjectName",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectName(java.lang.String, java.util.Hashtable) throws javax.management.MalformedObjectNameException",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "table",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MalformedObjectNameException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "apply",
+    "modifiers" : "public",
+    "signature" : "public boolean apply(javax.management.ObjectName)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(javax.management.ObjectName)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCanonicalKeyPropertyListString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCanonicalKeyPropertyListString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCanonicalName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCanonicalName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDomain",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDomain()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ObjectName getInstance(java.lang.String) throws javax.management.MalformedObjectNameException, java.lang.NullPointerException",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MalformedObjectNameException", "java.lang.NullPointerException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ObjectName getInstance(java.lang.String, java.lang.String, java.lang.String) throws javax.management.MalformedObjectNameException",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MalformedObjectNameException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ObjectName getInstance(java.lang.String, java.util.Hashtable) throws javax.management.MalformedObjectNameException",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "table",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MalformedObjectNameException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ObjectName getInstance(javax.management.ObjectName)",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getKeyProperty(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "property",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyPropertyList",
+    "modifiers" : "public",
+    "signature" : "public java.util.Hashtable getKeyPropertyList()",
+    "returnType" : "java.util.Hashtable",
+    "genericReturnType" : "java.util.Hashtable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyPropertyListString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getKeyPropertyListString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDomainPattern",
+    "modifiers" : "public",
+    "signature" : "public boolean isDomainPattern()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPattern",
+    "modifiers" : "public",
+    "signature" : "public boolean isPattern()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPropertyListPattern",
+    "modifiers" : "public",
+    "signature" : "public boolean isPropertyListPattern()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPropertyPattern",
+    "modifiers" : "public",
+    "signature" : "public boolean isPropertyPattern()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPropertyValuePattern",
+    "modifiers" : "public",
+    "signature" : "public boolean isPropertyValuePattern()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPropertyValuePattern",
+    "modifiers" : "public",
+    "signature" : "public boolean isPropertyValuePattern(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "property",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quote",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String quote(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServer",
+    "modifiers" : "public",
+    "signature" : "public void setMBeanServer(javax.management.MBeanServer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mbs",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unquote",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String unquote(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "q",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

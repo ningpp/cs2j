@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.LiveStackFrame$PrimitiveSlot",
+  "canonicalName" : "java.lang.LiveStackFrame.PrimitiveSlot",
+  "simpleName" : "PrimitiveSlot",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "java.lang.LiveStackFrame",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "intValue",
+    "modifiers" : "public",
+    "signature" : "public int intValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longValue",
+    "modifiers" : "public",
+    "signature" : "public long longValue()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

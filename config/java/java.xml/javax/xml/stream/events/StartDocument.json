@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.events",
+  "binaryName" : "javax.xml.stream.events.StartDocument",
+  "canonicalName" : "javax.xml.stream.events.StartDocument",
+  "simpleName" : "StartDocument",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.stream.events.XMLEvent" ],
+  "declaredPublicMethods" : [ {
+    "name" : "encodingSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean encodingSet()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterEncodingScheme",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getCharacterEncodingScheme()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStandalone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isStandalone()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "standaloneSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean standaloneSet()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

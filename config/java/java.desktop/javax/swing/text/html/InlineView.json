@@ -1,0 +1,185 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.InlineView",
+  "canonicalName" : "javax.swing.text.html.InlineView",
+  "simpleName" : "InlineView",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.LabelView",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.InlineView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.InlineView(javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "breakView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.View breakView(int, int, float, float)",
+    "returnType" : "javax.swing.text.View",
+    "genericReturnType" : "javax.swing.text.View",
+    "parameters" : [ {
+      "name" : "axis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "changedUpdate",
+    "modifiers" : "public",
+    "signature" : "public void changedUpdate(javax.swing.event.DocumentEvent, java.awt.Shape, javax.swing.text.ViewFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "javax.swing.text.ViewFactory",
+      "genericType" : "javax.swing.text.ViewFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet getAttributes()",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBreakWeight",
+    "modifiers" : "public",
+    "signature" : "public int getBreakWeight(int, float, float)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "axis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertUpdate",
+    "modifiers" : "public",
+    "signature" : "public void insertUpdate(javax.swing.event.DocumentEvent, java.awt.Shape, javax.swing.text.ViewFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "javax.swing.text.ViewFactory",
+      "genericType" : "javax.swing.text.ViewFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeUpdate",
+    "modifiers" : "public",
+    "signature" : "public void removeUpdate(javax.swing.event.DocumentEvent, java.awt.Shape, javax.swing.text.ViewFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "javax.swing.text.ViewFactory",
+      "genericType" : "javax.swing.text.ViewFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

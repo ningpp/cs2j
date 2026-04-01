@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.im.spi",
+  "binaryName" : "java.awt.im.spi.InputMethodDescriptor",
+  "canonicalName" : "java.awt.im.spi.InputMethodDescriptor",
+  "simpleName" : "InputMethodDescriptor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createInputMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.im.spi.InputMethod createInputMethod() throws java.lang.Exception",
+    "returnType" : "java.awt.im.spi.InputMethod",
+    "genericReturnType" : "java.awt.im.spi.InputMethod",
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableLocales",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Locale[] getAvailableLocales() throws java.awt.AWTException",
+    "returnType" : "java.util.Locale[]",
+    "genericReturnType" : "java.util.Locale[]",
+    "exceptions" : [ "java.awt.AWTException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputMethodDisplayName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getInputMethodDisplayName(java.util.Locale, java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputMethodIcon",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image getInputMethodIcon(java.util.Locale)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasDynamicLocaleList",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasDynamicLocaleList()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

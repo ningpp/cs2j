@@ -1,0 +1,307 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.Mac",
+  "canonicalName" : "javax.crypto.Mac",
+  "simpleName" : "Mac",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object clone() throws java.lang.CloneNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.CloneNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] doFinal() throws java.lang.IllegalStateException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] doFinal(byte[]) throws java.lang.IllegalStateException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doFinal",
+    "modifiers" : "public final",
+    "signature" : "public final void doFinal(byte[], int) throws javax.crypto.ShortBufferException, java.lang.IllegalStateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "output",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.ShortBufferException", "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlgorithm",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.Mac getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.Mac",
+    "genericReturnType" : "javax.crypto.Mac",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.Mac getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException",
+    "returnType" : "javax.crypto.Mac",
+    "genericReturnType" : "javax.crypto.Mac",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.crypto.Mac getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.Mac",
+    "genericReturnType" : "javax.crypto.Mac",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMacLength",
+    "modifiers" : "public final",
+    "signature" : "public final int getMacLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(java.security.Key) throws java.security.InvalidKeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(java.security.Key, java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidKeyException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public final",
+    "signature" : "public final void reset()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final void update(byte) throws java.lang.IllegalStateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final void update(byte[]) throws java.lang.IllegalStateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final void update(byte[], int, int) throws java.lang.IllegalStateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public final",
+    "signature" : "public final void update(java.nio.ByteBuffer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

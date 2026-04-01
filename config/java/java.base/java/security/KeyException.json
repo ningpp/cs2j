@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.KeyException",
+  "canonicalName" : "java.security.KeyException",
+  "simpleName" : "KeyException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.KeyException",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.KeyException",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.KeyException",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.KeyException",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

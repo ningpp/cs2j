@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.UnaryOperator",
+  "canonicalName" : "java.util.function.UnaryOperator",
+  "simpleName" : "UnaryOperator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.function.Function" ],
+  "declaredPublicMethods" : [ {
+    "name" : "identity",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.UnaryOperator identity()",
+    "returnType" : "java.util.function.UnaryOperator",
+    "genericReturnType" : "java.util.function.UnaryOperator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

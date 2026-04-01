@@ -1,0 +1,24 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.DocFlavor$CHAR_ARRAY",
+  "canonicalName" : "javax.print.DocFlavor.CHAR_ARRAY",
+  "simpleName" : "CHAR_ARRAY",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.print.DocFlavor",
+  "superClass" : "javax.print.DocFlavor",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.DocFlavor$CHAR_ARRAY",
+    "modifiers" : "public",
+    "signature" : "public javax.print.DocFlavor$CHAR_ARRAY(java.lang.String)",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

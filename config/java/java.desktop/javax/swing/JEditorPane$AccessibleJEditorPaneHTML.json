@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JEditorPane$AccessibleJEditorPaneHTML",
+  "canonicalName" : "javax.swing.JEditorPane.AccessibleJEditorPaneHTML",
+  "simpleName" : "AccessibleJEditorPaneHTML",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JEditorPane",
+  "superClass" : "javax.swing.JEditorPane$AccessibleJEditorPane",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleAt",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleAt(java.awt.Point)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChild",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleChild(int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChildrenCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleChildrenCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleText",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleText getAccessibleText()",
+    "returnType" : "javax.accessibility.AccessibleText",
+    "genericReturnType" : "javax.accessibility.AccessibleText",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

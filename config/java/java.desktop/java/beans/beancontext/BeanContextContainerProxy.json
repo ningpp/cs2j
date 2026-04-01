@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextContainerProxy",
+  "canonicalName" : "java.beans.beancontext.BeanContextContainerProxy",
+  "simpleName" : "BeanContextContainerProxy",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getContainer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Container getContainer()",
+    "returnType" : "java.awt.Container",
+    "genericReturnType" : "java.awt.Container",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

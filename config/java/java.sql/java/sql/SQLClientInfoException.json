@@ -1,0 +1,219 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.SQLClientInfoException",
+  "canonicalName" : "java.sql.SQLClientInfoException",
+  "simpleName" : "SQLClientInfoException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.sql.SQLException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.lang.String, java.lang.String, int, java.util.Map)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.lang.String, java.lang.String, int, java.util.Map, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.lang.String, java.lang.String, java.util.Map)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.lang.String, java.lang.String, java.util.Map, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.lang.String, java.util.Map)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.lang.String, java.util.Map, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.util.Map)",
+    "parameters" : [ {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLClientInfoException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLClientInfoException(java.util.Map, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "failedProperties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFailedProperties",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getFailedProperties()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

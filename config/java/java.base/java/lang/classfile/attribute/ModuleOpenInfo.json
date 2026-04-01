@@ -1,0 +1,299 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ModuleOpenInfo",
+  "canonicalName" : "java.lang.classfile.attribute.ModuleOpenInfo",
+  "simpleName" : "ModuleOpenInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "has",
+    "modifiers" : "public",
+    "signature" : "public boolean has(java.lang.reflect.AccessFlag)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "flag",
+      "type" : "java.lang.reflect.AccessFlag",
+      "genericType" : "java.lang.reflect.AccessFlag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.classfile.constantpool.PackageEntry, int, java.lang.classfile.constantpool.ModuleEntry...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.classfile.constantpool.PackageEntry, int, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.classfile.constantpool.PackageEntry, java.util.Collection, java.lang.classfile.constantpool.ModuleEntry...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.classfile.constantpool.PackageEntry, java.util.Collection, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.constant.PackageDesc, int, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.constant.PackageDesc, int, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.constant.PackageDesc, java.util.Collection, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleOpenInfo of(java.lang.constant.PackageDesc, java.util.Collection, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+    "parameters" : [ {
+      "name" : "opens",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openedPackage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.PackageEntry openedPackage()",
+    "returnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opensFlags",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set opensFlags()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "opensFlagsMask",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int opensFlagsMask()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opensTo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List opensTo()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

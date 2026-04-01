@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.AWTEvent",
+  "canonicalName" : "java.awt.AWTEvent",
+  "simpleName" : "AWTEvent",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.AWTEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AWTEvent(java.awt.Event)",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.awt.Event",
+      "genericType" : "java.awt.Event",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.AWTEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AWTEvent(java.lang.Object, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public int getID()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSource",
+    "modifiers" : "public",
+    "signature" : "public void setSource(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newSource",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

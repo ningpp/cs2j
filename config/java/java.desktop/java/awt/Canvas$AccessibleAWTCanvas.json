@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Canvas$AccessibleAWTCanvas",
+  "canonicalName" : "java.awt.Canvas.AccessibleAWTCanvas",
+  "simpleName" : "AccessibleAWTCanvas",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.Canvas",
+  "superClass" : "java.awt.Component$AccessibleAWTComponent",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

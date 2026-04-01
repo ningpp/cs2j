@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset",
+  "binaryName" : "javax.sql.rowset.FilteredRowSet",
+  "canonicalName" : "javax.sql.rowset.FilteredRowSet",
+  "simpleName" : "FilteredRowSet",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.rowset.WebRowSet" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.Predicate getFilter()",
+    "returnType" : "javax.sql.rowset.Predicate",
+    "genericReturnType" : "javax.sql.rowset.Predicate",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFilter(javax.sql.rowset.Predicate) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.rowset.Predicate",
+      "genericType" : "javax.sql.rowset.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

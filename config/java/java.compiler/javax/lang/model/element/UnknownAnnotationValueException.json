@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.UnknownAnnotationValueException",
+  "canonicalName" : "javax.lang.model.element.UnknownAnnotationValueException",
+  "simpleName" : "UnknownAnnotationValueException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.UnknownEntityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.lang.model.element.UnknownAnnotationValueException",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.UnknownAnnotationValueException(javax.lang.model.element.AnnotationValue, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "av",
+      "type" : "javax.lang.model.element.AnnotationValue",
+      "genericType" : "javax.lang.model.element.AnnotationValue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getArgument",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getArgument()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnknownAnnotationValue",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.AnnotationValue getUnknownAnnotationValue()",
+    "returnType" : "javax.lang.model.element.AnnotationValue",
+    "genericReturnType" : "javax.lang.model.element.AnnotationValue",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

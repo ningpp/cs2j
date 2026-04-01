@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.OperatingSystemMXBean",
+  "canonicalName" : "java.lang.management.OperatingSystemMXBean",
+  "simpleName" : "OperatingSystemMXBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.management.PlatformManagedObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getArch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getArch()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableProcessors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAvailableProcessors()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemLoadAverage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double getSystemLoadAverage()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

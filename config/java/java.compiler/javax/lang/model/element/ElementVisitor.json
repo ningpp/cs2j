@@ -1,0 +1,234 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ElementVisitor",
+  "canonicalName" : "javax.lang.model.element.ElementVisitor",
+  "simpleName" : "ElementVisitor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "visit",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visit(javax.lang.model.element.Element)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "visit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visit(javax.lang.model.element.Element, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitExecutable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitExecutable(javax.lang.model.element.ExecutableElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitModule",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitModule(javax.lang.model.element.ModuleElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.ModuleElement",
+      "genericType" : "javax.lang.model.element.ModuleElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "visitPackage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitPackage(javax.lang.model.element.PackageElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.PackageElement",
+      "genericType" : "javax.lang.model.element.PackageElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitRecordComponent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitRecordComponent(javax.lang.model.element.RecordComponentElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.RecordComponentElement",
+      "genericType" : "javax.lang.model.element.RecordComponentElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "visitType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitType(javax.lang.model.element.TypeElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.TypeElement",
+      "genericType" : "javax.lang.model.element.TypeElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitTypeParameter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitTypeParameter(javax.lang.model.element.TypeParameterElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.TypeParameterElement",
+      "genericType" : "javax.lang.model.element.TypeParameterElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitUnknown",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitUnknown(javax.lang.model.element.Element, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitVariable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitVariable(javax.lang.model.element.VariableElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.VariableElement",
+      "genericType" : "javax.lang.model.element.VariableElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.WatchEvent",
+  "canonicalName" : "java.nio.file.WatchEvent",
+  "simpleName" : "WatchEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "context",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object context()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "count",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int count()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "kind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.WatchEvent$Kind kind()",
+    "returnType" : "java.nio.file.WatchEvent$Kind",
+    "genericReturnType" : "java.nio.file.WatchEvent$Kind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

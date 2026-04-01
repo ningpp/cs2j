@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JWindow$AccessibleJWindow",
+  "canonicalName" : "javax.swing.JWindow.AccessibleJWindow",
+  "simpleName" : "AccessibleJWindow",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JWindow",
+  "superClass" : "java.awt.Window$AccessibleAWTWindow"
+}

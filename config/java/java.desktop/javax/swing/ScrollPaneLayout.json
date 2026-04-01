@@ -1,0 +1,264 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ScrollPaneLayout",
+  "canonicalName" : "javax.swing.ScrollPaneLayout",
+  "simpleName" : "ScrollPaneLayout",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.LayoutManager", "java.io.Serializable", "javax.swing.ScrollPaneConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.ScrollPaneLayout",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ScrollPaneLayout()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void addLayoutComponent(java.lang.String, java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnHeader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JViewport getColumnHeader()",
+    "returnType" : "javax.swing.JViewport",
+    "genericReturnType" : "javax.swing.JViewport",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCorner",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getCorner(java.lang.String)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHorizontalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollBar getHorizontalScrollBar()",
+    "returnType" : "javax.swing.JScrollBar",
+    "genericReturnType" : "javax.swing.JScrollBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHorizontalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public int getHorizontalScrollBarPolicy()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowHeader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JViewport getRowHeader()",
+    "returnType" : "javax.swing.JViewport",
+    "genericReturnType" : "javax.swing.JViewport",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVerticalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollBar getVerticalScrollBar()",
+    "returnType" : "javax.swing.JScrollBar",
+    "genericReturnType" : "javax.swing.JScrollBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVerticalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public int getVerticalScrollBarPolicy()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JViewport getViewport()",
+    "returnType" : "javax.swing.JViewport",
+    "genericReturnType" : "javax.swing.JViewport",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewportBorderBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getViewportBorderBounds(javax.swing.JScrollPane)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "scrollpane",
+      "type" : "javax.swing.JScrollPane",
+      "genericType" : "javax.swing.JScrollPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "layoutContainer",
+    "modifiers" : "public",
+    "signature" : "public void layoutContainer(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minimumLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension minimumLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferredLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension preferredLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void removeLayoutComponent(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHorizontalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public void setHorizontalScrollBarPolicy(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVerticalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public void setVerticalScrollBarPolicy(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "syncWithScrollPane",
+    "modifiers" : "public",
+    "signature" : "public void syncWithScrollPane(javax.swing.JScrollPane)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sp",
+      "type" : "javax.swing.JScrollPane",
+      "genericType" : "javax.swing.JScrollPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

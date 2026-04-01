@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Dialog$AccessibleAWTDialog",
+  "canonicalName" : "java.awt.Dialog.AccessibleAWTDialog",
+  "simpleName" : "AccessibleAWTDialog",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.Dialog",
+  "superClass" : "java.awt.Window$AccessibleAWTWindow",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

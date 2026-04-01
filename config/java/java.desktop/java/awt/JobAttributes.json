@@ -1,0 +1,547 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.JobAttributes",
+  "canonicalName" : "java.awt.JobAttributes",
+  "simpleName" : "JobAttributes",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.JobAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.JobAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes(int, java.awt.JobAttributes$DefaultSelectionType, java.awt.JobAttributes$DestinationType, java.awt.JobAttributes$DialogType, java.lang.String, int, int, java.awt.JobAttributes$MultipleDocumentHandlingType, int[][], java.lang.String, java.awt.JobAttributes$SidesType)",
+    "parameters" : [ {
+      "name" : "copies",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultSelection",
+      "type" : "java.awt.JobAttributes$DefaultSelectionType",
+      "genericType" : "java.awt.JobAttributes$DefaultSelectionType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "destination",
+      "type" : "java.awt.JobAttributes$DestinationType",
+      "genericType" : "java.awt.JobAttributes$DestinationType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dialog",
+      "type" : "java.awt.JobAttributes$DialogType",
+      "genericType" : "java.awt.JobAttributes$DialogType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxPage",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minPage",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "multipleDocumentHandling",
+      "type" : "java.awt.JobAttributes$MultipleDocumentHandlingType",
+      "genericType" : "java.awt.JobAttributes$MultipleDocumentHandlingType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pageRanges",
+      "type" : "int[][]",
+      "genericType" : "int[][]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "printer",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sides",
+      "type" : "java.awt.JobAttributes$SidesType",
+      "genericType" : "java.awt.JobAttributes$SidesType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.JobAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes(java.awt.JobAttributes)",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.awt.JobAttributes",
+      "genericType" : "java.awt.JobAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCopies",
+    "modifiers" : "public",
+    "signature" : "public int getCopies()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultSelection",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes$DefaultSelectionType getDefaultSelection()",
+    "returnType" : "java.awt.JobAttributes$DefaultSelectionType",
+    "genericReturnType" : "java.awt.JobAttributes$DefaultSelectionType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDestination",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes$DestinationType getDestination()",
+    "returnType" : "java.awt.JobAttributes$DestinationType",
+    "genericReturnType" : "java.awt.JobAttributes$DestinationType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes$DialogType getDialog()",
+    "returnType" : "java.awt.JobAttributes$DialogType",
+    "genericReturnType" : "java.awt.JobAttributes$DialogType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFileName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFromPage",
+    "modifiers" : "public",
+    "signature" : "public int getFromPage()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxPage",
+    "modifiers" : "public",
+    "signature" : "public int getMaxPage()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinPage",
+    "modifiers" : "public",
+    "signature" : "public int getMinPage()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMultipleDocumentHandling",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes$MultipleDocumentHandlingType getMultipleDocumentHandling()",
+    "returnType" : "java.awt.JobAttributes$MultipleDocumentHandlingType",
+    "genericReturnType" : "java.awt.JobAttributes$MultipleDocumentHandlingType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPageRanges",
+    "modifiers" : "public",
+    "signature" : "public int[][] getPageRanges()",
+    "returnType" : "int[][]",
+    "genericReturnType" : "int[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrinter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPrinter()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSides",
+    "modifiers" : "public",
+    "signature" : "public java.awt.JobAttributes$SidesType getSides()",
+    "returnType" : "java.awt.JobAttributes$SidesType",
+    "genericReturnType" : "java.awt.JobAttributes$SidesType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToPage",
+    "modifiers" : "public",
+    "signature" : "public int getToPage()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public",
+    "signature" : "public void set(java.awt.JobAttributes)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.awt.JobAttributes",
+      "genericType" : "java.awt.JobAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCopies",
+    "modifiers" : "public",
+    "signature" : "public void setCopies(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "copies",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCopiesToDefault",
+    "modifiers" : "public",
+    "signature" : "public void setCopiesToDefault()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultSelection",
+    "modifiers" : "public",
+    "signature" : "public void setDefaultSelection(java.awt.JobAttributes$DefaultSelectionType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "defaultSelection",
+      "type" : "java.awt.JobAttributes$DefaultSelectionType",
+      "genericType" : "java.awt.JobAttributes$DefaultSelectionType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDestination",
+    "modifiers" : "public",
+    "signature" : "public void setDestination(java.awt.JobAttributes$DestinationType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "destination",
+      "type" : "java.awt.JobAttributes$DestinationType",
+      "genericType" : "java.awt.JobAttributes$DestinationType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDialog",
+    "modifiers" : "public",
+    "signature" : "public void setDialog(java.awt.JobAttributes$DialogType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dialog",
+      "type" : "java.awt.JobAttributes$DialogType",
+      "genericType" : "java.awt.JobAttributes$DialogType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFileName",
+    "modifiers" : "public",
+    "signature" : "public void setFileName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFromPage",
+    "modifiers" : "public",
+    "signature" : "public void setFromPage(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fromPage",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaxPage",
+    "modifiers" : "public",
+    "signature" : "public void setMaxPage(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maxPage",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinPage",
+    "modifiers" : "public",
+    "signature" : "public void setMinPage(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "minPage",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMultipleDocumentHandling",
+    "modifiers" : "public",
+    "signature" : "public void setMultipleDocumentHandling(java.awt.JobAttributes$MultipleDocumentHandlingType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "multipleDocumentHandling",
+      "type" : "java.awt.JobAttributes$MultipleDocumentHandlingType",
+      "genericType" : "java.awt.JobAttributes$MultipleDocumentHandlingType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMultipleDocumentHandlingToDefault",
+    "modifiers" : "public",
+    "signature" : "public void setMultipleDocumentHandlingToDefault()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPageRanges",
+    "modifiers" : "public",
+    "signature" : "public void setPageRanges(int[][])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pageRanges",
+      "type" : "int[][]",
+      "genericType" : "int[][]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrinter",
+    "modifiers" : "public",
+    "signature" : "public void setPrinter(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "printer",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSides",
+    "modifiers" : "public",
+    "signature" : "public void setSides(java.awt.JobAttributes$SidesType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sides",
+      "type" : "java.awt.JobAttributes$SidesType",
+      "genericType" : "java.awt.JobAttributes$SidesType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSidesToDefault",
+    "modifiers" : "public",
+    "signature" : "public void setSidesToDefault()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setToPage",
+    "modifiers" : "public",
+    "signature" : "public void setToPage(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "toPage",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

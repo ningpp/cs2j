@@ -1,0 +1,382 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.datatype",
+  "binaryName" : "javax.xml.datatype.Duration",
+  "canonicalName" : "javax.xml.datatype.Duration",
+  "simpleName" : "Duration",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.datatype.Duration",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.Duration add(javax.xml.datatype.Duration)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.datatype.Duration",
+      "genericType" : "javax.xml.datatype.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addTo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addTo(java.util.Calendar)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Calendar",
+      "genericType" : "java.util.Calendar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addTo",
+    "modifiers" : "public",
+    "signature" : "public void addTo(java.util.Date)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compare",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int compare(javax.xml.datatype.Duration)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.datatype.Duration",
+      "genericType" : "javax.xml.datatype.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDays",
+    "modifiers" : "public",
+    "signature" : "public int getDays()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getField",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getField(javax.xml.datatype.DatatypeConstants$Field)",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.datatype.DatatypeConstants$Field",
+      "genericType" : "javax.xml.datatype.DatatypeConstants$Field",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHours",
+    "modifiers" : "public",
+    "signature" : "public int getHours()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinutes",
+    "modifiers" : "public",
+    "signature" : "public int getMinutes()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMonths",
+    "modifiers" : "public",
+    "signature" : "public int getMonths()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeconds",
+    "modifiers" : "public",
+    "signature" : "public int getSeconds()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSign",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getSign()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeInMillis",
+    "modifiers" : "public",
+    "signature" : "public long getTimeInMillis(java.util.Calendar)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "startInstant",
+      "type" : "java.util.Calendar",
+      "genericType" : "java.util.Calendar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeInMillis",
+    "modifiers" : "public",
+    "signature" : "public long getTimeInMillis(java.util.Date)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "startInstant",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLSchemaType",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.namespace.QName getXMLSchemaType()",
+    "returnType" : "javax.xml.namespace.QName",
+    "genericReturnType" : "javax.xml.namespace.QName",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getYears",
+    "modifiers" : "public",
+    "signature" : "public int getYears()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLongerThan",
+    "modifiers" : "public",
+    "signature" : "public boolean isLongerThan(javax.xml.datatype.Duration)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "javax.xml.datatype.Duration",
+      "genericType" : "javax.xml.datatype.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSet(javax.xml.datatype.DatatypeConstants$Field)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.datatype.DatatypeConstants$Field",
+      "genericType" : "javax.xml.datatype.DatatypeConstants$Field",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isShorterThan",
+    "modifiers" : "public",
+    "signature" : "public boolean isShorterThan(javax.xml.datatype.Duration)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "javax.xml.datatype.Duration",
+      "genericType" : "javax.xml.datatype.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "multiply",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration multiply(int)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "factor",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "multiply",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.Duration multiply(java.math.BigDecimal)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.Duration negate()",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "normalizeWith",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.Duration normalizeWith(java.util.Calendar)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Calendar",
+      "genericType" : "java.util.Calendar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subtract",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration subtract(javax.xml.datatype.Duration)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "rhs",
+      "type" : "javax.xml.datatype.Duration",
+      "genericType" : "javax.xml.datatype.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

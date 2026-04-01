@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.TimeoutException",
+  "canonicalName" : "java.util.concurrent.TimeoutException",
+  "simpleName" : "TimeoutException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.TimeoutException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.TimeoutException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.TimeoutException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.TimeoutException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

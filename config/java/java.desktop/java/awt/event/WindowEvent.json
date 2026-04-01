@@ -1,0 +1,170 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.WindowEvent",
+  "canonicalName" : "java.awt.event.WindowEvent",
+  "simpleName" : "WindowEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.event.ComponentEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.event.WindowEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.WindowEvent(java.awt.Window, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.WindowEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.WindowEvent(java.awt.Window, int, int, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldState",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newState",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.WindowEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.WindowEvent(java.awt.Window, int, java.awt.Window)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opposite",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.WindowEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.WindowEvent(java.awt.Window, int, java.awt.Window, int, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opposite",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldState",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newState",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNewState",
+    "modifiers" : "public",
+    "signature" : "public int getNewState()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOldState",
+    "modifiers" : "public",
+    "signature" : "public int getOldState()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOppositeWindow",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Window getOppositeWindow()",
+    "returnType" : "java.awt.Window",
+    "genericReturnType" : "java.awt.Window",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindow",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Window getWindow()",
+    "returnType" : "java.awt.Window",
+    "genericReturnType" : "java.awt.Window",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

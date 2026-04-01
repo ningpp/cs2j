@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.JavaBean",
+  "canonicalName" : "java.beans.JavaBean",
+  "simpleName" : "JavaBean",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ],
+  "declaredPublicMethods" : [ {
+    "name" : "defaultEventSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String defaultEventSet()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String defaultProperty()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "description",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String description()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

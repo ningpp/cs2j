@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.security.sasl",
+  "packageName" : "javax.security.sasl",
+  "binaryName" : "javax.security.sasl.RealmCallback",
+  "canonicalName" : "javax.security.sasl.RealmCallback",
+  "simpleName" : "RealmCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.security.auth.callback.TextInputCallback",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.sasl.RealmCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.sasl.RealmCallback(java.lang.String)",
+    "parameters" : [ {
+      "name" : "prompt",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.sasl.RealmCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.sasl.RealmCallback(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "prompt",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultRealmInfo",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

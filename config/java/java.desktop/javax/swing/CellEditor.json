@@ -1,0 +1,108 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.CellEditor",
+  "canonicalName" : "javax.swing.CellEditor",
+  "simpleName" : "CellEditor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addCellEditorListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addCellEditorListener(javax.swing.event.CellEditorListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.CellEditorListener",
+      "genericType" : "javax.swing.event.CellEditorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cancelCellEditing",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void cancelCellEditing()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCellEditorValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getCellEditorValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCellEditable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCellEditable(java.util.EventObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.EventObject",
+      "genericType" : "java.util.EventObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeCellEditorListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeCellEditorListener(javax.swing.event.CellEditorListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.CellEditorListener",
+      "genericType" : "javax.swing.event.CellEditorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shouldSelectCell",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean shouldSelectCell(java.util.EventObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.EventObject",
+      "genericType" : "java.util.EventObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stopCellEditing",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean stopCellEditing()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

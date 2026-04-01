@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KEMSpi$DecapsulatorSpi",
+  "canonicalName" : "javax.crypto.KEMSpi.DecapsulatorSpi",
+  "simpleName" : "DecapsulatorSpi",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.crypto.KEMSpi",
+  "declaredPublicMethods" : [ {
+    "name" : "engineDecapsulate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.crypto.SecretKey engineDecapsulate(byte[], int, int, java.lang.String) throws javax.crypto.DecapsulateException",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.DecapsulateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineEncapsulationSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int engineEncapsulationSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineSecretSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int engineSecretSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

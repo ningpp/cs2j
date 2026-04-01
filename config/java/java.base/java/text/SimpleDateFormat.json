@@ -1,0 +1,289 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.SimpleDateFormat",
+  "canonicalName" : "java.text.SimpleDateFormat",
+  "simpleName" : "SimpleDateFormat",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.text.DateFormat",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.text.SimpleDateFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.SimpleDateFormat()",
+    "varArgs" : false
+  }, {
+    "name" : "java.text.SimpleDateFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.SimpleDateFormat(java.lang.String)",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.text.SimpleDateFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.SimpleDateFormat(java.lang.String, java.text.DateFormatSymbols)",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatSymbols",
+      "type" : "java.text.DateFormatSymbols",
+      "genericType" : "java.text.DateFormatSymbols",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.text.SimpleDateFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.SimpleDateFormat(java.lang.String, java.util.Locale)",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "applyLocalizedPattern",
+    "modifiers" : "public",
+    "signature" : "public void applyLocalizedPattern(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "applyPattern",
+    "modifiers" : "public",
+    "signature" : "public void applyPattern(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer format(java.util.Date, java.lang.StringBuffer, java.text.FieldPosition)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toAppendTo",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "java.text.FieldPosition",
+      "genericType" : "java.text.FieldPosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "formatToCharacterIterator",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedCharacterIterator formatToCharacterIterator(java.lang.Object)",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get2DigitYearStart",
+    "modifiers" : "public",
+    "signature" : "public java.util.Date get2DigitYearStart()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateFormatSymbols",
+    "modifiers" : "public",
+    "signature" : "public java.text.DateFormatSymbols getDateFormatSymbols()",
+    "returnType" : "java.text.DateFormatSymbols",
+    "genericReturnType" : "java.text.DateFormatSymbols",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public java.util.Date parse(java.lang.String, java.text.ParsePosition)",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "java.text.ParsePosition",
+      "genericType" : "java.text.ParsePosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set2DigitYearStart",
+    "modifiers" : "public",
+    "signature" : "public void set2DigitYearStart(java.util.Date)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "startDate",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDateFormatSymbols",
+    "modifiers" : "public",
+    "signature" : "public void setDateFormatSymbols(java.text.DateFormatSymbols)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newFormatSymbols",
+      "type" : "java.text.DateFormatSymbols",
+      "genericType" : "java.text.DateFormatSymbols",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalizedPattern",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toLocalizedPattern()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toPattern",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toPattern()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

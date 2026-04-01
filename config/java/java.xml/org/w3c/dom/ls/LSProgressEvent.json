@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ls",
+  "binaryName" : "org.w3c.dom.ls.LSProgressEvent",
+  "canonicalName" : "org.w3c.dom.ls.LSProgressEvent",
+  "simpleName" : "LSProgressEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.events.Event" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getInput",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSInput getInput()",
+    "returnType" : "org.w3c.dom.ls.LSInput",
+    "genericReturnType" : "org.w3c.dom.ls.LSInput",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPosition",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getPosition()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTotalSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getTotalSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

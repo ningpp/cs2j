@@ -1,0 +1,255 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.DataBufferInt",
+  "canonicalName" : "java.awt.image.DataBufferInt",
+  "simpleName" : "DataBufferInt",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.image.DataBuffer",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.DataBufferInt",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.DataBufferInt(int)",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.DataBufferInt",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.DataBufferInt(int, int)",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "numBanks",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.DataBufferInt",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.DataBufferInt(int[], int)",
+    "parameters" : [ {
+      "name" : "dataArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.DataBufferInt",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.DataBufferInt(int[], int, int)",
+    "parameters" : [ {
+      "name" : "dataArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.DataBufferInt",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.DataBufferInt(int[][], int)",
+    "parameters" : [ {
+      "name" : "dataArray",
+      "type" : "int[][]",
+      "genericType" : "int[][]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.DataBufferInt",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.DataBufferInt(int[][], int, int[])",
+    "parameters" : [ {
+      "name" : "dataArray",
+      "type" : "int[][]",
+      "genericType" : "int[][]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBankData",
+    "modifiers" : "public",
+    "signature" : "public int[][] getBankData()",
+    "returnType" : "int[][]",
+    "genericReturnType" : "int[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public int[] getData()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public int[] getData(int)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "bank",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElem",
+    "modifiers" : "public",
+    "signature" : "public int getElem(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElem",
+    "modifiers" : "public",
+    "signature" : "public int getElem(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "bank",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setElem",
+    "modifiers" : "public",
+    "signature" : "public void setElem(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "val",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setElem",
+    "modifiers" : "public",
+    "signature" : "public void setElem(int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bank",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "val",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

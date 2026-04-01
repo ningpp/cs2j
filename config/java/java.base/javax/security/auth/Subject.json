@@ -1,0 +1,343 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth",
+  "binaryName" : "javax.security.auth.Subject",
+  "canonicalName" : "javax.security.auth.Subject",
+  "simpleName" : "Subject",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.Subject",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.Subject()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.Subject",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.Subject(boolean, java.util.Set, java.util.Set, java.util.Set)",
+    "parameters" : [ {
+      "name" : "readOnly",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "principals",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pubCredentials",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "privCredentials",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "callAs",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object callAs(javax.security.auth.Subject, java.util.concurrent.Callable) throws java.util.concurrent.CompletionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.util.concurrent.CompletionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "current",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.Subject current()",
+    "returnType" : "javax.security.auth.Subject",
+    "genericReturnType" : "javax.security.auth.Subject",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doAs",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doAs(javax.security.auth.Subject, java.security.PrivilegedAction)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doAs",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doAs(javax.security.auth.Subject, java.security.PrivilegedExceptionAction) throws java.security.PrivilegedActionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.PrivilegedActionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doAsPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doAsPrivileged(javax.security.auth.Subject, java.security.PrivilegedAction, java.security.AccessControlContext)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "acc",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doAsPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doAsPrivileged(javax.security.auth.Subject, java.security.PrivilegedExceptionAction, java.security.AccessControlContext) throws java.security.PrivilegedActionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "acc",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.PrivilegedActionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrincipals",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getPrincipals()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrincipals",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getPrincipals(java.lang.Class)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrivateCredentials",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getPrivateCredentials()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrivateCredentials",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getPrivateCredentials(java.lang.Class)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublicCredentials",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getPublicCredentials()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublicCredentials",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getPublicCredentials(java.lang.Class)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubject",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.Subject getSubject(java.security.AccessControlContext)",
+    "returnType" : "javax.security.auth.Subject",
+    "genericReturnType" : "javax.security.auth.Subject",
+    "parameters" : [ {
+      "name" : "acc",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadOnly",
+    "modifiers" : "public",
+    "signature" : "public boolean isReadOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setReadOnly",
+    "modifiers" : "public",
+    "signature" : "public void setReadOnly()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DragSourceMotionListener",
+  "canonicalName" : "java.awt.dnd.DragSourceMotionListener",
+  "simpleName" : "DragSourceMotionListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "dragMouseMoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dragMouseMoved(java.awt.dnd.DragSourceDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.dnd.DragSourceDragEvent",
+      "genericType" : "java.awt.dnd.DragSourceDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

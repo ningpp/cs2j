@@ -1,0 +1,171 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Image",
+  "canonicalName" : "java.awt.Image",
+  "simpleName" : "Image",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "flush",
+    "modifiers" : "public",
+    "signature" : "public void flush()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccelerationPriority",
+    "modifiers" : "public",
+    "signature" : "public float getAccelerationPriority()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCapabilities",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ImageCapabilities getCapabilities(java.awt.GraphicsConfiguration)",
+    "returnType" : "java.awt.ImageCapabilities",
+    "genericReturnType" : "java.awt.ImageCapabilities",
+    "parameters" : [ {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGraphics",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Graphics getGraphics()",
+    "returnType" : "java.awt.Graphics",
+    "genericReturnType" : "java.awt.Graphics",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getHeight(java.awt.image.ImageObserver)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getProperty(java.lang.String, java.awt.image.ImageObserver)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScaledInstance",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image getScaledInstance(int, int, int)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSource",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.ImageProducer getSource()",
+    "returnType" : "java.awt.image.ImageProducer",
+    "genericReturnType" : "java.awt.image.ImageProducer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getWidth(java.awt.image.ImageObserver)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccelerationPriority",
+    "modifiers" : "public",
+    "signature" : "public void setAccelerationPriority(float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "priority",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

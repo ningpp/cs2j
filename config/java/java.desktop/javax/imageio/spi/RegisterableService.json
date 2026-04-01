@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.RegisterableService",
+  "canonicalName" : "javax.imageio.spi.RegisterableService",
+  "simpleName" : "RegisterableService",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "onDeregistration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void onDeregistration(javax.imageio.spi.ServiceRegistry, java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.spi.ServiceRegistry",
+      "genericType" : "javax.imageio.spi.ServiceRegistry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onRegistration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void onRegistration(javax.imageio.spi.ServiceRegistry, java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.spi.ServiceRegistry",
+      "genericType" : "javax.imageio.spi.ServiceRegistry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

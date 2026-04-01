@@ -1,0 +1,251 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.AttributedString",
+  "canonicalName" : "java.text.AttributedString",
+  "simpleName" : "AttributedString",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.text.AttributedString",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedString(java.lang.String)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.text.AttributedString",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedString(java.lang.String, java.util.Map)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.text.AttributedString",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedString(java.text.AttributedCharacterIterator)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.text.AttributedString",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedString(java.text.AttributedCharacterIterator, int, int)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.text.AttributedString",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedString(java.text.AttributedCharacterIterator, int, int, java.text.AttributedCharacterIterator$Attribute[])",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAttribute",
+    "modifiers" : "public",
+    "signature" : "public void addAttribute(java.text.AttributedCharacterIterator$Attribute, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attribute",
+      "type" : "java.text.AttributedCharacterIterator$Attribute",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAttribute",
+    "modifiers" : "public",
+    "signature" : "public void addAttribute(java.text.AttributedCharacterIterator$Attribute, java.lang.Object, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attribute",
+      "type" : "java.text.AttributedCharacterIterator$Attribute",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAttributes",
+    "modifiers" : "public",
+    "signature" : "public void addAttributes(java.util.Map, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIterator",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedCharacterIterator getIterator()",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIterator",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedCharacterIterator getIterator(java.text.AttributedCharacterIterator$Attribute[])",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIterator",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedCharacterIterator getIterator(java.text.AttributedCharacterIterator$Attribute[], int, int)",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

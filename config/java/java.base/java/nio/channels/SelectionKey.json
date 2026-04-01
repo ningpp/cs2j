@@ -1,0 +1,189 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.SelectionKey",
+  "canonicalName" : "java.nio.channels.SelectionKey",
+  "simpleName" : "SelectionKey",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "attach",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object attach(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "ob",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "attachment",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object attachment()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cancel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void cancel()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "channel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SelectableChannel channel()",
+    "returnType" : "java.nio.channels.SelectableChannel",
+    "genericReturnType" : "java.nio.channels.SelectableChannel",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interestOps",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int interestOps()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interestOps",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SelectionKey interestOps(int)",
+    "returnType" : "java.nio.channels.SelectionKey",
+    "genericReturnType" : "java.nio.channels.SelectionKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interestOpsAnd",
+    "modifiers" : "public",
+    "signature" : "public int interestOpsAnd(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interestOpsOr",
+    "modifiers" : "public",
+    "signature" : "public int interestOpsOr(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAcceptable",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isAcceptable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConnectable",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isConnectable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadable",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isReadable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWritable",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isWritable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readyOps",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int readyOps()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selector",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.Selector selector()",
+    "returnType" : "java.nio.channels.Selector",
+    "genericReturnType" : "java.nio.channels.Selector",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

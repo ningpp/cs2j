@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.ControllerEventListener",
+  "canonicalName" : "javax.sound.midi.ControllerEventListener",
+  "simpleName" : "ControllerEventListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "controlChange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void controlChange(javax.sound.midi.ShortMessage)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.ShortMessage",
+      "genericType" : "javax.sound.midi.ShortMessage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

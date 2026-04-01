@@ -1,0 +1,544 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.format",
+  "binaryName" : "java.time.format.DateTimeFormatter",
+  "canonicalName" : "java.time.format.DateTimeFormatter",
+  "simpleName" : "DateTimeFormatter",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String format(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "formatTo",
+    "modifiers" : "public",
+    "signature" : "public void formatTo(java.time.temporal.TemporalAccessor, java.lang.Appendable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "appendable",
+      "type" : "java.lang.Appendable",
+      "genericType" : "java.lang.Appendable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChronology",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.Chronology getChronology()",
+    "returnType" : "java.time.chrono.Chronology",
+    "genericReturnType" : "java.time.chrono.Chronology",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDecimalStyle",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DecimalStyle getDecimalStyle()",
+    "returnType" : "java.time.format.DecimalStyle",
+    "genericReturnType" : "java.time.format.DecimalStyle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolverFields",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getResolverFields()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolverStyle",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.ResolverStyle getResolverStyle()",
+    "returnType" : "java.time.format.ResolverStyle",
+    "genericReturnType" : "java.time.format.ResolverStyle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getZone",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneId getZone()",
+    "returnType" : "java.time.ZoneId",
+    "genericReturnType" : "java.time.ZoneId",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localizedBy",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter localizedBy(java.util.Locale)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocalizedDate",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DateTimeFormatter ofLocalizedDate(java.time.format.FormatStyle)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "dateStyle",
+      "type" : "java.time.format.FormatStyle",
+      "genericType" : "java.time.format.FormatStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocalizedDateTime",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DateTimeFormatter ofLocalizedDateTime(java.time.format.FormatStyle)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "dateTimeStyle",
+      "type" : "java.time.format.FormatStyle",
+      "genericType" : "java.time.format.FormatStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocalizedDateTime",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DateTimeFormatter ofLocalizedDateTime(java.time.format.FormatStyle, java.time.format.FormatStyle)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "dateStyle",
+      "type" : "java.time.format.FormatStyle",
+      "genericType" : "java.time.format.FormatStyle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeStyle",
+      "type" : "java.time.format.FormatStyle",
+      "genericType" : "java.time.format.FormatStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocalizedPattern",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DateTimeFormatter ofLocalizedPattern(java.lang.String)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "requestedTemplate",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocalizedTime",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DateTimeFormatter ofLocalizedTime(java.time.format.FormatStyle)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "timeStyle",
+      "type" : "java.time.format.FormatStyle",
+      "genericType" : "java.time.format.FormatStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofPattern",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DateTimeFormatter ofPattern(java.lang.String)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofPattern",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DateTimeFormatter ofPattern(java.lang.String, java.util.Locale)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalAccessor parse(java.lang.CharSequence)",
+    "returnType" : "java.time.temporal.TemporalAccessor",
+    "genericReturnType" : "java.time.temporal.TemporalAccessor",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalAccessor parse(java.lang.CharSequence, java.text.ParsePosition)",
+    "returnType" : "java.time.temporal.TemporalAccessor",
+    "genericReturnType" : "java.time.temporal.TemporalAccessor",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "position",
+      "type" : "java.text.ParsePosition",
+      "genericType" : "java.text.ParsePosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object parse(java.lang.CharSequence, java.time.temporal.TemporalQuery)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "query",
+      "type" : "java.time.temporal.TemporalQuery",
+      "genericType" : "java.time.temporal.TemporalQuery",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parseBest",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalAccessor parseBest(java.lang.CharSequence, java.time.temporal.TemporalQuery...)",
+    "returnType" : "java.time.temporal.TemporalAccessor",
+    "genericReturnType" : "java.time.temporal.TemporalAccessor",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "queries",
+      "type" : "java.time.temporal.TemporalQuery[]",
+      "genericType" : "java.time.temporal.TemporalQuery[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "parseUnresolved",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalAccessor parseUnresolved(java.lang.CharSequence, java.text.ParsePosition)",
+    "returnType" : "java.time.temporal.TemporalAccessor",
+    "genericReturnType" : "java.time.temporal.TemporalAccessor",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "position",
+      "type" : "java.text.ParsePosition",
+      "genericType" : "java.text.ParsePosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parsedExcessDays",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.time.temporal.TemporalQuery parsedExcessDays()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parsedLeapSecond",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.time.temporal.TemporalQuery parsedLeapSecond()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.Format toFormat()",
+    "returnType" : "java.text.Format",
+    "genericReturnType" : "java.text.Format",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.Format toFormat(java.time.temporal.TemporalQuery)",
+    "returnType" : "java.text.Format",
+    "genericReturnType" : "java.text.Format",
+    "parameters" : [ {
+      "name" : "parseQuery",
+      "type" : "java.time.temporal.TemporalQuery",
+      "genericType" : "java.time.temporal.TemporalQuery",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withChronology",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter withChronology(java.time.chrono.Chronology)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "chrono",
+      "type" : "java.time.chrono.Chronology",
+      "genericType" : "java.time.chrono.Chronology",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withDecimalStyle",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter withDecimalStyle(java.time.format.DecimalStyle)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "decimalStyle",
+      "type" : "java.time.format.DecimalStyle",
+      "genericType" : "java.time.format.DecimalStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withLocale",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter withLocale(java.util.Locale)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withResolverFields",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter withResolverFields(java.time.temporal.TemporalField...)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "resolverFields",
+      "type" : "java.time.temporal.TemporalField[]",
+      "genericType" : "java.time.temporal.TemporalField[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "withResolverFields",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter withResolverFields(java.util.Set)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "resolverFields",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withResolverStyle",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter withResolverStyle(java.time.format.ResolverStyle)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "resolverStyle",
+      "type" : "java.time.format.ResolverStyle",
+      "genericType" : "java.time.format.ResolverStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZone",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeFormatter withZone(java.time.ZoneId)",
+    "returnType" : "java.time.format.DateTimeFormatter",
+    "genericReturnType" : "java.time.format.DateTimeFormatter",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.WatchService",
+  "canonicalName" : "java.nio.file.WatchService",
+  "simpleName" : "WatchService",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Closeable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "poll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.WatchKey poll()",
+    "returnType" : "java.nio.file.WatchKey",
+    "genericReturnType" : "java.nio.file.WatchKey",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "poll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.WatchKey poll(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "java.nio.file.WatchKey",
+    "genericReturnType" : "java.nio.file.WatchKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "take",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.WatchKey take() throws java.lang.InterruptedException",
+    "returnType" : "java.nio.file.WatchKey",
+    "genericReturnType" : "java.nio.file.WatchKey",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

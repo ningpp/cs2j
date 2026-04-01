@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.dgc",
+  "binaryName" : "java.rmi.dgc.Lease",
+  "canonicalName" : "java.rmi.dgc.Lease",
+  "simpleName" : "Lease",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.dgc.Lease",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.dgc.Lease(java.rmi.dgc.VMID, long)",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.rmi.dgc.VMID",
+      "genericType" : "java.rmi.dgc.VMID",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "duration",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getVMID",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.dgc.VMID getVMID()",
+    "returnType" : "java.rmi.dgc.VMID",
+    "genericReturnType" : "java.rmi.dgc.VMID",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public long getValue()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

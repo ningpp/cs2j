@@ -1,0 +1,530 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.FileChannel",
+  "canonicalName" : "java.nio.channels.FileChannel",
+  "simpleName" : "FileChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.channels.spi.AbstractInterruptibleChannel",
+  "interfaces" : [ "java.nio.channels.GatheringByteChannel", "java.nio.channels.ScatteringByteChannel", "java.nio.channels.SeekableByteChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "force",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void force(boolean) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lock",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.FileLock lock() throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileLock",
+    "genericReturnType" : "java.nio.channels.FileLock",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.FileLock lock(long, long, boolean) throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileLock",
+    "genericReturnType" : "java.nio.channels.FileLock",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "map",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.MappedByteBuffer map(java.nio.channels.FileChannel$MapMode, long, long) throws java.io.IOException",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.channels.FileChannel$MapMode",
+      "genericType" : "java.nio.channels.FileChannel$MapMode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "map",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment map(java.nio.channels.FileChannel$MapMode, long, long, java.lang.foreign.Arena) throws java.io.IOException",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "mode",
+      "type" : "java.nio.channels.FileChannel$MapMode",
+      "genericType" : "java.nio.channels.FileChannel$MapMode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arena",
+      "type" : "java.lang.foreign.Arena",
+      "genericType" : "java.lang.foreign.Arena",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.FileChannel open(java.nio.file.Path, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileChannel",
+    "genericReturnType" : "java.nio.channels.FileChannel",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.FileChannel open(java.nio.file.Path, java.util.Set, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileChannel",
+    "genericReturnType" : "java.nio.channels.FileChannel",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "position",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long position() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.FileChannel position(long) throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileChannel",
+    "genericReturnType" : "java.nio.channels.FileChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int read(java.nio.ByteBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int read(java.nio.ByteBuffer, long) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public final",
+    "signature" : "public final long read(java.nio.ByteBuffer[]) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "dsts",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long read(java.nio.ByteBuffer[], int, int) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long size() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transferFrom",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long transferFrom(java.nio.channels.ReadableByteChannel, long, long) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transferTo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long transferTo(long, long, java.nio.channels.WritableByteChannel) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.nio.channels.WritableByteChannel",
+      "genericType" : "java.nio.channels.WritableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "truncate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.FileChannel truncate(long) throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileChannel",
+    "genericReturnType" : "java.nio.channels.FileChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryLock",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.FileLock tryLock() throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileLock",
+    "genericReturnType" : "java.nio.channels.FileLock",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryLock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.FileLock tryLock(long, long, boolean) throws java.io.IOException",
+    "returnType" : "java.nio.channels.FileLock",
+    "genericReturnType" : "java.nio.channels.FileLock",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int write(java.nio.ByteBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int write(java.nio.ByteBuffer, long) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public final",
+    "signature" : "public final long write(java.nio.ByteBuffer[]) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "srcs",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long write(java.nio.ByteBuffer[], int, int) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

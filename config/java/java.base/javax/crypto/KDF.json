@@ -1,0 +1,233 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KDF",
+  "canonicalName" : "javax.crypto.KDF",
+  "simpleName" : "KDF",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "deriveData",
+    "modifiers" : "public",
+    "signature" : "public byte[] deriveData(java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidAlgorithmParameterException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "derivationSpec",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deriveKey",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.SecretKey deriveKey(java.lang.String, java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidAlgorithmParameterException, java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "parameters" : [ {
+      "name" : "alg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "derivationSpec",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException", "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KDF getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.KDF",
+    "genericReturnType" : "javax.crypto.KDF",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KDF getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException",
+    "returnType" : "javax.crypto.KDF",
+    "genericReturnType" : "javax.crypto.KDF",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KDF getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.KDF",
+    "genericReturnType" : "javax.crypto.KDF",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KDF getInstance(java.lang.String, javax.crypto.KDFParameters) throws java.security.NoSuchAlgorithmException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "javax.crypto.KDF",
+    "genericReturnType" : "javax.crypto.KDF",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kdfParameters",
+      "type" : "javax.crypto.KDFParameters",
+      "genericType" : "javax.crypto.KDFParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KDF getInstance(java.lang.String, javax.crypto.KDFParameters, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "javax.crypto.KDF",
+    "genericReturnType" : "javax.crypto.KDF",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kdfParameters",
+      "type" : "javax.crypto.KDFParameters",
+      "genericType" : "javax.crypto.KDFParameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KDF getInstance(java.lang.String, javax.crypto.KDFParameters, java.security.Provider) throws java.security.NoSuchAlgorithmException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "javax.crypto.KDF",
+    "genericReturnType" : "javax.crypto.KDF",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kdfParameters",
+      "type" : "javax.crypto.KDFParameters",
+      "genericType" : "javax.crypto.KDFParameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KDFParameters getParameters()",
+    "returnType" : "javax.crypto.KDFParameters",
+    "genericReturnType" : "javax.crypto.KDFParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProviderName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getProviderName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

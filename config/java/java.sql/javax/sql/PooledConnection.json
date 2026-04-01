@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.PooledConnection",
+  "canonicalName" : "javax.sql.PooledConnection",
+  "simpleName" : "PooledConnection",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addConnectionEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addConnectionEventListener(javax.sql.ConnectionEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.ConnectionEventListener",
+      "genericType" : "javax.sql.ConnectionEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addStatementEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addStatementEventListener(javax.sql.StatementEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.StatementEventListener",
+      "genericType" : "javax.sql.StatementEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.Connection getConnection() throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeConnectionEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeConnectionEventListener(javax.sql.ConnectionEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.ConnectionEventListener",
+      "genericType" : "javax.sql.ConnectionEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeStatementEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeStatementEventListener(javax.sql.StatementEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.StatementEventListener",
+      "genericType" : "javax.sql.StatementEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

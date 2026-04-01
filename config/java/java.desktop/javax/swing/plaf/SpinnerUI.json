@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.SpinnerUI",
+  "canonicalName" : "javax.swing.plaf.SpinnerUI",
+  "simpleName" : "SpinnerUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI"
+}

@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLDocument$Iterator",
+  "canonicalName" : "javax.swing.text.html.HTMLDocument.Iterator",
+  "simpleName" : "Iterator",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "javax.swing.text.html.HTMLDocument",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.AttributeSet getAttributes()",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getEndOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getStartOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTag",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.html.HTML$Tag getTag()",
+    "returnType" : "javax.swing.text.html.HTML$Tag",
+    "genericReturnType" : "javax.swing.text.html.HTML$Tag",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void next()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

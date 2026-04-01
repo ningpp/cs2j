@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.ArrayStoreInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.ArrayStoreInstruction",
+  "simpleName" : "ArrayStoreInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ArrayStoreInstruction of(java.lang.classfile.Opcode)",
+    "returnType" : "java.lang.classfile.instruction.ArrayStoreInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.ArrayStoreInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeKind typeKind()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

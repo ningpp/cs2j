@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Label$AccessibleAWTLabel",
+  "canonicalName" : "java.awt.Label.AccessibleAWTLabel",
+  "simpleName" : "AccessibleAWTLabel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.Label",
+  "superClass" : "java.awt.Component$AccessibleAWTComponent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.Label$AccessibleAWTLabel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Label$AccessibleAWTLabel(java.awt.Label)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "java.awt.Label",
+      "genericType" : "java.awt.Label",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

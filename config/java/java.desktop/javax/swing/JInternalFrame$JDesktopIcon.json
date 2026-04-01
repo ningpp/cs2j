@@ -1,0 +1,120 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JInternalFrame$JDesktopIcon",
+  "canonicalName" : "javax.swing.JInternalFrame.JDesktopIcon",
+  "simpleName" : "JDesktopIcon",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JInternalFrame",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JInternalFrame$JDesktopIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JInternalFrame$JDesktopIcon(javax.swing.JInternalFrame)",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDesktopPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JDesktopPane getDesktopPane()",
+    "returnType" : "javax.swing.JDesktopPane",
+    "genericReturnType" : "javax.swing.JDesktopPane",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalFrame",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JInternalFrame getInternalFrame()",
+    "returnType" : "javax.swing.JInternalFrame",
+    "genericReturnType" : "javax.swing.JInternalFrame",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.DesktopIconUI getUI()",
+    "returnType" : "javax.swing.plaf.DesktopIconUI",
+    "genericReturnType" : "javax.swing.plaf.DesktopIconUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInternalFrame",
+    "modifiers" : "public",
+    "signature" : "public void setInternalFrame(javax.swing.JInternalFrame)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.DesktopIconUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.DesktopIconUI",
+      "genericType" : "javax.swing.plaf.DesktopIconUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

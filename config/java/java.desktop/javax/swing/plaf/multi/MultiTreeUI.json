@@ -1,0 +1,450 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.multi",
+  "binaryName" : "javax.swing.plaf.multi.MultiTreeUI",
+  "canonicalName" : "javax.swing.plaf.multi.MultiTreeUI",
+  "simpleName" : "MultiTreeUI",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.TreeUI",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.multi.MultiTreeUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.multi.MultiTreeUI()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "cancelEditing",
+    "modifiers" : "public",
+    "signature" : "public void cancelEditing(javax.swing.JTree)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(javax.swing.JComponent, int, int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createUI",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ComponentUI createUI(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.ComponentUI",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChild",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleChild(javax.swing.JComponent, int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChildrenCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleChildrenCount(javax.swing.JComponent)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClosestPathForLocation",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getClosestPathForLocation(javax.swing.JTree, int, int)",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEditingPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getEditingPath(javax.swing.JTree)",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getMaximumSize(javax.swing.JComponent)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getMinimumSize(javax.swing.JComponent)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPathBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getPathBounds(javax.swing.JTree, javax.swing.tree.TreePath)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPathForRow",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getPathForRow(javax.swing.JTree, int)",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize(javax.swing.JComponent)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowCount",
+    "modifiers" : "public",
+    "signature" : "public int getRowCount(javax.swing.JTree)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowForPath",
+    "modifiers" : "public",
+    "signature" : "public int getRowForPath(javax.swing.JTree, javax.swing.tree.TreePath)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIs",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ComponentUI[] getUIs()",
+    "returnType" : "javax.swing.plaf.ComponentUI[]",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installUI",
+    "modifiers" : "public",
+    "signature" : "public void installUI(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEditing",
+    "modifiers" : "public",
+    "signature" : "public boolean isEditing(javax.swing.JTree)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paint",
+    "modifiers" : "public",
+    "signature" : "public void paint(java.awt.Graphics, javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startEditingAtPath",
+    "modifiers" : "public",
+    "signature" : "public void startEditingAtPath(javax.swing.JTree, javax.swing.tree.TreePath)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stopEditing",
+    "modifiers" : "public",
+    "signature" : "public boolean stopEditing(javax.swing.JTree)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallUI",
+    "modifiers" : "public",
+    "signature" : "public void uninstallUI(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public",
+    "signature" : "public void update(java.awt.Graphics, javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

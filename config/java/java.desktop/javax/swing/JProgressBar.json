@@ -1,0 +1,438 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JProgressBar",
+  "canonicalName" : "javax.swing.JProgressBar",
+  "simpleName" : "JProgressBar",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.swing.SwingConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JProgressBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JProgressBar()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JProgressBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JProgressBar(int)",
+    "parameters" : [ {
+      "name" : "orient",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JProgressBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JProgressBar(int, int)",
+    "parameters" : [ {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JProgressBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JProgressBar(int, int, int)",
+    "parameters" : [ {
+      "name" : "orient",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JProgressBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JProgressBar(javax.swing.BoundedRangeModel)",
+    "parameters" : [ {
+      "name" : "newModel",
+      "type" : "javax.swing.BoundedRangeModel",
+      "genericType" : "javax.swing.BoundedRangeModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addChangeListener(javax.swing.event.ChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.ChangeListener",
+      "genericType" : "javax.swing.event.ChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChangeListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.ChangeListener[] getChangeListeners()",
+    "returnType" : "javax.swing.event.ChangeListener[]",
+    "genericReturnType" : "javax.swing.event.ChangeListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximum",
+    "modifiers" : "public",
+    "signature" : "public int getMaximum()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimum",
+    "modifiers" : "public",
+    "signature" : "public int getMinimum()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.BoundedRangeModel getModel()",
+    "returnType" : "javax.swing.BoundedRangeModel",
+    "genericReturnType" : "javax.swing.BoundedRangeModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrientation",
+    "modifiers" : "public",
+    "signature" : "public int getOrientation()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPercentComplete",
+    "modifiers" : "public",
+    "signature" : "public double getPercentComplete()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ProgressBarUI getUI()",
+    "returnType" : "javax.swing.plaf.ProgressBarUI",
+    "genericReturnType" : "javax.swing.plaf.ProgressBarUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public int getValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBorderPainted",
+    "modifiers" : "public",
+    "signature" : "public boolean isBorderPainted()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIndeterminate",
+    "modifiers" : "public",
+    "signature" : "public boolean isIndeterminate()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStringPainted",
+    "modifiers" : "public",
+    "signature" : "public boolean isStringPainted()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removeChangeListener(javax.swing.event.ChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.ChangeListener",
+      "genericType" : "javax.swing.event.ChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBorderPainted",
+    "modifiers" : "public",
+    "signature" : "public void setBorderPainted(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIndeterminate",
+    "modifiers" : "public",
+    "signature" : "public void setIndeterminate(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximum",
+    "modifiers" : "public",
+    "signature" : "public void setMaximum(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinimum",
+    "modifiers" : "public",
+    "signature" : "public void setMinimum(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModel",
+    "modifiers" : "public",
+    "signature" : "public void setModel(javax.swing.BoundedRangeModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newModel",
+      "type" : "javax.swing.BoundedRangeModel",
+      "genericType" : "javax.swing.BoundedRangeModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOrientation",
+    "modifiers" : "public",
+    "signature" : "public void setOrientation(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newOrientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setString",
+    "modifiers" : "public",
+    "signature" : "public void setString(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStringPainted",
+    "modifiers" : "public",
+    "signature" : "public void setStringPainted(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.ProgressBarUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.ProgressBarUI",
+      "genericType" : "javax.swing.plaf.ProgressBarUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public",
+    "signature" : "public void setValue(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

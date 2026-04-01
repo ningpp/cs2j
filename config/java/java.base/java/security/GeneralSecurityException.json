@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.GeneralSecurityException",
+  "canonicalName" : "java.security.GeneralSecurityException",
+  "simpleName" : "GeneralSecurityException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.GeneralSecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.security.GeneralSecurityException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.GeneralSecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.security.GeneralSecurityException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.GeneralSecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.security.GeneralSecurityException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.GeneralSecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.security.GeneralSecurityException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

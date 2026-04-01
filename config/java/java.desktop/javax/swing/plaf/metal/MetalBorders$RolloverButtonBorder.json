@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalBorders$RolloverButtonBorder",
+  "canonicalName" : "javax.swing.plaf.metal.MetalBorders.RolloverButtonBorder",
+  "simpleName" : "RolloverButtonBorder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalBorders",
+  "superClass" : "javax.swing.plaf.metal.MetalBorders$ButtonBorder",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalBorders$RolloverButtonBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalBorders$RolloverButtonBorder()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "paintBorder",
+    "modifiers" : "public",
+    "signature" : "public void paintBorder(java.awt.Component, java.awt.Graphics, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

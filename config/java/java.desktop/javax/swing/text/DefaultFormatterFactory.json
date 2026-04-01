@@ -1,0 +1,227 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.DefaultFormatterFactory",
+  "canonicalName" : "javax.swing.text.DefaultFormatterFactory",
+  "simpleName" : "DefaultFormatterFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JFormattedTextField$AbstractFormatterFactory",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.DefaultFormatterFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultFormatterFactory()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.DefaultFormatterFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultFormatterFactory(javax.swing.JFormattedTextField$AbstractFormatter)",
+    "parameters" : [ {
+      "name" : "defaultFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.DefaultFormatterFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultFormatterFactory(javax.swing.JFormattedTextField$AbstractFormatter, javax.swing.JFormattedTextField$AbstractFormatter)",
+    "parameters" : [ {
+      "name" : "defaultFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "displayFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.DefaultFormatterFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultFormatterFactory(javax.swing.JFormattedTextField$AbstractFormatter, javax.swing.JFormattedTextField$AbstractFormatter, javax.swing.JFormattedTextField$AbstractFormatter)",
+    "parameters" : [ {
+      "name" : "defaultFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "displayFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "editFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.DefaultFormatterFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultFormatterFactory(javax.swing.JFormattedTextField$AbstractFormatter, javax.swing.JFormattedTextField$AbstractFormatter, javax.swing.JFormattedTextField$AbstractFormatter, javax.swing.JFormattedTextField$AbstractFormatter)",
+    "parameters" : [ {
+      "name" : "defaultFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "displayFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "editFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nullFormat",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDefaultFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFormattedTextField$AbstractFormatter getDefaultFormatter()",
+    "returnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "genericReturnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisplayFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFormattedTextField$AbstractFormatter getDisplayFormatter()",
+    "returnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "genericReturnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEditFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFormattedTextField$AbstractFormatter getEditFormatter()",
+    "returnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "genericReturnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFormattedTextField$AbstractFormatter getFormatter(javax.swing.JFormattedTextField)",
+    "returnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "genericReturnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.JFormattedTextField",
+      "genericType" : "javax.swing.JFormattedTextField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNullFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFormattedTextField$AbstractFormatter getNullFormatter()",
+    "returnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "genericReturnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultFormatter",
+    "modifiers" : "public",
+    "signature" : "public void setDefaultFormatter(javax.swing.JFormattedTextField$AbstractFormatter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "atf",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDisplayFormatter",
+    "modifiers" : "public",
+    "signature" : "public void setDisplayFormatter(javax.swing.JFormattedTextField$AbstractFormatter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "atf",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEditFormatter",
+    "modifiers" : "public",
+    "signature" : "public void setEditFormatter(javax.swing.JFormattedTextField$AbstractFormatter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "atf",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNullFormatter",
+    "modifiers" : "public",
+    "signature" : "public void setNullFormatter(javax.swing.JFormattedTextField$AbstractFormatter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "atf",
+      "type" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "genericType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

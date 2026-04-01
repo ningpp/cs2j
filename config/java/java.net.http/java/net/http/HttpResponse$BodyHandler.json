@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpResponse$BodyHandler",
+  "canonicalName" : "java.net.http.HttpResponse.BodyHandler",
+  "simpleName" : "BodyHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpResponse",
+  "declaredPublicMethods" : [ {
+    "name" : "apply",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpResponse$BodySubscriber apply(java.net.http.HttpResponse$ResponseInfo)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpResponse$ResponseInfo",
+      "genericType" : "java.net.http.HttpResponse$ResponseInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathEvaluationResult$XPathResultType",
+  "canonicalName" : "javax.xml.xpath.XPathEvaluationResult.XPathResultType",
+  "simpleName" : "XPathResultType",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.xml.xpath.XPathEvaluationResult",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "getQNameType",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.namespace.QName getQNameType(java.lang.Class)",
+    "returnType" : "javax.xml.namespace.QName",
+    "genericReturnType" : "javax.xml.namespace.QName",
+    "parameters" : [ {
+      "name" : "clsType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.xpath.XPathEvaluationResult$XPathResultType valueOf(java.lang.String)",
+    "returnType" : "javax.xml.xpath.XPathEvaluationResult$XPathResultType",
+    "genericReturnType" : "javax.xml.xpath.XPathEvaluationResult$XPathResultType",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.xpath.XPathEvaluationResult$XPathResultType[] values()",
+    "returnType" : "javax.xml.xpath.XPathEvaluationResult$XPathResultType[]",
+    "genericReturnType" : "javax.xml.xpath.XPathEvaluationResult$XPathResultType[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,125 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.FocusTraversalPolicy",
+  "canonicalName" : "java.awt.FocusTraversalPolicy",
+  "simpleName" : "FocusTraversalPolicy",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getComponentAfter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Component getComponentAfter(java.awt.Container, java.awt.Component)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentBefore",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Component getComponentBefore(java.awt.Container, java.awt.Component)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultComponent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Component getDefaultComponent(java.awt.Container)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirstComponent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Component getFirstComponent(java.awt.Container)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInitialComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getInitialComponent(java.awt.Window)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "window",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastComponent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Component getLastComponent(java.awt.Container)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

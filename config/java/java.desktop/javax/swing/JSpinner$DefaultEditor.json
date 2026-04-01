@@ -1,0 +1,232 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JSpinner$DefaultEditor",
+  "canonicalName" : "javax.swing.JSpinner.DefaultEditor",
+  "simpleName" : "DefaultEditor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JSpinner",
+  "superClass" : "javax.swing.JPanel",
+  "interfaces" : [ "java.awt.LayoutManager", "java.beans.PropertyChangeListener", "javax.swing.event.ChangeListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JSpinner$DefaultEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JSpinner$DefaultEditor(javax.swing.JSpinner)",
+    "parameters" : [ {
+      "name" : "spinner",
+      "type" : "javax.swing.JSpinner",
+      "genericType" : "javax.swing.JSpinner",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void addLayoutComponent(java.lang.String, java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "child",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "commitEdit",
+    "modifiers" : "public",
+    "signature" : "public void commitEdit() throws java.text.ParseException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dismiss",
+    "modifiers" : "public",
+    "signature" : "public void dismiss(javax.swing.JSpinner)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "spinner",
+      "type" : "javax.swing.JSpinner",
+      "genericType" : "javax.swing.JSpinner",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaseline",
+    "modifiers" : "public",
+    "signature" : "public int getBaseline(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaselineResizeBehavior",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component$BaselineResizeBehavior getBaselineResizeBehavior()",
+    "returnType" : "java.awt.Component$BaselineResizeBehavior",
+    "genericReturnType" : "java.awt.Component$BaselineResizeBehavior",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSpinner",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JSpinner getSpinner()",
+    "returnType" : "javax.swing.JSpinner",
+    "genericReturnType" : "javax.swing.JSpinner",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextField",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFormattedTextField getTextField()",
+    "returnType" : "javax.swing.JFormattedTextField",
+    "genericReturnType" : "javax.swing.JFormattedTextField",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "layoutContainer",
+    "modifiers" : "public",
+    "signature" : "public void layoutContainer(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minimumLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension minimumLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferredLayoutSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension preferredLayoutSize(java.awt.Container)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "propertyChange",
+    "modifiers" : "public",
+    "signature" : "public void propertyChange(java.beans.PropertyChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeLayoutComponent",
+    "modifiers" : "public",
+    "signature" : "public void removeLayoutComponent(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "child",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stateChanged",
+    "modifiers" : "public",
+    "signature" : "public void stateChanged(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

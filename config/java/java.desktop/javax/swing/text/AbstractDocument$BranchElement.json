@@ -1,0 +1,197 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.AbstractDocument$BranchElement",
+  "canonicalName" : "javax.swing.text.AbstractDocument.BranchElement",
+  "simpleName" : "BranchElement",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.AbstractDocument",
+  "superClass" : "javax.swing.text.AbstractDocument$AbstractElement",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.AbstractDocument$BranchElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AbstractDocument$BranchElement(javax.swing.text.AbstractDocument, javax.swing.text.Element, javax.swing.text.AttributeSet)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.AbstractDocument",
+      "genericType" : "javax.swing.text.AbstractDocument",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "children",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration children()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllowsChildren",
+    "modifiers" : "public",
+    "signature" : "public boolean getAllowsChildren()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getElement(int)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementCount",
+    "modifiers" : "public",
+    "signature" : "public int getElementCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementIndex",
+    "modifiers" : "public",
+    "signature" : "public int getElementIndex(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndOffset",
+    "modifiers" : "public",
+    "signature" : "public int getEndOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartOffset",
+    "modifiers" : "public",
+    "signature" : "public int getStartOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLeaf",
+    "modifiers" : "public",
+    "signature" : "public boolean isLeaf()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "positionToElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element positionToElement(int)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replace",
+    "modifiers" : "public",
+    "signature" : "public void replace(int, int, javax.swing.text.Element[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elems",
+      "type" : "javax.swing.text.Element[]",
+      "genericType" : "javax.swing.text.Element[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

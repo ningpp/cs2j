@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLWriter",
+  "canonicalName" : "javax.swing.text.html.HTMLWriter",
+  "simpleName" : "HTMLWriter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.AbstractWriter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLWriter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLWriter(java.io.Writer, javax.swing.text.html.HTMLDocument)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "doc",
+      "type" : "javax.swing.text.html.HTMLDocument",
+      "genericType" : "javax.swing.text.html.HTMLDocument",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.HTMLWriter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLWriter(java.io.Writer, javax.swing.text.html.HTMLDocument, int, int)",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "doc",
+      "type" : "javax.swing.text.html.HTMLDocument",
+      "genericType" : "javax.swing.text.html.HTMLDocument",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write() throws java.io.IOException, javax.swing.text.BadLocationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException", "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

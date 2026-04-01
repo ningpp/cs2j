@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.MalformedParametersException",
+  "canonicalName" : "java.lang.reflect.MalformedParametersException",
+  "simpleName" : "MalformedParametersException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.reflect.MalformedParametersException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.MalformedParametersException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.reflect.MalformedParametersException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.MalformedParametersException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.PreferencesHandler",
+  "canonicalName" : "java.awt.desktop.PreferencesHandler",
+  "simpleName" : "PreferencesHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "handlePreferences",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void handlePreferences(java.awt.desktop.PreferencesEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.PreferencesEvent",
+      "genericType" : "java.awt.desktop.PreferencesEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

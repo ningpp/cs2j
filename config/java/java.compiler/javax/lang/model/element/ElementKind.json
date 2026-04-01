@@ -1,0 +1,108 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ElementKind",
+  "canonicalName" : "javax.lang.model.element.ElementKind",
+  "simpleName" : "ElementKind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "isClass",
+    "modifiers" : "public",
+    "signature" : "public boolean isClass()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDeclaredType",
+    "modifiers" : "public",
+    "signature" : "public boolean isDeclaredType()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isExecutable",
+    "modifiers" : "public",
+    "signature" : "public boolean isExecutable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isField",
+    "modifiers" : "public",
+    "signature" : "public boolean isField()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInitializer",
+    "modifiers" : "public",
+    "signature" : "public boolean isInitializer()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInterface",
+    "modifiers" : "public",
+    "signature" : "public boolean isInterface()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVariable",
+    "modifiers" : "public",
+    "signature" : "public boolean isVariable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.element.ElementKind valueOf(java.lang.String)",
+    "returnType" : "javax.lang.model.element.ElementKind",
+    "genericReturnType" : "javax.lang.model.element.ElementKind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.element.ElementKind[] values()",
+    "returnType" : "javax.lang.model.element.ElementKind[]",
+    "genericReturnType" : "javax.lang.model.element.ElementKind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

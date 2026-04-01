@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RelationServiceNotRegisteredException",
+  "canonicalName" : "javax.management.relation.RelationServiceNotRegisteredException",
+  "simpleName" : "RelationServiceNotRegisteredException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.relation.RelationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RelationServiceNotRegisteredException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RelationServiceNotRegisteredException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.RelationServiceNotRegisteredException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RelationServiceNotRegisteredException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

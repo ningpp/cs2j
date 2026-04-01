@@ -1,0 +1,853 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIConnectionImpl",
+  "canonicalName" : "javax.management.remote.rmi.RMIConnectionImpl",
+  "simpleName" : "RMIConnectionImpl",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.rmi.server.Unreferenced", "javax.management.remote.rmi.RMIConnection" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.rmi.RMIConnectionImpl",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnectionImpl(javax.management.remote.rmi.RMIServerImpl, java.lang.String, java.lang.ClassLoader, javax.security.auth.Subject, java.util.Map)",
+    "parameters" : [ {
+      "name" : "rmiServer",
+      "type" : "javax.management.remote.rmi.RMIServerImpl",
+      "genericType" : "javax.management.remote.rmi.RMIServerImpl",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "connectionId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultClassLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void addNotificationListener(javax.management.ObjectName, javax.management.ObjectName, java.rmi.MarshalledObject, java.rmi.MarshalledObject, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handback",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotificationListeners",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Integer[] addNotificationListeners(javax.management.ObjectName[], java.rmi.MarshalledObject[], javax.security.auth.Subject[]) throws javax.management.InstanceNotFoundException, java.io.IOException",
+    "returnType" : "java.lang.Integer[]",
+    "genericReturnType" : "java.lang.Integer[]",
+    "parameters" : [ {
+      "name" : "names",
+      "type" : "javax.management.ObjectName[]",
+      "genericType" : "javax.management.ObjectName[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filters",
+      "type" : "java.rmi.MarshalledObject[]",
+      "genericType" : "java.rmi.MarshalledObject[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubjects",
+      "type" : "javax.security.auth.Subject[]",
+      "genericType" : "javax.security.auth.Subject[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, java.rmi.MarshalledObject, java.lang.String[], javax.security.auth.Subject) throws javax.management.ReflectionException, javax.management.InstanceAlreadyExistsException, javax.management.MBeanRegistrationException, javax.management.MBeanException, javax.management.NotCompliantMBeanException, java.io.IOException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signature",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ReflectionException", "javax.management.InstanceAlreadyExistsException", "javax.management.MBeanRegistrationException", "javax.management.MBeanException", "javax.management.NotCompliantMBeanException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, javax.management.ObjectName, java.rmi.MarshalledObject, java.lang.String[], javax.security.auth.Subject) throws javax.management.ReflectionException, javax.management.InstanceAlreadyExistsException, javax.management.MBeanRegistrationException, javax.management.MBeanException, javax.management.NotCompliantMBeanException, javax.management.InstanceNotFoundException, java.io.IOException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loaderName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signature",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ReflectionException", "javax.management.InstanceAlreadyExistsException", "javax.management.MBeanRegistrationException", "javax.management.MBeanException", "javax.management.NotCompliantMBeanException", "javax.management.InstanceNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, javax.management.ObjectName, javax.security.auth.Subject) throws javax.management.ReflectionException, javax.management.InstanceAlreadyExistsException, javax.management.MBeanRegistrationException, javax.management.MBeanException, javax.management.NotCompliantMBeanException, javax.management.InstanceNotFoundException, java.io.IOException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loaderName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ReflectionException", "javax.management.InstanceAlreadyExistsException", "javax.management.MBeanRegistrationException", "javax.management.MBeanException", "javax.management.NotCompliantMBeanException", "javax.management.InstanceNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, javax.security.auth.Subject) throws javax.management.ReflectionException, javax.management.InstanceAlreadyExistsException, javax.management.MBeanRegistrationException, javax.management.MBeanException, javax.management.NotCompliantMBeanException, java.io.IOException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ReflectionException", "javax.management.InstanceAlreadyExistsException", "javax.management.MBeanRegistrationException", "javax.management.MBeanException", "javax.management.NotCompliantMBeanException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fetchNotifications",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.NotificationResult fetchNotifications(long, int, long) throws java.io.IOException",
+    "returnType" : "javax.management.remote.NotificationResult",
+    "genericReturnType" : "javax.management.remote.NotificationResult",
+    "parameters" : [ {
+      "name" : "clientSequenceNumber",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxNotifications",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getAttribute(javax.management.ObjectName, java.lang.String, javax.security.auth.Subject) throws javax.management.MBeanException, javax.management.AttributeNotFoundException, javax.management.InstanceNotFoundException, javax.management.ReflectionException, java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attribute",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.AttributeNotFoundException", "javax.management.InstanceNotFoundException", "javax.management.ReflectionException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeList getAttributes(javax.management.ObjectName, java.lang.String[], javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.ReflectionException, java.io.IOException",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.ReflectionException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnectionId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getConnectionId() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultDomain",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDefaultDomain(javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDomains",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getDomains(javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "parameters" : [ {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanCount",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Integer getMBeanCount(javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanInfo getMBeanInfo(javax.management.ObjectName, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.IntrospectionException, javax.management.ReflectionException, java.io.IOException",
+    "returnType" : "javax.management.MBeanInfo",
+    "genericReturnType" : "javax.management.MBeanInfo",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.IntrospectionException", "javax.management.ReflectionException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjectInstance",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance getObjectInstance(javax.management.ObjectName, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, java.io.IOException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invoke(javax.management.ObjectName, java.lang.String, java.rmi.MarshalledObject, java.lang.String[], javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.MBeanException, javax.management.ReflectionException, java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "operationName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signature",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.MBeanException", "javax.management.ReflectionException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInstanceOf",
+    "modifiers" : "public",
+    "signature" : "public boolean isInstanceOf(javax.management.ObjectName, java.lang.String, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRegistered",
+    "modifiers" : "public",
+    "signature" : "public boolean isRegistered(javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "queryMBeans",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set queryMBeans(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "query",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "queryNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set queryNames(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "query",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListener(javax.management.ObjectName, javax.management.ObjectName, java.rmi.MarshalledObject, java.rmi.MarshalledObject, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.ListenerNotFoundException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handback",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.ListenerNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListener(javax.management.ObjectName, javax.management.ObjectName, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.ListenerNotFoundException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.ListenerNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListeners",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListeners(javax.management.ObjectName, java.lang.Integer[], javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.ListenerNotFoundException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerIDs",
+      "type" : "java.lang.Integer[]",
+      "genericType" : "java.lang.Integer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.ListenerNotFoundException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public",
+    "signature" : "public void setAttribute(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.AttributeNotFoundException, javax.management.InvalidAttributeValueException, javax.management.MBeanException, javax.management.ReflectionException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attribute",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.AttributeNotFoundException", "javax.management.InvalidAttributeValueException", "javax.management.MBeanException", "javax.management.ReflectionException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeList setAttributes(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.ReflectionException, java.io.IOException",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.ReflectionException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unreferenced",
+    "modifiers" : "public",
+    "signature" : "public void unreferenced()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unregisterMBean",
+    "modifiers" : "public",
+    "signature" : "public void unregisterMBean(javax.management.ObjectName, javax.security.auth.Subject) throws javax.management.InstanceNotFoundException, javax.management.MBeanRegistrationException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegationSubject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.InstanceNotFoundException", "javax.management.MBeanRegistrationException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

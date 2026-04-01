@@ -1,0 +1,400 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Desktop",
+  "canonicalName" : "java.awt.Desktop",
+  "simpleName" : "Desktop",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addAppEventListener",
+    "modifiers" : "public",
+    "signature" : "public void addAppEventListener(java.awt.desktop.SystemEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.awt.desktop.SystemEventListener",
+      "genericType" : "java.awt.desktop.SystemEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "browse",
+    "modifiers" : "public",
+    "signature" : "public void browse(java.net.URI) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "browseFileDirectory",
+    "modifiers" : "public",
+    "signature" : "public void browseFileDirectory(java.io.File)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "disableSuddenTermination",
+    "modifiers" : "public",
+    "signature" : "public void disableSuddenTermination()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "edit",
+    "modifiers" : "public",
+    "signature" : "public void edit(java.io.File) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableSuddenTermination",
+    "modifiers" : "public",
+    "signature" : "public void enableSuddenTermination()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDesktop",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized java.awt.Desktop getDesktop()",
+    "returnType" : "java.awt.Desktop",
+    "genericReturnType" : "java.awt.Desktop",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDesktopSupported",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isDesktopSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.awt.Desktop$Action)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.awt.Desktop$Action",
+      "genericType" : "java.awt.Desktop$Action",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mail",
+    "modifiers" : "public",
+    "signature" : "public void mail() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mail",
+    "modifiers" : "public",
+    "signature" : "public void mail(java.net.URI) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mailtoURI",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moveToTrash",
+    "modifiers" : "public",
+    "signature" : "public boolean moveToTrash(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public",
+    "signature" : "public void open(java.io.File) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openHelpViewer",
+    "modifiers" : "public",
+    "signature" : "public void openHelpViewer()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "print",
+    "modifiers" : "public",
+    "signature" : "public void print(java.io.File) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAppEventListener",
+    "modifiers" : "public",
+    "signature" : "public void removeAppEventListener(java.awt.desktop.SystemEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.awt.desktop.SystemEventListener",
+      "genericType" : "java.awt.desktop.SystemEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestForeground",
+    "modifiers" : "public",
+    "signature" : "public void requestForeground(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "allWindows",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAboutHandler",
+    "modifiers" : "public",
+    "signature" : "public void setAboutHandler(java.awt.desktop.AboutHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "aboutHandler",
+      "type" : "java.awt.desktop.AboutHandler",
+      "genericType" : "java.awt.desktop.AboutHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultMenuBar",
+    "modifiers" : "public",
+    "signature" : "public void setDefaultMenuBar(javax.swing.JMenuBar)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "menuBar",
+      "type" : "javax.swing.JMenuBar",
+      "genericType" : "javax.swing.JMenuBar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOpenFileHandler",
+    "modifiers" : "public",
+    "signature" : "public void setOpenFileHandler(java.awt.desktop.OpenFilesHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "openFileHandler",
+      "type" : "java.awt.desktop.OpenFilesHandler",
+      "genericType" : "java.awt.desktop.OpenFilesHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOpenURIHandler",
+    "modifiers" : "public",
+    "signature" : "public void setOpenURIHandler(java.awt.desktop.OpenURIHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "openURIHandler",
+      "type" : "java.awt.desktop.OpenURIHandler",
+      "genericType" : "java.awt.desktop.OpenURIHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPreferencesHandler",
+    "modifiers" : "public",
+    "signature" : "public void setPreferencesHandler(java.awt.desktop.PreferencesHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "preferencesHandler",
+      "type" : "java.awt.desktop.PreferencesHandler",
+      "genericType" : "java.awt.desktop.PreferencesHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrintFileHandler",
+    "modifiers" : "public",
+    "signature" : "public void setPrintFileHandler(java.awt.desktop.PrintFilesHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "printFileHandler",
+      "type" : "java.awt.desktop.PrintFilesHandler",
+      "genericType" : "java.awt.desktop.PrintFilesHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setQuitHandler",
+    "modifiers" : "public",
+    "signature" : "public void setQuitHandler(java.awt.desktop.QuitHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "quitHandler",
+      "type" : "java.awt.desktop.QuitHandler",
+      "genericType" : "java.awt.desktop.QuitHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setQuitStrategy",
+    "modifiers" : "public",
+    "signature" : "public void setQuitStrategy(java.awt.desktop.QuitStrategy)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "strategy",
+      "type" : "java.awt.desktop.QuitStrategy",
+      "genericType" : "java.awt.desktop.QuitStrategy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

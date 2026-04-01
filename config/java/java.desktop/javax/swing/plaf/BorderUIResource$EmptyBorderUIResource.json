@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.BorderUIResource$EmptyBorderUIResource",
+  "canonicalName" : "javax.swing.plaf.BorderUIResource.EmptyBorderUIResource",
+  "simpleName" : "EmptyBorderUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.BorderUIResource",
+  "superClass" : "javax.swing.border.EmptyBorder",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.BorderUIResource$EmptyBorderUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.BorderUIResource$EmptyBorderUIResource(int, int, int, int)",
+    "parameters" : [ {
+      "name" : "top",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "left",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bottom",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "right",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.BorderUIResource$EmptyBorderUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.BorderUIResource$EmptyBorderUIResource(java.awt.Insets)",
+    "parameters" : [ {
+      "name" : "insets",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

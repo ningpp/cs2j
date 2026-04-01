@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.Supplier",
+  "canonicalName" : "java.util.function.Supplier",
+  "simpleName" : "Supplier",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object get()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

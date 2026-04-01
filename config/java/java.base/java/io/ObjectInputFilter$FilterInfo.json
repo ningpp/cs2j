@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectInputFilter$FilterInfo",
+  "canonicalName" : "java.io.ObjectInputFilter.FilterInfo",
+  "simpleName" : "FilterInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.io.ObjectInputFilter",
+  "declaredPublicMethods" : [ {
+    "name" : "arrayLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long arrayLength()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "depth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long depth()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "references",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long references()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "serialClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class serialClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "streamBytes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long streamBytes()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

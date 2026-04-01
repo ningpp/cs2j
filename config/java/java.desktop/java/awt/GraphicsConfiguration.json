@@ -1,0 +1,278 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.GraphicsConfiguration",
+  "canonicalName" : "java.awt.GraphicsConfiguration",
+  "simpleName" : "GraphicsConfiguration",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createCompatibleImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage createCompatibleImage(int, int)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompatibleImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage createCompatibleImage(int, int, int)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transparency",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompatibleVolatileImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.VolatileImage createCompatibleVolatileImage(int, int)",
+    "returnType" : "java.awt.image.VolatileImage",
+    "genericReturnType" : "java.awt.image.VolatileImage",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompatibleVolatileImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.VolatileImage createCompatibleVolatileImage(int, int, int)",
+    "returnType" : "java.awt.image.VolatileImage",
+    "genericReturnType" : "java.awt.image.VolatileImage",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transparency",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompatibleVolatileImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.VolatileImage createCompatibleVolatileImage(int, int, java.awt.ImageCapabilities) throws java.awt.AWTException",
+    "returnType" : "java.awt.image.VolatileImage",
+    "genericReturnType" : "java.awt.image.VolatileImage",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "caps",
+      "type" : "java.awt.ImageCapabilities",
+      "genericType" : "java.awt.ImageCapabilities",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.AWTException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompatibleVolatileImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.VolatileImage createCompatibleVolatileImage(int, int, java.awt.ImageCapabilities, int) throws java.awt.AWTException",
+    "returnType" : "java.awt.image.VolatileImage",
+    "genericReturnType" : "java.awt.image.VolatileImage",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "caps",
+      "type" : "java.awt.ImageCapabilities",
+      "genericType" : "java.awt.ImageCapabilities",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transparency",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.AWTException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Rectangle getBounds()",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBufferCapabilities",
+    "modifiers" : "public",
+    "signature" : "public java.awt.BufferCapabilities getBufferCapabilities()",
+    "returnType" : "java.awt.BufferCapabilities",
+    "genericReturnType" : "java.awt.BufferCapabilities",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColorModel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.ColorModel getColorModel()",
+    "returnType" : "java.awt.image.ColorModel",
+    "genericReturnType" : "java.awt.image.ColorModel",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColorModel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.ColorModel getColorModel(int)",
+    "returnType" : "java.awt.image.ColorModel",
+    "genericReturnType" : "java.awt.image.ColorModel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultTransform",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.geom.AffineTransform getDefaultTransform()",
+    "returnType" : "java.awt.geom.AffineTransform",
+    "genericReturnType" : "java.awt.geom.AffineTransform",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDevice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.GraphicsDevice getDevice()",
+    "returnType" : "java.awt.GraphicsDevice",
+    "genericReturnType" : "java.awt.GraphicsDevice",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageCapabilities",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ImageCapabilities getImageCapabilities()",
+    "returnType" : "java.awt.ImageCapabilities",
+    "genericReturnType" : "java.awt.ImageCapabilities",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNormalizingTransform",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.geom.AffineTransform getNormalizingTransform()",
+    "returnType" : "java.awt.geom.AffineTransform",
+    "genericReturnType" : "java.awt.geom.AffineTransform",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTranslucencyCapable",
+    "modifiers" : "public",
+    "signature" : "public boolean isTranslucencyCapable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

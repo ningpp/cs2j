@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.DefaultEditorKit$DefaultKeyTypedAction",
+  "canonicalName" : "javax.swing.text.DefaultEditorKit.DefaultKeyTypedAction",
+  "simpleName" : "DefaultKeyTypedAction",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.DefaultEditorKit",
+  "superClass" : "javax.swing.text.TextAction",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.DefaultEditorKit$DefaultKeyTypedAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultEditorKit$DefaultKeyTypedAction()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public",
+    "signature" : "public void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.InvalidKeyException",
+  "canonicalName" : "javax.management.openmbean.InvalidKeyException",
+  "simpleName" : "InvalidKeyException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.InvalidKeyException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.InvalidKeyException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.InvalidKeyException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.InvalidKeyException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

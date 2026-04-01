@@ -1,0 +1,154 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.FileSystem",
+  "canonicalName" : "java.nio.file.FileSystem",
+  "simpleName" : "FileSystem",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Closeable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileStores",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Iterable getFileStores()",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPath",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.Path getPath(java.lang.String, java.lang.String...)",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getPathMatcher",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.PathMatcher getPathMatcher(java.lang.String)",
+    "returnType" : "java.nio.file.PathMatcher",
+    "genericReturnType" : "java.nio.file.PathMatcher",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRootDirectories",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Iterable getRootDirectories()",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeparator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSeparator()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserPrincipalLookupService",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.UserPrincipalLookupService getUserPrincipalLookupService()",
+    "returnType" : "java.nio.file.attribute.UserPrincipalLookupService",
+    "genericReturnType" : "java.nio.file.attribute.UserPrincipalLookupService",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpen",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isOpen()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadOnly",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isReadOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newWatchService",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.WatchService newWatchService() throws java.io.IOException",
+    "returnType" : "java.nio.file.WatchService",
+    "genericReturnType" : "java.nio.file.WatchService",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.spi.FileSystemProvider provider()",
+    "returnType" : "java.nio.file.spi.FileSystemProvider",
+    "genericReturnType" : "java.nio.file.spi.FileSystemProvider",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportedFileAttributeViews",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set supportedFileAttributeViews()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

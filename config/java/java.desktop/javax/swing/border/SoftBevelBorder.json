@@ -1,0 +1,164 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.border",
+  "binaryName" : "javax.swing.border.SoftBevelBorder",
+  "canonicalName" : "javax.swing.border.SoftBevelBorder",
+  "simpleName" : "SoftBevelBorder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.border.BevelBorder",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.border.SoftBevelBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.SoftBevelBorder(int)",
+    "parameters" : [ {
+      "name" : "bevelType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.border.SoftBevelBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.SoftBevelBorder(int, java.awt.Color, java.awt.Color)",
+    "parameters" : [ {
+      "name" : "bevelType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlight",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadow",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.border.SoftBevelBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.SoftBevelBorder(int, java.awt.Color, java.awt.Color, java.awt.Color, java.awt.Color)",
+    "parameters" : [ {
+      "name" : "bevelType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlightOuterColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlightInnerColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadowOuterColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadowInnerColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBorderInsets",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getBorderInsets(java.awt.Component, java.awt.Insets)",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insets",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBorderOpaque",
+    "modifiers" : "public",
+    "signature" : "public boolean isBorderOpaque()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintBorder",
+    "modifiers" : "public",
+    "signature" : "public void paintBorder(java.awt.Component, java.awt.Graphics, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,388 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.VariableHeightLayoutCache",
+  "canonicalName" : "javax.swing.tree.VariableHeightLayoutCache",
+  "simpleName" : "VariableHeightLayoutCache",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.tree.AbstractLayoutCache",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.tree.VariableHeightLayoutCache",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.VariableHeightLayoutCache()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getBounds(javax.swing.tree.TreePath, java.awt.Rectangle)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "placeIn",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExpandedState",
+    "modifiers" : "public",
+    "signature" : "public boolean getExpandedState(javax.swing.tree.TreePath)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPathClosestTo",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getPathClosestTo(int, int)",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPathForRow",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getPathForRow(int)",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "parameters" : [ {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredHeight",
+    "modifiers" : "public",
+    "signature" : "public int getPreferredHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredWidth",
+    "modifiers" : "public",
+    "signature" : "public int getPreferredWidth(java.awt.Rectangle)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "bounds",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowCount",
+    "modifiers" : "public",
+    "signature" : "public int getRowCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowForPath",
+    "modifiers" : "public",
+    "signature" : "public int getRowForPath(javax.swing.tree.TreePath)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisibleChildCount",
+    "modifiers" : "public",
+    "signature" : "public int getVisibleChildCount(javax.swing.tree.TreePath)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisiblePathsFrom",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration getVisiblePathsFrom(javax.swing.tree.TreePath)",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invalidatePathBounds",
+    "modifiers" : "public",
+    "signature" : "public void invalidatePathBounds(javax.swing.tree.TreePath)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invalidateSizes",
+    "modifiers" : "public",
+    "signature" : "public void invalidateSizes()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isExpanded",
+    "modifiers" : "public",
+    "signature" : "public boolean isExpanded(javax.swing.tree.TreePath)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExpandedState",
+    "modifiers" : "public",
+    "signature" : "public void setExpandedState(javax.swing.tree.TreePath, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isExpanded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModel",
+    "modifiers" : "public",
+    "signature" : "public void setModel(javax.swing.tree.TreeModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newModel",
+      "type" : "javax.swing.tree.TreeModel",
+      "genericType" : "javax.swing.tree.TreeModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNodeDimensions",
+    "modifiers" : "public",
+    "signature" : "public void setNodeDimensions(javax.swing.tree.AbstractLayoutCache$NodeDimensions)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "nd",
+      "type" : "javax.swing.tree.AbstractLayoutCache$NodeDimensions",
+      "genericType" : "javax.swing.tree.AbstractLayoutCache$NodeDimensions",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRootVisible",
+    "modifiers" : "public",
+    "signature" : "public void setRootVisible(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "rootVisible",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRowHeight",
+    "modifiers" : "public",
+    "signature" : "public void setRowHeight(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "rowHeight",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeNodesChanged",
+    "modifiers" : "public",
+    "signature" : "public void treeNodesChanged(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeNodesInserted",
+    "modifiers" : "public",
+    "signature" : "public void treeNodesInserted(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeNodesRemoved",
+    "modifiers" : "public",
+    "signature" : "public void treeNodesRemoved(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeStructureChanged",
+    "modifiers" : "public",
+    "signature" : "public void treeStructureChanged(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

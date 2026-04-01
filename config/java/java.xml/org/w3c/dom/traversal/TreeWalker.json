@@ -1,0 +1,148 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.traversal",
+  "binaryName" : "org.w3c.dom.traversal.TreeWalker",
+  "canonicalName" : "org.w3c.dom.traversal.TreeWalker",
+  "simpleName" : "TreeWalker",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "firstChild",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node firstChild()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getCurrentNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExpandEntityReferences",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getExpandEntityReferences()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.traversal.NodeFilter getFilter()",
+    "returnType" : "org.w3c.dom.traversal.NodeFilter",
+    "genericReturnType" : "org.w3c.dom.traversal.NodeFilter",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getRoot()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWhatToShow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getWhatToShow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastChild",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node lastChild()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node nextNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextSibling",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node nextSibling()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parentNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node parentNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node previousNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousSibling",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node previousSibling()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrentNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setCurrentNode(org.w3c.dom.Node) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

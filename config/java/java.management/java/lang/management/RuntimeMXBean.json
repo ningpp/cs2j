@@ -1,0 +1,181 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.RuntimeMXBean",
+  "canonicalName" : "java.lang.management.RuntimeMXBean",
+  "simpleName" : "RuntimeMXBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.management.PlatformManagedObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBootClassPath",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getBootClassPath()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassPath",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getClassPath()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputArguments",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getInputArguments()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLibraryPath",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getLibraryPath()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getManagementSpecVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getManagementSpecVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPid",
+    "modifiers" : "public",
+    "signature" : "public long getPid()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getSpecName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSpecName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSpecVendor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSpecVendor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSpecVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSpecVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getStartTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemProperties",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getSystemProperties()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUptime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getUptime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVmName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVmName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVmVendor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVmVendor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVmVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVmVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBootClassPathSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isBootClassPathSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

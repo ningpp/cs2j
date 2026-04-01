@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.Referenceable",
+  "canonicalName" : "javax.naming.Referenceable",
+  "simpleName" : "Referenceable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getReference",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.Reference getReference() throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Reference",
+    "genericReturnType" : "javax.naming.Reference",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

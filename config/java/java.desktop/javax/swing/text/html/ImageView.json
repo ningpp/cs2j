@@ -1,0 +1,331 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.ImageView",
+  "canonicalName" : "javax.swing.text.html.ImageView",
+  "simpleName" : "ImageView",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.View",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.ImageView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.ImageView(javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "changedUpdate",
+    "modifiers" : "public",
+    "signature" : "public void changedUpdate(javax.swing.event.DocumentEvent, java.awt.Shape, javax.swing.text.ViewFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "javax.swing.text.ViewFactory",
+      "genericType" : "javax.swing.text.ViewFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlignment",
+    "modifiers" : "public",
+    "signature" : "public float getAlignment(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "axis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAltText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAltText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet getAttributes()",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image getImage()",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageURL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL getImageURL()",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoadingImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getLoadingImageIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoadsSynchronously",
+    "modifiers" : "public",
+    "signature" : "public boolean getLoadsSynchronously()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNoImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getNoImageIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSpan",
+    "modifiers" : "public",
+    "signature" : "public float getPreferredSpan(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "axis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToolTipText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getToolTipText(float, float, java.awt.Shape)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "allocation",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modelToView",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape modelToView(int, java.awt.Shape, javax.swing.text.Position$Bias) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.text.Position$Bias",
+      "genericType" : "javax.swing.text.Position$Bias",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paint",
+    "modifiers" : "public",
+    "signature" : "public void paint(java.awt.Graphics, java.awt.Shape)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoadsSynchronously",
+    "modifiers" : "public",
+    "signature" : "public void setLoadsSynchronously(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParent",
+    "modifiers" : "public",
+    "signature" : "public void setParent(javax.swing.text.View)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "javax.swing.text.View",
+      "genericType" : "javax.swing.text.View",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSize",
+    "modifiers" : "public",
+    "signature" : "public void setSize(float, float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "viewToModel",
+    "modifiers" : "public",
+    "signature" : "public int viewToModel(float, float, java.awt.Shape, javax.swing.text.Position$Bias[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bias",
+      "type" : "javax.swing.text.Position$Bias[]",
+      "genericType" : "javax.swing.text.Position$Bias[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

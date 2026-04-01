@@ -1,0 +1,321 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpResponse$BodySubscribers",
+  "canonicalName" : "java.net.http.HttpResponse.BodySubscribers",
+  "simpleName" : "BodySubscribers",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpResponse",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "buffering",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber buffering(java.net.http.HttpResponse$BodySubscriber, int)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "downstream",
+      "type" : "java.net.http.HttpResponse$BodySubscriber",
+      "genericType" : "java.net.http.HttpResponse$BodySubscriber",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bufferSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "discarding",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber discarding()",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromLineSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber fromLineSubscriber(java.util.concurrent.Flow$Subscriber)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromLineSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber fromLineSubscriber(java.util.concurrent.Flow$Subscriber, java.util.function.Function, java.nio.charset.Charset, java.lang.String)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lineSeparator",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber fromSubscriber(java.util.concurrent.Flow$Subscriber)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber fromSubscriber(java.util.concurrent.Flow$Subscriber, java.util.function.Function)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limiting",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber limiting(java.net.http.HttpResponse$BodySubscriber, long)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "downstreamSubscriber",
+      "type" : "java.net.http.HttpResponse$BodySubscriber",
+      "genericType" : "java.net.http.HttpResponse$BodySubscriber",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "capacity",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapping",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber mapping(java.net.http.HttpResponse$BodySubscriber, java.util.function.Function)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "upstream",
+      "type" : "java.net.http.HttpResponse$BodySubscriber",
+      "genericType" : "java.net.http.HttpResponse$BodySubscriber",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByteArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofByteArray()",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByteArrayConsumer",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofByteArrayConsumer(java.util.function.Consumer)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "consumer",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofFile(java.nio.file.Path)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofFile(java.nio.file.Path, java.nio.file.OpenOption...)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openOptions",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofInputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofInputStream()",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLines",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofLines(java.nio.charset.Charset)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofPublisher",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofPublisher()",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber ofString(java.nio.charset.Charset)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replacing",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodySubscriber replacing(java.lang.Object)",
+    "returnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "genericReturnType" : "java.net.http.HttpResponse$BodySubscriber",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

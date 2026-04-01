@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.NumericShaper$Range",
+  "canonicalName" : "java.awt.font.NumericShaper.Range",
+  "simpleName" : "Range",
+  "kind" : "enum",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.font.NumericShaper",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper$Range valueOf(java.lang.String)",
+    "returnType" : "java.awt.font.NumericShaper$Range",
+    "genericReturnType" : "java.awt.font.NumericShaper$Range",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper$Range[] values()",
+    "returnType" : "java.awt.font.NumericShaper$Range[]",
+    "genericReturnType" : "java.awt.font.NumericShaper$Range[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,204 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.FieldView",
+  "canonicalName" : "javax.swing.text.FieldView",
+  "simpleName" : "FieldView",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.PlainView",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.FieldView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.FieldView(javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPreferredSpan",
+    "modifiers" : "public",
+    "signature" : "public float getPreferredSpan(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "axis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResizeWeight",
+    "modifiers" : "public",
+    "signature" : "public int getResizeWeight(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "axis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertUpdate",
+    "modifiers" : "public",
+    "signature" : "public void insertUpdate(javax.swing.event.DocumentEvent, java.awt.Shape, javax.swing.text.ViewFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "changes",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "javax.swing.text.ViewFactory",
+      "genericType" : "javax.swing.text.ViewFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modelToView",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape modelToView(int, java.awt.Shape, javax.swing.text.Position$Bias) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.swing.text.Position$Bias",
+      "genericType" : "javax.swing.text.Position$Bias",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paint",
+    "modifiers" : "public",
+    "signature" : "public void paint(java.awt.Graphics, java.awt.Shape)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeUpdate",
+    "modifiers" : "public",
+    "signature" : "public void removeUpdate(javax.swing.event.DocumentEvent, java.awt.Shape, javax.swing.text.ViewFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "changes",
+      "type" : "javax.swing.event.DocumentEvent",
+      "genericType" : "javax.swing.event.DocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "javax.swing.text.ViewFactory",
+      "genericType" : "javax.swing.text.ViewFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "viewToModel",
+    "modifiers" : "public",
+    "signature" : "public int viewToModel(float, float, java.awt.Shape, javax.swing.text.Position$Bias[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "fx",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fy",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bias",
+      "type" : "javax.swing.text.Position$Bias[]",
+      "genericType" : "javax.swing.text.Position$Bias[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

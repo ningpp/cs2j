@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AnnotationValue$OfLong",
+  "canonicalName" : "java.lang.classfile.AnnotationValue.OfLong",
+  "simpleName" : "OfLong",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.AnnotationValue",
+  "interfaces" : [ "java.lang.classfile.AnnotationValue$OfConstant" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.LongEntry constant()",
+    "returnType" : "java.lang.classfile.constantpool.LongEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.LongEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long longValue()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolvedValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Long resolvedValue()",
+    "returnType" : "java.lang.Long",
+    "genericReturnType" : "java.lang.Long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

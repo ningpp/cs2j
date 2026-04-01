@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.ListFormat$Style",
+  "canonicalName" : "java.text.ListFormat.Style",
+  "simpleName" : "Style",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.text.ListFormat",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.ListFormat$Style valueOf(java.lang.String)",
+    "returnType" : "java.text.ListFormat$Style",
+    "genericReturnType" : "java.text.ListFormat$Style",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.ListFormat$Style[] values()",
+    "returnType" : "java.text.ListFormat$Style[]",
+    "genericReturnType" : "java.text.ListFormat$Style[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

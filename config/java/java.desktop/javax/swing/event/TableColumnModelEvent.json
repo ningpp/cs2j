@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.TableColumnModelEvent",
+  "canonicalName" : "javax.swing.event.TableColumnModelEvent",
+  "simpleName" : "TableColumnModelEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.TableColumnModelEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TableColumnModelEvent(javax.swing.table.TableColumnModel, int, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.table.TableColumnModel",
+      "genericType" : "javax.swing.table.TableColumnModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "to",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFromIndex",
+    "modifiers" : "public",
+    "signature" : "public int getFromIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToIndex",
+    "modifiers" : "public",
+    "signature" : "public int getToIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

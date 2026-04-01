@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.DosFileAttributes",
+  "canonicalName" : "java.nio.file.attribute.DosFileAttributes",
+  "simpleName" : "DosFileAttributes",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.file.attribute.BasicFileAttributes" ],
+  "declaredPublicMethods" : [ {
+    "name" : "isArchive",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isArchive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHidden",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isHidden()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadOnly",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isReadOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSystem",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSystem()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

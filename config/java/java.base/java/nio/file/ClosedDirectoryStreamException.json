@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.ClosedDirectoryStreamException",
+  "canonicalName" : "java.nio.file.ClosedDirectoryStreamException",
+  "simpleName" : "ClosedDirectoryStreamException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.ClosedDirectoryStreamException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.ClosedDirectoryStreamException()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.UIClientPropertyKey",
+  "canonicalName" : "javax.swing.UIClientPropertyKey",
+  "simpleName" : "UIClientPropertyKey",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

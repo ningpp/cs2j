@@ -1,0 +1,74 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.KeyPairGeneratorSpi",
+  "canonicalName" : "java.security.KeyPairGeneratorSpi",
+  "simpleName" : "KeyPairGeneratorSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.KeyPairGeneratorSpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyPairGeneratorSpi()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "generateKeyPair",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.KeyPair generateKeyPair()",
+    "returnType" : "java.security.KeyPair",
+    "genericReturnType" : "java.security.KeyPair",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void initialize(int, java.security.SecureRandom)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialize",
+    "modifiers" : "public",
+    "signature" : "public void initialize(java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom) throws java.security.InvalidAlgorithmParameterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

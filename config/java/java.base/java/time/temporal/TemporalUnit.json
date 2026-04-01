@@ -1,0 +1,123 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.TemporalUnit",
+  "canonicalName" : "java.time.temporal.TemporalUnit",
+  "simpleName" : "TemporalUnit",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addTo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.temporal.Temporal addTo(java.time.temporal.Temporal, long)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "between",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long between(java.time.temporal.Temporal, java.time.temporal.Temporal)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDuration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.Duration getDuration()",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDateBased",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDateBased()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDurationEstimated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDurationEstimated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupportedBy",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupportedBy(java.time.temporal.Temporal)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isTimeBased",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isTimeBased()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

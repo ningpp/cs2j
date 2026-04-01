@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.Permissions",
+  "canonicalName" : "java.security.Permissions",
+  "simpleName" : "Permissions",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.PermissionCollection",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.Permissions",
+    "modifiers" : "public",
+    "signature" : "public java.security.Permissions()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public void add(java.security.Permission)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "permission",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "elements",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration elements()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "implies",
+    "modifiers" : "public",
+    "signature" : "public boolean implies(java.security.Permission)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "permission",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

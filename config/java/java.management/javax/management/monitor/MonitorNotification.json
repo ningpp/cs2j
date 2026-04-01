@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.monitor",
+  "binaryName" : "javax.management.monitor.MonitorNotification",
+  "canonicalName" : "javax.management.monitor.MonitorNotification",
+  "simpleName" : "MonitorNotification",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.Notification",
+  "declaredPublicMethods" : [ {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getDerivedGauge()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObservedAttribute",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getObservedAttribute()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObservedObject",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectName getObservedObject()",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTrigger",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getTrigger()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

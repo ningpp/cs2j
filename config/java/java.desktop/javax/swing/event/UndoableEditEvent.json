@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.UndoableEditEvent",
+  "canonicalName" : "javax.swing.event.UndoableEditEvent",
+  "simpleName" : "UndoableEditEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.UndoableEditEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.UndoableEditEvent(java.lang.Object, javax.swing.undo.UndoableEdit)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "edit",
+      "type" : "javax.swing.undo.UndoableEdit",
+      "genericType" : "javax.swing.undo.UndoableEdit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getEdit",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.undo.UndoableEdit getEdit()",
+    "returnType" : "javax.swing.undo.UndoableEdit",
+    "genericReturnType" : "javax.swing.undo.UndoableEdit",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

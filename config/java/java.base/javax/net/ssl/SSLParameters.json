@@ -1,0 +1,425 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLParameters",
+  "canonicalName" : "javax.net.ssl.SSLParameters",
+  "simpleName" : "SSLParameters",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SSLParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLParameters()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.net.ssl.SSLParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLParameters(java.lang.String[])",
+    "parameters" : [ {
+      "name" : "cipherSuites",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.net.ssl.SSLParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLParameters(java.lang.String[], java.lang.String[])",
+    "parameters" : [ {
+      "name" : "cipherSuites",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "protocols",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAlgorithmConstraints",
+    "modifiers" : "public",
+    "signature" : "public java.security.AlgorithmConstraints getAlgorithmConstraints()",
+    "returnType" : "java.security.AlgorithmConstraints",
+    "genericReturnType" : "java.security.AlgorithmConstraints",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApplicationProtocols",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getApplicationProtocols()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCipherSuites",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnableRetransmissions",
+    "modifiers" : "public",
+    "signature" : "public boolean getEnableRetransmissions()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndpointIdentificationAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getEndpointIdentificationAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumPacketSize",
+    "modifiers" : "public",
+    "signature" : "public int getMaximumPacketSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNamedGroups",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getNamedGroups()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNeedClientAuth",
+    "modifiers" : "public",
+    "signature" : "public boolean getNeedClientAuth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtocols",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getProtocols()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSNIMatchers",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Collection getSNIMatchers()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServerNames",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.List getServerNames()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSignatureSchemes",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getSignatureSchemes()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUseCipherSuitesOrder",
+    "modifiers" : "public final",
+    "signature" : "public final boolean getUseCipherSuitesOrder()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWantClientAuth",
+    "modifiers" : "public",
+    "signature" : "public boolean getWantClientAuth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAlgorithmConstraints",
+    "modifiers" : "public",
+    "signature" : "public void setAlgorithmConstraints(java.security.AlgorithmConstraints)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "constraints",
+      "type" : "java.security.AlgorithmConstraints",
+      "genericType" : "java.security.AlgorithmConstraints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setApplicationProtocols",
+    "modifiers" : "public",
+    "signature" : "public void setApplicationProtocols(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "protocols",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCipherSuites",
+    "modifiers" : "public",
+    "signature" : "public void setCipherSuites(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cipherSuites",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnableRetransmissions",
+    "modifiers" : "public",
+    "signature" : "public void setEnableRetransmissions(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enableRetransmissions",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEndpointIdentificationAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public void setEndpointIdentificationAlgorithm(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximumPacketSize",
+    "modifiers" : "public",
+    "signature" : "public void setMaximumPacketSize(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maximumPacketSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNamedGroups",
+    "modifiers" : "public",
+    "signature" : "public void setNamedGroups(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "namedGroups",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNeedClientAuth",
+    "modifiers" : "public",
+    "signature" : "public void setNeedClientAuth(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "needClientAuth",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProtocols",
+    "modifiers" : "public",
+    "signature" : "public void setProtocols(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "protocols",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSNIMatchers",
+    "modifiers" : "public final",
+    "signature" : "public final void setSNIMatchers(java.util.Collection)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "matchers",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setServerNames",
+    "modifiers" : "public final",
+    "signature" : "public final void setServerNames(java.util.List)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "serverNames",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSignatureSchemes",
+    "modifiers" : "public",
+    "signature" : "public void setSignatureSchemes(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "signatureSchemes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUseCipherSuitesOrder",
+    "modifiers" : "public final",
+    "signature" : "public final void setUseCipherSuitesOrder(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "honorOrder",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWantClientAuth",
+    "modifiers" : "public",
+    "signature" : "public void setWantClientAuth(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "wantClientAuth",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

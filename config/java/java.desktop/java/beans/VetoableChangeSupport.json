@@ -1,0 +1,257 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.VetoableChangeSupport",
+  "canonicalName" : "java.beans.VetoableChangeSupport",
+  "simpleName" : "VetoableChangeSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.VetoableChangeSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.VetoableChangeSupport(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "sourceBean",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addVetoableChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addVetoableChangeListener(java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addVetoableChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addVetoableChangeListener(java.lang.String, java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fireVetoableChange",
+    "modifiers" : "public",
+    "signature" : "public void fireVetoableChange(java.beans.PropertyChangeEvent) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fireVetoableChange",
+    "modifiers" : "public",
+    "signature" : "public void fireVetoableChange(java.lang.String, boolean, boolean) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fireVetoableChange",
+    "modifiers" : "public",
+    "signature" : "public void fireVetoableChange(java.lang.String, int, int) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fireVetoableChange",
+    "modifiers" : "public",
+    "signature" : "public void fireVetoableChange(java.lang.String, java.lang.Object, java.lang.Object) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVetoableChangeListeners",
+    "modifiers" : "public",
+    "signature" : "public java.beans.VetoableChangeListener[] getVetoableChangeListeners()",
+    "returnType" : "java.beans.VetoableChangeListener[]",
+    "genericReturnType" : "java.beans.VetoableChangeListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVetoableChangeListeners",
+    "modifiers" : "public",
+    "signature" : "public java.beans.VetoableChangeListener[] getVetoableChangeListeners(java.lang.String)",
+    "returnType" : "java.beans.VetoableChangeListener[]",
+    "genericReturnType" : "java.beans.VetoableChangeListener[]",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasListeners",
+    "modifiers" : "public",
+    "signature" : "public boolean hasListeners(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeVetoableChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removeVetoableChangeListener(java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeVetoableChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removeVetoableChangeListener(java.lang.String, java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

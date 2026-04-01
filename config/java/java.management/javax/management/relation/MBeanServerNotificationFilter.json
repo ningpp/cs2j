@@ -1,0 +1,111 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.MBeanServerNotificationFilter",
+  "canonicalName" : "javax.management.relation.MBeanServerNotificationFilter",
+  "simpleName" : "MBeanServerNotificationFilter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.NotificationFilterSupport",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.MBeanServerNotificationFilter",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.MBeanServerNotificationFilter()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "disableAllObjectNames",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void disableAllObjectNames()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "disableObjectName",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void disableObjectName(javax.management.ObjectName) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "objectName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableAllObjectNames",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void enableAllObjectNames()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableObjectName",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void enableObjectName(javax.management.ObjectName) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "objectName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisabledObjectNames",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.util.Vector getDisabledObjectNames()",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledObjectNames",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.util.Vector getEnabledObjectNames()",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNotificationEnabled",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isNotificationEnabled(javax.management.Notification) throws java.lang.IllegalArgumentException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "notif",
+      "type" : "javax.management.Notification",
+      "genericType" : "javax.management.Notification",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

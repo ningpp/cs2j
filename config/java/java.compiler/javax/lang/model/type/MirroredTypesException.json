@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.type",
+  "binaryName" : "javax.lang.model.type.MirroredTypesException",
+  "canonicalName" : "javax.lang.model.type.MirroredTypesException",
+  "simpleName" : "MirroredTypesException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.lang.model.type.MirroredTypesException",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.type.MirroredTypesException(java.util.List)",
+    "parameters" : [ {
+      "name" : "types",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getTypeMirrors",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getTypeMirrors()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

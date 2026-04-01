@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.LongConsumer",
+  "canonicalName" : "java.util.function.LongConsumer",
+  "simpleName" : "LongConsumer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.LongConsumer andThen(java.util.function.LongConsumer)",
+    "returnType" : "java.util.function.LongConsumer",
+    "genericReturnType" : "java.util.function.LongConsumer",
+    "parameters" : [ {
+      "name" : "after",
+      "type" : "java.util.function.LongConsumer",
+      "genericType" : "java.util.function.LongConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

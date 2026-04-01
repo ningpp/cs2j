@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.Serializable",
+  "canonicalName" : "java.io.Serializable",
+  "simpleName" : "Serializable",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

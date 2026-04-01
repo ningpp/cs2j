@@ -1,0 +1,114 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleRelation",
+  "canonicalName" : "javax.accessibility.AccessibleRelation",
+  "simpleName" : "AccessibleRelation",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.accessibility.AccessibleBundle",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.accessibility.AccessibleRelation",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRelation(java.lang.String)",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.accessibility.AccessibleRelation",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRelation(java.lang.String, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.accessibility.AccessibleRelation",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRelation(java.lang.String, java.lang.Object[])",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getKey",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getKey()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTarget",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] getTarget()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTarget",
+    "modifiers" : "public",
+    "signature" : "public void setTarget(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTarget",
+    "modifiers" : "public",
+    "signature" : "public void setTarget(java.lang.Object[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

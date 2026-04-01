@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.chrono",
+  "binaryName" : "java.time.chrono.AbstractChronology",
+  "canonicalName" : "java.time.chrono.AbstractChronology",
+  "simpleName" : "AbstractChronology",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.time.chrono.Chronology" ],
+  "declaredPublicMethods" : [ {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.time.chrono.Chronology)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.time.chrono.Chronology",
+      "genericType" : "java.time.chrono.Chronology",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveDate",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDate resolveDate(java.util.Map, java.time.format.ResolverStyle)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "fieldValues",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "resolverStyle",
+      "type" : "java.time.format.ResolverStyle",
+      "genericType" : "java.time.format.ResolverStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

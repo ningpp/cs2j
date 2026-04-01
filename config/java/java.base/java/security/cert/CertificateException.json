@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertificateException",
+  "canonicalName" : "java.security.cert.CertificateException",
+  "simpleName" : "CertificateException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.CertificateException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertificateException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.CertificateException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertificateException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.CertificateException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertificateException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.CertificateException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertificateException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

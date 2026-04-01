@@ -1,0 +1,117 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.Driver",
+  "canonicalName" : "java.sql.Driver",
+  "simpleName" : "Driver",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "acceptsURL",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean acceptsURL(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.Connection connect(java.lang.String, java.util.Properties) throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Properties",
+      "genericType" : "java.util.Properties",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMajorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMajorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMinorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParentLogger",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.logging.Logger getParentLogger() throws java.sql.SQLFeatureNotSupportedException",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "exceptions" : [ "java.sql.SQLFeatureNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.DriverPropertyInfo[] getPropertyInfo(java.lang.String, java.util.Properties) throws java.sql.SQLException",
+    "returnType" : "java.sql.DriverPropertyInfo[]",
+    "genericReturnType" : "java.sql.DriverPropertyInfo[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Properties",
+      "genericType" : "java.util.Properties",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "jdbcCompliant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean jdbcCompliant()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

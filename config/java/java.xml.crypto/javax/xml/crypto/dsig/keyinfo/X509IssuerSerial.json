@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.keyinfo",
+  "binaryName" : "javax.xml.crypto.dsig.keyinfo.X509IssuerSerial",
+  "canonicalName" : "javax.xml.crypto.dsig.keyinfo.X509IssuerSerial",
+  "simpleName" : "X509IssuerSerial",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getIssuerName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getIssuerName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSerialNumber",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getSerialNumber()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

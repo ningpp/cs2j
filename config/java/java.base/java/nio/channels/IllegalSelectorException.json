@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.IllegalSelectorException",
+  "canonicalName" : "java.nio.channels.IllegalSelectorException",
+  "simpleName" : "IllegalSelectorException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.IllegalSelectorException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.IllegalSelectorException()",
+    "varArgs" : false
+  } ]
+}

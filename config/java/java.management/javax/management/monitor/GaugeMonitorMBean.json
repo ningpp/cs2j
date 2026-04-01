@@ -1,0 +1,190 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.monitor",
+  "binaryName" : "javax.management.monitor.GaugeMonitorMBean",
+  "canonicalName" : "javax.management.monitor.GaugeMonitorMBean",
+  "simpleName" : "GaugeMonitorMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.monitor.MonitorMBean" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getDerivedGauge()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getDerivedGauge(javax.management.ObjectName)",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getDerivedGaugeTimeStamp()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getDerivedGaugeTimeStamp(javax.management.ObjectName)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDifferenceMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getDifferenceMode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHighThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getHighThreshold()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLowThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getLowThreshold()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifyHigh",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getNotifyHigh()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifyLow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getNotifyLow()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDifferenceMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDifferenceMode(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNotifyHigh",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNotifyHigh(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNotifyLow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNotifyLow(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setThresholds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setThresholds(java.lang.Number, java.lang.Number) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

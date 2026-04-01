@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.UnsupportedOperationException",
+  "canonicalName" : "java.lang.UnsupportedOperationException",
+  "simpleName" : "UnsupportedOperationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.UnsupportedOperationException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsupportedOperationException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.UnsupportedOperationException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsupportedOperationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.UnsupportedOperationException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsupportedOperationException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.UnsupportedOperationException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsupportedOperationException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

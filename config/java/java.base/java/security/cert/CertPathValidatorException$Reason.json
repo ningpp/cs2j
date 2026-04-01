@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertPathValidatorException$Reason",
+  "canonicalName" : "java.security.cert.CertPathValidatorException.Reason",
+  "simpleName" : "Reason",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.security.cert.CertPathValidatorException",
+  "interfaces" : [ "java.io.Serializable" ]
+}

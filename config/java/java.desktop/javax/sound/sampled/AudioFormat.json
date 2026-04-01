@@ -1,0 +1,274 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.AudioFormat",
+  "canonicalName" : "javax.sound.sampled.AudioFormat",
+  "simpleName" : "AudioFormat",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.sampled.AudioFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFormat(float, int, int, boolean, boolean)",
+    "parameters" : [ {
+      "name" : "sampleRate",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sampleSizeInBits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "channels",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signed",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bigEndian",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.sampled.AudioFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFormat(javax.sound.sampled.AudioFormat$Encoding, float, int, int, int, float, boolean)",
+    "parameters" : [ {
+      "name" : "encoding",
+      "type" : "javax.sound.sampled.AudioFormat$Encoding",
+      "genericType" : "javax.sound.sampled.AudioFormat$Encoding",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sampleRate",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sampleSizeInBits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "channels",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frameSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frameRate",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bigEndian",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.sampled.AudioFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFormat(javax.sound.sampled.AudioFormat$Encoding, float, int, int, int, float, boolean, java.util.Map)",
+    "parameters" : [ {
+      "name" : "encoding",
+      "type" : "javax.sound.sampled.AudioFormat$Encoding",
+      "genericType" : "javax.sound.sampled.AudioFormat$Encoding",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sampleRate",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sampleSizeInBits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "channels",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frameSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frameRate",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bigEndian",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "properties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getChannels",
+    "modifiers" : "public",
+    "signature" : "public int getChannels()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoding",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFormat$Encoding getEncoding()",
+    "returnType" : "javax.sound.sampled.AudioFormat$Encoding",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat$Encoding",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFrameRate",
+    "modifiers" : "public",
+    "signature" : "public float getFrameRate()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFrameSize",
+    "modifiers" : "public",
+    "signature" : "public int getFrameSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleRate",
+    "modifiers" : "public",
+    "signature" : "public float getSampleRate()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleSizeInBits",
+    "modifiers" : "public",
+    "signature" : "public int getSampleSizeInBits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBigEndian",
+    "modifiers" : "public",
+    "signature" : "public boolean isBigEndian()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matches",
+    "modifiers" : "public",
+    "signature" : "public boolean matches(javax.sound.sampled.AudioFormat)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "properties",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map properties()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

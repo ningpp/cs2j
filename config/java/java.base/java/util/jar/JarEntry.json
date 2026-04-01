@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.jar",
+  "binaryName" : "java.util.jar.JarEntry",
+  "canonicalName" : "java.util.jar.JarEntry",
+  "simpleName" : "JarEntry",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.zip.ZipEntry",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.jar.JarEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarEntry(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarEntry(java.util.jar.JarEntry)",
+    "parameters" : [ {
+      "name" : "je",
+      "type" : "java.util.jar.JarEntry",
+      "genericType" : "java.util.jar.JarEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarEntry(java.util.zip.ZipEntry)",
+    "parameters" : [ {
+      "name" : "ze",
+      "type" : "java.util.zip.ZipEntry",
+      "genericType" : "java.util.zip.ZipEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.Attributes getAttributes() throws java.io.IOException",
+    "returnType" : "java.util.jar.Attributes",
+    "genericReturnType" : "java.util.jar.Attributes",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCertificates",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.Certificate[] getCertificates()",
+    "returnType" : "java.security.cert.Certificate[]",
+    "genericReturnType" : "java.security.cert.Certificate[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCodeSigners",
+    "modifiers" : "public",
+    "signature" : "public java.security.CodeSigner[] getCodeSigners()",
+    "returnType" : "java.security.CodeSigner[]",
+    "genericReturnType" : "java.security.CodeSigner[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRealName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getRealName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

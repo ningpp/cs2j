@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.GraphicsDevice$WindowTranslucency",
+  "canonicalName" : "java.awt.GraphicsDevice.WindowTranslucency",
+  "simpleName" : "WindowTranslucency",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.GraphicsDevice",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.GraphicsDevice$WindowTranslucency valueOf(java.lang.String)",
+    "returnType" : "java.awt.GraphicsDevice$WindowTranslucency",
+    "genericReturnType" : "java.awt.GraphicsDevice$WindowTranslucency",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.GraphicsDevice$WindowTranslucency[] values()",
+    "returnType" : "java.awt.GraphicsDevice$WindowTranslucency[]",
+    "genericReturnType" : "java.awt.GraphicsDevice$WindowTranslucency[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

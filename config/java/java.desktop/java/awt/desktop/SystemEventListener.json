@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.SystemEventListener",
+  "canonicalName" : "java.awt.desktop.SystemEventListener",
+  "simpleName" : "SystemEventListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ]
+}

@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.NotDirectoryException",
+  "canonicalName" : "java.nio.file.NotDirectoryException",
+  "simpleName" : "NotDirectoryException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.nio.file.FileSystemException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.NotDirectoryException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.NotDirectoryException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

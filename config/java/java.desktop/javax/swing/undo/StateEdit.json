@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.undo",
+  "binaryName" : "javax.swing.undo.StateEdit",
+  "canonicalName" : "javax.swing.undo.StateEdit",
+  "simpleName" : "StateEdit",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.undo.AbstractUndoableEdit",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.undo.StateEdit",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.undo.StateEdit(javax.swing.undo.StateEditable)",
+    "parameters" : [ {
+      "name" : "anObject",
+      "type" : "javax.swing.undo.StateEditable",
+      "genericType" : "javax.swing.undo.StateEditable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.undo.StateEdit",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.undo.StateEdit(javax.swing.undo.StateEditable, java.lang.String)",
+    "parameters" : [ {
+      "name" : "anObject",
+      "type" : "javax.swing.undo.StateEditable",
+      "genericType" : "javax.swing.undo.StateEditable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "end",
+    "modifiers" : "public",
+    "signature" : "public void end()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPresentationName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPresentationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redo",
+    "modifiers" : "public",
+    "signature" : "public void redo()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undo",
+    "modifiers" : "public",
+    "signature" : "public void undo()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

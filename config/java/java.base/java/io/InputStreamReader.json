@@ -1,0 +1,170 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.InputStreamReader",
+  "canonicalName" : "java.io.InputStreamReader",
+  "simpleName" : "InputStreamReader",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.Reader",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.InputStreamReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStreamReader(java.io.InputStream)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InputStreamReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStreamReader(java.io.InputStream, java.lang.String) throws java.io.UnsupportedEncodingException",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.UnsupportedEncodingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InputStreamReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStreamReader(java.io.InputStream, java.nio.charset.Charset)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InputStreamReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStreamReader(java.io.InputStream, java.nio.charset.CharsetDecoder)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dec",
+      "type" : "java.nio.charset.CharsetDecoder",
+      "genericType" : "java.nio.charset.CharsetDecoder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoding",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getEncoding()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(char[], int, int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "cbuf",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(java.nio.CharBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ready",
+    "modifiers" : "public",
+    "signature" : "public boolean ready() throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

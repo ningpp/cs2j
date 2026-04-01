@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.UIDefaults$LazyInputMap",
+  "canonicalName" : "javax.swing.UIDefaults.LazyInputMap",
+  "simpleName" : "LazyInputMap",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.UIDefaults",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.UIDefaults$LazyValue" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.UIDefaults$LazyInputMap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults$LazyInputMap(java.lang.Object[])",
+    "parameters" : [ {
+      "name" : "bindings",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object createValue(javax.swing.UIDefaults)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "javax.swing.UIDefaults",
+      "genericType" : "javax.swing.UIDefaults",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi.spi",
+  "binaryName" : "javax.sound.midi.spi.MidiFileReader",
+  "canonicalName" : "javax.sound.midi.spi.MidiFileReader",
+  "simpleName" : "MidiFileReader",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getMidiFileFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.MidiFileFormat getMidiFileFormat(java.io.File) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.MidiFileFormat",
+    "genericReturnType" : "javax.sound.midi.MidiFileFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiFileFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.MidiFileFormat getMidiFileFormat(java.io.InputStream) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.MidiFileFormat",
+    "genericReturnType" : "javax.sound.midi.MidiFileFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiFileFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.MidiFileFormat getMidiFileFormat(java.net.URL) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.MidiFileFormat",
+    "genericReturnType" : "javax.sound.midi.MidiFileFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequence getSequence(java.io.File) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Sequence",
+    "genericReturnType" : "javax.sound.midi.Sequence",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequence getSequence(java.io.InputStream) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Sequence",
+    "genericReturnType" : "javax.sound.midi.Sequence",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequence getSequence(java.net.URL) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Sequence",
+    "genericReturnType" : "javax.sound.midi.Sequence",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset",
+  "binaryName" : "java.nio.charset.StandardCharsets",
+  "canonicalName" : "java.nio.charset.StandardCharsets",
+  "simpleName" : "StandardCharsets",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

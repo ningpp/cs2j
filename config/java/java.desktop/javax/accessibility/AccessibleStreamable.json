@@ -1,0 +1,37 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleStreamable",
+  "canonicalName" : "javax.accessibility.AccessibleStreamable",
+  "simpleName" : "AccessibleStreamable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getMimeTypes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.datatransfer.DataFlavor[] getMimeTypes()",
+    "returnType" : "java.awt.datatransfer.DataFlavor[]",
+    "genericReturnType" : "java.awt.datatransfer.DataFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getStream(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

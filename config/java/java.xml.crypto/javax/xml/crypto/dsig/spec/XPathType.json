@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.XPathType",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.XPathType",
+  "simpleName" : "XPathType",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.spec.XPathType",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.XPathType(java.lang.String, javax.xml.crypto.dsig.spec.XPathType$Filter)",
+    "parameters" : [ {
+      "name" : "expression",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "javax.xml.crypto.dsig.spec.XPathType$Filter",
+      "genericType" : "javax.xml.crypto.dsig.spec.XPathType$Filter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.dsig.spec.XPathType",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.XPathType(java.lang.String, javax.xml.crypto.dsig.spec.XPathType$Filter, java.util.Map)",
+    "parameters" : [ {
+      "name" : "expression",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "javax.xml.crypto.dsig.spec.XPathType$Filter",
+      "genericType" : "javax.xml.crypto.dsig.spec.XPathType$Filter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "namespaceMap",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getExpression",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getExpression()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFilter",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.XPathType$Filter getFilter()",
+    "returnType" : "javax.xml.crypto.dsig.spec.XPathType$Filter",
+    "genericReturnType" : "javax.xml.crypto.dsig.spec.XPathType$Filter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNamespaceMap",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getNamespaceMap()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

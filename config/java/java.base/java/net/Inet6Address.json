@@ -1,0 +1,265 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.Inet6Address",
+  "canonicalName" : "java.net.Inet6Address",
+  "simpleName" : "Inet6Address",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.net.InetAddress",
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAddress",
+    "modifiers" : "public",
+    "signature" : "public byte[] getAddress()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getByAddress",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.Inet6Address getByAddress(java.lang.String, byte[], int) throws java.net.UnknownHostException",
+    "returnType" : "java.net.Inet6Address",
+    "genericReturnType" : "java.net.Inet6Address",
+    "parameters" : [ {
+      "name" : "host",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addr",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scope_id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.UnknownHostException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getByAddress",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.Inet6Address getByAddress(java.lang.String, byte[], java.net.NetworkInterface) throws java.net.UnknownHostException",
+    "returnType" : "java.net.Inet6Address",
+    "genericReturnType" : "java.net.Inet6Address",
+    "parameters" : [ {
+      "name" : "host",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addr",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nif",
+      "type" : "java.net.NetworkInterface",
+      "genericType" : "java.net.NetworkInterface",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.UnknownHostException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHostAddress",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getHostAddress()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScopeId",
+    "modifiers" : "public",
+    "signature" : "public int getScopeId()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScopedInterface",
+    "modifiers" : "public",
+    "signature" : "public java.net.NetworkInterface getScopedInterface()",
+    "returnType" : "java.net.NetworkInterface",
+    "genericReturnType" : "java.net.NetworkInterface",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAnyLocalAddress",
+    "modifiers" : "public",
+    "signature" : "public boolean isAnyLocalAddress()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIPv4CompatibleAddress",
+    "modifiers" : "public",
+    "signature" : "public boolean isIPv4CompatibleAddress()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLinkLocalAddress",
+    "modifiers" : "public",
+    "signature" : "public boolean isLinkLocalAddress()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLoopbackAddress",
+    "modifiers" : "public",
+    "signature" : "public boolean isLoopbackAddress()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMCGlobal",
+    "modifiers" : "public",
+    "signature" : "public boolean isMCGlobal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMCLinkLocal",
+    "modifiers" : "public",
+    "signature" : "public boolean isMCLinkLocal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMCNodeLocal",
+    "modifiers" : "public",
+    "signature" : "public boolean isMCNodeLocal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMCOrgLocal",
+    "modifiers" : "public",
+    "signature" : "public boolean isMCOrgLocal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMCSiteLocal",
+    "modifiers" : "public",
+    "signature" : "public boolean isMCSiteLocal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMulticastAddress",
+    "modifiers" : "public",
+    "signature" : "public boolean isMulticastAddress()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSiteLocalAddress",
+    "modifiers" : "public",
+    "signature" : "public boolean isSiteLocalAddress()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLiteral",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.InetAddress ofLiteral(java.lang.String)",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "parameters" : [ {
+      "name" : "ipv6AddressLiteral",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

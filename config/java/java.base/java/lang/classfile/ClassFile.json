@@ -1,0 +1,454 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassFile",
+  "canonicalName" : "java.lang.classfile.ClassFile",
+  "simpleName" : "ClassFile",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] build(java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.ConstantPoolBuilder, java.util.function.Consumer)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+      "genericType" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "build",
+    "modifiers" : "public",
+    "signature" : "public byte[] build(java.lang.constant.ClassDesc, java.util.function.Consumer)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "thisClass",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "buildModule",
+    "modifiers" : "public",
+    "signature" : "public byte[] buildModule(java.lang.classfile.attribute.ModuleAttribute)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "moduleAttribute",
+      "type" : "java.lang.classfile.attribute.ModuleAttribute",
+      "genericType" : "java.lang.classfile.attribute.ModuleAttribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "buildModule",
+    "modifiers" : "public",
+    "signature" : "public byte[] buildModule(java.lang.classfile.attribute.ModuleAttribute, java.util.function.Consumer)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "moduleAttribute",
+      "type" : "java.lang.classfile.attribute.ModuleAttribute",
+      "genericType" : "java.lang.classfile.attribute.ModuleAttribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "buildModuleTo",
+    "modifiers" : "public",
+    "signature" : "public void buildModuleTo(java.nio.file.Path, java.lang.classfile.attribute.ModuleAttribute) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "moduleAttribute",
+      "type" : "java.lang.classfile.attribute.ModuleAttribute",
+      "genericType" : "java.lang.classfile.attribute.ModuleAttribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "buildModuleTo",
+    "modifiers" : "public",
+    "signature" : "public void buildModuleTo(java.nio.file.Path, java.lang.classfile.attribute.ModuleAttribute, java.util.function.Consumer) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "moduleAttribute",
+      "type" : "java.lang.classfile.attribute.ModuleAttribute",
+      "genericType" : "java.lang.classfile.attribute.ModuleAttribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "buildTo",
+    "modifiers" : "public",
+    "signature" : "public void buildTo(java.nio.file.Path, java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.ConstantPoolBuilder, java.util.function.Consumer) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thisClassEntry",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constantPool",
+      "type" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+      "genericType" : "java.lang.classfile.constantpool.ConstantPoolBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "buildTo",
+    "modifiers" : "public",
+    "signature" : "public void buildTo(java.nio.file.Path, java.lang.constant.ClassDesc, java.util.function.Consumer) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thisClass",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "latestMajorVersion",
+    "modifiers" : "public static",
+    "signature" : "public static int latestMajorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "latestMinorVersion",
+    "modifiers" : "public static",
+    "signature" : "public static int latestMinorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassFile of()",
+    "returnType" : "java.lang.classfile.ClassFile",
+    "genericReturnType" : "java.lang.classfile.ClassFile",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassFile of(java.lang.classfile.ClassFile$Option...)",
+    "returnType" : "java.lang.classfile.ClassFile",
+    "genericReturnType" : "java.lang.classfile.ClassFile",
+    "parameters" : [ {
+      "name" : "options",
+      "type" : "java.lang.classfile.ClassFile$Option[]",
+      "genericType" : "java.lang.classfile.ClassFile$Option[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "parse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassModel parse(byte[])",
+    "returnType" : "java.lang.classfile.ClassModel",
+    "genericReturnType" : "java.lang.classfile.ClassModel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassModel parse(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.lang.classfile.ClassModel",
+    "genericReturnType" : "java.lang.classfile.ClassModel",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "transformClass",
+    "modifiers" : "public",
+    "signature" : "public byte[] transformClass(java.lang.classfile.ClassModel, java.lang.classfile.ClassTransform)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "java.lang.classfile.ClassModel",
+      "genericType" : "java.lang.classfile.ClassModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transform",
+      "type" : "java.lang.classfile.ClassTransform",
+      "genericType" : "java.lang.classfile.ClassTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "transformClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] transformClass(java.lang.classfile.ClassModel, java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.ClassTransform)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.ClassModel",
+      "genericType" : "java.lang.classfile.ClassModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.classfile.ClassTransform",
+      "genericType" : "java.lang.classfile.ClassTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformClass",
+    "modifiers" : "public",
+    "signature" : "public byte[] transformClass(java.lang.classfile.ClassModel, java.lang.constant.ClassDesc, java.lang.classfile.ClassTransform)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "java.lang.classfile.ClassModel",
+      "genericType" : "java.lang.classfile.ClassModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newClassName",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transform",
+      "type" : "java.lang.classfile.ClassTransform",
+      "genericType" : "java.lang.classfile.ClassTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "verify",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List verify(byte[])",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verify",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List verify(java.lang.classfile.ClassModel)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.ClassModel",
+      "genericType" : "java.lang.classfile.ClassModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verify",
+    "modifiers" : "public",
+    "signature" : "public java.util.List verify(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withOptions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassFile withOptions(java.lang.classfile.ClassFile$Option...)",
+    "returnType" : "java.lang.classfile.ClassFile",
+    "genericReturnType" : "java.lang.classfile.ClassFile",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.ClassFile$Option[]",
+      "genericType" : "java.lang.classfile.ClassFile$Option[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

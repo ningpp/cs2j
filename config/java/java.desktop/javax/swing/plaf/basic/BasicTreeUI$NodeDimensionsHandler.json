@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicTreeUI$NodeDimensionsHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicTreeUI.NodeDimensionsHandler",
+  "simpleName" : "NodeDimensionsHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicTreeUI",
+  "superClass" : "javax.swing.tree.AbstractLayoutCache$NodeDimensions",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicTreeUI$NodeDimensionsHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicTreeUI$NodeDimensionsHandler(javax.swing.plaf.basic.BasicTreeUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicTreeUI",
+      "genericType" : "javax.swing.plaf.basic.BasicTreeUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNodeDimensions",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getNodeDimensions(java.lang.Object, int, int, boolean, java.awt.Rectangle)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "depth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "expanded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

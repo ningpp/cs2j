@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleAttributeSequence",
+  "canonicalName" : "javax.accessibility.AccessibleAttributeSequence",
+  "simpleName" : "AccessibleAttributeSequence",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.accessibility.AccessibleAttributeSequence",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleAttributeSequence(int, int, javax.swing.text.AttributeSet)",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attr",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,107 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.ProxySelector",
+  "canonicalName" : "java.net.ProxySelector",
+  "simpleName" : "ProxySelector",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.ProxySelector",
+    "modifiers" : "public",
+    "signature" : "public java.net.ProxySelector()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "connectFailed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void connectFailed(java.net.URI, java.net.SocketAddress, java.io.IOException)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.io.IOException",
+      "genericType" : "java.io.IOException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.ProxySelector getDefault()",
+    "returnType" : "java.net.ProxySelector",
+    "genericReturnType" : "java.net.ProxySelector",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.ProxySelector of(java.net.InetSocketAddress)",
+    "returnType" : "java.net.ProxySelector",
+    "genericReturnType" : "java.net.ProxySelector",
+    "parameters" : [ {
+      "name" : "proxyAddress",
+      "type" : "java.net.InetSocketAddress",
+      "genericType" : "java.net.InetSocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "select",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List select(java.net.URI)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefault",
+    "modifiers" : "public static",
+    "signature" : "public static void setDefault(java.net.ProxySelector)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ps",
+      "type" : "java.net.ProxySelector",
+      "genericType" : "java.net.ProxySelector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

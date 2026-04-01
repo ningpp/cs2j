@@ -1,0 +1,160 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.util",
+  "binaryName" : "javax.xml.stream.util.EventReaderDelegate",
+  "canonicalName" : "javax.xml.stream.util.EventReaderDelegate",
+  "simpleName" : "EventReaderDelegate",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.stream.XMLEventReader" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.stream.util.EventReaderDelegate",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.util.EventReaderDelegate()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.util.EventReaderDelegate",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.util.EventReaderDelegate(javax.xml.stream.XMLEventReader)",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "javax.xml.stream.XMLEventReader",
+      "genericType" : "javax.xml.stream.XMLEventReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getElementText() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLEventReader getParent()",
+    "returnType" : "javax.xml.stream.XMLEventReader",
+    "genericReturnType" : "javax.xml.stream.XMLEventReader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNext",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNext()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object next()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.events.XMLEvent nextEvent() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.events.XMLEvent",
+    "genericReturnType" : "javax.xml.stream.events.XMLEvent",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextTag",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.events.XMLEvent nextTag() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.events.XMLEvent",
+    "genericReturnType" : "javax.xml.stream.events.XMLEvent",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "peek",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.events.XMLEvent peek() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.events.XMLEvent",
+    "genericReturnType" : "javax.xml.stream.events.XMLEvent",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParent",
+    "modifiers" : "public",
+    "signature" : "public void setParent(javax.xml.stream.XMLEventReader)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "javax.xml.stream.XMLEventReader",
+      "genericType" : "javax.xml.stream.XMLEventReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

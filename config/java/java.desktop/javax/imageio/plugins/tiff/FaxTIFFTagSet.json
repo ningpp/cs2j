@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.tiff",
+  "binaryName" : "javax.imageio.plugins.tiff.FaxTIFFTagSet",
+  "canonicalName" : "javax.imageio.plugins.tiff.FaxTIFFTagSet",
+  "simpleName" : "FaxTIFFTagSet",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.imageio.plugins.tiff.TIFFTagSet",
+  "declaredPublicMethods" : [ {
+    "name" : "getInstance",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized javax.imageio.plugins.tiff.FaxTIFFTagSet getInstance()",
+    "returnType" : "javax.imageio.plugins.tiff.FaxTIFFTagSet",
+    "genericReturnType" : "javax.imageio.plugins.tiff.FaxTIFFTagSet",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

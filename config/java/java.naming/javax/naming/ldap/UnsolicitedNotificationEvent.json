@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.UnsolicitedNotificationEvent",
+  "canonicalName" : "javax.naming.ldap.UnsolicitedNotificationEvent",
+  "simpleName" : "UnsolicitedNotificationEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.UnsolicitedNotificationEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.UnsolicitedNotificationEvent(java.lang.Object, javax.naming.ldap.UnsolicitedNotification)",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notice",
+      "type" : "javax.naming.ldap.UnsolicitedNotification",
+      "genericType" : "javax.naming.ldap.UnsolicitedNotification",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "dispatch",
+    "modifiers" : "public",
+    "signature" : "public void dispatch(javax.naming.ldap.UnsolicitedNotificationListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.naming.ldap.UnsolicitedNotificationListener",
+      "genericType" : "javax.naming.ldap.UnsolicitedNotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotification",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.UnsolicitedNotification getNotification()",
+    "returnType" : "javax.naming.ldap.UnsolicitedNotification",
+    "genericReturnType" : "javax.naming.ldap.UnsolicitedNotification",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

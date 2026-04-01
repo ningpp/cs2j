@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.AbstractElementVisitor6",
+  "canonicalName" : "javax.lang.model.util.AbstractElementVisitor6",
+  "simpleName" : "AbstractElementVisitor6",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.lang.model.element.ElementVisitor" ],
+  "declaredPublicMethods" : [ {
+    "name" : "visit",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object visit(javax.lang.model.element.Element)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visit",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object visit(javax.lang.model.element.Element, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitModule",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitModule(javax.lang.model.element.ModuleElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.ModuleElement",
+      "genericType" : "javax.lang.model.element.ModuleElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitRecordComponent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitRecordComponent(javax.lang.model.element.RecordComponentElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.RecordComponentElement",
+      "genericType" : "javax.lang.model.element.RecordComponentElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitUnknown",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitUnknown(javax.lang.model.element.Element, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

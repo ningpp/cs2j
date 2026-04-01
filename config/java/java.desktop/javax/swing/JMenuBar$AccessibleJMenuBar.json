@@ -1,0 +1,141 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JMenuBar$AccessibleJMenuBar",
+  "canonicalName" : "javax.swing.JMenuBar.AccessibleJMenuBar",
+  "simpleName" : "AccessibleJMenuBar",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JMenuBar",
+  "superClass" : "javax.swing.JComponent$AccessibleJComponent",
+  "interfaces" : [ "javax.accessibility.AccessibleSelection" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void addAccessibleSelection(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clearAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void clearAccessibleSelection()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleSelection getAccessibleSelection()",
+    "returnType" : "javax.accessibility.AccessibleSelection",
+    "genericReturnType" : "javax.accessibility.AccessibleSelection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleSelection(int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSelectionCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleSelectionCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAccessibleChildSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isAccessibleChildSelected(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void removeAccessibleSelection(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectAllAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void selectAllAccessibleSelection()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

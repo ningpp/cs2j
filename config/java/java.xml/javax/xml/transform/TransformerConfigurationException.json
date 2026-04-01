@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform",
+  "binaryName" : "javax.xml.transform.TransformerConfigurationException",
+  "canonicalName" : "javax.xml.transform.TransformerConfigurationException",
+  "simpleName" : "TransformerConfigurationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.xml.transform.TransformerException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.transform.TransformerConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.TransformerConfigurationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.TransformerConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.TransformerConfigurationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.TransformerConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.TransformerConfigurationException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.TransformerConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.TransformerConfigurationException(java.lang.String, javax.xml.transform.SourceLocator)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locator",
+      "type" : "javax.xml.transform.SourceLocator",
+      "genericType" : "javax.xml.transform.SourceLocator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.TransformerConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.TransformerConfigurationException(java.lang.String, javax.xml.transform.SourceLocator, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locator",
+      "type" : "javax.xml.transform.SourceLocator",
+      "genericType" : "javax.xml.transform.SourceLocator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.TransformerConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.TransformerConfigurationException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

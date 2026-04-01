@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.StreamCorruptedException",
+  "canonicalName" : "java.io.StreamCorruptedException",
+  "simpleName" : "StreamCorruptedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.ObjectStreamException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.StreamCorruptedException",
+    "modifiers" : "public",
+    "signature" : "public java.io.StreamCorruptedException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.StreamCorruptedException",
+    "modifiers" : "public",
+    "signature" : "public java.io.StreamCorruptedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

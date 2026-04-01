@@ -1,0 +1,176 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassTransform",
+  "canonicalName" : "java.lang.classfile.ClassTransform",
+  "simpleName" : "ClassTransform",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileTransform" ],
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassTransform andThen(java.lang.classfile.ClassTransform)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "java.lang.classfile.ClassTransform",
+      "genericType" : "java.lang.classfile.ClassTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dropping",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform dropping(java.util.function.Predicate)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endHandler",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform endHandler(java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "finisher",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofStateful",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform ofStateful(java.util.function.Supplier)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformingFields",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform transformingFields(java.lang.classfile.FieldTransform)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "xform",
+      "type" : "java.lang.classfile.FieldTransform",
+      "genericType" : "java.lang.classfile.FieldTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformingMethodBodies",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform transformingMethodBodies(java.lang.classfile.CodeTransform)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "xform",
+      "type" : "java.lang.classfile.CodeTransform",
+      "genericType" : "java.lang.classfile.CodeTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformingMethodBodies",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform transformingMethodBodies(java.util.function.Predicate, java.lang.classfile.CodeTransform)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "xform",
+      "type" : "java.lang.classfile.CodeTransform",
+      "genericType" : "java.lang.classfile.CodeTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformingMethods",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform transformingMethods(java.lang.classfile.MethodTransform)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "xform",
+      "type" : "java.lang.classfile.MethodTransform",
+      "genericType" : "java.lang.classfile.MethodTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformingMethods",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassTransform transformingMethods(java.util.function.Predicate, java.lang.classfile.MethodTransform)",
+    "returnType" : "java.lang.classfile.ClassTransform",
+    "genericReturnType" : "java.lang.classfile.ClassTransform",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "xform",
+      "type" : "java.lang.classfile.MethodTransform",
+      "genericType" : "java.lang.classfile.MethodTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

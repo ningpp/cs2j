@@ -1,0 +1,304 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ImageIcon",
+  "canonicalName" : "javax.swing.ImageIcon",
+  "simpleName" : "ImageIcon",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.accessibility.Accessible", "javax.swing.Icon" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(byte[])",
+    "parameters" : [ {
+      "name" : "imageData",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(byte[], java.lang.String)",
+    "parameters" : [ {
+      "name" : "imageData",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(java.awt.Image)",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(java.awt.Image, java.lang.String)",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(java.lang.String)",
+    "parameters" : [ {
+      "name" : "filename",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "filename",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(java.net.URL)",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.ImageIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ImageIcon(java.net.URL, java.lang.String)",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIconHeight",
+    "modifiers" : "public",
+    "signature" : "public int getIconHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIconWidth",
+    "modifiers" : "public",
+    "signature" : "public int getIconWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image getImage()",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageLoadStatus",
+    "modifiers" : "public",
+    "signature" : "public int getImageLoadStatus()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageObserver",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ImageObserver getImageObserver()",
+    "returnType" : "java.awt.image.ImageObserver",
+    "genericReturnType" : "java.awt.image.ImageObserver",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintIcon",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void paintIcon(java.awt.Component, java.awt.Graphics, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDescription",
+    "modifiers" : "public",
+    "signature" : "public void setDescription(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setImage",
+    "modifiers" : "public",
+    "signature" : "public void setImage(java.awt.Image)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setImageObserver",
+    "modifiers" : "public",
+    "signature" : "public void setImageObserver(java.awt.image.ImageObserver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "observer",
+      "type" : "java.awt.image.ImageObserver",
+      "genericType" : "java.awt.image.ImageObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

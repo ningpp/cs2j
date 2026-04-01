@@ -1,0 +1,477 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.DateFormat",
+  "canonicalName" : "java.text.DateFormat",
+  "simpleName" : "DateFormat",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.text.Format",
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.StringBuffer format(java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toAppendTo",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldPosition",
+      "type" : "java.text.FieldPosition",
+      "genericType" : "java.text.FieldPosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String format(java.util.Date)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.StringBuffer format(java.util.Date, java.lang.StringBuffer, java.text.FieldPosition)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.text.FieldPosition",
+      "genericType" : "java.text.FieldPosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableLocales",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Locale[] getAvailableLocales()",
+    "returnType" : "java.util.Locale[]",
+    "genericReturnType" : "java.util.Locale[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCalendar",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar getCalendar()",
+    "returnType" : "java.util.Calendar",
+    "genericReturnType" : "java.util.Calendar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getDateInstance()",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getDateInstance(int)",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getDateInstance(int, java.util.Locale)",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateTimeInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getDateTimeInstance()",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateTimeInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getDateTimeInstance(int, int)",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "parameters" : [ {
+      "name" : "dateStyle",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeStyle",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateTimeInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getDateTimeInstance(int, int, java.util.Locale)",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "parameters" : [ {
+      "name" : "dateStyle",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeStyle",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getInstance()",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumberFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.NumberFormat getNumberFormat()",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getTimeInstance()",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getTimeInstance(int)",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.DateFormat getTimeInstance(int, java.util.Locale)",
+    "returnType" : "java.text.DateFormat",
+    "genericReturnType" : "java.text.DateFormat",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeZone",
+    "modifiers" : "public",
+    "signature" : "public java.util.TimeZone getTimeZone()",
+    "returnType" : "java.util.TimeZone",
+    "genericReturnType" : "java.util.TimeZone",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLenient",
+    "modifiers" : "public",
+    "signature" : "public boolean isLenient()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public java.util.Date parse(java.lang.String) throws java.text.ParseException",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Date parse(java.lang.String, java.text.ParsePosition)",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.text.ParsePosition",
+      "genericType" : "java.text.ParsePosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parseObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object parseObject(java.lang.String, java.text.ParsePosition)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "java.text.ParsePosition",
+      "genericType" : "java.text.ParsePosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCalendar",
+    "modifiers" : "public",
+    "signature" : "public void setCalendar(java.util.Calendar)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newCalendar",
+      "type" : "java.util.Calendar",
+      "genericType" : "java.util.Calendar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLenient",
+    "modifiers" : "public",
+    "signature" : "public void setLenient(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "lenient",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNumberFormat",
+    "modifiers" : "public",
+    "signature" : "public void setNumberFormat(java.text.NumberFormat)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newNumberFormat",
+      "type" : "java.text.NumberFormat",
+      "genericType" : "java.text.NumberFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTimeZone",
+    "modifiers" : "public",
+    "signature" : "public void setTimeZone(java.util.TimeZone)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.util.TimeZone",
+      "genericType" : "java.util.TimeZone",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

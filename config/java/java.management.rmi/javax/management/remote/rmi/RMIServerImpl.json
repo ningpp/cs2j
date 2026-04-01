@@ -1,0 +1,129 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIServerImpl",
+  "canonicalName" : "javax.management.remote.rmi.RMIServerImpl",
+  "simpleName" : "RMIServerImpl",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Closeable", "javax.management.remote.rmi.RMIServer" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.rmi.RMIServerImpl",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIServerImpl(java.util.Map)",
+    "parameters" : [ {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultClassLoader",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.ClassLoader getDefaultClassLoader()",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanServer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized javax.management.MBeanServer getMBeanServer()",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newClient",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnection newClient(java.lang.Object) throws java.io.IOException",
+    "returnType" : "javax.management.remote.rmi.RMIConnection",
+    "genericReturnType" : "javax.management.remote.rmi.RMIConnection",
+    "parameters" : [ {
+      "name" : "credentials",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultClassLoader",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setDefaultClassLoader(java.lang.ClassLoader)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cl",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setMBeanServer(javax.management.MBeanServer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mbs",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toStub",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.rmi.Remote toStub() throws java.io.IOException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

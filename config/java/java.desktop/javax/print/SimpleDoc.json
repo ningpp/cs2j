@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.SimpleDoc",
+  "canonicalName" : "javax.print.SimpleDoc",
+  "simpleName" : "SimpleDoc",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.print.Doc" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.SimpleDoc",
+    "modifiers" : "public",
+    "signature" : "public javax.print.SimpleDoc(java.lang.Object, javax.print.DocFlavor, javax.print.attribute.DocAttributeSet)",
+    "parameters" : [ {
+      "name" : "printData",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flavor",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.DocAttributeSet",
+      "genericType" : "javax.print.attribute.DocAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.DocAttributeSet getAttributes()",
+    "returnType" : "javax.print.attribute.DocAttributeSet",
+    "genericReturnType" : "javax.print.attribute.DocAttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocFlavor",
+    "modifiers" : "public",
+    "signature" : "public javax.print.DocFlavor getDocFlavor()",
+    "returnType" : "javax.print.DocFlavor",
+    "genericReturnType" : "javax.print.DocFlavor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintData",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getPrintData() throws java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReaderForText",
+    "modifiers" : "public",
+    "signature" : "public java.io.Reader getReaderForText() throws java.io.IOException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStreamForBytes",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream getStreamForBytes() throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

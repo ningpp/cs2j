@@ -1,0 +1,24 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.DocFlavor$SERVICE_FORMATTED",
+  "canonicalName" : "javax.print.DocFlavor.SERVICE_FORMATTED",
+  "simpleName" : "SERVICE_FORMATTED",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.print.DocFlavor",
+  "superClass" : "javax.print.DocFlavor",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.DocFlavor$SERVICE_FORMATTED",
+    "modifiers" : "public",
+    "signature" : "public javax.print.DocFlavor$SERVICE_FORMATTED(java.lang.String)",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

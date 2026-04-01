@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.EdDSAParameterSpec",
+  "canonicalName" : "java.security.spec.EdDSAParameterSpec",
+  "simpleName" : "EdDSAParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.EdDSAParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.EdDSAParameterSpec(boolean)",
+    "parameters" : [ {
+      "name" : "prehash",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.spec.EdDSAParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.EdDSAParameterSpec(boolean, byte[])",
+    "parameters" : [ {
+      "name" : "prehash",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getContext",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional getContext()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPrehash",
+    "modifiers" : "public",
+    "signature" : "public boolean isPrehash()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

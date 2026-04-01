@@ -1,0 +1,236 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.Segment",
+  "canonicalName" : "javax.swing.text.Segment",
+  "simpleName" : "Segment",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.CharSequence", "java.lang.Cloneable", "java.text.CharacterIterator" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.Segment",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Segment()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.Segment",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Segment(char[], int, int)",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "charAt",
+    "modifiers" : "public",
+    "signature" : "public char charAt(int)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "current",
+    "modifiers" : "public",
+    "signature" : "public char current()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "first",
+    "modifiers" : "public",
+    "signature" : "public char first()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeginIndex",
+    "modifiers" : "public",
+    "signature" : "public int getBeginIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndIndex",
+    "modifiers" : "public",
+    "signature" : "public int getEndIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndex",
+    "modifiers" : "public",
+    "signature" : "public int getIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPartialReturn",
+    "modifiers" : "public",
+    "signature" : "public boolean isPartialReturn()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "last",
+    "modifiers" : "public",
+    "signature" : "public char last()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public",
+    "signature" : "public int length()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public char next()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previous",
+    "modifiers" : "public",
+    "signature" : "public char previous()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIndex",
+    "modifiers" : "public",
+    "signature" : "public char setIndex(int)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "position",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPartialReturn",
+    "modifiers" : "public",
+    "signature" : "public void setPartialReturn(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subSequence",
+    "modifiers" : "public",
+    "signature" : "public java.lang.CharSequence subSequence(int, int)",
+    "returnType" : "java.lang.CharSequence",
+    "genericReturnType" : "java.lang.CharSequence",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

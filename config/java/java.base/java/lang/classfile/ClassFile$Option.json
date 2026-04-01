@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassFile$Option",
+  "canonicalName" : "java.lang.classfile.ClassFile.Option",
+  "simpleName" : "Option",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.ClassFile"
+}

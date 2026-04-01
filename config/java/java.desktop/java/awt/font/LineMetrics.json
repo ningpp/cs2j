@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.LineMetrics",
+  "canonicalName" : "java.awt.font.LineMetrics",
+  "simpleName" : "LineMetrics",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAscent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getAscent()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaselineIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getBaselineIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaselineOffsets",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float[] getBaselineOffsets()",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getDescent()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getHeight()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLeading",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getLeading()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumChars",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getNumChars()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStrikethroughOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getStrikethroughOffset()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStrikethroughThickness",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getStrikethroughThickness()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnderlineOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getUnderlineOffset()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnderlineThickness",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getUnderlineThickness()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

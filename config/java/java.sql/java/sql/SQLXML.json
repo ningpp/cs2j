@@ -1,0 +1,130 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.SQLXML",
+  "canonicalName" : "java.sql.SQLXML",
+  "simpleName" : "SQLXML",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "free",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void free() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBinaryStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getBinaryStream() throws java.sql.SQLException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.Reader getCharacterStream() throws java.sql.SQLException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSource",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Source getSource(java.lang.Class) throws java.sql.SQLException",
+    "returnType" : "javax.xml.transform.Source",
+    "genericReturnType" : "javax.xml.transform.Source",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getString() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBinaryStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.OutputStream setBinaryStream() throws java.sql.SQLException",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharacterStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.Writer setCharacterStream() throws java.sql.SQLException",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResult",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Result setResult(java.lang.Class) throws java.sql.SQLException",
+    "returnType" : "javax.xml.transform.Result",
+    "genericReturnType" : "javax.xml.transform.Result",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setString(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

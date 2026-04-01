@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.AuthProvider",
+  "canonicalName" : "java.security.AuthProvider",
+  "simpleName" : "AuthProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.security.Provider",
+  "declaredPublicMethods" : [ {
+    "name" : "login",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void login(javax.security.auth.Subject, javax.security.auth.callback.CallbackHandler) throws javax.security.auth.login.LoginException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.security.auth.callback.CallbackHandler",
+      "genericType" : "javax.security.auth.callback.CallbackHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void logout() throws javax.security.auth.login.LoginException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCallbackHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setCallbackHandler(javax.security.auth.callback.CallbackHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.security.auth.callback.CallbackHandler",
+      "genericType" : "javax.security.auth.callback.CallbackHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

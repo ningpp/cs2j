@@ -1,0 +1,139 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ScheduledExecutorService",
+  "canonicalName" : "java.util.concurrent.ScheduledExecutorService",
+  "simpleName" : "ScheduledExecutorService",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.concurrent.ExecutorService" ],
+  "declaredPublicMethods" : [ {
+    "name" : "schedule",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ScheduledFuture schedule(java.lang.Runnable, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ScheduledFuture schedule(java.util.concurrent.Callable, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleAtFixedRate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ScheduledFuture scheduleAtFixedRate(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleWithFixedDelay",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ScheduledFuture scheduleWithFixedDelay(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

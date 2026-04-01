@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.JMXConnectorServerFactory",
+  "canonicalName" : "javax.management.remote.JMXConnectorServerFactory",
+  "simpleName" : "JMXConnectorServerFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "newJMXConnectorServer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.remote.JMXConnectorServer newJMXConnectorServer(javax.management.remote.JMXServiceURL, java.util.Map, javax.management.MBeanServer) throws java.io.IOException",
+    "returnType" : "javax.management.remote.JMXConnectorServer",
+    "genericReturnType" : "javax.management.remote.JMXConnectorServer",
+    "parameters" : [ {
+      "name" : "serviceURL",
+      "type" : "javax.management.remote.JMXServiceURL",
+      "genericType" : "javax.management.remote.JMXServiceURL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanServer",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

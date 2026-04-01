@@ -1,0 +1,49 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.NullPointerException",
+  "canonicalName" : "java.lang.NullPointerException",
+  "simpleName" : "NullPointerException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.NullPointerException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NullPointerException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.NullPointerException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NullPointerException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "fillInStackTrace",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Throwable fillInStackTrace()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

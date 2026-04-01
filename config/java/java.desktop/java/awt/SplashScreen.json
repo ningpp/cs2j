@@ -1,0 +1,115 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.SplashScreen",
+  "canonicalName" : "java.awt.SplashScreen",
+  "simpleName" : "SplashScreen",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.lang.IllegalStateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGraphics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Graphics2D createGraphics() throws java.lang.IllegalStateException",
+    "returnType" : "java.awt.Graphics2D",
+    "genericReturnType" : "java.awt.Graphics2D",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getBounds() throws java.lang.IllegalStateException",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageURL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL getImageURL() throws java.lang.IllegalStateException",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getSize() throws java.lang.IllegalStateException",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSplashScreen",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.SplashScreen getSplashScreen()",
+    "returnType" : "java.awt.SplashScreen",
+    "genericReturnType" : "java.awt.SplashScreen",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVisible",
+    "modifiers" : "public",
+    "signature" : "public boolean isVisible()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setImageURL",
+    "modifiers" : "public",
+    "signature" : "public void setImageURL(java.net.URL) throws java.lang.NullPointerException, java.io.IOException, java.lang.IllegalStateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "imageURL",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NullPointerException", "java.io.IOException", "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public",
+    "signature" : "public void update() throws java.lang.IllegalStateException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.IllegalStateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

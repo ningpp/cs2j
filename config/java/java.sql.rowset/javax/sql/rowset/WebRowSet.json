@@ -1,0 +1,131 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset",
+  "binaryName" : "javax.sql.rowset.WebRowSet",
+  "canonicalName" : "javax.sql.rowset.WebRowSet",
+  "simpleName" : "WebRowSet",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.rowset.CachedRowSet" ],
+  "declaredPublicMethods" : [ {
+    "name" : "readXml",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void readXml(java.io.InputStream) throws java.sql.SQLException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readXml",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void readXml(java.io.Reader) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeXml",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeXml(java.io.OutputStream) throws java.sql.SQLException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeXml",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeXml(java.io.Writer) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeXml",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeXml(java.sql.ResultSet, java.io.OutputStream) throws java.sql.SQLException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ResultSet",
+      "genericType" : "java.sql.ResultSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeXml",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeXml(java.sql.ResultSet, java.io.Writer) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ResultSet",
+      "genericType" : "java.sql.ResultSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

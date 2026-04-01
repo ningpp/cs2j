@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLPermission",
+  "canonicalName" : "javax.net.ssl.SSLPermission",
+  "simpleName" : "SSLPermission",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.BasicPermission",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SSLPermission",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLPermission(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.net.ssl.SSLPermission",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLPermission(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,236 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.ImageWriterSpi",
+  "canonicalName" : "javax.imageio.spi.ImageWriterSpi",
+  "simpleName" : "ImageWriterSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.imageio.spi.ImageReaderWriterSpi",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.spi.ImageWriterSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.ImageWriterSpi(java.lang.String, java.lang.String, java.lang.String[], java.lang.String[], java.lang.String[], java.lang.String, java.lang.Class[], java.lang.String[], boolean, java.lang.String, java.lang.String, java.lang.String[], java.lang.String[], boolean, java.lang.String, java.lang.String, java.lang.String[], java.lang.String[])",
+    "parameters" : [ {
+      "name" : "vendorName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "names",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "suffixes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "MIMETypes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "writerClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outputTypes",
+      "type" : "java.lang.Class[]",
+      "genericType" : "java.lang.Class[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "readerSpiNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "supportsStandardStreamMetadataFormat",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeStreamMetadataFormatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeStreamMetadataFormatClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraStreamMetadataFormatNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraStreamMetadataFormatClassNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "supportsStandardImageMetadataFormat",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeImageMetadataFormatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeImageMetadataFormatClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraImageMetadataFormatNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraImageMetadataFormatClassNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "canEncodeImage",
+    "modifiers" : "public",
+    "signature" : "public boolean canEncodeImage(java.awt.image.RenderedImage)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "im",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canEncodeImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean canEncodeImage(javax.imageio.ImageTypeSpecifier)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createWriterInstance",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.ImageWriter createWriterInstance() throws java.io.IOException",
+    "returnType" : "javax.imageio.ImageWriter",
+    "genericReturnType" : "javax.imageio.ImageWriter",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createWriterInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.ImageWriter createWriterInstance(java.lang.Object) throws java.io.IOException",
+    "returnType" : "javax.imageio.ImageWriter",
+    "genericReturnType" : "javax.imageio.ImageWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageReaderSpiNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getImageReaderSpiNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutputTypes",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class[] getOutputTypes()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFormatLossless",
+    "modifiers" : "public",
+    "signature" : "public boolean isFormatLossless()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOwnWriter",
+    "modifiers" : "public",
+    "signature" : "public boolean isOwnWriter(javax.imageio.ImageWriter)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "writer",
+      "type" : "javax.imageio.ImageWriter",
+      "genericType" : "javax.imageio.ImageWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

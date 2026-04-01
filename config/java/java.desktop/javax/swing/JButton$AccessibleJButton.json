@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JButton$AccessibleJButton",
+  "canonicalName" : "javax.swing.JButton.AccessibleJButton",
+  "simpleName" : "AccessibleJButton",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JButton",
+  "superClass" : "javax.swing.AbstractButton$AccessibleAbstractButton",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

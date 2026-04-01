@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.RuntimePermission",
+  "canonicalName" : "java.lang.RuntimePermission",
+  "simpleName" : "RuntimePermission",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.BasicPermission",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.RuntimePermission",
+    "modifiers" : "public",
+    "signature" : "public java.lang.RuntimePermission(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.RuntimePermission",
+    "modifiers" : "public",
+    "signature" : "public java.lang.RuntimePermission(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathException",
+  "canonicalName" : "javax.xml.xpath.XPathException",
+  "simpleName" : "XPathException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.xpath.XPathException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.xpath.XPathException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printStackTrace",
+    "modifiers" : "public",
+    "signature" : "public void printStackTrace()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printStackTrace",
+    "modifiers" : "public",
+    "signature" : "public void printStackTrace(java.io.PrintStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.io.PrintStream",
+      "genericType" : "java.io.PrintStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printStackTrace",
+    "modifiers" : "public",
+    "signature" : "public void printStackTrace(java.io.PrintWriter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.io.PrintWriter",
+      "genericType" : "java.io.PrintWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

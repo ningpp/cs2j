@@ -1,0 +1,537 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JScrollPane",
+  "canonicalName" : "javax.swing.JScrollPane",
+  "simpleName" : "JScrollPane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.swing.ScrollPaneConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JScrollPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollPane()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JScrollPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollPane(int, int)",
+    "parameters" : [ {
+      "name" : "vsbPolicy",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hsbPolicy",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JScrollPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollPane(java.awt.Component)",
+    "parameters" : [ {
+      "name" : "view",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JScrollPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollPane(java.awt.Component, int, int)",
+    "parameters" : [ {
+      "name" : "view",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vsbPolicy",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hsbPolicy",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createHorizontalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollBar createHorizontalScrollBar()",
+    "returnType" : "javax.swing.JScrollBar",
+    "genericReturnType" : "javax.swing.JScrollBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createVerticalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollBar createVerticalScrollBar()",
+    "returnType" : "javax.swing.JScrollBar",
+    "genericReturnType" : "javax.swing.JScrollBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnHeader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JViewport getColumnHeader()",
+    "returnType" : "javax.swing.JViewport",
+    "genericReturnType" : "javax.swing.JViewport",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCorner",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getCorner(java.lang.String)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHorizontalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollBar getHorizontalScrollBar()",
+    "returnType" : "javax.swing.JScrollBar",
+    "genericReturnType" : "javax.swing.JScrollBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHorizontalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public int getHorizontalScrollBarPolicy()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowHeader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JViewport getRowHeader()",
+    "returnType" : "javax.swing.JViewport",
+    "genericReturnType" : "javax.swing.JViewport",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ScrollPaneUI getUI()",
+    "returnType" : "javax.swing.plaf.ScrollPaneUI",
+    "genericReturnType" : "javax.swing.plaf.ScrollPaneUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVerticalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollBar getVerticalScrollBar()",
+    "returnType" : "javax.swing.JScrollBar",
+    "genericReturnType" : "javax.swing.JScrollBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVerticalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public int getVerticalScrollBarPolicy()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JViewport getViewport()",
+    "returnType" : "javax.swing.JViewport",
+    "genericReturnType" : "javax.swing.JViewport",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewportBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.Border getViewportBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewportBorderBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getViewportBorderBounds()",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValidateRoot",
+    "modifiers" : "public",
+    "signature" : "public boolean isValidateRoot()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWheelScrollingEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isWheelScrollingEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumnHeader",
+    "modifiers" : "public",
+    "signature" : "public void setColumnHeader(javax.swing.JViewport)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "columnHeader",
+      "type" : "javax.swing.JViewport",
+      "genericType" : "javax.swing.JViewport",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumnHeaderView",
+    "modifiers" : "public",
+    "signature" : "public void setColumnHeaderView(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "view",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setComponentOrientation",
+    "modifiers" : "public",
+    "signature" : "public void setComponentOrientation(java.awt.ComponentOrientation)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "co",
+      "type" : "java.awt.ComponentOrientation",
+      "genericType" : "java.awt.ComponentOrientation",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCorner",
+    "modifiers" : "public",
+    "signature" : "public void setCorner(java.lang.String, java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "corner",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHorizontalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public void setHorizontalScrollBar(javax.swing.JScrollBar)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "horizontalScrollBar",
+      "type" : "javax.swing.JScrollBar",
+      "genericType" : "javax.swing.JScrollBar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHorizontalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public void setHorizontalScrollBarPolicy(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "policy",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLayout",
+    "modifiers" : "public",
+    "signature" : "public void setLayout(java.awt.LayoutManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.awt.LayoutManager",
+      "genericType" : "java.awt.LayoutManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRowHeader",
+    "modifiers" : "public",
+    "signature" : "public void setRowHeader(javax.swing.JViewport)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "rowHeader",
+      "type" : "javax.swing.JViewport",
+      "genericType" : "javax.swing.JViewport",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRowHeaderView",
+    "modifiers" : "public",
+    "signature" : "public void setRowHeaderView(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "view",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.ScrollPaneUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.ScrollPaneUI",
+      "genericType" : "javax.swing.plaf.ScrollPaneUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVerticalScrollBar",
+    "modifiers" : "public",
+    "signature" : "public void setVerticalScrollBar(javax.swing.JScrollBar)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "verticalScrollBar",
+      "type" : "javax.swing.JScrollBar",
+      "genericType" : "javax.swing.JScrollBar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVerticalScrollBarPolicy",
+    "modifiers" : "public",
+    "signature" : "public void setVerticalScrollBarPolicy(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "policy",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setViewport",
+    "modifiers" : "public",
+    "signature" : "public void setViewport(javax.swing.JViewport)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "viewport",
+      "type" : "javax.swing.JViewport",
+      "genericType" : "javax.swing.JViewport",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setViewportBorder",
+    "modifiers" : "public",
+    "signature" : "public void setViewportBorder(javax.swing.border.Border)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "viewportBorder",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setViewportView",
+    "modifiers" : "public",
+    "signature" : "public void setViewportView(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "view",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWheelScrollingEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setWheelScrollingEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handleWheel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

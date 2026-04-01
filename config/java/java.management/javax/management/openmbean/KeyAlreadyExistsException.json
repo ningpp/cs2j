@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.KeyAlreadyExistsException",
+  "canonicalName" : "javax.management.openmbean.KeyAlreadyExistsException",
+  "simpleName" : "KeyAlreadyExistsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.KeyAlreadyExistsException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.KeyAlreadyExistsException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.KeyAlreadyExistsException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.KeyAlreadyExistsException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

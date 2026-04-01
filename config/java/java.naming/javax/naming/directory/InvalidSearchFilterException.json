@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.InvalidSearchFilterException",
+  "canonicalName" : "javax.naming.directory.InvalidSearchFilterException",
+  "simpleName" : "InvalidSearchFilterException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.InvalidSearchFilterException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InvalidSearchFilterException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.InvalidSearchFilterException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InvalidSearchFilterException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

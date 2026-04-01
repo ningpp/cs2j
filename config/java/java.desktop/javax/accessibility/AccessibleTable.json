@@ -1,0 +1,364 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleTable",
+  "canonicalName" : "javax.accessibility.AccessibleTable",
+  "simpleName" : "AccessibleTable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleAt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.Accessible getAccessibleAt(int, int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleCaption",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.Accessible getAccessibleCaption()",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleColumnCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAccessibleColumnCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleColumnDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.Accessible getAccessibleColumnDescription(int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleColumnExtentAt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAccessibleColumnExtentAt(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleColumnHeader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.AccessibleTable getAccessibleColumnHeader()",
+    "returnType" : "javax.accessibility.AccessibleTable",
+    "genericReturnType" : "javax.accessibility.AccessibleTable",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRowCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAccessibleRowCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRowDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.Accessible getAccessibleRowDescription(int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRowExtentAt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAccessibleRowExtentAt(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRowHeader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.AccessibleTable getAccessibleRowHeader()",
+    "returnType" : "javax.accessibility.AccessibleTable",
+    "genericReturnType" : "javax.accessibility.AccessibleTable",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSummary",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.Accessible getAccessibleSummary()",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedAccessibleColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] getSelectedAccessibleColumns()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedAccessibleRows",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] getSelectedAccessibleRows()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAccessibleColumnSelected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isAccessibleColumnSelected(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAccessibleRowSelected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isAccessibleRowSelected(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAccessibleSelected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isAccessibleSelected(int, int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleCaption",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAccessibleCaption(javax.accessibility.Accessible)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.accessibility.Accessible",
+      "genericType" : "javax.accessibility.Accessible",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleColumnDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAccessibleColumnDescription(int, javax.accessibility.Accessible)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.accessibility.Accessible",
+      "genericType" : "javax.accessibility.Accessible",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleColumnHeader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAccessibleColumnHeader(javax.accessibility.AccessibleTable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.accessibility.AccessibleTable",
+      "genericType" : "javax.accessibility.AccessibleTable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleRowDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAccessibleRowDescription(int, javax.accessibility.Accessible)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.accessibility.Accessible",
+      "genericType" : "javax.accessibility.Accessible",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleRowHeader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAccessibleRowHeader(javax.accessibility.AccessibleTable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.accessibility.AccessibleTable",
+      "genericType" : "javax.accessibility.AccessibleTable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccessibleSummary",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAccessibleSummary(javax.accessibility.Accessible)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.accessibility.Accessible",
+      "genericType" : "javax.accessibility.Accessible",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

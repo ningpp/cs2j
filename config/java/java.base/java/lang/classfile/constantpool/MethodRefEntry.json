@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.MethodRefEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.MethodRefEntry",
+  "simpleName" : "MethodRefEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.MemberRefEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "typeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodTypeDesc typeSymbol()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,117 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.ModuleDescriptor$Requires",
+  "canonicalName" : "java.lang.module.ModuleDescriptor.Requires",
+  "simpleName" : "Requires",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.module.ModuleDescriptor",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accessFlags",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set accessFlags()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.lang.module.ModuleDescriptor$Requires)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.lang.module.ModuleDescriptor$Requires",
+      "genericType" : "java.lang.module.ModuleDescriptor$Requires",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compiledVersion",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional compiledVersion()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ob",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modifiers",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set modifiers()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String name()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rawCompiledVersion",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional rawCompiledVersion()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

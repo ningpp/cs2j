@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.TableView",
+  "canonicalName" : "javax.swing.text.TableView",
+  "simpleName" : "TableView",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.text.BoxView",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.TableView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.TableView(javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "replace",
+    "modifiers" : "public",
+    "signature" : "public void replace(int, int, javax.swing.text.View[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "views",
+      "type" : "javax.swing.text.View[]",
+      "genericType" : "javax.swing.text.View[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

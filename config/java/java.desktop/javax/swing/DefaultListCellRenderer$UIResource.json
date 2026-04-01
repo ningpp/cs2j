@@ -1,0 +1,18 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.DefaultListCellRenderer$UIResource",
+  "canonicalName" : "javax.swing.DefaultListCellRenderer.UIResource",
+  "simpleName" : "UIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.DefaultListCellRenderer",
+  "superClass" : "javax.swing.DefaultListCellRenderer",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.DefaultListCellRenderer$UIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.DefaultListCellRenderer$UIResource()",
+    "varArgs" : false
+  } ]
+}

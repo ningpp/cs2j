@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTextField$AccessibleJTextField",
+  "canonicalName" : "javax.swing.JTextField.AccessibleJTextField",
+  "simpleName" : "AccessibleJTextField",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JTextField",
+  "superClass" : "javax.swing.text.JTextComponent$AccessibleJTextComponent",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

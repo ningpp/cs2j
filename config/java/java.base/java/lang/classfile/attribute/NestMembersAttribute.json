@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.NestMembersAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.NestMembersAttribute",
+  "simpleName" : "NestMembersAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "nestMembers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List nestMembers()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.NestMembersAttribute of(java.lang.classfile.constantpool.ClassEntry...)",
+    "returnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "parameters" : [ {
+      "name" : "nestMembers",
+      "type" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.NestMembersAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "parameters" : [ {
+      "name" : "nestMembers",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.NestMembersAttribute ofSymbols(java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "parameters" : [ {
+      "name" : "nestMembers",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.NestMembersAttribute ofSymbols(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.NestMembersAttribute",
+    "parameters" : [ {
+      "name" : "nestMembers",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

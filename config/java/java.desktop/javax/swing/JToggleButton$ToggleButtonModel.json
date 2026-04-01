@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JToggleButton$ToggleButtonModel",
+  "canonicalName" : "javax.swing.JToggleButton.ToggleButtonModel",
+  "simpleName" : "ToggleButtonModel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JToggleButton",
+  "superClass" : "javax.swing.DefaultButtonModel",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JToggleButton$ToggleButtonModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JToggleButton$ToggleButtonModel()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "isSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isSelected()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPressed",
+    "modifiers" : "public",
+    "signature" : "public void setPressed(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelected",
+    "modifiers" : "public",
+    "signature" : "public void setSelected(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

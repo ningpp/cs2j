@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.format",
+  "binaryName" : "java.time.format.ResolverStyle",
+  "canonicalName" : "java.time.format.ResolverStyle",
+  "simpleName" : "ResolverStyle",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.ResolverStyle valueOf(java.lang.String)",
+    "returnType" : "java.time.format.ResolverStyle",
+    "genericReturnType" : "java.time.format.ResolverStyle",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.ResolverStyle[] values()",
+    "returnType" : "java.time.format.ResolverStyle[]",
+    "genericReturnType" : "java.time.format.ResolverStyle[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

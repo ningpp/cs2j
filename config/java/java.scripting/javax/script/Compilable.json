@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.scripting",
+  "packageName" : "javax.script",
+  "binaryName" : "javax.script.Compilable",
+  "canonicalName" : "javax.script.Compilable",
+  "simpleName" : "Compilable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "compile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.script.CompiledScript compile(java.io.Reader) throws javax.script.ScriptException",
+    "returnType" : "javax.script.CompiledScript",
+    "genericReturnType" : "javax.script.CompiledScript",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.script.CompiledScript compile(java.lang.String) throws javax.script.ScriptException",
+    "returnType" : "javax.script.CompiledScript",
+    "genericReturnType" : "javax.script.CompiledScript",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

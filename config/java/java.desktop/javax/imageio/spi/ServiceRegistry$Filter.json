@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.ServiceRegistry$Filter",
+  "canonicalName" : "javax.imageio.spi.ServiceRegistry.Filter",
+  "simpleName" : "Filter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.imageio.spi.ServiceRegistry",
+  "declaredPublicMethods" : [ {
+    "name" : "filter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean filter(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,103 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.CookieStore",
+  "canonicalName" : "java.net.CookieStore",
+  "simpleName" : "CookieStore",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void add(java.net.URI, java.net.HttpCookie)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.HttpCookie",
+      "genericType" : "java.net.HttpCookie",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List get(java.net.URI)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCookies",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getCookies()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURIs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getURIs()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean remove(java.net.URI, java.net.HttpCookie)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.HttpCookie",
+      "genericType" : "java.net.HttpCookie",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean removeAll()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

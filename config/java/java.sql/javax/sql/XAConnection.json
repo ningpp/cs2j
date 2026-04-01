@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.XAConnection",
+  "canonicalName" : "javax.sql.XAConnection",
+  "simpleName" : "XAConnection",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.PooledConnection" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getXAResource",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.transaction.xa.XAResource getXAResource() throws java.sql.SQLException",
+    "returnType" : "javax.transaction.xa.XAResource",
+    "genericReturnType" : "javax.transaction.xa.XAResource",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

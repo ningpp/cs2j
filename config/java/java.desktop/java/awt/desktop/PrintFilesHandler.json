@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.PrintFilesHandler",
+  "canonicalName" : "java.awt.desktop.PrintFilesHandler",
+  "simpleName" : "PrintFilesHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "printFiles",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printFiles(java.awt.desktop.PrintFilesEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.PrintFilesEvent",
+      "genericType" : "java.awt.desktop.PrintFilesEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

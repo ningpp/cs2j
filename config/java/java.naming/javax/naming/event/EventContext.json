@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.event",
+  "binaryName" : "javax.naming.event.EventContext",
+  "canonicalName" : "javax.naming.event.EventContext",
+  "simpleName" : "EventContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.naming.Context" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNamingListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addNamingListener(java.lang.String, int, javax.naming.event.NamingListener) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNamingListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addNamingListener(javax.naming.Name, int, javax.naming.event.NamingListener) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNamingListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeNamingListener(javax.naming.event.NamingListener) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "targetMustExist",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean targetMustExist() throws javax.naming.NamingException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

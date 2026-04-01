@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ThreadFactory",
+  "canonicalName" : "java.util.concurrent.ThreadFactory",
+  "simpleName" : "ThreadFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "newThread",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread newThread(java.lang.Runnable)",
+    "returnType" : "java.lang.Thread",
+    "genericReturnType" : "java.lang.Thread",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

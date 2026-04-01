@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.im",
+  "binaryName" : "java.awt.im.InputSubset",
+  "canonicalName" : "java.awt.im.InputSubset",
+  "simpleName" : "InputSubset",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Character$Subset"
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.LineListener",
+  "canonicalName" : "javax.sound.sampled.LineListener",
+  "simpleName" : "LineListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "update",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void update(javax.sound.sampled.LineEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.LineEvent",
+      "genericType" : "javax.sound.sampled.LineEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

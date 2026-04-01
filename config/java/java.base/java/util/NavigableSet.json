@@ -1,0 +1,297 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.NavigableSet",
+  "canonicalName" : "java.util.NavigableSet",
+  "simpleName" : "NavigableSet",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.SortedSet" ],
+  "declaredPublicMethods" : [ {
+    "name" : "ceiling",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object ceiling(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descendingIterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator descendingIterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descendingSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet descendingSet()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "floor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object floor(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SortedSet headSet(java.lang.Object)",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet headSet(java.lang.Object, boolean)",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "higher",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object higher(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lower",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object lower(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pollFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object pollFirst()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pollLast",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object pollLast()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object removeFirst()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "removeLast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object removeLast()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "reversed",
+    "modifiers" : "public",
+    "signature" : "public java.util.NavigableSet reversed()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "subSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet subSet(java.lang.Object, boolean, java.lang.Object, boolean)",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SortedSet subSet(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tailSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SortedSet tailSet(java.lang.Object)",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tailSet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet tailSet(java.lang.Object, boolean)",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

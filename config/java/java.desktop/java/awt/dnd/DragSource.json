@@ -1,0 +1,408 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DragSource",
+  "canonicalName" : "java.awt.dnd.DragSource",
+  "simpleName" : "DragSource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.dnd.DragSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSource() throws java.awt.HeadlessException",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addDragSourceListener",
+    "modifiers" : "public",
+    "signature" : "public void addDragSourceListener(java.awt.dnd.DragSourceListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dsl",
+      "type" : "java.awt.dnd.DragSourceListener",
+      "genericType" : "java.awt.dnd.DragSourceListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addDragSourceMotionListener",
+    "modifiers" : "public",
+    "signature" : "public void addDragSourceMotionListener(java.awt.dnd.DragSourceMotionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dsml",
+      "type" : "java.awt.dnd.DragSourceMotionListener",
+      "genericType" : "java.awt.dnd.DragSourceMotionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDefaultDragGestureRecognizer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragGestureRecognizer createDefaultDragGestureRecognizer(java.awt.Component, int, java.awt.dnd.DragGestureListener)",
+    "returnType" : "java.awt.dnd.DragGestureRecognizer",
+    "genericReturnType" : "java.awt.dnd.DragGestureRecognizer",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dgl",
+      "type" : "java.awt.dnd.DragGestureListener",
+      "genericType" : "java.awt.dnd.DragGestureListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDragGestureRecognizer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragGestureRecognizer createDragGestureRecognizer(java.lang.Class, java.awt.Component, int, java.awt.dnd.DragGestureListener)",
+    "returnType" : "java.awt.dnd.DragGestureRecognizer",
+    "genericReturnType" : "java.awt.dnd.DragGestureRecognizer",
+    "parameters" : [ {
+      "name" : "recognizerAbstractClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dgl",
+      "type" : "java.awt.dnd.DragGestureListener",
+      "genericType" : "java.awt.dnd.DragGestureListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultDragSource",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.dnd.DragSource getDefaultDragSource()",
+    "returnType" : "java.awt.dnd.DragSource",
+    "genericReturnType" : "java.awt.dnd.DragSource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDragSourceListeners",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSourceListener[] getDragSourceListeners()",
+    "returnType" : "java.awt.dnd.DragSourceListener[]",
+    "genericReturnType" : "java.awt.dnd.DragSourceListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDragSourceMotionListeners",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSourceMotionListener[] getDragSourceMotionListeners()",
+    "returnType" : "java.awt.dnd.DragSourceMotionListener[]",
+    "genericReturnType" : "java.awt.dnd.DragSourceMotionListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDragThreshold",
+    "modifiers" : "public static",
+    "signature" : "public static int getDragThreshold()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFlavorMap",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.FlavorMap getFlavorMap()",
+    "returnType" : "java.awt.datatransfer.FlavorMap",
+    "genericReturnType" : "java.awt.datatransfer.FlavorMap",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListeners",
+    "modifiers" : "public",
+    "signature" : "public java.util.EventListener[] getListeners(java.lang.Class)",
+    "returnType" : "java.util.EventListener[]",
+    "genericReturnType" : "java.util.EventListener[]",
+    "parameters" : [ {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDragImageSupported",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isDragImageSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeDragSourceListener",
+    "modifiers" : "public",
+    "signature" : "public void removeDragSourceListener(java.awt.dnd.DragSourceListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dsl",
+      "type" : "java.awt.dnd.DragSourceListener",
+      "genericType" : "java.awt.dnd.DragSourceListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeDragSourceMotionListener",
+    "modifiers" : "public",
+    "signature" : "public void removeDragSourceMotionListener(java.awt.dnd.DragSourceMotionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dsml",
+      "type" : "java.awt.dnd.DragSourceMotionListener",
+      "genericType" : "java.awt.dnd.DragSourceMotionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startDrag",
+    "modifiers" : "public",
+    "signature" : "public void startDrag(java.awt.dnd.DragGestureEvent, java.awt.Cursor, java.awt.Image, java.awt.Point, java.awt.datatransfer.Transferable, java.awt.dnd.DragSourceListener) throws java.awt.dnd.InvalidDnDOperationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "trigger",
+      "type" : "java.awt.dnd.DragGestureEvent",
+      "genericType" : "java.awt.dnd.DragGestureEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dragCursor",
+      "type" : "java.awt.Cursor",
+      "genericType" : "java.awt.Cursor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dragImage",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dragOffset",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transferable",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dsl",
+      "type" : "java.awt.dnd.DragSourceListener",
+      "genericType" : "java.awt.dnd.DragSourceListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.dnd.InvalidDnDOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startDrag",
+    "modifiers" : "public",
+    "signature" : "public void startDrag(java.awt.dnd.DragGestureEvent, java.awt.Cursor, java.awt.Image, java.awt.Point, java.awt.datatransfer.Transferable, java.awt.dnd.DragSourceListener, java.awt.datatransfer.FlavorMap) throws java.awt.dnd.InvalidDnDOperationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "trigger",
+      "type" : "java.awt.dnd.DragGestureEvent",
+      "genericType" : "java.awt.dnd.DragGestureEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dragCursor",
+      "type" : "java.awt.Cursor",
+      "genericType" : "java.awt.Cursor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dragImage",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageOffset",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transferable",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dsl",
+      "type" : "java.awt.dnd.DragSourceListener",
+      "genericType" : "java.awt.dnd.DragSourceListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flavorMap",
+      "type" : "java.awt.datatransfer.FlavorMap",
+      "genericType" : "java.awt.datatransfer.FlavorMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.dnd.InvalidDnDOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startDrag",
+    "modifiers" : "public",
+    "signature" : "public void startDrag(java.awt.dnd.DragGestureEvent, java.awt.Cursor, java.awt.datatransfer.Transferable, java.awt.dnd.DragSourceListener) throws java.awt.dnd.InvalidDnDOperationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "trigger",
+      "type" : "java.awt.dnd.DragGestureEvent",
+      "genericType" : "java.awt.dnd.DragGestureEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dragCursor",
+      "type" : "java.awt.Cursor",
+      "genericType" : "java.awt.Cursor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transferable",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dsl",
+      "type" : "java.awt.dnd.DragSourceListener",
+      "genericType" : "java.awt.dnd.DragSourceListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.dnd.InvalidDnDOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startDrag",
+    "modifiers" : "public",
+    "signature" : "public void startDrag(java.awt.dnd.DragGestureEvent, java.awt.Cursor, java.awt.datatransfer.Transferable, java.awt.dnd.DragSourceListener, java.awt.datatransfer.FlavorMap) throws java.awt.dnd.InvalidDnDOperationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "trigger",
+      "type" : "java.awt.dnd.DragGestureEvent",
+      "genericType" : "java.awt.dnd.DragGestureEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dragCursor",
+      "type" : "java.awt.Cursor",
+      "genericType" : "java.awt.Cursor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transferable",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dsl",
+      "type" : "java.awt.dnd.DragSourceListener",
+      "genericType" : "java.awt.dnd.DragSourceListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flavorMap",
+      "type" : "java.awt.datatransfer.FlavorMap",
+      "genericType" : "java.awt.datatransfer.FlavorMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.dnd.InvalidDnDOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

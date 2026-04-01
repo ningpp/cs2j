@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Character$UnicodeBlock",
+  "canonicalName" : "java.lang.Character.UnicodeBlock",
+  "simpleName" : "UnicodeBlock",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.Character",
+  "superClass" : "java.lang.Character$Subset",
+  "declaredPublicMethods" : [ {
+    "name" : "forName",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.lang.Character$UnicodeBlock forName(java.lang.String)",
+    "returnType" : "java.lang.Character$UnicodeBlock",
+    "genericReturnType" : "java.lang.Character$UnicodeBlock",
+    "parameters" : [ {
+      "name" : "blockName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Character$UnicodeBlock of(char)",
+    "returnType" : "java.lang.Character$UnicodeBlock",
+    "genericReturnType" : "java.lang.Character$UnicodeBlock",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Character$UnicodeBlock of(int)",
+    "returnType" : "java.lang.Character$UnicodeBlock",
+    "genericReturnType" : "java.lang.Character$UnicodeBlock",
+    "parameters" : [ {
+      "name" : "codePoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

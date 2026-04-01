@@ -1,0 +1,118 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ls",
+  "binaryName" : "org.w3c.dom.ls.LSOutput",
+  "canonicalName" : "org.w3c.dom.ls.LSOutput",
+  "simpleName" : "LSOutput",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getByteStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.OutputStream getByteStream()",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.Writer getCharacterStream()",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoding",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getEncoding()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setByteStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setByteStream(java.io.OutputStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharacterStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setCharacterStream(java.io.Writer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEncoding",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEncoding(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

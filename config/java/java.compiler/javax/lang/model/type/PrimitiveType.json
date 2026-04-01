@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.type",
+  "binaryName" : "javax.lang.model.type.PrimitiveType",
+  "canonicalName" : "javax.lang.model.type.PrimitiveType",
+  "simpleName" : "PrimitiveType",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.type.TypeMirror" ]
+}

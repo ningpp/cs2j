@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.geom",
+  "binaryName" : "java.awt.geom.IllegalPathStateException",
+  "canonicalName" : "java.awt.geom.IllegalPathStateException",
+  "simpleName" : "IllegalPathStateException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.geom.IllegalPathStateException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.IllegalPathStateException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.geom.IllegalPathStateException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.IllegalPathStateException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

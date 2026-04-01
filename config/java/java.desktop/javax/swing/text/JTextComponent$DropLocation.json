@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.JTextComponent$DropLocation",
+  "canonicalName" : "javax.swing.text.JTextComponent.DropLocation",
+  "simpleName" : "DropLocation",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.text.JTextComponent",
+  "superClass" : "javax.swing.TransferHandler$DropLocation",
+  "declaredPublicMethods" : [ {
+    "name" : "getBias",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Position$Bias getBias()",
+    "returnType" : "javax.swing.text.Position$Bias",
+    "genericReturnType" : "javax.swing.text.Position$Bias",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndex",
+    "modifiers" : "public",
+    "signature" : "public int getIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,205 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.AudioInputStream",
+  "canonicalName" : "javax.sound.sampled.AudioInputStream",
+  "simpleName" : "AudioInputStream",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.InputStream",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.sampled.AudioInputStream",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioInputStream(java.io.InputStream, javax.sound.sampled.AudioFormat, long)",
+    "parameters" : [ {
+      "name" : "stream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.sampled.AudioInputStream",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioInputStream(javax.sound.sampled.TargetDataLine)",
+    "parameters" : [ {
+      "name" : "line",
+      "type" : "javax.sound.sampled.TargetDataLine",
+      "genericType" : "javax.sound.sampled.TargetDataLine",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "available",
+    "modifiers" : "public",
+    "signature" : "public int available() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFormat getFormat()",
+    "returnType" : "javax.sound.sampled.AudioFormat",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFrameLength",
+    "modifiers" : "public",
+    "signature" : "public long getFrameLength()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mark",
+    "modifiers" : "public",
+    "signature" : "public void mark(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "readlimit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "markSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean markSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(byte[]) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(byte[], int, int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public void reset() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skip",
+    "modifiers" : "public",
+    "signature" : "public long skip(long) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

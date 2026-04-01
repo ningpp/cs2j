@@ -1,0 +1,335 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.TextComponent",
+  "canonicalName" : "java.awt.TextComponent",
+  "simpleName" : "TextComponent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Component",
+  "interfaces" : [ "javax.accessibility.Accessible" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addTextListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addTextListener(java.awt.event.TextListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.TextListener",
+      "genericType" : "java.awt.event.TextListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableInputMethods",
+    "modifiers" : "public",
+    "signature" : "public void enableInputMethods(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBackground",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getBackground()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretPosition",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int getCaretPosition()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputMethodRequests",
+    "modifiers" : "public",
+    "signature" : "public java.awt.im.InputMethodRequests getInputMethodRequests()",
+    "returnType" : "java.awt.im.InputMethodRequests",
+    "genericReturnType" : "java.awt.im.InputMethodRequests",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListeners",
+    "modifiers" : "public",
+    "signature" : "public java.util.EventListener[] getListeners(java.lang.Class)",
+    "returnType" : "java.util.EventListener[]",
+    "genericReturnType" : "java.util.EventListener[]",
+    "parameters" : [ {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedText",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String getSelectedText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionEnd",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int getSelectionEnd()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionStart",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int getSelectionStart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getText",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String getText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextListeners",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.event.TextListener[] getTextListeners()",
+    "returnType" : "java.awt.event.TextListener[]",
+    "genericReturnType" : "java.awt.event.TextListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEditable",
+    "modifiers" : "public",
+    "signature" : "public boolean isEditable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public",
+    "signature" : "public void removeNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTextListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeTextListener(java.awt.event.TextListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.TextListener",
+      "genericType" : "java.awt.event.TextListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "select",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void select(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selectionStart",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "selectionEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectAll",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void selectAll()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBackground",
+    "modifiers" : "public",
+    "signature" : "public void setBackground(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCaretPosition",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setCaretPosition(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "position",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEditable",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setEditable(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionEnd",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setSelectionEnd(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selectionEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionStart",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setSelectionStart(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selectionStart",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setText",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setText(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

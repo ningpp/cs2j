@@ -1,0 +1,214 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.GroupLayout$ParallelGroup",
+  "canonicalName" : "javax.swing.GroupLayout.ParallelGroup",
+  "simpleName" : "ParallelGroup",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.GroupLayout",
+  "superClass" : "javax.swing.GroupLayout$Group",
+  "declaredPublicMethods" : [ {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addComponent(java.awt.Component)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addComponent(java.awt.Component, int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addComponent(java.awt.Component, javax.swing.GroupLayout$Alignment)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "alignment",
+      "type" : "javax.swing.GroupLayout$Alignment",
+      "genericType" : "javax.swing.GroupLayout$Alignment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addComponent(java.awt.Component, javax.swing.GroupLayout$Alignment, int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "alignment",
+      "type" : "javax.swing.GroupLayout$Alignment",
+      "genericType" : "javax.swing.GroupLayout$Alignment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addGap(int)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addGap(int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGroup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addGroup(javax.swing.GroupLayout$Alignment, javax.swing.GroupLayout$Group)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "alignment",
+      "type" : "javax.swing.GroupLayout$Alignment",
+      "genericType" : "javax.swing.GroupLayout$Alignment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "group",
+      "type" : "javax.swing.GroupLayout$Group",
+      "genericType" : "javax.swing.GroupLayout$Group",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGroup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$ParallelGroup addGroup(javax.swing.GroupLayout$Group)",
+    "returnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$ParallelGroup",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "javax.swing.GroupLayout$Group",
+      "genericType" : "javax.swing.GroupLayout$Group",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.GarbageCollectorMXBean",
+  "canonicalName" : "java.lang.management.GarbageCollectorMXBean",
+  "simpleName" : "GarbageCollectorMXBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.management.MemoryManagerMXBean" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCollectionCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getCollectionCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCollectionTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getCollectionTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

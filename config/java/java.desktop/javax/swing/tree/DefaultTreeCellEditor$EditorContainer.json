@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.DefaultTreeCellEditor$EditorContainer",
+  "canonicalName" : "javax.swing.tree.DefaultTreeCellEditor.EditorContainer",
+  "simpleName" : "EditorContainer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.tree.DefaultTreeCellEditor",
+  "superClass" : "java.awt.Container",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.tree.DefaultTreeCellEditor$EditorContainer",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.DefaultTreeCellEditor$EditorContainer(javax.swing.tree.DefaultTreeCellEditor)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.tree.DefaultTreeCellEditor",
+      "genericType" : "javax.swing.tree.DefaultTreeCellEditor",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "EditorContainer",
+    "modifiers" : "public",
+    "signature" : "public void EditorContainer()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doLayout",
+    "modifiers" : "public",
+    "signature" : "public void doLayout()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paint",
+    "modifiers" : "public",
+    "signature" : "public void paint(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

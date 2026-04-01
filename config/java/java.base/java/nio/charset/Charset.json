@@ -1,0 +1,298 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset",
+  "binaryName" : "java.nio.charset.Charset",
+  "canonicalName" : "java.nio.charset.Charset",
+  "simpleName" : "Charset",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "aliases",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Set aliases()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "availableCharsets",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedMap availableCharsets()",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canEncode",
+    "modifiers" : "public",
+    "signature" : "public boolean canEncode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public final",
+    "signature" : "public final int compareTo(java.nio.charset.Charset)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean contains(java.nio.charset.Charset)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decode",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer decode(java.nio.ByteBuffer)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "bb",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultCharset",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.charset.Charset defaultCharset()",
+    "returnType" : "java.nio.charset.Charset",
+    "genericReturnType" : "java.nio.charset.Charset",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "displayName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String displayName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "displayName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String displayName(java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encode",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ByteBuffer encode(java.lang.String)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encode",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ByteBuffer encode(java.nio.CharBuffer)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "cb",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public final",
+    "signature" : "public final boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ob",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forName",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.charset.Charset forName(java.lang.String)",
+    "returnType" : "java.nio.charset.Charset",
+    "genericReturnType" : "java.nio.charset.Charset",
+    "parameters" : [ {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forName",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.charset.Charset forName(java.lang.String, java.nio.charset.Charset)",
+    "returnType" : "java.nio.charset.Charset",
+    "genericReturnType" : "java.nio.charset.Charset",
+    "parameters" : [ {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fallback",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public final",
+    "signature" : "public final int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRegistered",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isRegistered()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isSupported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String name()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDecoder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.charset.CharsetDecoder newDecoder()",
+    "returnType" : "java.nio.charset.CharsetDecoder",
+    "genericReturnType" : "java.nio.charset.CharsetDecoder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newEncoder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.charset.CharsetEncoder newEncoder()",
+    "returnType" : "java.nio.charset.CharsetEncoder",
+    "genericReturnType" : "java.nio.charset.CharsetEncoder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,230 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+  "canonicalName" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+  "simpleName" : "ModelMBeanAttributeInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.MBeanAttributeInfo",
+  "interfaces" : [ "javax.management.DescriptorAccess" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanAttributeInfo(java.lang.String, java.lang.String, java.lang.String, boolean, boolean, boolean)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isReadable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isWritable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isIs",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanAttributeInfo(java.lang.String, java.lang.String, java.lang.String, boolean, boolean, boolean, javax.management.Descriptor)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isReadable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isWritable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isIs",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanAttributeInfo(java.lang.String, java.lang.String, java.lang.reflect.Method, java.lang.reflect.Method) throws javax.management.IntrospectionException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "getter",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "setter",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanAttributeInfo(java.lang.String, java.lang.String, java.lang.reflect.Method, java.lang.reflect.Method, javax.management.Descriptor) throws javax.management.IntrospectionException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "getter",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "setter",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanAttributeInfo(javax.management.modelmbean.ModelMBeanAttributeInfo)",
+    "parameters" : [ {
+      "name" : "inInfo",
+      "type" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+      "genericType" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor getDescriptor()",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDescriptor",
+    "modifiers" : "public",
+    "signature" : "public void setDescriptor(javax.management.Descriptor)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inDescriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

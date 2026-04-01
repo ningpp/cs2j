@@ -1,0 +1,118 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.AssertionError",
+  "canonicalName" : "java.lang.AssertionError",
+  "simpleName" : "AssertionError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(boolean)",
+    "parameters" : [ {
+      "name" : "detailMessage",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(char)",
+    "parameters" : [ {
+      "name" : "detailMessage",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(double)",
+    "parameters" : [ {
+      "name" : "detailMessage",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(float)",
+    "parameters" : [ {
+      "name" : "detailMessage",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(int)",
+    "parameters" : [ {
+      "name" : "detailMessage",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "detailMessage",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.AssertionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.AssertionError(long)",
+    "parameters" : [ {
+      "name" : "detailMessage",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

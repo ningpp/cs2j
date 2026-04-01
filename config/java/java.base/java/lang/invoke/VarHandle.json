@@ -1,0 +1,710 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.VarHandle",
+  "canonicalName" : "java.lang.invoke.VarHandle",
+  "simpleName" : "VarHandle",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.constant.Constable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accessModeType",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodType accessModeType(java.lang.invoke.VarHandle$AccessMode)",
+    "returnType" : "java.lang.invoke.MethodType",
+    "genericReturnType" : "java.lang.invoke.MethodType",
+    "parameters" : [ {
+      "name" : "accessMode",
+      "type" : "java.lang.invoke.VarHandle$AccessMode",
+      "genericType" : "java.lang.invoke.VarHandle$AccessMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acquireFence",
+    "modifiers" : "public static",
+    "signature" : "public static void acquireFence()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareAndExchange",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object compareAndExchange(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "compareAndExchangeAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object compareAndExchangeAcquire(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "compareAndExchangeRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object compareAndExchangeRelease(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "compareAndSet",
+    "modifiers" : "public final native",
+    "signature" : "public final native boolean compareAndSet(java.lang.Object...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "coordinateTypes",
+    "modifiers" : "public",
+    "signature" : "public java.util.List coordinateTypes()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "describeConstable",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional describeConstable()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fullFence",
+    "modifiers" : "public static",
+    "signature" : "public static void fullFence()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object get(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAcquire(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndAdd",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndAdd(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndAddAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndAddAcquire(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndAddRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndAddRelease(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseAnd",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseAnd(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseAndAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseAndAcquire(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseAndRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseAndRelease(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseOr",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseOr(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseOrAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseOrAcquire(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseOrRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseOrRelease(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseXor",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseXor(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseXorAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseXorAcquire(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndBitwiseXorRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndBitwiseXorRelease(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndSet",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndSet(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndSetAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndSetAcquire(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAndSetRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getAndSetRelease(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getOpaque",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getOpaque(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getVolatile",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object getVolatile(java.lang.Object...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "hasInvokeExactBehavior",
+    "modifiers" : "public",
+    "signature" : "public boolean hasInvokeExactBehavior()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAccessModeSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isAccessModeSupported(java.lang.invoke.VarHandle$AccessMode)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "accessMode",
+      "type" : "java.lang.invoke.VarHandle$AccessMode",
+      "genericType" : "java.lang.invoke.VarHandle$AccessMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadLoadFence",
+    "modifiers" : "public static",
+    "signature" : "public static void loadLoadFence()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseFence",
+    "modifiers" : "public static",
+    "signature" : "public static void releaseFence()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public final native",
+    "signature" : "public final native void set(java.lang.Object...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setOpaque",
+    "modifiers" : "public final native",
+    "signature" : "public final native void setOpaque(java.lang.Object...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native void setRelease(java.lang.Object...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setVolatile",
+    "modifiers" : "public final native",
+    "signature" : "public final native void setVolatile(java.lang.Object...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "storeStoreFence",
+    "modifiers" : "public static",
+    "signature" : "public static void storeStoreFence()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMethodHandle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle toMethodHandle(java.lang.invoke.VarHandle$AccessMode)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "accessMode",
+      "type" : "java.lang.invoke.VarHandle$AccessMode",
+      "genericType" : "java.lang.invoke.VarHandle$AccessMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "varType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class varType()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "weakCompareAndSet",
+    "modifiers" : "public final native",
+    "signature" : "public final native boolean weakCompareAndSet(java.lang.Object...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "weakCompareAndSetAcquire",
+    "modifiers" : "public final native",
+    "signature" : "public final native boolean weakCompareAndSetAcquire(java.lang.Object...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "weakCompareAndSetPlain",
+    "modifiers" : "public final native",
+    "signature" : "public final native boolean weakCompareAndSetPlain(java.lang.Object...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "weakCompareAndSetRelease",
+    "modifiers" : "public final native",
+    "signature" : "public final native boolean weakCompareAndSetRelease(java.lang.Object...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "withInvokeBehavior",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.VarHandle withInvokeBehavior()",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withInvokeExactBehavior",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.VarHandle withInvokeExactBehavior()",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

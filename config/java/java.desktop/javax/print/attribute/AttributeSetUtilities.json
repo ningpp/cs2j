@@ -1,0 +1,250 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.AttributeSetUtilities",
+  "canonicalName" : "javax.print.attribute.AttributeSetUtilities",
+  "simpleName" : "AttributeSetUtilities",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "synchronizedView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.AttributeSet synchronizedView(javax.print.attribute.AttributeSet)",
+    "returnType" : "javax.print.attribute.AttributeSet",
+    "genericReturnType" : "javax.print.attribute.AttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.DocAttributeSet synchronizedView(javax.print.attribute.DocAttributeSet)",
+    "returnType" : "javax.print.attribute.DocAttributeSet",
+    "genericReturnType" : "javax.print.attribute.DocAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.DocAttributeSet",
+      "genericType" : "javax.print.attribute.DocAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.PrintJobAttributeSet synchronizedView(javax.print.attribute.PrintJobAttributeSet)",
+    "returnType" : "javax.print.attribute.PrintJobAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintJobAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.PrintJobAttributeSet",
+      "genericType" : "javax.print.attribute.PrintJobAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.PrintRequestAttributeSet synchronizedView(javax.print.attribute.PrintRequestAttributeSet)",
+    "returnType" : "javax.print.attribute.PrintRequestAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintRequestAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.PrintServiceAttributeSet synchronizedView(javax.print.attribute.PrintServiceAttributeSet)",
+    "returnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.PrintServiceAttributeSet",
+      "genericType" : "javax.print.attribute.PrintServiceAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.AttributeSet unmodifiableView(javax.print.attribute.AttributeSet)",
+    "returnType" : "javax.print.attribute.AttributeSet",
+    "genericReturnType" : "javax.print.attribute.AttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.DocAttributeSet unmodifiableView(javax.print.attribute.DocAttributeSet)",
+    "returnType" : "javax.print.attribute.DocAttributeSet",
+    "genericReturnType" : "javax.print.attribute.DocAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.DocAttributeSet",
+      "genericType" : "javax.print.attribute.DocAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.PrintJobAttributeSet unmodifiableView(javax.print.attribute.PrintJobAttributeSet)",
+    "returnType" : "javax.print.attribute.PrintJobAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintJobAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.PrintJobAttributeSet",
+      "genericType" : "javax.print.attribute.PrintJobAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.PrintRequestAttributeSet unmodifiableView(javax.print.attribute.PrintRequestAttributeSet)",
+    "returnType" : "javax.print.attribute.PrintRequestAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintRequestAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.PrintServiceAttributeSet unmodifiableView(javax.print.attribute.PrintServiceAttributeSet)",
+    "returnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "parameters" : [ {
+      "name" : "attributeSet",
+      "type" : "javax.print.attribute.PrintServiceAttributeSet",
+      "genericType" : "javax.print.attribute.PrintServiceAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verifyAttributeCategory",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Class verifyAttributeCategory(java.lang.Object, java.lang.Class)",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceName",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verifyAttributeValue",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.attribute.Attribute verifyAttributeValue(java.lang.Object, java.lang.Class)",
+    "returnType" : "javax.print.attribute.Attribute",
+    "genericReturnType" : "javax.print.attribute.Attribute",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceName",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verifyCategoryForValue",
+    "modifiers" : "public static",
+    "signature" : "public static void verifyCategoryForValue(java.lang.Class, javax.print.attribute.Attribute)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attribute",
+      "type" : "javax.print.attribute.Attribute",
+      "genericType" : "javax.print.attribute.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

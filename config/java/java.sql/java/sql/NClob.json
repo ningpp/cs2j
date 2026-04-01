@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.NClob",
+  "canonicalName" : "java.sql.NClob",
+  "simpleName" : "NClob",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.sql.Clob" ]
+}

@@ -1,0 +1,146 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.print",
+  "binaryName" : "java.awt.print.Book",
+  "canonicalName" : "java.awt.print.Book",
+  "simpleName" : "Book",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.print.Pageable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.print.Book",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.Book()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "append",
+    "modifiers" : "public",
+    "signature" : "public void append(java.awt.print.Printable, java.awt.print.PageFormat)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "painter",
+      "type" : "java.awt.print.Printable",
+      "genericType" : "java.awt.print.Printable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "page",
+      "type" : "java.awt.print.PageFormat",
+      "genericType" : "java.awt.print.PageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public",
+    "signature" : "public void append(java.awt.print.Printable, java.awt.print.PageFormat, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "painter",
+      "type" : "java.awt.print.Printable",
+      "genericType" : "java.awt.print.Printable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "page",
+      "type" : "java.awt.print.PageFormat",
+      "genericType" : "java.awt.print.PageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "numPages",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumberOfPages",
+    "modifiers" : "public",
+    "signature" : "public int getNumberOfPages()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPageFormat",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PageFormat getPageFormat(int) throws java.lang.IndexOutOfBoundsException",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "parameters" : [ {
+      "name" : "pageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IndexOutOfBoundsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.Printable getPrintable(int) throws java.lang.IndexOutOfBoundsException",
+    "returnType" : "java.awt.print.Printable",
+    "genericReturnType" : "java.awt.print.Printable",
+    "parameters" : [ {
+      "name" : "pageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IndexOutOfBoundsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPage",
+    "modifiers" : "public",
+    "signature" : "public void setPage(int, java.awt.print.Printable, java.awt.print.PageFormat) throws java.lang.IndexOutOfBoundsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "painter",
+      "type" : "java.awt.print.Printable",
+      "genericType" : "java.awt.print.Printable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "page",
+      "type" : "java.awt.print.PageFormat",
+      "genericType" : "java.awt.print.PageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IndexOutOfBoundsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

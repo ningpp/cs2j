@@ -1,0 +1,840 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.BorderFactory",
+  "canonicalName" : "javax.swing.BorderFactory",
+  "simpleName" : "BorderFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createBevelBorder(int)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createBevelBorder(int, java.awt.Color, java.awt.Color)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlight",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadow",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createBevelBorder(int, java.awt.Color, java.awt.Color, java.awt.Color, java.awt.Color)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlightOuter",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlightInner",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadowOuter",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadowInner",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompoundBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.CompoundBorder createCompoundBorder()",
+    "returnType" : "javax.swing.border.CompoundBorder",
+    "genericReturnType" : "javax.swing.border.CompoundBorder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompoundBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.CompoundBorder createCompoundBorder(javax.swing.border.Border, javax.swing.border.Border)",
+    "returnType" : "javax.swing.border.CompoundBorder",
+    "genericReturnType" : "javax.swing.border.CompoundBorder",
+    "parameters" : [ {
+      "name" : "outsideBorder",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insideBorder",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDashedBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createDashedBorder(java.awt.Paint)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "paint",
+      "type" : "java.awt.Paint",
+      "genericType" : "java.awt.Paint",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDashedBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createDashedBorder(java.awt.Paint, float, float)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "paint",
+      "type" : "java.awt.Paint",
+      "genericType" : "java.awt.Paint",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spacing",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDashedBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createDashedBorder(java.awt.Paint, float, float, float, boolean)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "paint",
+      "type" : "java.awt.Paint",
+      "genericType" : "java.awt.Paint",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thickness",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spacing",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rounded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEmptyBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createEmptyBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEmptyBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createEmptyBorder(int, int, int, int)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "top",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "left",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bottom",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "right",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEtchedBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createEtchedBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEtchedBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createEtchedBorder(int)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEtchedBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createEtchedBorder(int, java.awt.Color, java.awt.Color)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlight",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadow",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createEtchedBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createEtchedBorder(java.awt.Color, java.awt.Color)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "highlight",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadow",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLineBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createLineBorder(java.awt.Color)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLineBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createLineBorder(java.awt.Color, int)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thickness",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLineBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createLineBorder(java.awt.Color, int, boolean)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thickness",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rounded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLoweredBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createLoweredBevelBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLoweredSoftBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createLoweredSoftBevelBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMatteBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.MatteBorder createMatteBorder(int, int, int, int, java.awt.Color)",
+    "returnType" : "javax.swing.border.MatteBorder",
+    "genericReturnType" : "javax.swing.border.MatteBorder",
+    "parameters" : [ {
+      "name" : "top",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "left",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bottom",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "right",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "color",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMatteBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.MatteBorder createMatteBorder(int, int, int, int, javax.swing.Icon)",
+    "returnType" : "javax.swing.border.MatteBorder",
+    "genericReturnType" : "javax.swing.border.MatteBorder",
+    "parameters" : [ {
+      "name" : "top",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "left",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bottom",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "right",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tileIcon",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createRaisedBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createRaisedBevelBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createRaisedSoftBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createRaisedSoftBevelBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSoftBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createSoftBevelBorder(int)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSoftBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createSoftBevelBorder(int, java.awt.Color, java.awt.Color)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlight",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadow",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSoftBevelBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createSoftBevelBorder(int, java.awt.Color, java.awt.Color, java.awt.Color, java.awt.Color)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlightOuter",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "highlightInner",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadowOuter",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "shadowInner",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStrokeBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createStrokeBorder(java.awt.BasicStroke)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "stroke",
+      "type" : "java.awt.BasicStroke",
+      "genericType" : "java.awt.BasicStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createStrokeBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border createStrokeBorder(java.awt.BasicStroke, java.awt.Paint)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "stroke",
+      "type" : "java.awt.BasicStroke",
+      "genericType" : "java.awt.BasicStroke",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paint",
+      "type" : "java.awt.Paint",
+      "genericType" : "java.awt.Paint",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTitledBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.TitledBorder createTitledBorder(java.lang.String)",
+    "returnType" : "javax.swing.border.TitledBorder",
+    "genericReturnType" : "javax.swing.border.TitledBorder",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTitledBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.TitledBorder createTitledBorder(javax.swing.border.Border)",
+    "returnType" : "javax.swing.border.TitledBorder",
+    "genericReturnType" : "javax.swing.border.TitledBorder",
+    "parameters" : [ {
+      "name" : "border",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTitledBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.TitledBorder createTitledBorder(javax.swing.border.Border, java.lang.String)",
+    "returnType" : "javax.swing.border.TitledBorder",
+    "genericReturnType" : "javax.swing.border.TitledBorder",
+    "parameters" : [ {
+      "name" : "border",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTitledBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.TitledBorder createTitledBorder(javax.swing.border.Border, java.lang.String, int, int)",
+    "returnType" : "javax.swing.border.TitledBorder",
+    "genericReturnType" : "javax.swing.border.TitledBorder",
+    "parameters" : [ {
+      "name" : "border",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titleJustification",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titlePosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTitledBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.TitledBorder createTitledBorder(javax.swing.border.Border, java.lang.String, int, int, java.awt.Font)",
+    "returnType" : "javax.swing.border.TitledBorder",
+    "genericReturnType" : "javax.swing.border.TitledBorder",
+    "parameters" : [ {
+      "name" : "border",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titleJustification",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titlePosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titleFont",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTitledBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.TitledBorder createTitledBorder(javax.swing.border.Border, java.lang.String, int, int, java.awt.Font, java.awt.Color)",
+    "returnType" : "javax.swing.border.TitledBorder",
+    "genericReturnType" : "javax.swing.border.TitledBorder",
+    "parameters" : [ {
+      "name" : "border",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titleJustification",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titlePosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titleFont",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "titleColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.EnumControl",
+  "canonicalName" : "javax.sound.sampled.EnumControl",
+  "simpleName" : "EnumControl",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.sound.sampled.Control",
+  "declaredPublicMethods" : [ {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValues",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] getValues()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public",
+    "signature" : "public void setValue(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

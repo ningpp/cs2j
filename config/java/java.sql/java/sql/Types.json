@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.Types",
+  "canonicalName" : "java.sql.Types",
+  "simpleName" : "Types",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object"
+}

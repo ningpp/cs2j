@@ -1,0 +1,73 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.ValueLayout$OfLong",
+  "canonicalName" : "java.lang.foreign.ValueLayout.OfLong",
+  "simpleName" : "OfLong",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.foreign.ValueLayout",
+  "interfaces" : [ "java.lang.foreign.ValueLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfLong withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfLong withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withOrder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfLong withOrder(java.nio.ByteOrder)",
+    "returnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteOrder",
+      "genericType" : "java.nio.ByteOrder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfLong withoutName()",
+    "returnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfLong",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

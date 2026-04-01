@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.ChangeEvent",
+  "canonicalName" : "javax.swing.event.ChangeEvent",
+  "simpleName" : "ChangeEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.ChangeEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.ChangeEvent(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

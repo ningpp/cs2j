@@ -1,0 +1,59 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.runtime",
+  "binaryName" : "java.lang.runtime.ObjectMethods",
+  "canonicalName" : "java.lang.runtime.ObjectMethods",
+  "simpleName" : "ObjectMethods",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "bootstrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object bootstrap(java.lang.invoke.MethodHandles$Lookup, java.lang.String, java.lang.invoke.TypeDescriptor, java.lang.Class, java.lang.String, java.lang.invoke.MethodHandle...) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "methodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.invoke.TypeDescriptor",
+      "genericType" : "java.lang.invoke.TypeDescriptor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "recordClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "names",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "getters",
+      "type" : "java.lang.invoke.MethodHandle[]",
+      "genericType" : "java.lang.invoke.MethodHandle[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

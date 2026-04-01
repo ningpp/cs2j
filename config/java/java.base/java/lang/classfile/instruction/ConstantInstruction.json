@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.ConstantInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.ConstantInstruction",
+  "simpleName" : "ConstantInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constantValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.ConstantDesc constantValue()",
+    "returnType" : "java.lang.constant.ConstantDesc",
+    "genericReturnType" : "java.lang.constant.ConstantDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArgument",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ConstantInstruction$ArgumentConstantInstruction ofArgument(java.lang.classfile.Opcode, int)",
+    "returnType" : "java.lang.classfile.instruction.ConstantInstruction$ArgumentConstantInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.ConstantInstruction$ArgumentConstantInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofIntrinsic",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ConstantInstruction$IntrinsicConstantInstruction ofIntrinsic(java.lang.classfile.Opcode)",
+    "returnType" : "java.lang.classfile.instruction.ConstantInstruction$IntrinsicConstantInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.ConstantInstruction$IntrinsicConstantInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLoad",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ConstantInstruction$LoadConstantInstruction ofLoad(java.lang.classfile.Opcode, java.lang.classfile.constantpool.LoadableConstantEntry)",
+    "returnType" : "java.lang.classfile.instruction.ConstantInstruction$LoadConstantInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.ConstantInstruction$LoadConstantInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constant",
+      "type" : "java.lang.classfile.constantpool.LoadableConstantEntry",
+      "genericType" : "java.lang.classfile.constantpool.LoadableConstantEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeKind typeKind()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

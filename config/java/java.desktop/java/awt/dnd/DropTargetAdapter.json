@@ -1,0 +1,80 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DropTargetAdapter",
+  "canonicalName" : "java.awt.dnd.DropTargetAdapter",
+  "simpleName" : "DropTargetAdapter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.dnd.DropTargetListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "dragEnter",
+    "modifiers" : "public",
+    "signature" : "public void dragEnter(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtde",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragExit",
+    "modifiers" : "public",
+    "signature" : "public void dragExit(java.awt.dnd.DropTargetEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dte",
+      "type" : "java.awt.dnd.DropTargetEvent",
+      "genericType" : "java.awt.dnd.DropTargetEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragOver",
+    "modifiers" : "public",
+    "signature" : "public void dragOver(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtde",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dropActionChanged",
+    "modifiers" : "public",
+    "signature" : "public void dropActionChanged(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtde",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

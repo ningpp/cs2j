@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextSupport$BCSIterator",
+  "canonicalName" : "java.beans.beancontext.BeanContextSupport.BCSIterator",
+  "simpleName" : "BCSIterator",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.beans.beancontext.BeanContextSupport",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.Iterator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "hasNext",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNext()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object next()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

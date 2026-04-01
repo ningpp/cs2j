@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.parsers",
+  "binaryName" : "javax.xml.parsers.ParserConfigurationException",
+  "canonicalName" : "javax.xml.parsers.ParserConfigurationException",
+  "simpleName" : "ParserConfigurationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.parsers.ParserConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.parsers.ParserConfigurationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.parsers.ParserConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.parsers.ParserConfigurationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.UnknownAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.UnknownAttribute",
+  "simpleName" : "UnknownAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement", "java.lang.classfile.CodeElement", "java.lang.classfile.FieldElement", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "contents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] contents()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

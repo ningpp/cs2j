@@ -1,0 +1,98 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.ResponseCache",
+  "canonicalName" : "java.net.ResponseCache",
+  "simpleName" : "ResponseCache",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.ResponseCache",
+    "modifiers" : "public",
+    "signature" : "public java.net.ResponseCache()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.CacheResponse get(java.net.URI, java.lang.String, java.util.Map) throws java.io.IOException",
+    "returnType" : "java.net.CacheResponse",
+    "genericReturnType" : "java.net.CacheResponse",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefault",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized java.net.ResponseCache getDefault()",
+    "returnType" : "java.net.ResponseCache",
+    "genericReturnType" : "java.net.ResponseCache",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.CacheRequest put(java.net.URI, java.net.URLConnection) throws java.io.IOException",
+    "returnType" : "java.net.CacheRequest",
+    "genericReturnType" : "java.net.CacheRequest",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.URLConnection",
+      "genericType" : "java.net.URLConnection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefault",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized void setDefault(java.net.ResponseCache)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "responseCache",
+      "type" : "java.net.ResponseCache",
+      "genericType" : "java.net.ResponseCache",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

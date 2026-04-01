@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.DesktopIconUI",
+  "canonicalName" : "javax.swing.plaf.DesktopIconUI",
+  "simpleName" : "DesktopIconUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI"
+}

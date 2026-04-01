@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Node$Builder$OfLong",
+  "canonicalName" : "java.util.stream.Node.Builder.OfLong",
+  "simpleName" : "OfLong",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Node$Builder",
+  "interfaces" : [ "java.util.stream.Node$Builder", "java.util.stream.Sink$OfLong" ],
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Node$OfLong build()",
+    "returnType" : "java.util.stream.Node$OfLong",
+    "genericReturnType" : "java.util.stream.Node$OfLong",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

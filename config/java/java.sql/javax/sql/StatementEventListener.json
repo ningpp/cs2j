@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.StatementEventListener",
+  "canonicalName" : "javax.sql.StatementEventListener",
+  "simpleName" : "StatementEventListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "statementClosed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void statementClosed(javax.sql.StatementEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.StatementEvent",
+      "genericType" : "javax.sql.StatementEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "statementErrorOccurred",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void statementErrorOccurred(javax.sql.StatementEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.StatementEvent",
+      "genericType" : "javax.sql.StatementEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

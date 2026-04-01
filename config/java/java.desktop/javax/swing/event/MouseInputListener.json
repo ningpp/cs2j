@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.MouseInputListener",
+  "canonicalName" : "javax.swing.event.MouseInputListener",
+  "simpleName" : "MouseInputListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.event.MouseListener", "java.awt.event.MouseMotionListener" ]
+}

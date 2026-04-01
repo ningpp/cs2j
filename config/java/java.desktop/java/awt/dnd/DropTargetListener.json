@@ -1,0 +1,96 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DropTargetListener",
+  "canonicalName" : "java.awt.dnd.DropTargetListener",
+  "simpleName" : "DropTargetListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "dragEnter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dragEnter(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragExit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dragExit(java.awt.dnd.DropTargetEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.dnd.DropTargetEvent",
+      "genericType" : "java.awt.dnd.DropTargetEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragOver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dragOver(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "drop",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void drop(java.awt.dnd.DropTargetDropEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.dnd.DropTargetDropEvent",
+      "genericType" : "java.awt.dnd.DropTargetDropEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dropActionChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dropActionChanged(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

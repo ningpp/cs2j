@@ -1,0 +1,136 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.color",
+  "binaryName" : "java.awt.color.ICC_ColorSpace",
+  "canonicalName" : "java.awt.color.ICC_ColorSpace",
+  "simpleName" : "ICC_ColorSpace",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.color.ColorSpace",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.color.ICC_ColorSpace",
+    "modifiers" : "public",
+    "signature" : "public java.awt.color.ICC_ColorSpace(java.awt.color.ICC_Profile)",
+    "parameters" : [ {
+      "name" : "profile",
+      "type" : "java.awt.color.ICC_Profile",
+      "genericType" : "java.awt.color.ICC_Profile",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "fromCIEXYZ",
+    "modifiers" : "public",
+    "signature" : "public float[] fromCIEXYZ(float[])",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "colorvalue",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromRGB",
+    "modifiers" : "public",
+    "signature" : "public float[] fromRGB(float[])",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "rgbvalue",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxValue",
+    "modifiers" : "public",
+    "signature" : "public float getMaxValue(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinValue",
+    "modifiers" : "public",
+    "signature" : "public float getMinValue(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProfile",
+    "modifiers" : "public",
+    "signature" : "public java.awt.color.ICC_Profile getProfile()",
+    "returnType" : "java.awt.color.ICC_Profile",
+    "genericReturnType" : "java.awt.color.ICC_Profile",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toCIEXYZ",
+    "modifiers" : "public",
+    "signature" : "public float[] toCIEXYZ(float[])",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "colorvalue",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toRGB",
+    "modifiers" : "public",
+    "signature" : "public float[] toRGB(float[])",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "colorvalue",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

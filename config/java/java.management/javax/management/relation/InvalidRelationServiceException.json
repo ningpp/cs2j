@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.InvalidRelationServiceException",
+  "canonicalName" : "javax.management.relation.InvalidRelationServiceException",
+  "simpleName" : "InvalidRelationServiceException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.relation.RelationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.InvalidRelationServiceException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRelationServiceException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.InvalidRelationServiceException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRelationServiceException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

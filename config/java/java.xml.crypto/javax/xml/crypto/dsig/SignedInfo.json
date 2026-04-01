@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig",
+  "binaryName" : "javax.xml.crypto.dsig.SignedInfo",
+  "canonicalName" : "javax.xml.crypto.dsig.SignedInfo",
+  "simpleName" : "SignedInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCanonicalizationMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.CanonicalizationMethod getCanonicalizationMethod()",
+    "returnType" : "javax.xml.crypto.dsig.CanonicalizationMethod",
+    "genericReturnType" : "javax.xml.crypto.dsig.CanonicalizationMethod",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCanonicalizedData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getCanonicalizedData()",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReferences",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getReferences()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSignatureMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.SignatureMethod getSignatureMethod()",
+    "returnType" : "javax.xml.crypto.dsig.SignatureMethod",
+    "genericReturnType" : "javax.xml.crypto.dsig.SignatureMethod",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.NotificationFilter",
+  "canonicalName" : "javax.management.NotificationFilter",
+  "simpleName" : "NotificationFilter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "isNotificationEnabled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isNotificationEnabled(javax.management.Notification)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Notification",
+      "genericType" : "javax.management.Notification",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.LongStream$Builder",
+  "canonicalName" : "java.util.stream.LongStream.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.LongStream",
+  "interfaces" : [ "java.util.function.LongConsumer" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.LongStream$Builder add(long)",
+    "returnType" : "java.util.stream.LongStream$Builder",
+    "genericReturnType" : "java.util.stream.LongStream$Builder",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.LongStream build()",
+    "returnType" : "java.util.stream.LongStream",
+    "genericReturnType" : "java.util.stream.LongStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

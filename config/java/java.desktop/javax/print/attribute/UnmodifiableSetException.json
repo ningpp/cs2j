@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.UnmodifiableSetException",
+  "canonicalName" : "javax.print.attribute.UnmodifiableSetException",
+  "simpleName" : "UnmodifiableSetException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.UnmodifiableSetException",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.UnmodifiableSetException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.UnmodifiableSetException",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.UnmodifiableSetException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ShutdownChannelGroupException",
+  "canonicalName" : "java.nio.channels.ShutdownChannelGroupException",
+  "simpleName" : "ShutdownChannelGroupException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.ShutdownChannelGroupException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.ShutdownChannelGroupException()",
+    "varArgs" : false
+  } ]
+}

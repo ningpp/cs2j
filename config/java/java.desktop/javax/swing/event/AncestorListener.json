@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.AncestorListener",
+  "canonicalName" : "javax.swing.event.AncestorListener",
+  "simpleName" : "AncestorListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "ancestorAdded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void ancestorAdded(javax.swing.event.AncestorEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.AncestorEvent",
+      "genericType" : "javax.swing.event.AncestorEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ancestorMoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void ancestorMoved(javax.swing.event.AncestorEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.AncestorEvent",
+      "genericType" : "javax.swing.event.AncestorEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ancestorRemoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void ancestorRemoved(javax.swing.event.AncestorEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.AncestorEvent",
+      "genericType" : "javax.swing.event.AncestorEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+  "canonicalName" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+  "simpleName" : "BeanContextServiceAvailableEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.beancontext.BeanContextEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServiceAvailableEvent(java.beans.beancontext.BeanContextServices, java.lang.Class)",
+    "parameters" : [ {
+      "name" : "bcs",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCurrentServiceSelectors",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator getCurrentServiceSelectors()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServiceClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getServiceClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceAsBeanContextServices",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServices getSourceAsBeanContextServices()",
+    "returnType" : "java.beans.beancontext.BeanContextServices",
+    "genericReturnType" : "java.beans.beancontext.BeanContextServices",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JFileChooser$AccessibleJFileChooser",
+  "canonicalName" : "javax.swing.JFileChooser.AccessibleJFileChooser",
+  "simpleName" : "AccessibleJFileChooser",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JFileChooser",
+  "superClass" : "javax.swing.JComponent$AccessibleJComponent",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

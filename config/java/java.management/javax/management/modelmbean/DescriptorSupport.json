@@ -1,0 +1,276 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.DescriptorSupport",
+  "canonicalName" : "javax.management.modelmbean.DescriptorSupport",
+  "simpleName" : "DescriptorSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.management.Descriptor" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.modelmbean.DescriptorSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.DescriptorSupport()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.DescriptorSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.DescriptorSupport(int) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "parameters" : [ {
+      "name" : "initNumFields",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.DescriptorSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.DescriptorSupport(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException, javax.management.modelmbean.XMLParseException",
+    "parameters" : [ {
+      "name" : "inStr",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException", "javax.management.modelmbean.XMLParseException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.DescriptorSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.DescriptorSupport(java.lang.String...)",
+    "parameters" : [ {
+      "name" : "fields",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : true
+  }, {
+    "name" : "javax.management.modelmbean.DescriptorSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.DescriptorSupport(java.lang.String[], java.lang.Object[]) throws javax.management.RuntimeOperationsException",
+    "parameters" : [ {
+      "name" : "fieldNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldValues",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.DescriptorSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.DescriptorSupport(javax.management.modelmbean.DescriptorSupport)",
+    "parameters" : [ {
+      "name" : "inDescr",
+      "type" : "javax.management.modelmbean.DescriptorSupport",
+      "genericType" : "javax.management.modelmbean.DescriptorSupport",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object clone() throws javax.management.RuntimeOperationsException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFieldNames",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String[] getFieldNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFieldValue",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object getFieldValue(java.lang.String) throws javax.management.RuntimeOperationsException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "fieldName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFieldValues",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object[] getFieldValues(java.lang.String...)",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "parameters" : [ {
+      "name" : "fieldNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getFields",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String[] getFields()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isValid() throws javax.management.RuntimeOperationsException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeField",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeField(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fieldName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setField",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setField(java.lang.String, java.lang.Object) throws javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fieldName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFields",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setFields(java.lang.String[], java.lang.Object[]) throws javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fieldNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldValues",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toXMLString",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String toXMLString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

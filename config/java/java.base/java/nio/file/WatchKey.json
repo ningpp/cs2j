@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.WatchKey",
+  "canonicalName" : "java.nio.file.WatchKey",
+  "simpleName" : "WatchKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "cancel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void cancel()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pollEvents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List pollEvents()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean reset()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "watchable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.Watchable watchable()",
+    "returnType" : "java.nio.file.Watchable",
+    "genericReturnType" : "java.nio.file.Watchable",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

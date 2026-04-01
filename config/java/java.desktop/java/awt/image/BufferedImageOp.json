@@ -1,0 +1,106 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.BufferedImageOp",
+  "canonicalName" : "java.awt.image.BufferedImageOp",
+  "simpleName" : "BufferedImageOp",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createCompatibleDestImage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.BufferedImage createCompatibleDestImage(java.awt.image.BufferedImage, java.awt.image.ColorModel)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "filter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.BufferedImage filter(java.awt.image.BufferedImage, java.awt.image.BufferedImage)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds2D",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.geom.Rectangle2D getBounds2D(java.awt.image.BufferedImage)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoint2D",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.geom.Point2D getPoint2D(java.awt.geom.Point2D, java.awt.geom.Point2D)",
+    "returnType" : "java.awt.geom.Point2D",
+    "genericReturnType" : "java.awt.geom.Point2D",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRenderingHints",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.RenderingHints getRenderingHints()",
+    "returnType" : "java.awt.RenderingHints",
+    "genericReturnType" : "java.awt.RenderingHints",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

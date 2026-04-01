@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.Normalizer",
+  "canonicalName" : "java.text.Normalizer",
+  "simpleName" : "Normalizer",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "isNormalized",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isNormalized(java.lang.CharSequence, java.text.Normalizer$Form)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "form",
+      "type" : "java.text.Normalizer$Form",
+      "genericType" : "java.text.Normalizer$Form",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "normalize",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String normalize(java.lang.CharSequence, java.text.Normalizer$Form)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "form",
+      "type" : "java.text.Normalizer$Form",
+      "genericType" : "java.text.Normalizer$Form",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

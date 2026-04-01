@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.ServiceConfigurationError",
+  "canonicalName" : "java.util.ServiceConfigurationError",
+  "simpleName" : "ServiceConfigurationError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.ServiceConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public java.util.ServiceConfigurationError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.ServiceConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public java.util.ServiceConfigurationError(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

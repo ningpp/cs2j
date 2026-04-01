@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.JavaCompiler",
+  "canonicalName" : "javax.tools.JavaCompiler",
+  "simpleName" : "JavaCompiler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.tools.OptionChecker", "javax.tools.Tool" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getStandardFileManager",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.tools.StandardJavaFileManager getStandardFileManager(javax.tools.DiagnosticListener, java.util.Locale, java.nio.charset.Charset)",
+    "returnType" : "javax.tools.StandardJavaFileManager",
+    "genericReturnType" : "javax.tools.StandardJavaFileManager",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.tools.DiagnosticListener",
+      "genericType" : "javax.tools.DiagnosticListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTask",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.tools.JavaCompiler$CompilationTask getTask(java.io.Writer, javax.tools.JavaFileManager, javax.tools.DiagnosticListener, java.lang.Iterable, java.lang.Iterable, java.lang.Iterable)",
+    "returnType" : "javax.tools.JavaCompiler$CompilationTask",
+    "genericReturnType" : "javax.tools.JavaCompiler$CompilationTask",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.tools.JavaFileManager",
+      "genericType" : "javax.tools.JavaFileManager",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.tools.DiagnosticListener",
+      "genericType" : "javax.tools.DiagnosticListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

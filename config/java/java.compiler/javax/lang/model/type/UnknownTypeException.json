@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.type",
+  "binaryName" : "javax.lang.model.type.UnknownTypeException",
+  "canonicalName" : "javax.lang.model.type.UnknownTypeException",
+  "simpleName" : "UnknownTypeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.UnknownEntityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.lang.model.type.UnknownTypeException",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.type.UnknownTypeException(javax.lang.model.type.TypeMirror, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.TypeMirror",
+      "genericType" : "javax.lang.model.type.TypeMirror",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getArgument",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getArgument()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnknownType",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.type.TypeMirror getUnknownType()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

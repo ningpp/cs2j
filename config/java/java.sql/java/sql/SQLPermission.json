@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.SQLPermission",
+  "canonicalName" : "java.sql.SQLPermission",
+  "simpleName" : "SQLPermission",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.BasicPermission",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.sql.SQLPermission",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLPermission(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLPermission",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLPermission(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

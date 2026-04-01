@@ -1,0 +1,138 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax.helpers",
+  "binaryName" : "org.xml.sax.helpers.LocatorImpl",
+  "canonicalName" : "org.xml.sax.helpers.LocatorImpl",
+  "simpleName" : "LocatorImpl",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "org.xml.sax.Locator" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "org.xml.sax.helpers.LocatorImpl",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.helpers.LocatorImpl()",
+    "varArgs" : false
+  }, {
+    "name" : "org.xml.sax.helpers.LocatorImpl",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.helpers.LocatorImpl(org.xml.sax.Locator)",
+    "parameters" : [ {
+      "name" : "locator",
+      "type" : "org.xml.sax.Locator",
+      "genericType" : "org.xml.sax.Locator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getColumnNumber",
+    "modifiers" : "public",
+    "signature" : "public int getColumnNumber()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineNumber",
+    "modifiers" : "public",
+    "signature" : "public int getLineNumber()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublicId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPublicId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumnNumber",
+    "modifiers" : "public",
+    "signature" : "public void setColumnNumber(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "columnNumber",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLineNumber",
+    "modifiers" : "public",
+    "signature" : "public void setLineNumber(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "lineNumber",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPublicId",
+    "modifiers" : "public",
+    "signature" : "public void setPublicId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "publicId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

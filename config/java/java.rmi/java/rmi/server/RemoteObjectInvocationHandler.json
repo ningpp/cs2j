@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RemoteObjectInvocationHandler",
+  "canonicalName" : "java.rmi.server.RemoteObjectInvocationHandler",
+  "simpleName" : "RemoteObjectInvocationHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.rmi.server.RemoteObject",
+  "interfaces" : [ "java.lang.reflect.InvocationHandler" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.server.RemoteObjectInvocationHandler",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.RemoteObjectInvocationHandler(java.rmi.server.RemoteRef)",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.rmi.server.RemoteRef",
+      "genericType" : "java.rmi.server.RemoteRef",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invoke(java.lang.Object, java.lang.reflect.Method, java.lang.Object[]) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "proxy",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "method",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "args",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

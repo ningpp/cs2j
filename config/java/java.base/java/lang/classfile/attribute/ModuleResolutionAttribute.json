@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ModuleResolutionAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.ModuleResolutionAttribute",
+  "simpleName" : "ModuleResolutionAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleResolutionAttribute of(int)",
+    "returnType" : "java.lang.classfile.attribute.ModuleResolutionAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleResolutionAttribute",
+    "parameters" : [ {
+      "name" : "resolutionFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolutionFlags",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int resolutionFlags()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

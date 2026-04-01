@@ -1,0 +1,930 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio",
+  "binaryName" : "javax.imageio.ImageWriter",
+  "canonicalName" : "javax.imageio.ImageWriter",
+  "simpleName" : "ImageWriter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.imageio.ImageTranscoder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "abort",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void abort()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addIIOWriteProgressListener",
+    "modifiers" : "public",
+    "signature" : "public void addIIOWriteProgressListener(javax.imageio.event.IIOWriteProgressListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.imageio.event.IIOWriteProgressListener",
+      "genericType" : "javax.imageio.event.IIOWriteProgressListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addIIOWriteWarningListener",
+    "modifiers" : "public",
+    "signature" : "public void addIIOWriteWarningListener(javax.imageio.event.IIOWriteWarningListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.imageio.event.IIOWriteWarningListener",
+      "genericType" : "javax.imageio.event.IIOWriteWarningListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canInsertEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean canInsertEmpty(int) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canInsertImage",
+    "modifiers" : "public",
+    "signature" : "public boolean canInsertImage(int) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canRemoveImage",
+    "modifiers" : "public",
+    "signature" : "public boolean canRemoveImage(int) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canReplaceImageMetadata",
+    "modifiers" : "public",
+    "signature" : "public boolean canReplaceImageMetadata(int) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canReplacePixels",
+    "modifiers" : "public",
+    "signature" : "public boolean canReplacePixels(int) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canReplaceStreamMetadata",
+    "modifiers" : "public",
+    "signature" : "public boolean canReplaceStreamMetadata() throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canWriteEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean canWriteEmpty() throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canWriteRasters",
+    "modifiers" : "public",
+    "signature" : "public boolean canWriteRasters()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canWriteSequence",
+    "modifiers" : "public",
+    "signature" : "public boolean canWriteSequence()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "convertImageMetadata",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.metadata.IIOMetadata convertImageMetadata(javax.imageio.metadata.IIOMetadata, javax.imageio.ImageTypeSpecifier, javax.imageio.ImageWriteParam)",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "convertStreamMetadata",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.metadata.IIOMetadata convertStreamMetadata(javax.imageio.metadata.IIOMetadata, javax.imageio.ImageWriteParam)",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispose",
+    "modifiers" : "public",
+    "signature" : "public void dispose()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endInsertEmpty",
+    "modifiers" : "public",
+    "signature" : "public void endInsertEmpty() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endReplacePixels",
+    "modifiers" : "public",
+    "signature" : "public void endReplacePixels() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endWriteEmpty",
+    "modifiers" : "public",
+    "signature" : "public void endWriteEmpty() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endWriteSequence",
+    "modifiers" : "public",
+    "signature" : "public void endWriteSequence() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableLocales",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale[] getAvailableLocales()",
+    "returnType" : "java.util.Locale[]",
+    "genericReturnType" : "java.util.Locale[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultImageMetadata",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.metadata.IIOMetadata getDefaultImageMetadata(javax.imageio.ImageTypeSpecifier, javax.imageio.ImageWriteParam)",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultStreamMetadata",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.metadata.IIOMetadata getDefaultStreamMetadata(javax.imageio.ImageWriteParam)",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultWriteParam",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.ImageWriteParam getDefaultWriteParam()",
+    "returnType" : "javax.imageio.ImageWriteParam",
+    "genericReturnType" : "javax.imageio.ImageWriteParam",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumThumbnailsSupported",
+    "modifiers" : "public",
+    "signature" : "public int getNumThumbnailsSupported(javax.imageio.ImageTypeSpecifier, javax.imageio.ImageWriteParam, javax.imageio.metadata.IIOMetadata, javax.imageio.metadata.IIOMetadata)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "imageType",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "streamMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOriginatingProvider",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.ImageWriterSpi getOriginatingProvider()",
+    "returnType" : "javax.imageio.spi.ImageWriterSpi",
+    "genericReturnType" : "javax.imageio.spi.ImageWriterSpi",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutput",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getOutput()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredThumbnailSizes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension[] getPreferredThumbnailSizes(javax.imageio.ImageTypeSpecifier, javax.imageio.ImageWriteParam, javax.imageio.metadata.IIOMetadata, javax.imageio.metadata.IIOMetadata)",
+    "returnType" : "java.awt.Dimension[]",
+    "genericReturnType" : "java.awt.Dimension[]",
+    "parameters" : [ {
+      "name" : "imageType",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "streamMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prepareInsertEmpty",
+    "modifiers" : "public",
+    "signature" : "public void prepareInsertEmpty(int, javax.imageio.ImageTypeSpecifier, int, int, javax.imageio.metadata.IIOMetadata, java.util.List, javax.imageio.ImageWriteParam) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageType",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thumbnails",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prepareReplacePixels",
+    "modifiers" : "public",
+    "signature" : "public void prepareReplacePixels(int, java.awt.Rectangle) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "region",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prepareWriteEmpty",
+    "modifiers" : "public",
+    "signature" : "public void prepareWriteEmpty(javax.imageio.metadata.IIOMetadata, javax.imageio.ImageTypeSpecifier, int, int, javax.imageio.metadata.IIOMetadata, java.util.List, javax.imageio.ImageWriteParam) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "streamMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageType",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thumbnails",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prepareWriteSequence",
+    "modifiers" : "public",
+    "signature" : "public void prepareWriteSequence(javax.imageio.metadata.IIOMetadata) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "streamMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAllIIOWriteProgressListeners",
+    "modifiers" : "public",
+    "signature" : "public void removeAllIIOWriteProgressListeners()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAllIIOWriteWarningListeners",
+    "modifiers" : "public",
+    "signature" : "public void removeAllIIOWriteWarningListeners()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeIIOWriteProgressListener",
+    "modifiers" : "public",
+    "signature" : "public void removeIIOWriteProgressListener(javax.imageio.event.IIOWriteProgressListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.imageio.event.IIOWriteProgressListener",
+      "genericType" : "javax.imageio.event.IIOWriteProgressListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeIIOWriteWarningListener",
+    "modifiers" : "public",
+    "signature" : "public void removeIIOWriteWarningListener(javax.imageio.event.IIOWriteWarningListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.imageio.event.IIOWriteWarningListener",
+      "genericType" : "javax.imageio.event.IIOWriteWarningListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeImage",
+    "modifiers" : "public",
+    "signature" : "public void removeImage(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceImageMetadata",
+    "modifiers" : "public",
+    "signature" : "public void replaceImageMetadata(int, javax.imageio.metadata.IIOMetadata) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imageMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replacePixels",
+    "modifiers" : "public",
+    "signature" : "public void replacePixels(java.awt.image.Raster, javax.imageio.ImageWriteParam) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "raster",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replacePixels",
+    "modifiers" : "public",
+    "signature" : "public void replacePixels(java.awt.image.RenderedImage, javax.imageio.ImageWriteParam) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceStreamMetadata",
+    "modifiers" : "public",
+    "signature" : "public void replaceStreamMetadata(javax.imageio.metadata.IIOMetadata) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "streamMetadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public void reset()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocale",
+    "modifiers" : "public",
+    "signature" : "public void setLocale(java.util.Locale)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOutput",
+    "modifiers" : "public",
+    "signature" : "public void setOutput(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "output",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(java.awt.image.RenderedImage) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(javax.imageio.IIOImage) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "javax.imageio.IIOImage",
+      "genericType" : "javax.imageio.IIOImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void write(javax.imageio.metadata.IIOMetadata, javax.imageio.IIOImage, javax.imageio.ImageWriteParam) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.imageio.IIOImage",
+      "genericType" : "javax.imageio.IIOImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeInsert",
+    "modifiers" : "public",
+    "signature" : "public void writeInsert(int, javax.imageio.IIOImage, javax.imageio.ImageWriteParam) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "imageIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "image",
+      "type" : "javax.imageio.IIOImage",
+      "genericType" : "javax.imageio.IIOImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeToSequence",
+    "modifiers" : "public",
+    "signature" : "public void writeToSequence(javax.imageio.IIOImage, javax.imageio.ImageWriteParam) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "javax.imageio.IIOImage",
+      "genericType" : "javax.imageio.IIOImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "param",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

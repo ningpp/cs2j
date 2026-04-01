@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.ModuleDescriptor$Provides",
+  "canonicalName" : "java.lang.module.ModuleDescriptor.Provides",
+  "simpleName" : "Provides",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.module.ModuleDescriptor",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.lang.module.ModuleDescriptor$Provides)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.lang.module.ModuleDescriptor$Provides",
+      "genericType" : "java.lang.module.ModuleDescriptor$Provides",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ob",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "providers",
+    "modifiers" : "public",
+    "signature" : "public java.util.List providers()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "service",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String service()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

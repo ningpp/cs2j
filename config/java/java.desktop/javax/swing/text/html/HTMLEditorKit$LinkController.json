@@ -1,0 +1,70 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLEditorKit$LinkController",
+  "canonicalName" : "javax.swing.text.html.HTMLEditorKit.LinkController",
+  "simpleName" : "LinkController",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.html.HTMLEditorKit",
+  "superClass" : "java.awt.event.MouseAdapter",
+  "interfaces" : [ "java.awt.event.MouseMotionListener", "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLEditorKit$LinkController",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$LinkController()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "mouseClicked",
+    "modifiers" : "public",
+    "signature" : "public void mouseClicked(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseDragged",
+    "modifiers" : "public",
+    "signature" : "public void mouseDragged(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseMoved",
+    "modifiers" : "public",
+    "signature" : "public void mouseMoved(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.PosixFileAttributeView",
+  "canonicalName" : "java.nio.file.attribute.PosixFileAttributeView",
+  "simpleName" : "PosixFileAttributeView",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.file.attribute.BasicFileAttributeView", "java.nio.file.attribute.FileOwnerAttributeView" ],
+  "declaredPublicMethods" : [ {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String name()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.PosixFileAttributes readAttributes() throws java.io.IOException",
+    "returnType" : "java.nio.file.attribute.PosixFileAttributes",
+    "genericReturnType" : "java.nio.file.attribute.PosixFileAttributes",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setGroup",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setGroup(java.nio.file.attribute.GroupPrincipal) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.file.attribute.GroupPrincipal",
+      "genericType" : "java.nio.file.attribute.GroupPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPermissions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setPermissions(java.util.Set) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

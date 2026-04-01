@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Signature$TypeVarSig",
+  "canonicalName" : "java.lang.classfile.Signature.TypeVarSig",
+  "simpleName" : "TypeVarSig",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.Signature",
+  "interfaces" : [ "java.lang.classfile.Signature$RefTypeSig", "java.lang.classfile.Signature$ThrowableSig" ],
+  "declaredPublicMethods" : [ {
+    "name" : "identifier",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String identifier()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeVarSig of(java.lang.String)",
+    "returnType" : "java.lang.classfile.Signature$TypeVarSig",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeVarSig",
+    "parameters" : [ {
+      "name" : "identifier",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

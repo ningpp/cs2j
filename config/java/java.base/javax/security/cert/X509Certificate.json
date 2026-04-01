@@ -1,0 +1,172 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.cert",
+  "binaryName" : "javax.security.cert.X509Certificate",
+  "canonicalName" : "javax.security.cert.X509Certificate",
+  "simpleName" : "X509Certificate",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.security.cert.Certificate",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.cert.X509Certificate",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.X509Certificate()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "checkValidity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void checkValidity() throws javax.security.cert.CertificateExpiredException, javax.security.cert.CertificateNotYetValidException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.cert.CertificateExpiredException", "javax.security.cert.CertificateNotYetValidException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkValidity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void checkValidity(java.util.Date) throws javax.security.cert.CertificateExpiredException, javax.security.cert.CertificateNotYetValidException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.cert.CertificateExpiredException", "javax.security.cert.CertificateNotYetValidException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.security.cert.X509Certificate getInstance(byte[]) throws javax.security.cert.CertificateException",
+    "returnType" : "javax.security.cert.X509Certificate",
+    "genericReturnType" : "javax.security.cert.X509Certificate",
+    "parameters" : [ {
+      "name" : "certData",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.cert.CertificateException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.security.cert.X509Certificate getInstance(java.io.InputStream) throws javax.security.cert.CertificateException",
+    "returnType" : "javax.security.cert.X509Certificate",
+    "genericReturnType" : "javax.security.cert.X509Certificate",
+    "parameters" : [ {
+      "name" : "inStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.security.cert.CertificateException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIssuerDN",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getIssuerDN()",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotAfter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Date getNotAfter()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotBefore",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Date getNotBefore()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSerialNumber",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getSerialNumber()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSigAlgName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSigAlgName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSigAlgOID",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSigAlgOID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSigAlgParams",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getSigAlgParams()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubjectDN",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getSubjectDN()",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

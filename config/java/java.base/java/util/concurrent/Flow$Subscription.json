@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Flow$Subscription",
+  "canonicalName" : "java.util.concurrent.Flow.Subscription",
+  "simpleName" : "Subscription",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.Flow",
+  "declaredPublicMethods" : [ {
+    "name" : "cancel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void cancel()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "request",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void request(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

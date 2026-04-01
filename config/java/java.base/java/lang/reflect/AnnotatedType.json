@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.AnnotatedType",
+  "canonicalName" : "java.lang.reflect.AnnotatedType",
+  "simpleName" : "AnnotatedType",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.reflect.AnnotatedElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAnnotatedOwnerType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.AnnotatedType getAnnotatedOwnerType()",
+    "returnType" : "java.lang.reflect.AnnotatedType",
+    "genericReturnType" : "java.lang.reflect.AnnotatedType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.annotation.Annotation getAnnotation(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation",
+    "genericReturnType" : "java.lang.annotation.Annotation",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.annotation.Annotation[] getAnnotations()",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredAnnotations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.annotation.Annotation[] getDeclaredAnnotations()",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.Type getType()",
+    "returnType" : "java.lang.reflect.Type",
+    "genericReturnType" : "java.lang.reflect.Type",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

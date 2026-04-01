@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIServer",
+  "canonicalName" : "javax.management.remote.rmi.RMIServer",
+  "simpleName" : "RMIServer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.rmi.Remote" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVersion() throws java.rmi.RemoteException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newClient",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.remote.rmi.RMIConnection newClient(java.lang.Object) throws java.io.IOException",
+    "returnType" : "javax.management.remote.rmi.RMIConnection",
+    "genericReturnType" : "javax.management.remote.rmi.RMIConnection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

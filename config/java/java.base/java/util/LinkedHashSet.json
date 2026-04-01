@@ -1,0 +1,171 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.LinkedHashSet",
+  "canonicalName" : "java.util.LinkedHashSet",
+  "simpleName" : "LinkedHashSet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.HashSet",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable", "java.util.SequencedSet" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.LinkedHashSet",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashSet()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.LinkedHashSet",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashSet(int)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.LinkedHashSet",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashSet(int, float)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loadFactor",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.LinkedHashSet",
+    "modifiers" : "public",
+    "signature" : "public java.util.LinkedHashSet(java.util.Collection)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addFirst",
+    "modifiers" : "public",
+    "signature" : "public void addFirst(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addLast",
+    "modifiers" : "public",
+    "signature" : "public void addLast(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getFirst()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getLast()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newLinkedHashSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.LinkedHashSet newLinkedHashSet(int)",
+    "returnType" : "java.util.LinkedHashSet",
+    "genericReturnType" : "java.util.LinkedHashSet",
+    "parameters" : [ {
+      "name" : "numElements",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object removeFirst()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeLast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object removeLast()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reversed",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedSet reversed()",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public",
+    "signature" : "public java.util.Spliterator spliterator()",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

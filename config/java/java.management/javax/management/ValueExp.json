@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.ValueExp",
+  "canonicalName" : "javax.management.ValueExp",
+  "simpleName" : "ValueExp",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "apply",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.ValueExp apply(javax.management.ObjectName) throws javax.management.BadStringOperationException, javax.management.BadBinaryOpValueExpException, javax.management.BadAttributeValueExpException, javax.management.InvalidApplicationException",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.BadStringOperationException", "javax.management.BadBinaryOpValueExpException", "javax.management.BadAttributeValueExpException", "javax.management.InvalidApplicationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMBeanServer(javax.management.MBeanServer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

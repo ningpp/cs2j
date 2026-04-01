@@ -1,0 +1,908 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time",
+  "binaryName" : "java.time.Duration",
+  "canonicalName" : "java.time.Duration",
+  "simpleName" : "Duration",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Comparable", "java.time.temporal.TemporalAmount" ],
+  "declaredPublicMethods" : [ {
+    "name" : "abs",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration abs()",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addTo",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal addTo(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "between",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration between(java.time.temporal.Temporal, java.time.temporal.Temporal)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "startInclusive",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endExclusive",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.time.Duration)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "otherDuration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dividedBy",
+    "modifiers" : "public",
+    "signature" : "public long dividedBy(java.time.Duration)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dividedBy",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration dividedBy(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration from(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "amount",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public long get(java.time.temporal.TemporalUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNano",
+    "modifiers" : "public",
+    "signature" : "public int getNano()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeconds",
+    "modifiers" : "public",
+    "signature" : "public long getSeconds()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnits",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getUnits()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNegative",
+    "modifiers" : "public",
+    "signature" : "public boolean isNegative()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPositive",
+    "modifiers" : "public",
+    "signature" : "public boolean isPositive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isZero",
+    "modifiers" : "public",
+    "signature" : "public boolean isZero()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minus(java.time.Duration)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusDays",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minusDays(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "daysToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusHours",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minusHours(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "hoursToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusMillis",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minusMillis(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "millisToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusMinutes",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minusMinutes(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "minutesToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusNanos",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minusNanos(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "nanosToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusSeconds",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration minusSeconds(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "secondsToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "multipliedBy",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration multipliedBy(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "multiplicand",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negated",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration negated()",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration of(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "amount",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDays",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration ofDays(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "days",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofHours",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration ofHours(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "hours",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMillis",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration ofMillis(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "millis",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMinutes",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration ofMinutes(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "minutes",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofNanos",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration ofNanos(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "nanos",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSeconds",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration ofSeconds(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "seconds",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSeconds",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration ofSeconds(long, long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "seconds",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nanoAdjustment",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Duration parse(java.lang.CharSequence)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plus(java.time.Duration)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "amountToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusDays",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plusDays(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "daysToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusHours",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plusHours(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "hoursToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusMillis",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plusMillis(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "millisToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusMinutes",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plusMinutes(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "minutesToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusNanos",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plusNanos(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "nanosToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusSeconds",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration plusSeconds(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "secondsToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subtractFrom",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal subtractFrom(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toDays",
+    "modifiers" : "public",
+    "signature" : "public long toDays()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toDaysPart",
+    "modifiers" : "public",
+    "signature" : "public long toDaysPart()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toHours",
+    "modifiers" : "public",
+    "signature" : "public long toHours()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toHoursPart",
+    "modifiers" : "public",
+    "signature" : "public int toHoursPart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMillis",
+    "modifiers" : "public",
+    "signature" : "public long toMillis()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMillisPart",
+    "modifiers" : "public",
+    "signature" : "public int toMillisPart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMinutes",
+    "modifiers" : "public",
+    "signature" : "public long toMinutes()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMinutesPart",
+    "modifiers" : "public",
+    "signature" : "public int toMinutesPart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toNanos",
+    "modifiers" : "public",
+    "signature" : "public long toNanos()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toNanosPart",
+    "modifiers" : "public",
+    "signature" : "public int toNanosPart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toSeconds",
+    "modifiers" : "public",
+    "signature" : "public long toSeconds()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toSecondsPart",
+    "modifiers" : "public",
+    "signature" : "public int toSecondsPart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "truncatedTo",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration truncatedTo(java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withNanos",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration withNanos(int)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "nanoOfSecond",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withSeconds",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration withSeconds(long)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "seconds",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,158 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpRequest",
+  "canonicalName" : "java.net.http.HttpRequest",
+  "simpleName" : "HttpRequest",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "bodyPublisher",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional bodyPublisher()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public final",
+    "signature" : "public final boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "expectContinue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean expectContinue()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public final",
+    "signature" : "public final int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpHeaders headers()",
+    "returnType" : "java.net.http.HttpHeaders",
+    "genericReturnType" : "java.net.http.HttpHeaders",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "method",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String method()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newBuilder",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$Builder newBuilder()",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newBuilder",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$Builder newBuilder(java.net.URI)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newBuilder",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$Builder newBuilder(java.net.http.HttpRequest, java.util.function.BiPredicate)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "request",
+      "type" : "java.net.http.HttpRequest",
+      "genericType" : "java.net.http.HttpRequest",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.util.function.BiPredicate",
+      "genericType" : "java.util.function.BiPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "timeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional timeout()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uri",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.URI uri()",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional version()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

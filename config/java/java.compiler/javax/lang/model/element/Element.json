@@ -1,0 +1,165 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.Element",
+  "canonicalName" : "javax.lang.model.element.Element",
+  "simpleName" : "Element",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.AnnotatedConstruct" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object accept(javax.lang.model.element.ElementVisitor, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ElementVisitor",
+      "genericType" : "javax.lang.model.element.ElementVisitor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.TypeMirror asType()",
+    "returnType" : "javax.lang.model.type.TypeMirror",
+    "genericReturnType" : "javax.lang.model.type.TypeMirror",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.annotation.Annotation getAnnotation(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation",
+    "genericReturnType" : "java.lang.annotation.Annotation",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotationMirrors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getAnnotationMirrors()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotationsByType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.annotation.Annotation[] getAnnotationsByType(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosedElements",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getEnclosedElements()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosingElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Element getEnclosingElement()",
+    "returnType" : "javax.lang.model.element.Element",
+    "genericReturnType" : "javax.lang.model.element.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.ElementKind getKind()",
+    "returnType" : "javax.lang.model.element.ElementKind",
+    "genericReturnType" : "javax.lang.model.element.ElementKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getModifiers()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSimpleName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Name getSimpleName()",
+    "returnType" : "javax.lang.model.element.Name",
+    "genericReturnType" : "javax.lang.model.element.Name",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.AbstractLayoutCache$NodeDimensions",
+  "canonicalName" : "javax.swing.tree.AbstractLayoutCache.NodeDimensions",
+  "simpleName" : "NodeDimensions",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "javax.swing.tree.AbstractLayoutCache",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getNodeDimensions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Rectangle getNodeDimensions(java.lang.Object, int, int, boolean, java.awt.Rectangle)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

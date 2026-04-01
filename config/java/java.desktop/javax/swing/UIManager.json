@@ -1,0 +1,717 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.UIManager",
+  "canonicalName" : "javax.swing.UIManager",
+  "simpleName" : "UIManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.UIManager",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIManager()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAuxiliaryLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static void addAuxiliaryLookAndFeel(javax.swing.LookAndFeel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "laf",
+      "type" : "javax.swing.LookAndFeel",
+      "genericType" : "javax.swing.LookAndFeel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public static",
+    "signature" : "public static void addPropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.LookAndFeel createLookAndFeel(java.lang.String) throws javax.swing.UnsupportedLookAndFeelException",
+    "returnType" : "javax.swing.LookAndFeel",
+    "genericReturnType" : "javax.swing.LookAndFeel",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.UnsupportedLookAndFeelException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object get(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object get(java.lang.Object, java.util.Locale)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAuxiliaryLookAndFeels",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.LookAndFeel[] getAuxiliaryLookAndFeels()",
+    "returnType" : "javax.swing.LookAndFeel[]",
+    "genericReturnType" : "javax.swing.LookAndFeel[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBoolean",
+    "modifiers" : "public static",
+    "signature" : "public static boolean getBoolean(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBoolean",
+    "modifiers" : "public static",
+    "signature" : "public static boolean getBoolean(java.lang.Object, java.util.Locale)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getBorder(java.lang.Object)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getBorder(java.lang.Object, java.util.Locale)",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColor",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Color getColor(java.lang.Object)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColor",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Color getColor(java.lang.Object, java.util.Locale)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCrossPlatformLookAndFeelClassName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String getCrossPlatformLookAndFeelClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaults",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.UIDefaults getDefaults()",
+    "returnType" : "javax.swing.UIDefaults",
+    "genericReturnType" : "javax.swing.UIDefaults",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDimension",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Dimension getDimension(java.lang.Object)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDimension",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Dimension getDimension(java.lang.Object, java.util.Locale)",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font getFont(java.lang.Object)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font getFont(java.lang.Object, java.util.Locale)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getIcon(java.lang.Object)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getIcon(java.lang.Object, java.util.Locale)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInsets",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Insets getInsets(java.lang.Object)",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInsets",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Insets getInsets(java.lang.Object, java.util.Locale)",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstalledLookAndFeels",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.UIManager$LookAndFeelInfo[] getInstalledLookAndFeels()",
+    "returnType" : "javax.swing.UIManager$LookAndFeelInfo[]",
+    "genericReturnType" : "javax.swing.UIManager$LookAndFeelInfo[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInt",
+    "modifiers" : "public static",
+    "signature" : "public static int getInt(java.lang.Object)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInt",
+    "modifiers" : "public static",
+    "signature" : "public static int getInt(java.lang.Object, java.util.Locale)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.LookAndFeel getLookAndFeel()",
+    "returnType" : "javax.swing.LookAndFeel",
+    "genericReturnType" : "javax.swing.LookAndFeel",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLookAndFeelDefaults",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.UIDefaults getLookAndFeelDefaults()",
+    "returnType" : "javax.swing.UIDefaults",
+    "genericReturnType" : "javax.swing.UIDefaults",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyChangeListeners",
+    "modifiers" : "public static",
+    "signature" : "public static java.beans.PropertyChangeListener[] getPropertyChangeListeners()",
+    "returnType" : "java.beans.PropertyChangeListener[]",
+    "genericReturnType" : "java.beans.PropertyChangeListener[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String getString(java.lang.Object)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String getString(java.lang.Object, java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemLookAndFeelClassName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String getSystemLookAndFeelClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ComponentUI getUI(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.ComponentUI",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static void installLookAndFeel(java.lang.String, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static void installLookAndFeel(javax.swing.UIManager$LookAndFeelInfo)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "info",
+      "type" : "javax.swing.UIManager$LookAndFeelInfo",
+      "genericType" : "javax.swing.UIManager$LookAndFeelInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object put(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAuxiliaryLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static boolean removeAuxiliaryLookAndFeel(javax.swing.LookAndFeel)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "laf",
+      "type" : "javax.swing.LookAndFeel",
+      "genericType" : "javax.swing.LookAndFeel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public static",
+    "signature" : "public static void removePropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInstalledLookAndFeels",
+    "modifiers" : "public static",
+    "signature" : "public static void setInstalledLookAndFeels(javax.swing.UIManager$LookAndFeelInfo[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "infos",
+      "type" : "javax.swing.UIManager$LookAndFeelInfo[]",
+      "genericType" : "javax.swing.UIManager$LookAndFeelInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static void setLookAndFeel(java.lang.String) throws java.lang.ClassNotFoundException, java.lang.InstantiationException, java.lang.IllegalAccessException, javax.swing.UnsupportedLookAndFeelException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException", "java.lang.InstantiationException", "java.lang.IllegalAccessException", "javax.swing.UnsupportedLookAndFeelException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLookAndFeel",
+    "modifiers" : "public static",
+    "signature" : "public static void setLookAndFeel(javax.swing.LookAndFeel) throws javax.swing.UnsupportedLookAndFeelException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newLookAndFeel",
+      "type" : "javax.swing.LookAndFeel",
+      "genericType" : "javax.swing.LookAndFeel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.UnsupportedLookAndFeelException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

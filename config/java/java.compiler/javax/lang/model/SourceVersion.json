@@ -1,0 +1,182 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model",
+  "binaryName" : "javax.lang.model.SourceVersion",
+  "canonicalName" : "javax.lang.model.SourceVersion",
+  "simpleName" : "SourceVersion",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "isIdentifier",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isIdentifier(java.lang.CharSequence)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isKeyword",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isKeyword(java.lang.CharSequence)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isKeyword",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isKeyword(java.lang.CharSequence, javax.lang.model.SourceVersion)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "javax.lang.model.SourceVersion",
+      "genericType" : "javax.lang.model.SourceVersion",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isName",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isName(java.lang.CharSequence)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isName",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isName(java.lang.CharSequence, javax.lang.model.SourceVersion)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "javax.lang.model.SourceVersion",
+      "genericType" : "javax.lang.model.SourceVersion",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "latest",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.SourceVersion latest()",
+    "returnType" : "javax.lang.model.SourceVersion",
+    "genericReturnType" : "javax.lang.model.SourceVersion",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "latestSupported",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.SourceVersion latestSupported()",
+    "returnType" : "javax.lang.model.SourceVersion",
+    "genericReturnType" : "javax.lang.model.SourceVersion",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeVersion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Runtime$Version runtimeVersion()",
+    "returnType" : "java.lang.Runtime$Version",
+    "genericReturnType" : "java.lang.Runtime$Version",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.SourceVersion valueOf(java.lang.Runtime$Version)",
+    "returnType" : "javax.lang.model.SourceVersion",
+    "genericReturnType" : "javax.lang.model.SourceVersion",
+    "parameters" : [ {
+      "name" : "rv",
+      "type" : "java.lang.Runtime$Version",
+      "genericType" : "java.lang.Runtime$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.SourceVersion valueOf(java.lang.String)",
+    "returnType" : "javax.lang.model.SourceVersion",
+    "genericReturnType" : "javax.lang.model.SourceVersion",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.SourceVersion[] values()",
+    "returnType" : "javax.lang.model.SourceVersion[]",
+    "genericReturnType" : "javax.lang.model.SourceVersion[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

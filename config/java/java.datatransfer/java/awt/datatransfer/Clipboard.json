@@ -1,0 +1,163 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.Clipboard",
+  "canonicalName" : "java.awt.datatransfer.Clipboard",
+  "simpleName" : "Clipboard",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.datatransfer.Clipboard",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.Clipboard(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addFlavorListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addFlavorListener(java.awt.datatransfer.FlavorListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.awt.datatransfer.FlavorListener",
+      "genericType" : "java.awt.datatransfer.FlavorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableDataFlavors",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor[] getAvailableDataFlavors()",
+    "returnType" : "java.awt.datatransfer.DataFlavor[]",
+    "genericReturnType" : "java.awt.datatransfer.DataFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContents",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.datatransfer.Transferable getContents(java.lang.Object)",
+    "returnType" : "java.awt.datatransfer.Transferable",
+    "genericReturnType" : "java.awt.datatransfer.Transferable",
+    "parameters" : [ {
+      "name" : "requestor",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getData(java.awt.datatransfer.DataFlavor) throws java.awt.datatransfer.UnsupportedFlavorException, java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "flavor",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.datatransfer.UnsupportedFlavorException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFlavorListeners",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.datatransfer.FlavorListener[] getFlavorListeners()",
+    "returnType" : "java.awt.datatransfer.FlavorListener[]",
+    "genericReturnType" : "java.awt.datatransfer.FlavorListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDataFlavorAvailable",
+    "modifiers" : "public",
+    "signature" : "public boolean isDataFlavorAvailable(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "flavor",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeFlavorListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeFlavorListener(java.awt.datatransfer.FlavorListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.awt.datatransfer.FlavorListener",
+      "genericType" : "java.awt.datatransfer.FlavorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContents",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setContents(java.awt.datatransfer.Transferable, java.awt.datatransfer.ClipboardOwner)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "contents",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.awt.datatransfer.ClipboardOwner",
+      "genericType" : "java.awt.datatransfer.ClipboardOwner",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

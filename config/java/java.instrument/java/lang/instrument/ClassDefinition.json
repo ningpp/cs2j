@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.instrument",
+  "packageName" : "java.lang.instrument",
+  "binaryName" : "java.lang.instrument.ClassDefinition",
+  "canonicalName" : "java.lang.instrument.ClassDefinition",
+  "simpleName" : "ClassDefinition",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.instrument.ClassDefinition",
+    "modifiers" : "public",
+    "signature" : "public java.lang.instrument.ClassDefinition(java.lang.Class, byte[])",
+    "parameters" : [ {
+      "name" : "theClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "theClassFile",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDefinitionClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getDefinitionClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefinitionClassFile",
+    "modifiers" : "public",
+    "signature" : "public byte[] getDefinitionClassFile()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,1742 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.Files",
+  "canonicalName" : "java.nio.file.Files",
+  "simpleName" : "Files",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static long copy(java.io.InputStream, java.nio.file.Path, java.nio.file.CopyOption...) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.CopyOption[]",
+      "genericType" : "java.nio.file.CopyOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static long copy(java.nio.file.Path, java.io.OutputStream) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path copy(java.nio.file.Path, java.nio.file.Path, java.nio.file.CopyOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.CopyOption[]",
+      "genericType" : "java.nio.file.CopyOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createDirectories",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createDirectories(java.nio.file.Path, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createDirectory",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createDirectory(java.nio.file.Path, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createFile(java.nio.file.Path, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createLink",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createLink(java.nio.file.Path, java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "link",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "existing",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSymbolicLink",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createSymbolicLink(java.nio.file.Path, java.nio.file.Path, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "link",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createTempDirectory",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createTempDirectory(java.lang.String, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createTempDirectory",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createTempDirectory(java.nio.file.Path, java.lang.String, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createTempFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createTempFile(java.lang.String, java.lang.String, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "suffix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "createTempFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path createTempFile(java.nio.file.Path, java.lang.String, java.lang.String, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "suffix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "delete",
+    "modifiers" : "public static",
+    "signature" : "public static void delete(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteIfExists",
+    "modifiers" : "public static",
+    "signature" : "public static boolean deleteIfExists(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exists",
+    "modifiers" : "public static",
+    "signature" : "public static boolean exists(java.nio.file.Path, java.nio.file.LinkOption...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "find",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream find(java.nio.file.Path, int, java.util.function.BiPredicate, java.nio.file.FileVisitOption...) throws java.io.IOException",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "matcher",
+      "type" : "java.util.function.BiPredicate",
+      "genericType" : "java.util.function.BiPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.FileVisitOption[]",
+      "genericType" : "java.nio.file.FileVisitOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object getAttribute(java.nio.file.Path, java.lang.String, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attribute",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getFileAttributeView",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.attribute.FileAttributeView getFileAttributeView(java.nio.file.Path, java.lang.Class, java.nio.file.LinkOption...)",
+    "returnType" : "java.nio.file.attribute.FileAttributeView",
+    "genericReturnType" : "java.nio.file.attribute.FileAttributeView",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getFileStore",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileStore getFileStore(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileStore",
+    "genericReturnType" : "java.nio.file.FileStore",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastModifiedTime",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.attribute.FileTime getLastModifiedTime(java.nio.file.Path, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.attribute.FileTime",
+    "genericReturnType" : "java.nio.file.attribute.FileTime",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getOwner",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.attribute.UserPrincipal getOwner(java.nio.file.Path, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.attribute.UserPrincipal",
+    "genericReturnType" : "java.nio.file.attribute.UserPrincipal",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getPosixFilePermissions",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set getPosixFilePermissions(java.nio.file.Path, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "isDirectory",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isDirectory(java.nio.file.Path, java.nio.file.LinkOption...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "isExecutable",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isExecutable(java.nio.file.Path)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHidden",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isHidden(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadable",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isReadable(java.nio.file.Path)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRegularFile",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isRegularFile(java.nio.file.Path, java.nio.file.LinkOption...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "isSameFile",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isSameFile(java.nio.file.Path, java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path2",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSymbolicLink",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isSymbolicLink(java.nio.file.Path)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWritable",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isWritable(java.nio.file.Path)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lines",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream lines(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lines",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream lines(java.nio.file.Path, java.nio.charset.Charset) throws java.io.IOException",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream list(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mismatch",
+    "modifiers" : "public static",
+    "signature" : "public static long mismatch(java.nio.file.Path, java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path2",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "move",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path move(java.nio.file.Path, java.nio.file.Path, java.nio.file.CopyOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.CopyOption[]",
+      "genericType" : "java.nio.file.CopyOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "newBufferedReader",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.BufferedReader newBufferedReader(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.io.BufferedReader",
+    "genericReturnType" : "java.io.BufferedReader",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newBufferedReader",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.BufferedReader newBufferedReader(java.nio.file.Path, java.nio.charset.Charset) throws java.io.IOException",
+    "returnType" : "java.io.BufferedReader",
+    "genericReturnType" : "java.io.BufferedReader",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newBufferedWriter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.BufferedWriter newBufferedWriter(java.nio.file.Path, java.nio.charset.Charset, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.io.BufferedWriter",
+    "genericReturnType" : "java.io.BufferedWriter",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "newBufferedWriter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.BufferedWriter newBufferedWriter(java.nio.file.Path, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.io.BufferedWriter",
+    "genericReturnType" : "java.io.BufferedWriter",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "newByteChannel",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.SeekableByteChannel newByteChannel(java.nio.file.Path, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SeekableByteChannel",
+    "genericReturnType" : "java.nio.channels.SeekableByteChannel",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "newByteChannel",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.SeekableByteChannel newByteChannel(java.nio.file.Path, java.util.Set, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SeekableByteChannel",
+    "genericReturnType" : "java.nio.channels.SeekableByteChannel",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "newDirectoryStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.DirectoryStream newDirectoryStream(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.nio.file.DirectoryStream",
+    "genericReturnType" : "java.nio.file.DirectoryStream",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDirectoryStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.DirectoryStream newDirectoryStream(java.nio.file.Path, java.lang.String) throws java.io.IOException",
+    "returnType" : "java.nio.file.DirectoryStream",
+    "genericReturnType" : "java.nio.file.DirectoryStream",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "glob",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDirectoryStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.DirectoryStream newDirectoryStream(java.nio.file.Path, java.nio.file.DirectoryStream$Filter) throws java.io.IOException",
+    "returnType" : "java.nio.file.DirectoryStream",
+    "genericReturnType" : "java.nio.file.DirectoryStream",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.nio.file.DirectoryStream$Filter",
+      "genericType" : "java.nio.file.DirectoryStream$Filter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.InputStream newInputStream(java.nio.file.Path, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "newOutputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.OutputStream newOutputStream(java.nio.file.Path, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "notExists",
+    "modifiers" : "public static",
+    "signature" : "public static boolean notExists(java.nio.file.Path, java.nio.file.LinkOption...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "probeContentType",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String probeContentType(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readAllBytes",
+    "modifiers" : "public static",
+    "signature" : "public static byte[] readAllBytes(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readAllLines",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List readAllLines(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readAllLines",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List readAllLines(java.nio.file.Path, java.nio.charset.Charset) throws java.io.IOException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readAttributes",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.attribute.BasicFileAttributes readAttributes(java.nio.file.Path, java.lang.Class, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.attribute.BasicFileAttributes",
+    "genericReturnType" : "java.nio.file.attribute.BasicFileAttributes",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "readAttributes",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Map readAttributes(java.nio.file.Path, java.lang.String, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "readString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String readString(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String readString(java.nio.file.Path, java.nio.charset.Charset) throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readSymbolicLink",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path readSymbolicLink(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "link",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path setAttribute(java.nio.file.Path, java.lang.String, java.lang.Object, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attribute",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setLastModifiedTime",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path setLastModifiedTime(java.nio.file.Path, java.nio.file.attribute.FileTime) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "time",
+      "type" : "java.nio.file.attribute.FileTime",
+      "genericType" : "java.nio.file.attribute.FileTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOwner",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path setOwner(java.nio.file.Path, java.nio.file.attribute.UserPrincipal) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.nio.file.attribute.UserPrincipal",
+      "genericType" : "java.nio.file.attribute.UserPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPosixFilePermissions",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path setPosixFilePermissions(java.nio.file.Path, java.util.Set) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "perms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public static",
+    "signature" : "public static long size(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "walk",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream walk(java.nio.file.Path, int, java.nio.file.FileVisitOption...) throws java.io.IOException",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.FileVisitOption[]",
+      "genericType" : "java.nio.file.FileVisitOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "walk",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream walk(java.nio.file.Path, java.nio.file.FileVisitOption...) throws java.io.IOException",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.FileVisitOption[]",
+      "genericType" : "java.nio.file.FileVisitOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "walkFileTree",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path walkFileTree(java.nio.file.Path, java.nio.file.FileVisitor) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visitor",
+      "type" : "java.nio.file.FileVisitor",
+      "genericType" : "java.nio.file.FileVisitor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "walkFileTree",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path walkFileTree(java.nio.file.Path, java.util.Set, int, java.nio.file.FileVisitor) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visitor",
+      "type" : "java.nio.file.FileVisitor",
+      "genericType" : "java.nio.file.FileVisitor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path write(java.nio.file.Path, byte[], java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bytes",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path write(java.nio.file.Path, java.lang.Iterable, java.nio.charset.Charset, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lines",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path write(java.nio.file.Path, java.lang.Iterable, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lines",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "writeString",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path writeString(java.nio.file.Path, java.lang.CharSequence, java.nio.charset.Charset, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csq",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cs",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "writeString",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.Path writeString(java.nio.file.Path, java.lang.CharSequence, java.nio.file.OpenOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csq",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.TextAttribute",
+  "canonicalName" : "java.awt.font.TextAttribute",
+  "simpleName" : "TextAttribute",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.text.AttributedCharacterIterator$Attribute"
+}

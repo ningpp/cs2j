@@ -1,0 +1,24 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalTabbedPaneUI$TabbedPaneLayout",
+  "canonicalName" : "javax.swing.plaf.metal.MetalTabbedPaneUI.TabbedPaneLayout",
+  "simpleName" : "TabbedPaneLayout",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalTabbedPaneUI",
+  "superClass" : "javax.swing.plaf.basic.BasicTabbedPaneUI$TabbedPaneLayout",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalTabbedPaneUI$TabbedPaneLayout",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalTabbedPaneUI$TabbedPaneLayout(javax.swing.plaf.metal.MetalTabbedPaneUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.metal.MetalTabbedPaneUI",
+      "genericType" : "javax.swing.plaf.metal.MetalTabbedPaneUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

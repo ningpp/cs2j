@@ -1,0 +1,152 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net",
+  "binaryName" : "javax.net.SocketFactory",
+  "canonicalName" : "javax.net.SocketFactory",
+  "simpleName" : "SocketFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.Socket createSocket() throws java.io.IOException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.Socket createSocket(java.lang.String, int) throws java.io.IOException, java.net.UnknownHostException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.net.UnknownHostException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.Socket createSocket(java.lang.String, int, java.net.InetAddress, int) throws java.io.IOException, java.net.UnknownHostException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.net.UnknownHostException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.Socket createSocket(java.net.InetAddress, int) throws java.io.IOException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.Socket createSocket(java.net.InetAddress, int, java.net.InetAddress, int) throws java.io.IOException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.SocketFactory getDefault()",
+    "returnType" : "javax.net.SocketFactory",
+    "genericReturnType" : "javax.net.SocketFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

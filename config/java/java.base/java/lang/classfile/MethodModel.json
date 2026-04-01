@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.MethodModel",
+  "canonicalName" : "java.lang.classfile.MethodModel",
+  "simpleName" : "MethodModel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.AttributedElement", "java.lang.classfile.ClassElement", "java.lang.classfile.CompoundElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "code",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional code()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flags",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.AccessFlags flags()",
+    "returnType" : "java.lang.classfile.AccessFlags",
+    "genericReturnType" : "java.lang.classfile.AccessFlags",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry methodName()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry methodType()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodTypeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodTypeDesc methodTypeSymbol()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "parent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional parent()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

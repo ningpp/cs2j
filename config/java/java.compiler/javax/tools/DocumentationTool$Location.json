@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.DocumentationTool$Location",
+  "canonicalName" : "javax.tools.DocumentationTool.Location",
+  "simpleName" : "Location",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.tools.DocumentationTool",
+  "superClass" : "java.lang.Enum",
+  "interfaces" : [ "javax.tools.JavaFileManager$Location" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOutputLocation",
+    "modifiers" : "public",
+    "signature" : "public boolean isOutputLocation()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.DocumentationTool$Location valueOf(java.lang.String)",
+    "returnType" : "javax.tools.DocumentationTool$Location",
+    "genericReturnType" : "javax.tools.DocumentationTool$Location",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.DocumentationTool$Location[] values()",
+    "returnType" : "javax.tools.DocumentationTool$Location[]",
+    "genericReturnType" : "javax.tools.DocumentationTool$Location[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

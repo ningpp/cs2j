@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.ServerException",
+  "canonicalName" : "java.rmi.ServerException",
+  "simpleName" : "ServerException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.rmi.RemoteException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.ServerException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.ServerException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.rmi.ServerException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.ServerException(java.lang.String, java.lang.Exception)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ex",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

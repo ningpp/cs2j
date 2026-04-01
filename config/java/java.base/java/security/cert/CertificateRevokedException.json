@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertificateRevokedException",
+  "canonicalName" : "java.security.cert.CertificateRevokedException",
+  "simpleName" : "CertificateRevokedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.cert.CertificateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.CertificateRevokedException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertificateRevokedException(java.util.Date, java.security.cert.CRLReason, javax.security.auth.x500.X500Principal, java.util.Map)",
+    "parameters" : [ {
+      "name" : "revocationDate",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "java.security.cert.CRLReason",
+      "genericType" : "java.security.cert.CRLReason",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "authority",
+      "type" : "javax.security.auth.x500.X500Principal",
+      "genericType" : "javax.security.auth.x500.X500Principal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extensions",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAuthorityName",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.x500.X500Principal getAuthorityName()",
+    "returnType" : "javax.security.auth.x500.X500Principal",
+    "genericReturnType" : "javax.security.auth.x500.X500Principal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtensions",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getExtensions()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInvalidityDate",
+    "modifiers" : "public",
+    "signature" : "public java.util.Date getInvalidityDate()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRevocationDate",
+    "modifiers" : "public",
+    "signature" : "public java.util.Date getRevocationDate()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRevocationReason",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CRLReason getRevocationReason()",
+    "returnType" : "java.security.cert.CRLReason",
+    "genericReturnType" : "java.security.cert.CRLReason",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

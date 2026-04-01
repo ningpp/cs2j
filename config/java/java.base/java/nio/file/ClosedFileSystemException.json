@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.ClosedFileSystemException",
+  "canonicalName" : "java.nio.file.ClosedFileSystemException",
+  "simpleName" : "ClosedFileSystemException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.ClosedFileSystemException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.ClosedFileSystemException()",
+    "varArgs" : false
+  } ]
+}

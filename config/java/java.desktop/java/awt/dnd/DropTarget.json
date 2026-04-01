@@ -1,0 +1,389 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DropTarget",
+  "canonicalName" : "java.awt.dnd.DropTarget",
+  "simpleName" : "DropTarget",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.dnd.DropTargetListener", "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.dnd.DropTarget",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTarget() throws java.awt.HeadlessException",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.DropTarget",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTarget(java.awt.Component, int, java.awt.dnd.DropTargetListener) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dtl",
+      "type" : "java.awt.dnd.DropTargetListener",
+      "genericType" : "java.awt.dnd.DropTargetListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.DropTarget",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTarget(java.awt.Component, int, java.awt.dnd.DropTargetListener, boolean) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dtl",
+      "type" : "java.awt.dnd.DropTargetListener",
+      "genericType" : "java.awt.dnd.DropTargetListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "act",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.DropTarget",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTarget(java.awt.Component, int, java.awt.dnd.DropTargetListener, boolean, java.awt.datatransfer.FlavorMap) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dtl",
+      "type" : "java.awt.dnd.DropTargetListener",
+      "genericType" : "java.awt.dnd.DropTargetListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "act",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fm",
+      "type" : "java.awt.datatransfer.FlavorMap",
+      "genericType" : "java.awt.datatransfer.FlavorMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.DropTarget",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTarget(java.awt.Component, java.awt.dnd.DropTargetListener) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dtl",
+      "type" : "java.awt.dnd.DropTargetListener",
+      "genericType" : "java.awt.dnd.DropTargetListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addDropTargetListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addDropTargetListener(java.awt.dnd.DropTargetListener) throws java.util.TooManyListenersException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtl",
+      "type" : "java.awt.dnd.DropTargetListener",
+      "genericType" : "java.awt.dnd.DropTargetListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.util.TooManyListenersException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragEnter",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void dragEnter(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtde",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragExit",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void dragExit(java.awt.dnd.DropTargetEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dte",
+      "type" : "java.awt.dnd.DropTargetEvent",
+      "genericType" : "java.awt.dnd.DropTargetEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dragOver",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void dragOver(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtde",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "drop",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void drop(java.awt.dnd.DropTargetDropEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtde",
+      "type" : "java.awt.dnd.DropTargetDropEvent",
+      "genericType" : "java.awt.dnd.DropTargetDropEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dropActionChanged",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void dropActionChanged(java.awt.dnd.DropTargetDragEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtde",
+      "type" : "java.awt.dnd.DropTargetDragEvent",
+      "genericType" : "java.awt.dnd.DropTargetDragEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.Component getComponent()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultActions",
+    "modifiers" : "public",
+    "signature" : "public int getDefaultActions()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDropTargetContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTargetContext getDropTargetContext()",
+    "returnType" : "java.awt.dnd.DropTargetContext",
+    "genericReturnType" : "java.awt.dnd.DropTargetContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFlavorMap",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.FlavorMap getFlavorMap()",
+    "returnType" : "java.awt.datatransfer.FlavorMap",
+    "genericReturnType" : "java.awt.datatransfer.FlavorMap",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isActive",
+    "modifiers" : "public",
+    "signature" : "public boolean isActive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeDropTargetListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeDropTargetListener(java.awt.dnd.DropTargetListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dtl",
+      "type" : "java.awt.dnd.DropTargetListener",
+      "genericType" : "java.awt.dnd.DropTargetListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public",
+    "signature" : "public void removeNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setActive",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setActive(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "isActive",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setComponent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setComponent(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultActions",
+    "modifiers" : "public",
+    "signature" : "public void setDefaultActions(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFlavorMap",
+    "modifiers" : "public",
+    "signature" : "public void setFlavorMap(java.awt.datatransfer.FlavorMap)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fm",
+      "type" : "java.awt.datatransfer.FlavorMap",
+      "genericType" : "java.awt.datatransfer.FlavorMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

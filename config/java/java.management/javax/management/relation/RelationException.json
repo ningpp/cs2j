@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RelationException",
+  "canonicalName" : "javax.management.relation.RelationException",
+  "simpleName" : "RelationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.JMException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RelationException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RelationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.RelationException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RelationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

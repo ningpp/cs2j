@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.AboutHandler",
+  "canonicalName" : "java.awt.desktop.AboutHandler",
+  "simpleName" : "AboutHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "handleAbout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void handleAbout(java.awt.desktop.AboutEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.AboutEvent",
+      "genericType" : "java.awt.desktop.AboutEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

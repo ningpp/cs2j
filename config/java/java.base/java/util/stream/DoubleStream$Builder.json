@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.DoubleStream$Builder",
+  "canonicalName" : "java.util.stream.DoubleStream.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.DoubleStream",
+  "interfaces" : [ "java.util.function.DoubleConsumer" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.DoubleStream$Builder add(double)",
+    "returnType" : "java.util.stream.DoubleStream$Builder",
+    "genericReturnType" : "java.util.stream.DoubleStream$Builder",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream build()",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

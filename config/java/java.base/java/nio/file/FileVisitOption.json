@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.FileVisitOption",
+  "canonicalName" : "java.nio.file.FileVisitOption",
+  "simpleName" : "FileVisitOption",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileVisitOption valueOf(java.lang.String)",
+    "returnType" : "java.nio.file.FileVisitOption",
+    "genericReturnType" : "java.nio.file.FileVisitOption",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileVisitOption[] values()",
+    "returnType" : "java.nio.file.FileVisitOption[]",
+    "genericReturnType" : "java.nio.file.FileVisitOption[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

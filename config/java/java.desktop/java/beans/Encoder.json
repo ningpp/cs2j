@@ -1,0 +1,152 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.Encoder",
+  "canonicalName" : "java.beans.Encoder",
+  "simpleName" : "Encoder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.Encoder",
+    "modifiers" : "public",
+    "signature" : "public java.beans.Encoder()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "oldInstance",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExceptionListener",
+    "modifiers" : "public",
+    "signature" : "public java.beans.ExceptionListener getExceptionListener()",
+    "returnType" : "java.beans.ExceptionListener",
+    "genericReturnType" : "java.beans.ExceptionListener",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPersistenceDelegate",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PersistenceDelegate getPersistenceDelegate(java.lang.Class)",
+    "returnType" : "java.beans.PersistenceDelegate",
+    "genericReturnType" : "java.beans.PersistenceDelegate",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object remove(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "oldInstance",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExceptionListener",
+    "modifiers" : "public",
+    "signature" : "public void setExceptionListener(java.beans.ExceptionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "exceptionListener",
+      "type" : "java.beans.ExceptionListener",
+      "genericType" : "java.beans.ExceptionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPersistenceDelegate",
+    "modifiers" : "public",
+    "signature" : "public void setPersistenceDelegate(java.lang.Class, java.beans.PersistenceDelegate)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegate",
+      "type" : "java.beans.PersistenceDelegate",
+      "genericType" : "java.beans.PersistenceDelegate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeExpression",
+    "modifiers" : "public",
+    "signature" : "public void writeExpression(java.beans.Expression)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "oldExp",
+      "type" : "java.beans.Expression",
+      "genericType" : "java.beans.Expression",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeStatement",
+    "modifiers" : "public",
+    "signature" : "public void writeStatement(java.beans.Statement)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "oldStm",
+      "type" : "java.beans.Statement",
+      "genericType" : "java.beans.Statement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

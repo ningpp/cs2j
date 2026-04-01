@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.smartcardio",
+  "packageName" : "javax.smartcardio",
+  "binaryName" : "javax.smartcardio.TerminalFactorySpi",
+  "canonicalName" : "javax.smartcardio.TerminalFactorySpi",
+  "simpleName" : "TerminalFactorySpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object"
+}

@@ -1,0 +1,76 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.LineEvent",
+  "canonicalName" : "javax.sound.sampled.LineEvent",
+  "simpleName" : "LineEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.sampled.LineEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.LineEvent(javax.sound.sampled.Line, javax.sound.sampled.LineEvent$Type, long)",
+    "parameters" : [ {
+      "name" : "line",
+      "type" : "javax.sound.sampled.Line",
+      "genericType" : "javax.sound.sampled.Line",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.sound.sampled.LineEvent$Type",
+      "genericType" : "javax.sound.sampled.LineEvent$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "position",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFramePosition",
+    "modifiers" : "public final",
+    "signature" : "public final long getFramePosition()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLine",
+    "modifiers" : "public final",
+    "signature" : "public final javax.sound.sampled.Line getLine()",
+    "returnType" : "javax.sound.sampled.Line",
+    "genericReturnType" : "javax.sound.sampled.Line",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public final",
+    "signature" : "public final javax.sound.sampled.LineEvent$Type getType()",
+    "returnType" : "javax.sound.sampled.LineEvent$Type",
+    "genericReturnType" : "javax.sound.sampled.LineEvent$Type",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

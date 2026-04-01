@@ -1,0 +1,106 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.multi",
+  "binaryName" : "javax.swing.plaf.multi.MultiLookAndFeel",
+  "canonicalName" : "javax.swing.plaf.multi.MultiLookAndFeel",
+  "simpleName" : "MultiLookAndFeel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.LookAndFeel",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.multi.MultiLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.multi.MultiLookAndFeel()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createUIs",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ComponentUI createUIs(javax.swing.plaf.ComponentUI, java.util.Vector, javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.ComponentUI",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI",
+    "parameters" : [ {
+      "name" : "mui",
+      "type" : "javax.swing.plaf.ComponentUI",
+      "genericType" : "javax.swing.plaf.ComponentUI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "uis",
+      "type" : "java.util.Vector",
+      "genericType" : "java.util.Vector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaults",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults getDefaults()",
+    "returnType" : "javax.swing.UIDefaults",
+    "genericReturnType" : "javax.swing.UIDefaults",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNativeLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public boolean isNativeLookAndFeel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupportedLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupportedLookAndFeel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

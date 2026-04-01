@@ -1,0 +1,654 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.NumberFormat",
+  "canonicalName" : "java.text.NumberFormat",
+  "simpleName" : "NumberFormat",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.text.Format",
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String format(double)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "number",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.StringBuffer format(double, java.lang.StringBuffer, java.text.FieldPosition)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.text.FieldPosition",
+      "genericType" : "java.text.FieldPosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer format(java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "number",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toAppendTo",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "java.text.FieldPosition",
+      "genericType" : "java.text.FieldPosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String format(long)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "number",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.StringBuffer format(long, java.lang.StringBuffer, java.text.FieldPosition)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.text.FieldPosition",
+      "genericType" : "java.text.FieldPosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableLocales",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Locale[] getAvailableLocales()",
+    "returnType" : "java.util.Locale[]",
+    "genericReturnType" : "java.util.Locale[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompactNumberInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.NumberFormat getCompactNumberInstance()",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompactNumberInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.NumberFormat getCompactNumberInstance(java.util.Locale, java.text.NumberFormat$Style)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatStyle",
+      "type" : "java.text.NumberFormat$Style",
+      "genericType" : "java.text.NumberFormat$Style",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrency",
+    "modifiers" : "public",
+    "signature" : "public java.util.Currency getCurrency()",
+    "returnType" : "java.util.Currency",
+    "genericReturnType" : "java.util.Currency",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrencyInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.NumberFormat getCurrencyInstance()",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrencyInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.NumberFormat getCurrencyInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "inLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.NumberFormat getInstance()",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.NumberFormat getInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "inLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIntegerInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.NumberFormat getIntegerInstance()",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIntegerInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.NumberFormat getIntegerInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "inLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumFractionDigits",
+    "modifiers" : "public",
+    "signature" : "public int getMaximumFractionDigits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumIntegerDigits",
+    "modifiers" : "public",
+    "signature" : "public int getMaximumIntegerDigits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumFractionDigits",
+    "modifiers" : "public",
+    "signature" : "public int getMinimumFractionDigits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumIntegerDigits",
+    "modifiers" : "public",
+    "signature" : "public int getMinimumIntegerDigits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumberInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.NumberFormat getNumberInstance()",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumberInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.NumberFormat getNumberInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "inLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPercentInstance",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.text.NumberFormat getPercentInstance()",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPercentInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.NumberFormat getPercentInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "inLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoundingMode",
+    "modifiers" : "public",
+    "signature" : "public java.math.RoundingMode getRoundingMode()",
+    "returnType" : "java.math.RoundingMode",
+    "genericReturnType" : "java.math.RoundingMode",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isGroupingUsed",
+    "modifiers" : "public",
+    "signature" : "public boolean isGroupingUsed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isParseIntegerOnly",
+    "modifiers" : "public",
+    "signature" : "public boolean isParseIntegerOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStrict",
+    "modifiers" : "public",
+    "signature" : "public boolean isStrict()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Number parse(java.lang.String) throws java.text.ParseException",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number parse(java.lang.String, java.text.ParsePosition)",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.text.ParsePosition",
+      "genericType" : "java.text.ParsePosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parseObject",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object parseObject(java.lang.String, java.text.ParsePosition)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pos",
+      "type" : "java.text.ParsePosition",
+      "genericType" : "java.text.ParsePosition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrency",
+    "modifiers" : "public",
+    "signature" : "public void setCurrency(java.util.Currency)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "currency",
+      "type" : "java.util.Currency",
+      "genericType" : "java.util.Currency",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setGroupingUsed",
+    "modifiers" : "public",
+    "signature" : "public void setGroupingUsed(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximumFractionDigits",
+    "modifiers" : "public",
+    "signature" : "public void setMaximumFractionDigits(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximumIntegerDigits",
+    "modifiers" : "public",
+    "signature" : "public void setMaximumIntegerDigits(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinimumFractionDigits",
+    "modifiers" : "public",
+    "signature" : "public void setMinimumFractionDigits(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinimumIntegerDigits",
+    "modifiers" : "public",
+    "signature" : "public void setMinimumIntegerDigits(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParseIntegerOnly",
+    "modifiers" : "public",
+    "signature" : "public void setParseIntegerOnly(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRoundingMode",
+    "modifiers" : "public",
+    "signature" : "public void setRoundingMode(java.math.RoundingMode)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "roundingMode",
+      "type" : "java.math.RoundingMode",
+      "genericType" : "java.math.RoundingMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStrict",
+    "modifiers" : "public",
+    "signature" : "public void setStrict(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "strict",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

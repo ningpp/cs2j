@@ -1,0 +1,116 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels.spi",
+  "binaryName" : "java.nio.channels.spi.AbstractSelectableChannel",
+  "canonicalName" : "java.nio.channels.spi.AbstractSelectableChannel",
+  "simpleName" : "AbstractSelectableChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.channels.SelectableChannel",
+  "declaredPublicMethods" : [ {
+    "name" : "blockingLock",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object blockingLock()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "configureBlocking",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.SelectableChannel configureBlocking(boolean) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SelectableChannel",
+    "genericReturnType" : "java.nio.channels.SelectableChannel",
+    "parameters" : [ {
+      "name" : "block",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBlocking",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isBlocking()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRegistered",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isRegistered()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyFor",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.SelectionKey keyFor(java.nio.channels.Selector)",
+    "returnType" : "java.nio.channels.SelectionKey",
+    "genericReturnType" : "java.nio.channels.SelectionKey",
+    "parameters" : [ {
+      "name" : "sel",
+      "type" : "java.nio.channels.Selector",
+      "genericType" : "java.nio.channels.Selector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.spi.SelectorProvider provider()",
+    "returnType" : "java.nio.channels.spi.SelectorProvider",
+    "genericReturnType" : "java.nio.channels.spi.SelectorProvider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "register",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.SelectionKey register(java.nio.channels.Selector, int, java.lang.Object) throws java.nio.channels.ClosedChannelException",
+    "returnType" : "java.nio.channels.SelectionKey",
+    "genericReturnType" : "java.nio.channels.SelectionKey",
+    "parameters" : [ {
+      "name" : "sel",
+      "type" : "java.nio.channels.Selector",
+      "genericType" : "java.nio.channels.Selector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "att",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.nio.channels.ClosedChannelException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

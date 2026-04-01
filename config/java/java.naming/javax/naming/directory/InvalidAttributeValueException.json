@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.InvalidAttributeValueException",
+  "canonicalName" : "javax.naming.directory.InvalidAttributeValueException",
+  "simpleName" : "InvalidAttributeValueException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.InvalidAttributeValueException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InvalidAttributeValueException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.InvalidAttributeValueException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InvalidAttributeValueException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

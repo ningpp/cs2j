@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.DimensionUIResource",
+  "canonicalName" : "javax.swing.plaf.DimensionUIResource",
+  "simpleName" : "DimensionUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Dimension",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.DimensionUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.DimensionUIResource(int, int)",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

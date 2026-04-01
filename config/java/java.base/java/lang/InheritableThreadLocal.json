@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.InheritableThreadLocal",
+  "canonicalName" : "java.lang.InheritableThreadLocal",
+  "simpleName" : "InheritableThreadLocal",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ThreadLocal",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.InheritableThreadLocal",
+    "modifiers" : "public",
+    "signature" : "public java.lang.InheritableThreadLocal()",
+    "varArgs" : false
+  } ]
+}

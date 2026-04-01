@@ -1,0 +1,352 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AnnotationElement",
+  "canonicalName" : "java.lang.classfile.AnnotationElement",
+  "simpleName" : "AnnotationElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry name()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement of(java.lang.String, java.lang.classfile.AnnotationValue)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.classfile.AnnotationValue",
+      "genericType" : "java.lang.classfile.AnnotationValue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement of(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.AnnotationValue)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.classfile.AnnotationValue",
+      "genericType" : "java.lang.classfile.AnnotationValue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofAnnotation",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofAnnotation(java.lang.String, java.lang.classfile.Annotation)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.classfile.Annotation",
+      "genericType" : "java.lang.classfile.Annotation",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofArray(java.lang.String, java.lang.classfile.AnnotationValue...)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "values",
+      "type" : "java.lang.classfile.AnnotationValue[]",
+      "genericType" : "java.lang.classfile.AnnotationValue[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofBoolean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofBoolean(java.lang.String, boolean)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByte",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofByte(java.lang.String, byte)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofChar",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofChar(java.lang.String, char)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClass",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofClass(java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDouble",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofDouble(java.lang.String, double)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFloat",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofFloat(java.lang.String, float)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInt",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofInt(java.lang.String, int)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLong",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofLong(java.lang.String, long)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofShort",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofShort(java.lang.String, short)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationElement ofString(java.lang.String, java.lang.String)",
+    "returnType" : "java.lang.classfile.AnnotationElement",
+    "genericReturnType" : "java.lang.classfile.AnnotationElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.AnnotationValue value()",
+    "returnType" : "java.lang.classfile.AnnotationValue",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

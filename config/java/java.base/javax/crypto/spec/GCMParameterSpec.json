@@ -1,0 +1,81 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.GCMParameterSpec",
+  "canonicalName" : "javax.crypto.spec.GCMParameterSpec",
+  "simpleName" : "GCMParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.spec.GCMParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.GCMParameterSpec(int, byte[])",
+    "parameters" : [ {
+      "name" : "tLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.spec.GCMParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.GCMParameterSpec(int, byte[], int, int)",
+    "parameters" : [ {
+      "name" : "tLen",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getIV",
+    "modifiers" : "public",
+    "signature" : "public byte[] getIV()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTLen",
+    "modifiers" : "public",
+    "signature" : "public int getTLen()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,149 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "javax.rmi.ssl",
+  "binaryName" : "javax.rmi.ssl.SslRMIServerSocketFactory",
+  "canonicalName" : "javax.rmi.ssl.SslRMIServerSocketFactory",
+  "simpleName" : "SslRMIServerSocketFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.rmi.server.RMIServerSocketFactory" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.rmi.ssl.SslRMIServerSocketFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.rmi.ssl.SslRMIServerSocketFactory()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.rmi.ssl.SslRMIServerSocketFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.rmi.ssl.SslRMIServerSocketFactory(java.lang.String[], java.lang.String[], boolean) throws java.lang.IllegalArgumentException",
+    "parameters" : [ {
+      "name" : "enabledCipherSuites",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "enabledProtocols",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "needClientAuth",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.rmi.ssl.SslRMIServerSocketFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.rmi.ssl.SslRMIServerSocketFactory(javax.net.ssl.SSLContext, java.lang.String[], java.lang.String[], boolean) throws java.lang.IllegalArgumentException",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.net.ssl.SSLContext",
+      "genericType" : "javax.net.ssl.SSLContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "enabledCipherSuites",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "enabledProtocols",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "needClientAuth",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createServerSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.ServerSocket createServerSocket(int) throws java.io.IOException",
+    "returnType" : "java.net.ServerSocket",
+    "genericReturnType" : "java.net.ServerSocket",
+    "parameters" : [ {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledCipherSuites",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String[] getEnabledCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledProtocols",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String[] getEnabledProtocols()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNeedClientAuth",
+    "modifiers" : "public final",
+    "signature" : "public final boolean getNeedClientAuth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

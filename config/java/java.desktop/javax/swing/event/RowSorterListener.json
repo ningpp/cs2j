@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.RowSorterListener",
+  "canonicalName" : "javax.swing.event.RowSorterListener",
+  "simpleName" : "RowSorterListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "sorterChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sorterChanged(javax.swing.event.RowSorterEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.RowSorterEvent",
+      "genericType" : "javax.swing.event.RowSorterEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

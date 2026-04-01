@@ -1,0 +1,122 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.StackWalker",
+  "canonicalName" : "java.lang.StackWalker",
+  "simpleName" : "StackWalker",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "forEach",
+    "modifiers" : "public",
+    "signature" : "public void forEach(java.util.function.Consumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCallerClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getCallerClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.StackWalker getInstance()",
+    "returnType" : "java.lang.StackWalker",
+    "genericReturnType" : "java.lang.StackWalker",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.StackWalker getInstance(java.lang.StackWalker$Option)",
+    "returnType" : "java.lang.StackWalker",
+    "genericReturnType" : "java.lang.StackWalker",
+    "parameters" : [ {
+      "name" : "option",
+      "type" : "java.lang.StackWalker$Option",
+      "genericType" : "java.lang.StackWalker$Option",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.StackWalker getInstance(java.util.Set)",
+    "returnType" : "java.lang.StackWalker",
+    "genericReturnType" : "java.lang.StackWalker",
+    "parameters" : [ {
+      "name" : "options",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.StackWalker getInstance(java.util.Set, int)",
+    "returnType" : "java.lang.StackWalker",
+    "genericReturnType" : "java.lang.StackWalker",
+    "parameters" : [ {
+      "name" : "options",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "estimateDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "walk",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object walk(java.util.function.Function)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "function",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

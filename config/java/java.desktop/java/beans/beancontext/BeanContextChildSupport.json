@@ -1,0 +1,280 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextChildSupport",
+  "canonicalName" : "java.beans.beancontext.BeanContextChildSupport",
+  "simpleName" : "BeanContextChildSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.beans.beancontext.BeanContextChild", "java.beans.beancontext.BeanContextServicesListener", "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.beancontext.BeanContextChildSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextChildSupport()",
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.beancontext.BeanContextChildSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextChildSupport(java.beans.beancontext.BeanContextChild)",
+    "parameters" : [ {
+      "name" : "bcc",
+      "type" : "java.beans.beancontext.BeanContextChild",
+      "genericType" : "java.beans.beancontext.BeanContextChild",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addPropertyChangeListener(java.lang.String, java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pcl",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addVetoableChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void addVetoableChangeListener(java.lang.String, java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vcl",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firePropertyChange",
+    "modifiers" : "public",
+    "signature" : "public void firePropertyChange(java.lang.String, java.lang.Object, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fireVetoableChange",
+    "modifiers" : "public",
+    "signature" : "public void fireVetoableChange(java.lang.String, java.lang.Object, java.lang.Object) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanContext",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.beans.beancontext.BeanContext getBeanContext()",
+    "returnType" : "java.beans.beancontext.BeanContext",
+    "genericReturnType" : "java.beans.beancontext.BeanContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanContextChildPeer",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextChild getBeanContextChildPeer()",
+    "returnType" : "java.beans.beancontext.BeanContextChild",
+    "genericReturnType" : "java.beans.beancontext.BeanContextChild",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDelegated",
+    "modifiers" : "public",
+    "signature" : "public boolean isDelegated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removePropertyChangeListener(java.lang.String, java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pcl",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeVetoableChangeListener",
+    "modifiers" : "public",
+    "signature" : "public void removeVetoableChangeListener(java.lang.String, java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vcl",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "serviceAvailable",
+    "modifiers" : "public",
+    "signature" : "public void serviceAvailable(java.beans.beancontext.BeanContextServiceAvailableEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcsae",
+      "type" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+      "genericType" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "serviceRevoked",
+    "modifiers" : "public",
+    "signature" : "public void serviceRevoked(java.beans.beancontext.BeanContextServiceRevokedEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcsre",
+      "type" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "genericType" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBeanContext",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setBeanContext(java.beans.beancontext.BeanContext) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bc",
+      "type" : "java.beans.beancontext.BeanContext",
+      "genericType" : "java.beans.beancontext.BeanContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validatePendingSetBeanContext",
+    "modifiers" : "public",
+    "signature" : "public boolean validatePendingSetBeanContext(java.beans.beancontext.BeanContext)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "java.beans.beancontext.BeanContext",
+      "genericType" : "java.beans.beancontext.BeanContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,1130 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.StringBuffer",
+  "canonicalName" : "java.lang.StringBuffer",
+  "simpleName" : "StringBuffer",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.AbstractStringBuilder",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Appendable", "java.lang.CharSequence", "java.lang.Comparable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.StringBuffer",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.StringBuffer",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer(int)",
+    "parameters" : [ {
+      "name" : "capacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.StringBuffer",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer(java.lang.CharSequence)",
+    "parameters" : [ {
+      "name" : "seq",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.StringBuffer",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer(java.lang.String)",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(boolean)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(char)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(char[])",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(char[], int, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(double)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(float)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(java.lang.CharSequence)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(java.lang.CharSequence, int, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(java.lang.Object)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(java.lang.String)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(java.lang.StringBuffer)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "sb",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer append(long)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "lng",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appendCodePoint",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer appendCodePoint(int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "codePoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "capacity",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int capacity()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "charAt",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized char charAt(int)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "codePointAt",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int codePointAt(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "codePointBefore",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int codePointBefore(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "codePointCount",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int codePointCount(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int compareTo(java.lang.StringBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "another",
+      "type" : "java.lang.StringBuffer",
+      "genericType" : "java.lang.StringBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "delete",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer delete(int, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteCharAt",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer deleteCharAt(int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ensureCapacity",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void ensureCapacity(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "minimumCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChars",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void getChars(int, int, char[], int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "srcBegin",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstBegin",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "indexOf",
+    "modifiers" : "public",
+    "signature" : "public int indexOf(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "indexOf",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int indexOf(java.lang.String, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fromIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer insert(int, boolean)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer insert(int, char)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer insert(int, char[])",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "str",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer insert(int, char[], int, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "str",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer insert(int, double)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "d",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer insert(int, float)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer insert(int, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer insert(int, java.lang.CharSequence)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "dstOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer insert(int, java.lang.CharSequence, int, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "dstOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer insert(int, java.lang.Object)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer insert(int, java.lang.String)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringBuffer insert(int, long)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastIndexOf",
+    "modifiers" : "public",
+    "signature" : "public int lastIndexOf(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastIndexOf",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int lastIndexOf(java.lang.String, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fromIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int length()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offsetByCodePoints",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int offsetByCodePoints(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "codePointOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "repeat",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer repeat(int, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "codePoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "repeat",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer repeat(java.lang.CharSequence, int)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "cs",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replace",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer replace(int, int, java.lang.String)",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reverse",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.StringBuffer reverse()",
+    "returnType" : "java.lang.StringBuffer",
+    "genericReturnType" : "java.lang.StringBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharAt",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setCharAt(int, char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ch",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLength",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setLength(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subSequence",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.CharSequence subSequence(int, int)",
+    "returnType" : "java.lang.CharSequence",
+    "genericReturnType" : "java.lang.CharSequence",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "substring",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String substring(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "substring",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String substring(int, int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "trimToSize",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void trimToSize()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

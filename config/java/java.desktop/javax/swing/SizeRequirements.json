@@ -1,0 +1,291 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.SizeRequirements",
+  "canonicalName" : "javax.swing.SizeRequirements",
+  "simpleName" : "SizeRequirements",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.SizeRequirements",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SizeRequirements()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.SizeRequirements",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SizeRequirements(int, int, int, float)",
+    "parameters" : [ {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "adjustSizes",
+    "modifiers" : "public static",
+    "signature" : "public static int[] adjustSizes(int, javax.swing.SizeRequirements[])",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "delta",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "children",
+      "type" : "javax.swing.SizeRequirements[]",
+      "genericType" : "javax.swing.SizeRequirements[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "calculateAlignedPositions",
+    "modifiers" : "public static",
+    "signature" : "public static void calculateAlignedPositions(int, javax.swing.SizeRequirements, javax.swing.SizeRequirements[], int[], int[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "allocated",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "total",
+      "type" : "javax.swing.SizeRequirements",
+      "genericType" : "javax.swing.SizeRequirements",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "children",
+      "type" : "javax.swing.SizeRequirements[]",
+      "genericType" : "javax.swing.SizeRequirements[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spans",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "calculateAlignedPositions",
+    "modifiers" : "public static",
+    "signature" : "public static void calculateAlignedPositions(int, javax.swing.SizeRequirements, javax.swing.SizeRequirements[], int[], int[], boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "allocated",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "total",
+      "type" : "javax.swing.SizeRequirements",
+      "genericType" : "javax.swing.SizeRequirements",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "children",
+      "type" : "javax.swing.SizeRequirements[]",
+      "genericType" : "javax.swing.SizeRequirements[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spans",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "normal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "calculateTiledPositions",
+    "modifiers" : "public static",
+    "signature" : "public static void calculateTiledPositions(int, javax.swing.SizeRequirements, javax.swing.SizeRequirements[], int[], int[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "allocated",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "total",
+      "type" : "javax.swing.SizeRequirements",
+      "genericType" : "javax.swing.SizeRequirements",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "children",
+      "type" : "javax.swing.SizeRequirements[]",
+      "genericType" : "javax.swing.SizeRequirements[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spans",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "calculateTiledPositions",
+    "modifiers" : "public static",
+    "signature" : "public static void calculateTiledPositions(int, javax.swing.SizeRequirements, javax.swing.SizeRequirements[], int[], int[], boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "allocated",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "total",
+      "type" : "javax.swing.SizeRequirements",
+      "genericType" : "javax.swing.SizeRequirements",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "children",
+      "type" : "javax.swing.SizeRequirements[]",
+      "genericType" : "javax.swing.SizeRequirements[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spans",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "forward",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlignedSizeRequirements",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.SizeRequirements getAlignedSizeRequirements(javax.swing.SizeRequirements[])",
+    "returnType" : "javax.swing.SizeRequirements",
+    "genericReturnType" : "javax.swing.SizeRequirements",
+    "parameters" : [ {
+      "name" : "children",
+      "type" : "javax.swing.SizeRequirements[]",
+      "genericType" : "javax.swing.SizeRequirements[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTiledSizeRequirements",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.SizeRequirements getTiledSizeRequirements(javax.swing.SizeRequirements[])",
+    "returnType" : "javax.swing.SizeRequirements",
+    "genericReturnType" : "javax.swing.SizeRequirements",
+    "parameters" : [ {
+      "name" : "children",
+      "type" : "javax.swing.SizeRequirements[]",
+      "genericType" : "javax.swing.SizeRequirements[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

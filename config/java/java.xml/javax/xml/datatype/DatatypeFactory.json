@@ -1,0 +1,718 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.datatype",
+  "binaryName" : "javax.xml.datatype.DatatypeFactory",
+  "canonicalName" : "javax.xml.datatype.DatatypeFactory",
+  "simpleName" : "DatatypeFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "newDefaultInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.datatype.DatatypeFactory newDefaultInstance()",
+    "returnType" : "javax.xml.datatype.DatatypeFactory",
+    "genericReturnType" : "javax.xml.datatype.DatatypeFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDuration",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDuration(boolean, int, int, int, int, int, int)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "isPositive",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "years",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "months",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "days",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hours",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minutes",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "seconds",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDuration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.Duration newDuration(boolean, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigDecimal)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg6",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDuration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.Duration newDuration(java.lang.String)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDuration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.Duration newDuration(long)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationDayTime",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationDayTime(boolean, int, int, int, int)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "isPositive",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "day",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hour",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationDayTime",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationDayTime(boolean, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "isPositive",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "day",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hour",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationDayTime",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationDayTime(java.lang.String)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "lexicalRepresentation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationDayTime",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationDayTime(long)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "durationInMilliseconds",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationYearMonth",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationYearMonth(boolean, int, int)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "isPositive",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationYearMonth",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationYearMonth(boolean, java.math.BigInteger, java.math.BigInteger)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "isPositive",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "year",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationYearMonth",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationYearMonth(java.lang.String)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "lexicalRepresentation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDurationYearMonth",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.Duration newDurationYearMonth(long)",
+    "returnType" : "javax.xml.datatype.Duration",
+    "genericReturnType" : "javax.xml.datatype.Duration",
+    "parameters" : [ {
+      "name" : "durationInMilliseconds",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.datatype.DatatypeFactory newInstance() throws javax.xml.datatype.DatatypeConfigurationException",
+    "returnType" : "javax.xml.datatype.DatatypeFactory",
+    "genericReturnType" : "javax.xml.datatype.DatatypeFactory",
+    "exceptions" : [ "javax.xml.datatype.DatatypeConfigurationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.datatype.DatatypeFactory newInstance(java.lang.String, java.lang.ClassLoader) throws javax.xml.datatype.DatatypeConfigurationException",
+    "returnType" : "javax.xml.datatype.DatatypeFactory",
+    "genericReturnType" : "javax.xml.datatype.DatatypeFactory",
+    "parameters" : [ {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.datatype.DatatypeConfigurationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendar()",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendar",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendar(int, int, int, int, int, int, int, int)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "day",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hour",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "millisecond",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timezone",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendar(java.lang.String)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendar(java.math.BigInteger, int, int, int, int, int, java.math.BigDecimal, int)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg6",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg7",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendar(java.util.GregorianCalendar)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.GregorianCalendar",
+      "genericType" : "java.util.GregorianCalendar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendarDate",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendarDate(int, int, int, int)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "day",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timezone",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendarTime",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendarTime(int, int, int, int)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "hours",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minutes",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "seconds",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timezone",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendarTime",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendarTime(int, int, int, int, int)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "hours",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minutes",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "seconds",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "milliseconds",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timezone",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLGregorianCalendarTime",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.datatype.XMLGregorianCalendar newXMLGregorianCalendarTime(int, int, int, java.math.BigDecimal, int)",
+    "returnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "genericReturnType" : "javax.xml.datatype.XMLGregorianCalendar",
+    "parameters" : [ {
+      "name" : "hours",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minutes",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "seconds",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fractionalSecond",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timezone",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

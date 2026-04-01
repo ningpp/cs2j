@@ -1,0 +1,105 @@
+{
+  "moduleName" : "java.security.sasl",
+  "packageName" : "javax.security.sasl",
+  "binaryName" : "javax.security.sasl.AuthorizeCallback",
+  "canonicalName" : "javax.security.sasl.AuthorizeCallback",
+  "simpleName" : "AuthorizeCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.security.auth.callback.Callback" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.sasl.AuthorizeCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.sasl.AuthorizeCallback(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "authnID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "authzID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAuthenticationID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAuthenticationID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAuthorizationID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAuthorizationID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAuthorizedID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAuthorizedID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAuthorized",
+    "modifiers" : "public",
+    "signature" : "public boolean isAuthorized()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAuthorized",
+    "modifiers" : "public",
+    "signature" : "public void setAuthorized(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ok",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAuthorizedID",
+    "modifiers" : "public",
+    "signature" : "public void setAuthorizedID(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

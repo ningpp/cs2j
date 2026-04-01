@@ -1,0 +1,157 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.UnresolvedPermission",
+  "canonicalName" : "java.security.UnresolvedPermission",
+  "simpleName" : "UnresolvedPermission",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.Permission",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.UnresolvedPermission",
+    "modifiers" : "public",
+    "signature" : "public java.security.UnresolvedPermission(java.lang.String, java.lang.String, java.lang.String, java.security.cert.Certificate[])",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "certs",
+      "type" : "java.security.cert.Certificate[]",
+      "genericType" : "java.security.cert.Certificate[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getActions",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getActions()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnresolvedActions",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUnresolvedActions()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnresolvedCerts",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.Certificate[] getUnresolvedCerts()",
+    "returnType" : "java.security.cert.Certificate[]",
+    "genericReturnType" : "java.security.cert.Certificate[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnresolvedName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUnresolvedName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnresolvedType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUnresolvedType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "implies",
+    "modifiers" : "public",
+    "signature" : "public boolean implies(java.security.Permission)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPermissionCollection",
+    "modifiers" : "public",
+    "signature" : "public java.security.PermissionCollection newPermissionCollection()",
+    "returnType" : "java.security.PermissionCollection",
+    "genericReturnType" : "java.security.PermissionCollection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Stroke",
+  "canonicalName" : "java.awt.Stroke",
+  "simpleName" : "Stroke",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createStrokedShape",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Shape createStrokedShape(java.awt.Shape)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

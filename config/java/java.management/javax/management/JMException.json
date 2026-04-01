@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.JMException",
+  "canonicalName" : "javax.management.JMException",
+  "simpleName" : "JMException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.JMException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.JMException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.JMException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.JMException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

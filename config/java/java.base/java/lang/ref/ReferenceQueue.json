@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.ref",
+  "binaryName" : "java.lang.ref.ReferenceQueue",
+  "canonicalName" : "java.lang.ref.ReferenceQueue",
+  "simpleName" : "ReferenceQueue",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ref.ReferenceQueue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ref.ReferenceQueue()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "poll",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ref.Reference poll()",
+    "returnType" : "java.lang.ref.Reference",
+    "genericReturnType" : "java.lang.ref.Reference",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ref.Reference remove() throws java.lang.InterruptedException",
+    "returnType" : "java.lang.ref.Reference",
+    "genericReturnType" : "java.lang.ref.Reference",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ref.Reference remove(long) throws java.lang.InterruptedException",
+    "returnType" : "java.lang.ref.Reference",
+    "genericReturnType" : "java.lang.ref.Reference",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

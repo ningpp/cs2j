@@ -1,0 +1,138 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.OpenMBeanOperationInfoSupport",
+  "canonicalName" : "javax.management.openmbean.OpenMBeanOperationInfoSupport",
+  "simpleName" : "OpenMBeanOperationInfoSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.MBeanOperationInfo",
+  "interfaces" : [ "javax.management.openmbean.OpenMBeanOperationInfo" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.OpenMBeanOperationInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanOperationInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenMBeanParameterInfo[], javax.management.openmbean.OpenType, int)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signature",
+      "type" : "javax.management.openmbean.OpenMBeanParameterInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanParameterInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "returnOpenType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "impact",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.OpenMBeanOperationInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanOperationInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenMBeanParameterInfo[], javax.management.openmbean.OpenType, int, javax.management.Descriptor)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signature",
+      "type" : "javax.management.openmbean.OpenMBeanParameterInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanParameterInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "returnOpenType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "impact",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReturnOpenType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenType getReturnOpenType()",
+    "returnType" : "javax.management.openmbean.OpenType",
+    "genericReturnType" : "javax.management.openmbean.OpenType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

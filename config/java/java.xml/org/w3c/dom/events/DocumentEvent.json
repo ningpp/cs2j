@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.events",
+  "binaryName" : "org.w3c.dom.events.DocumentEvent",
+  "canonicalName" : "org.w3c.dom.events.DocumentEvent",
+  "simpleName" : "DocumentEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createEvent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.events.Event createEvent(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.events.Event",
+    "genericReturnType" : "org.w3c.dom.events.Event",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

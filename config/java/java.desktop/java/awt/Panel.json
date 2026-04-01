@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Panel",
+  "canonicalName" : "java.awt.Panel",
+  "simpleName" : "Panel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Container",
+  "interfaces" : [ "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.Panel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Panel()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Panel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Panel(java.awt.LayoutManager)",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.awt.LayoutManager",
+      "genericType" : "java.awt.LayoutManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

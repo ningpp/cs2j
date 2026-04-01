@@ -1,0 +1,212 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.InputMethodEvent",
+  "canonicalName" : "java.awt.event.InputMethodEvent",
+  "simpleName" : "InputMethodEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.AWTEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.event.InputMethodEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InputMethodEvent(java.awt.Component, int, java.awt.font.TextHitInfo, java.awt.font.TextHitInfo)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "caret",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visiblePosition",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.InputMethodEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InputMethodEvent(java.awt.Component, int, java.text.AttributedCharacterIterator, int, java.awt.font.TextHitInfo, java.awt.font.TextHitInfo)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "committedCharacterCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "caret",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visiblePosition",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.InputMethodEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InputMethodEvent(java.awt.Component, int, long, java.text.AttributedCharacterIterator, int, java.awt.font.TextHitInfo, java.awt.font.TextHitInfo)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "when",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "committedCharacterCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "caret",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visiblePosition",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "consume",
+    "modifiers" : "public",
+    "signature" : "public void consume()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaret",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getCaret()",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCommittedCharacterCount",
+    "modifiers" : "public",
+    "signature" : "public int getCommittedCharacterCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getText",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedCharacterIterator getText()",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisiblePosition",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getVisiblePosition()",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWhen",
+    "modifiers" : "public",
+    "signature" : "public long getWhen()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConsumed",
+    "modifiers" : "public",
+    "signature" : "public boolean isConsumed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

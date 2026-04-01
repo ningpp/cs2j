@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.UnknownHostException",
+  "canonicalName" : "java.net.UnknownHostException",
+  "simpleName" : "UnknownHostException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.UnknownHostException",
+    "modifiers" : "public",
+    "signature" : "public java.net.UnknownHostException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.UnknownHostException",
+    "modifiers" : "public",
+    "signature" : "public java.net.UnknownHostException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

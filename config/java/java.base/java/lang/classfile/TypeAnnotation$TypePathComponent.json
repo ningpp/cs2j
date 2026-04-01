@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$TypePathComponent",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.TypePathComponent",
+  "simpleName" : "TypePathComponent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypePathComponent of(java.lang.classfile.TypeAnnotation$TypePathComponent$Kind, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent",
+    "parameters" : [ {
+      "name" : "typePathKind",
+      "type" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeArgumentIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeArgumentIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int typeArgumentIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typePathKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeAnnotation$TypePathComponent$Kind typePathKind()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

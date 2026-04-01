@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.StringJoiner",
+  "canonicalName" : "java.util.StringJoiner",
+  "simpleName" : "StringJoiner",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.StringJoiner",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringJoiner(java.lang.CharSequence)",
+    "parameters" : [ {
+      "name" : "delimiter",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.StringJoiner",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringJoiner(java.lang.CharSequence, java.lang.CharSequence, java.lang.CharSequence)",
+    "parameters" : [ {
+      "name" : "delimiter",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prefix",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "suffix",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringJoiner add(java.lang.CharSequence)",
+    "returnType" : "java.util.StringJoiner",
+    "genericReturnType" : "java.util.StringJoiner",
+    "parameters" : [ {
+      "name" : "newElement",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public",
+    "signature" : "public int length()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "merge",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringJoiner merge(java.util.StringJoiner)",
+    "returnType" : "java.util.StringJoiner",
+    "genericReturnType" : "java.util.StringJoiner",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.StringJoiner",
+      "genericType" : "java.util.StringJoiner",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEmptyValue",
+    "modifiers" : "public",
+    "signature" : "public java.util.StringJoiner setEmptyValue(java.lang.CharSequence)",
+    "returnType" : "java.util.StringJoiner",
+    "genericReturnType" : "java.util.StringJoiner",
+    "parameters" : [ {
+      "name" : "emptyValue",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

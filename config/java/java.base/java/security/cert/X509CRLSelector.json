@@ -1,0 +1,271 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.X509CRLSelector",
+  "canonicalName" : "java.security.cert.X509CRLSelector",
+  "simpleName" : "X509CRLSelector",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.cert.CRLSelector" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.X509CRLSelector",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.X509CRLSelector()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addIssuer",
+    "modifiers" : "public",
+    "signature" : "public void addIssuer(javax.security.auth.x500.X500Principal)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "issuer",
+      "type" : "javax.security.auth.x500.X500Principal",
+      "genericType" : "javax.security.auth.x500.X500Principal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addIssuerName",
+    "modifiers" : "public",
+    "signature" : "public void addIssuerName(byte[]) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addIssuerName",
+    "modifiers" : "public",
+    "signature" : "public void addIssuerName(java.lang.String) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCertificateChecking",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.X509Certificate getCertificateChecking()",
+    "returnType" : "java.security.cert.X509Certificate",
+    "genericReturnType" : "java.security.cert.X509Certificate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDateAndTime",
+    "modifiers" : "public",
+    "signature" : "public java.util.Date getDateAndTime()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIssuerNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Collection getIssuerNames()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIssuers",
+    "modifiers" : "public",
+    "signature" : "public java.util.Collection getIssuers()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxCRL",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getMaxCRL()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinCRL",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getMinCRL()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "match",
+    "modifiers" : "public",
+    "signature" : "public boolean match(java.security.cert.CRL)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "crl",
+      "type" : "java.security.cert.CRL",
+      "genericType" : "java.security.cert.CRL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCertificateChecking",
+    "modifiers" : "public",
+    "signature" : "public void setCertificateChecking(java.security.cert.X509Certificate)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cert",
+      "type" : "java.security.cert.X509Certificate",
+      "genericType" : "java.security.cert.X509Certificate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDateAndTime",
+    "modifiers" : "public",
+    "signature" : "public void setDateAndTime(java.util.Date)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dateAndTime",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIssuerNames",
+    "modifiers" : "public",
+    "signature" : "public void setIssuerNames(java.util.Collection) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "names",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIssuers",
+    "modifiers" : "public",
+    "signature" : "public void setIssuers(java.util.Collection)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "issuers",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaxCRLNumber",
+    "modifiers" : "public",
+    "signature" : "public void setMaxCRLNumber(java.math.BigInteger)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maxCRL",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinCRLNumber",
+    "modifiers" : "public",
+    "signature" : "public void setMinCRLNumber(java.math.BigInteger)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "minCRL",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

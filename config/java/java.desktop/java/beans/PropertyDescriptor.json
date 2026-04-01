@@ -1,0 +1,278 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.PropertyDescriptor",
+  "canonicalName" : "java.beans.PropertyDescriptor",
+  "simpleName" : "PropertyDescriptor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.FeatureDescriptor",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.PropertyDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyDescriptor(java.lang.String, java.lang.Class) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.PropertyDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyDescriptor(java.lang.String, java.lang.Class, java.lang.String, java.lang.String) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "readMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "writeMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.PropertyDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyDescriptor(java.lang.String, java.lang.reflect.Method, java.lang.reflect.Method) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "readMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "writeMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createPropertyEditor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyEditor createPropertyEditor(java.lang.Object)",
+    "returnType" : "java.beans.PropertyEditor",
+    "genericReturnType" : "java.beans.PropertyEditor",
+    "parameters" : [ {
+      "name" : "bean",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyEditorClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getPropertyEditorClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyType",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Class getPropertyType()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReadMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.reflect.Method getReadMethod()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWriteMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.reflect.Method getWriteMethod()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBound",
+    "modifiers" : "public",
+    "signature" : "public boolean isBound()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConstrained",
+    "modifiers" : "public",
+    "signature" : "public boolean isConstrained()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBound",
+    "modifiers" : "public",
+    "signature" : "public void setBound(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bound",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setConstrained",
+    "modifiers" : "public",
+    "signature" : "public void setConstrained(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "constrained",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPropertyEditorClass",
+    "modifiers" : "public",
+    "signature" : "public void setPropertyEditorClass(java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "propertyEditorClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setReadMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setReadMethod(java.lang.reflect.Method) throws java.beans.IntrospectionException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "readMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWriteMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setWriteMethod(java.lang.reflect.Method) throws java.beans.IntrospectionException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "writeMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.NotSerializableException",
+  "canonicalName" : "java.io.NotSerializableException",
+  "simpleName" : "NotSerializableException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.ObjectStreamException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.NotSerializableException",
+    "modifiers" : "public",
+    "signature" : "public java.io.NotSerializableException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.NotSerializableException",
+    "modifiers" : "public",
+    "signature" : "public java.io.NotSerializableException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "classname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

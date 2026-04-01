@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.NoSuchAttributeException",
+  "canonicalName" : "javax.naming.directory.NoSuchAttributeException",
+  "simpleName" : "NoSuchAttributeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.NoSuchAttributeException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.NoSuchAttributeException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.NoSuchAttributeException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.NoSuchAttributeException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.applet",
+  "binaryName" : "java.applet.AudioClip",
+  "canonicalName" : "java.applet.AudioClip",
+  "simpleName" : "AudioClip",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "loop",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void loop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "play",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void play()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void stop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,153 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image.renderable",
+  "binaryName" : "java.awt.image.renderable.RenderableImage",
+  "canonicalName" : "java.awt.image.renderable.RenderableImage",
+  "simpleName" : "RenderableImage",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createDefaultRendering",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.RenderedImage createDefaultRendering()",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createRendering",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.RenderedImage createRendering(java.awt.image.renderable.RenderContext)",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.renderable.RenderContext",
+      "genericType" : "java.awt.image.renderable.RenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createScaledRendering",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.RenderedImage createScaledRendering(int, int, java.awt.RenderingHints)",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getHeight()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinX",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getMinX()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinY",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getMinY()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getProperty(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getPropertyNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSources",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Vector getSources()",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getWidth()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDynamic",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDynamic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,138 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled.spi",
+  "binaryName" : "javax.sound.sampled.spi.AudioFileWriter",
+  "canonicalName" : "javax.sound.sampled.spi.AudioFileWriter",
+  "simpleName" : "AudioFileWriter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAudioFileTypes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFileFormat$Type[] getAudioFileTypes()",
+    "returnType" : "javax.sound.sampled.AudioFileFormat$Type[]",
+    "genericReturnType" : "javax.sound.sampled.AudioFileFormat$Type[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAudioFileTypes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFileFormat$Type[] getAudioFileTypes(javax.sound.sampled.AudioInputStream)",
+    "returnType" : "javax.sound.sampled.AudioFileFormat$Type[]",
+    "genericReturnType" : "javax.sound.sampled.AudioFileFormat$Type[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.AudioInputStream",
+      "genericType" : "javax.sound.sampled.AudioInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFileTypeSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isFileTypeSupported(javax.sound.sampled.AudioFileFormat$Type)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "fileType",
+      "type" : "javax.sound.sampled.AudioFileFormat$Type",
+      "genericType" : "javax.sound.sampled.AudioFileFormat$Type",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFileTypeSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isFileTypeSupported(javax.sound.sampled.AudioFileFormat$Type, javax.sound.sampled.AudioInputStream)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "fileType",
+      "type" : "javax.sound.sampled.AudioFileFormat$Type",
+      "genericType" : "javax.sound.sampled.AudioFileFormat$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stream",
+      "type" : "javax.sound.sampled.AudioInputStream",
+      "genericType" : "javax.sound.sampled.AudioInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int write(javax.sound.sampled.AudioInputStream, javax.sound.sampled.AudioFileFormat$Type, java.io.File) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.AudioInputStream",
+      "genericType" : "javax.sound.sampled.AudioInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.sound.sampled.AudioFileFormat$Type",
+      "genericType" : "javax.sound.sampled.AudioFileFormat$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int write(javax.sound.sampled.AudioInputStream, javax.sound.sampled.AudioFileFormat$Type, java.io.OutputStream) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.AudioInputStream",
+      "genericType" : "javax.sound.sampled.AudioInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.sound.sampled.AudioFileFormat$Type",
+      "genericType" : "javax.sound.sampled.AudioFileFormat$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

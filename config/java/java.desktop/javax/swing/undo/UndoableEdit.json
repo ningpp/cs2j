@@ -1,0 +1,136 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.undo",
+  "binaryName" : "javax.swing.undo.UndoableEdit",
+  "canonicalName" : "javax.swing.undo.UndoableEdit",
+  "simpleName" : "UndoableEdit",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addEdit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean addEdit(javax.swing.undo.UndoableEdit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.undo.UndoableEdit",
+      "genericType" : "javax.swing.undo.UndoableEdit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canRedo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean canRedo()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canUndo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean canUndo()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "die",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void die()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPresentationName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getPresentationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRedoPresentationName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getRedoPresentationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUndoPresentationName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getUndoPresentationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSignificant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSignificant()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void redo() throws javax.swing.undo.CannotRedoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotRedoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceEdit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean replaceEdit(javax.swing.undo.UndoableEdit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.undo.UndoableEdit",
+      "genericType" : "javax.swing.undo.UndoableEdit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void undo() throws javax.swing.undo.CannotUndoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotUndoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

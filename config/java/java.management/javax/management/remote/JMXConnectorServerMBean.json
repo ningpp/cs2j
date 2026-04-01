@@ -1,0 +1,107 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.JMXConnectorServerMBean",
+  "canonicalName" : "javax.management.remote.JMXConnectorServerMBean",
+  "simpleName" : "JMXConnectorServerMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAddress",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.remote.JMXServiceURL getAddress()",
+    "returnType" : "javax.management.remote.JMXServiceURL",
+    "genericReturnType" : "javax.management.remote.JMXServiceURL",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getAttributes()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnectionIds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getConnectionIds()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isActive",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isActive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServerForwarder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMBeanServerForwarder(javax.management.remote.MBeanServerForwarder)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.remote.MBeanServerForwarder",
+      "genericType" : "javax.management.remote.MBeanServerForwarder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void start() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void stop() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toJMXConnector",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.remote.JMXConnector toJMXConnector(java.util.Map) throws java.io.IOException",
+    "returnType" : "javax.management.remote.JMXConnector",
+    "genericReturnType" : "javax.management.remote.JMXConnector",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

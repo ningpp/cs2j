@@ -1,0 +1,227 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.monitor",
+  "binaryName" : "javax.management.monitor.GaugeMonitor",
+  "canonicalName" : "javax.management.monitor.GaugeMonitor",
+  "simpleName" : "GaugeMonitor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.monitor.Monitor",
+  "interfaces" : [ "javax.management.monitor.GaugeMonitorMBean" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.monitor.GaugeMonitor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.monitor.GaugeMonitor()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Number getDerivedGauge()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Number getDerivedGauge(javax.management.ObjectName)",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized long getDerivedGaugeTimeStamp()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized long getDerivedGaugeTimeStamp(javax.management.ObjectName)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDifferenceMode",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean getDifferenceMode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHighThreshold",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Number getHighThreshold()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLowThreshold",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Number getLowThreshold()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanNotificationInfo[] getNotificationInfo()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifyHigh",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean getNotifyHigh()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifyLow",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean getNotifyLow()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDifferenceMode",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setDifferenceMode(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNotifyHigh",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setNotifyHigh(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNotifyLow",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setNotifyLow(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setThresholds",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setThresholds(java.lang.Number, java.lang.Number) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "highValue",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lowValue",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void start()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void stop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,2549 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.DatabaseMetaData",
+  "canonicalName" : "java.sql.DatabaseMetaData",
+  "simpleName" : "DatabaseMetaData",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.sql.Wrapper" ],
+  "declaredPublicMethods" : [ {
+    "name" : "allProceduresAreCallable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean allProceduresAreCallable() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "allTablesAreSelectable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean allTablesAreSelectable() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "autoCommitFailureClosesAllResultSets",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean autoCommitFailureClosesAllResultSets() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dataDefinitionCausesTransactionCommit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean dataDefinitionCausesTransactionCommit() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dataDefinitionIgnoredInTransactions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean dataDefinitionIgnoredInTransactions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deletesAreDetected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean deletesAreDetected(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doesMaxRowSizeIncludeBlobs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean doesMaxRowSizeIncludeBlobs() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "generatedKeyAlwaysReturned",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean generatedKeyAlwaysReturned() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getAttributes(java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBestRowIdentifier",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getBestRowIdentifier(java.lang.String, java.lang.String, java.lang.String, int, boolean) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCatalogSeparator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getCatalogSeparator() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCatalogTerm",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getCatalogTerm() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCatalogs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getCatalogs() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClientInfoProperties",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getClientInfoProperties() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnPrivileges",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getColumnPrivileges(java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.Connection getConnection() throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCrossReference",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getCrossReference(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDatabaseMajorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDatabaseMajorVersion() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDatabaseMinorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDatabaseMinorVersion() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDatabaseProductName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDatabaseProductName() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDatabaseProductVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDatabaseProductVersion() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultTransactionIsolation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDefaultTransactionIsolation() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDriverMajorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDriverMajorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDriverMinorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDriverMinorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDriverName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDriverName() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDriverVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDriverVersion() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExportedKeys",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getExportedKeys(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtraNameCharacters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getExtraNameCharacters() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFunctionColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getFunctionColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFunctions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getFunctions(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIdentifierQuoteString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getIdentifierQuoteString() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImportedKeys",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getImportedKeys(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndexInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getIndexInfo(java.lang.String, java.lang.String, java.lang.String, boolean, boolean) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJDBCMajorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getJDBCMajorVersion() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJDBCMinorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getJDBCMinorVersion() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxBinaryLiteralLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxBinaryLiteralLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxCatalogNameLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxCatalogNameLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxCharLiteralLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxCharLiteralLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxColumnNameLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxColumnNameLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxColumnsInGroupBy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxColumnsInGroupBy() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxColumnsInIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxColumnsInIndex() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxColumnsInOrderBy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxColumnsInOrderBy() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxColumnsInSelect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxColumnsInSelect() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxColumnsInTable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxColumnsInTable() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxConnections",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxConnections() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxCursorNameLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxCursorNameLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxIndexLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxIndexLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxLogicalLobSize",
+    "modifiers" : "public",
+    "signature" : "public long getMaxLogicalLobSize() throws java.sql.SQLException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxProcedureNameLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxProcedureNameLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxRowSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxRowSize() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxSchemaNameLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxSchemaNameLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxStatementLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxStatementLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxStatements",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxStatements() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxTableNameLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxTableNameLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxTablesInSelect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxTablesInSelect() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxUserNameLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxUserNameLength() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumericFunctions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getNumericFunctions() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimaryKeys",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getPrimaryKeys(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProcedureColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getProcedureColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProcedureTerm",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getProcedureTerm() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProcedures",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getProcedures(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPseudoColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getPseudoColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResultSetHoldability",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getResultSetHoldability() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowIdLifetime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.RowIdLifetime getRowIdLifetime() throws java.sql.SQLException",
+    "returnType" : "java.sql.RowIdLifetime",
+    "genericReturnType" : "java.sql.RowIdLifetime",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSQLKeywords",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSQLKeywords() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSQLStateType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getSQLStateType() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchemaTerm",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSchemaTerm() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchemas",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getSchemas() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchemas",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getSchemas(java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSearchStringEscape",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSearchStringEscape() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringFunctions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getStringFunctions() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSuperTables",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getSuperTables(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSuperTypes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getSuperTypes(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemFunctions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSystemFunctions() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTablePrivileges",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getTablePrivileges(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTableTypes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getTableTypes() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTables",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getTables(java.lang.String, java.lang.String, java.lang.String, java.lang.String[]) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeDateFunctions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getTimeDateFunctions() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getTypeInfo() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUDTs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getUDTs(java.lang.String, java.lang.String, java.lang.String, int[]) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURL",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getURL() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getUserName() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersionColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getVersionColumns(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertsAreDetected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean insertsAreDetected(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCatalogAtStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCatalogAtStart() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadOnly",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isReadOnly() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "locatorsUpdateCopy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean locatorsUpdateCopy() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nullPlusNonNullIsNull",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean nullPlusNonNullIsNull() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nullsAreSortedAtEnd",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean nullsAreSortedAtEnd() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nullsAreSortedAtStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean nullsAreSortedAtStart() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nullsAreSortedHigh",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean nullsAreSortedHigh() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nullsAreSortedLow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean nullsAreSortedLow() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "othersDeletesAreVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean othersDeletesAreVisible(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "othersInsertsAreVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean othersInsertsAreVisible(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "othersUpdatesAreVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean othersUpdatesAreVisible(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ownDeletesAreVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean ownDeletesAreVisible(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ownInsertsAreVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean ownInsertsAreVisible(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ownUpdatesAreVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean ownUpdatesAreVisible(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storesLowerCaseIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean storesLowerCaseIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storesLowerCaseQuotedIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean storesLowerCaseQuotedIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storesMixedCaseIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean storesMixedCaseIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storesMixedCaseQuotedIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean storesMixedCaseQuotedIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storesUpperCaseIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean storesUpperCaseIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storesUpperCaseQuotedIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean storesUpperCaseQuotedIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsANSI92EntryLevelSQL",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsANSI92EntryLevelSQL() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsANSI92FullSQL",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsANSI92FullSQL() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsANSI92IntermediateSQL",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsANSI92IntermediateSQL() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsAlterTableWithAddColumn",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsAlterTableWithAddColumn() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsAlterTableWithDropColumn",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsAlterTableWithDropColumn() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsBatchUpdates",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsBatchUpdates() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCatalogsInDataManipulation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsCatalogsInDataManipulation() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCatalogsInIndexDefinitions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsCatalogsInIndexDefinitions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCatalogsInPrivilegeDefinitions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsCatalogsInPrivilegeDefinitions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCatalogsInProcedureCalls",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsCatalogsInProcedureCalls() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCatalogsInTableDefinitions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsCatalogsInTableDefinitions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsColumnAliasing",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsColumnAliasing() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsConvert",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsConvert() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsConvert",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsConvert(int, int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCoreSQLGrammar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsCoreSQLGrammar() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsCorrelatedSubqueries",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsCorrelatedSubqueries() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsDataDefinitionAndDataManipulationTransactions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsDataDefinitionAndDataManipulationTransactions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsDataManipulationTransactionsOnly",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsDataManipulationTransactionsOnly() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsDifferentTableCorrelationNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsDifferentTableCorrelationNames() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsExpressionsInOrderBy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsExpressionsInOrderBy() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsExtendedSQLGrammar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsExtendedSQLGrammar() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsFullOuterJoins",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsFullOuterJoins() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsGetGeneratedKeys",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsGetGeneratedKeys() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsGroupBy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsGroupBy() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsGroupByBeyondSelect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsGroupByBeyondSelect() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsGroupByUnrelated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsGroupByUnrelated() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsIntegrityEnhancementFacility",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsIntegrityEnhancementFacility() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsLikeEscapeClause",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsLikeEscapeClause() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsLimitedOuterJoins",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsLimitedOuterJoins() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsMinimumSQLGrammar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsMinimumSQLGrammar() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsMixedCaseIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsMixedCaseIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsMixedCaseQuotedIdentifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsMixedCaseQuotedIdentifiers() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsMultipleOpenResults",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsMultipleOpenResults() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsMultipleResultSets",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsMultipleResultSets() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsMultipleTransactions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsMultipleTransactions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsNamedParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsNamedParameters() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsNonNullableColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsNonNullableColumns() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsOpenCursorsAcrossCommit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsOpenCursorsAcrossCommit() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsOpenCursorsAcrossRollback",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsOpenCursorsAcrossRollback() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsOpenStatementsAcrossCommit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsOpenStatementsAcrossCommit() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsOpenStatementsAcrossRollback",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsOpenStatementsAcrossRollback() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsOrderByUnrelated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsOrderByUnrelated() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsOuterJoins",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsOuterJoins() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsPositionedDelete",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsPositionedDelete() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsPositionedUpdate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsPositionedUpdate() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsRefCursors",
+    "modifiers" : "public",
+    "signature" : "public boolean supportsRefCursors() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "supportsResultSetConcurrency",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsResultSetConcurrency(int, int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsResultSetHoldability",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsResultSetHoldability(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsResultSetType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsResultSetType(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSavepoints",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSavepoints() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSchemasInDataManipulation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSchemasInDataManipulation() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSchemasInIndexDefinitions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSchemasInIndexDefinitions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSchemasInPrivilegeDefinitions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSchemasInPrivilegeDefinitions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSchemasInProcedureCalls",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSchemasInProcedureCalls() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSchemasInTableDefinitions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSchemasInTableDefinitions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSelectForUpdate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSelectForUpdate() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSharding",
+    "modifiers" : "public",
+    "signature" : "public boolean supportsSharding() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "supportsStatementPooling",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsStatementPooling() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsStoredFunctionsUsingCallSyntax",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsStoredFunctionsUsingCallSyntax() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsStoredProcedures",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsStoredProcedures() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSubqueriesInComparisons",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSubqueriesInComparisons() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSubqueriesInExists",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSubqueriesInExists() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSubqueriesInIns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSubqueriesInIns() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsSubqueriesInQuantifieds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsSubqueriesInQuantifieds() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsTableCorrelationNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsTableCorrelationNames() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsTransactionIsolationLevel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsTransactionIsolationLevel(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsTransactions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsTransactions() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsUnion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsUnion() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsUnionAll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean supportsUnionAll() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updatesAreDetected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean updatesAreDetected(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "usesLocalFilePerTable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean usesLocalFilePerTable() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "usesLocalFiles",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean usesLocalFiles() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JRadioButton$AccessibleJRadioButton",
+  "canonicalName" : "javax.swing.JRadioButton.AccessibleJRadioButton",
+  "simpleName" : "AccessibleJRadioButton",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JRadioButton",
+  "superClass" : "javax.swing.JToggleButton$AccessibleJToggleButton",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

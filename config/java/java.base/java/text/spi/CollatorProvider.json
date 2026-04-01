@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text.spi",
+  "binaryName" : "java.text.spi.CollatorProvider",
+  "canonicalName" : "java.text.spi.CollatorProvider",
+  "simpleName" : "CollatorProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.spi.LocaleServiceProvider",
+  "declaredPublicMethods" : [ {
+    "name" : "getInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.Collator getInstance(java.util.Locale)",
+    "returnType" : "java.text.Collator",
+    "genericReturnType" : "java.text.Collator",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

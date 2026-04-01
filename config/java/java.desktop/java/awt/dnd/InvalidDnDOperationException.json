@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.InvalidDnDOperationException",
+  "canonicalName" : "java.awt.dnd.InvalidDnDOperationException",
+  "simpleName" : "InvalidDnDOperationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.dnd.InvalidDnDOperationException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.InvalidDnDOperationException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.InvalidDnDOperationException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.InvalidDnDOperationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

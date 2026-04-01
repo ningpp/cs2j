@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.ConnectionEventListener",
+  "canonicalName" : "javax.sql.ConnectionEventListener",
+  "simpleName" : "ConnectionEventListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "connectionClosed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void connectionClosed(javax.sql.ConnectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.ConnectionEvent",
+      "genericType" : "javax.sql.ConnectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connectionErrorOccurred",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void connectionErrorOccurred(javax.sql.ConnectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.ConnectionEvent",
+      "genericType" : "javax.sql.ConnectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

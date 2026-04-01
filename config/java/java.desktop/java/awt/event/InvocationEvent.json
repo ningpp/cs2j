@@ -1,0 +1,151 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.InvocationEvent",
+  "canonicalName" : "java.awt.event.InvocationEvent",
+  "simpleName" : "InvocationEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.AWTEvent",
+  "interfaces" : [ "java.awt.ActiveEvent" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.event.InvocationEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InvocationEvent(java.lang.Object, java.lang.Runnable)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.InvocationEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InvocationEvent(java.lang.Object, java.lang.Runnable, java.lang.Object, boolean)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifier",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "catchThrowables",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.event.InvocationEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InvocationEvent(java.lang.Object, java.lang.Runnable, java.lang.Runnable, boolean)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "catchThrowables",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "dispatch",
+    "modifiers" : "public",
+    "signature" : "public void dispatch()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Exception getException()",
+    "returnType" : "java.lang.Exception",
+    "genericReturnType" : "java.lang.Exception",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThrowable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getThrowable()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWhen",
+    "modifiers" : "public",
+    "signature" : "public long getWhen()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDispatched",
+    "modifiers" : "public",
+    "signature" : "public boolean isDispatched()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

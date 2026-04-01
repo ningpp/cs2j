@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.IllegalChannelGroupException",
+  "canonicalName" : "java.nio.channels.IllegalChannelGroupException",
+  "simpleName" : "IllegalChannelGroupException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.IllegalChannelGroupException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.IllegalChannelGroupException()",
+    "varArgs" : false
+  } ]
+}

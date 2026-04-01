@@ -1,0 +1,48 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.FontUIResource",
+  "canonicalName" : "javax.swing.plaf.FontUIResource",
+  "simpleName" : "FontUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Font",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.FontUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource(java.awt.Font)",
+    "parameters" : [ {
+      "name" : "font",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.FontUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource(java.lang.String, int, int)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.ModificationItem",
+  "canonicalName" : "javax.naming.directory.ModificationItem",
+  "simpleName" : "ModificationItem",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.ModificationItem",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.ModificationItem(int, javax.naming.directory.Attribute)",
+    "parameters" : [ {
+      "name" : "mod_op",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attr",
+      "type" : "javax.naming.directory.Attribute",
+      "genericType" : "javax.naming.directory.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttribute",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attribute getAttribute()",
+    "returnType" : "javax.naming.directory.Attribute",
+    "genericReturnType" : "javax.naming.directory.Attribute",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModificationOp",
+    "modifiers" : "public",
+    "signature" : "public int getModificationOp()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

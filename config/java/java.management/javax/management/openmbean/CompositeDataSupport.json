@@ -1,0 +1,182 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.CompositeDataSupport",
+  "canonicalName" : "javax.management.openmbean.CompositeDataSupport",
+  "simpleName" : "CompositeDataSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.management.openmbean.CompositeData" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.CompositeDataSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.CompositeDataSupport(javax.management.openmbean.CompositeType, java.lang.String[], java.lang.Object[]) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "compositeType",
+      "type" : "javax.management.openmbean.CompositeType",
+      "genericType" : "javax.management.openmbean.CompositeType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "itemNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "itemValues",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.CompositeDataSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.CompositeDataSupport(javax.management.openmbean.CompositeType, java.util.Map) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "compositeType",
+      "type" : "javax.management.openmbean.CompositeType",
+      "genericType" : "javax.management.openmbean.CompositeType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "items",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "containsKey",
+    "modifiers" : "public",
+    "signature" : "public boolean containsKey(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsValue",
+    "modifiers" : "public",
+    "signature" : "public boolean containsValue(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAll",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] getAll(java.lang.String[])",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "parameters" : [ {
+      "name" : "keys",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompositeType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.CompositeType getCompositeType()",
+    "returnType" : "javax.management.openmbean.CompositeType",
+    "genericReturnType" : "javax.management.openmbean.CompositeType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public",
+    "signature" : "public java.util.Collection values()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

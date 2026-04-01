@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.ConstantPoolException",
+  "canonicalName" : "java.lang.classfile.constantpool.ConstantPoolException",
+  "simpleName" : "ConstantPoolException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.classfile.constantpool.ConstantPoolException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ConstantPoolException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.classfile.constantpool.ConstantPoolException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ConstantPoolException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.classfile.constantpool.ConstantPoolException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ConstantPoolException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.classfile.constantpool.ConstantPoolException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ConstantPoolException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

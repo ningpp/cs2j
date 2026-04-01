@@ -1,0 +1,444 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.DefaultTreeSelectionModel",
+  "canonicalName" : "javax.swing.tree.DefaultTreeSelectionModel",
+  "simpleName" : "DefaultTreeSelectionModel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable", "javax.swing.tree.TreeSelectionModel" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.tree.DefaultTreeSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.DefaultTreeSelectionModel()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addPropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addSelectionPath",
+    "modifiers" : "public",
+    "signature" : "public void addSelectionPath(javax.swing.tree.TreePath)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addSelectionPaths",
+    "modifiers" : "public",
+    "signature" : "public void addSelectionPaths(javax.swing.tree.TreePath[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "paths",
+      "type" : "javax.swing.tree.TreePath[]",
+      "genericType" : "javax.swing.tree.TreePath[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addTreeSelectionListener",
+    "modifiers" : "public",
+    "signature" : "public void addTreeSelectionListener(javax.swing.event.TreeSelectionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "javax.swing.event.TreeSelectionListener",
+      "genericType" : "javax.swing.event.TreeSelectionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clearSelection",
+    "modifiers" : "public",
+    "signature" : "public void clearSelection()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone() throws java.lang.CloneNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.CloneNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLeadSelectionPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getLeadSelectionPath()",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLeadSelectionRow",
+    "modifiers" : "public",
+    "signature" : "public int getLeadSelectionRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListeners",
+    "modifiers" : "public",
+    "signature" : "public java.util.EventListener[] getListeners(java.lang.Class)",
+    "returnType" : "java.util.EventListener[]",
+    "genericReturnType" : "java.util.EventListener[]",
+    "parameters" : [ {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxSelectionRow",
+    "modifiers" : "public",
+    "signature" : "public int getMaxSelectionRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinSelectionRow",
+    "modifiers" : "public",
+    "signature" : "public int getMinSelectionRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyChangeListeners",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyChangeListener[] getPropertyChangeListeners()",
+    "returnType" : "java.beans.PropertyChangeListener[]",
+    "genericReturnType" : "java.beans.PropertyChangeListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowMapper",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.RowMapper getRowMapper()",
+    "returnType" : "javax.swing.tree.RowMapper",
+    "genericReturnType" : "javax.swing.tree.RowMapper",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionCount",
+    "modifiers" : "public",
+    "signature" : "public int getSelectionCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionMode",
+    "modifiers" : "public",
+    "signature" : "public int getSelectionMode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getSelectionPath()",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionPaths",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath[] getSelectionPaths()",
+    "returnType" : "javax.swing.tree.TreePath[]",
+    "genericReturnType" : "javax.swing.tree.TreePath[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionRows",
+    "modifiers" : "public",
+    "signature" : "public int[] getSelectionRows()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeSelectionListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TreeSelectionListener[] getTreeSelectionListeners()",
+    "returnType" : "javax.swing.event.TreeSelectionListener[]",
+    "genericReturnType" : "javax.swing.event.TreeSelectionListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPathSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isPathSelected(javax.swing.tree.TreePath)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRowSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isRowSelected(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSelectionEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isSelectionEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removePropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeSelectionPath",
+    "modifiers" : "public",
+    "signature" : "public void removeSelectionPath(javax.swing.tree.TreePath)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeSelectionPaths",
+    "modifiers" : "public",
+    "signature" : "public void removeSelectionPaths(javax.swing.tree.TreePath[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "paths",
+      "type" : "javax.swing.tree.TreePath[]",
+      "genericType" : "javax.swing.tree.TreePath[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTreeSelectionListener",
+    "modifiers" : "public",
+    "signature" : "public void removeTreeSelectionListener(javax.swing.event.TreeSelectionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "javax.swing.event.TreeSelectionListener",
+      "genericType" : "javax.swing.event.TreeSelectionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resetRowSelection",
+    "modifiers" : "public",
+    "signature" : "public void resetRowSelection()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRowMapper",
+    "modifiers" : "public",
+    "signature" : "public void setRowMapper(javax.swing.tree.RowMapper)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newMapper",
+      "type" : "javax.swing.tree.RowMapper",
+      "genericType" : "javax.swing.tree.RowMapper",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionMode",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionMode(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionPath",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionPath(javax.swing.tree.TreePath)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionPaths",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionPaths(javax.swing.tree.TreePath[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pPaths",
+      "type" : "javax.swing.tree.TreePath[]",
+      "genericType" : "javax.swing.tree.TreePath[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

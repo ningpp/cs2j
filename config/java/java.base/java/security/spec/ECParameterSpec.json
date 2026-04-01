@@ -1,0 +1,83 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.ECParameterSpec",
+  "canonicalName" : "java.security.spec.ECParameterSpec",
+  "simpleName" : "ECParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.ECParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.ECParameterSpec(java.security.spec.EllipticCurve, java.security.spec.ECPoint, java.math.BigInteger, int)",
+    "parameters" : [ {
+      "name" : "curve",
+      "type" : "java.security.spec.EllipticCurve",
+      "genericType" : "java.security.spec.EllipticCurve",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.security.spec.ECPoint",
+      "genericType" : "java.security.spec.ECPoint",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "n",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCofactor",
+    "modifiers" : "public",
+    "signature" : "public int getCofactor()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurve",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.EllipticCurve getCurve()",
+    "returnType" : "java.security.spec.EllipticCurve",
+    "genericReturnType" : "java.security.spec.EllipticCurve",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGenerator",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.ECPoint getGenerator()",
+    "returnType" : "java.security.spec.ECPoint",
+    "genericReturnType" : "java.security.spec.ECPoint",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrder",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getOrder()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

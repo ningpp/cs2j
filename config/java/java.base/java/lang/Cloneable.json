@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Cloneable",
+  "canonicalName" : "java.lang.Cloneable",
+  "simpleName" : "Cloneable",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

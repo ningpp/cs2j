@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.UserSessionEvent",
+  "canonicalName" : "java.awt.desktop.UserSessionEvent",
+  "simpleName" : "UserSessionEvent",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.desktop.AppEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.desktop.UserSessionEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.desktop.UserSessionEvent(java.awt.desktop.UserSessionEvent$Reason)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.awt.desktop.UserSessionEvent$Reason",
+      "genericType" : "java.awt.desktop.UserSessionEvent$Reason",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getReason",
+    "modifiers" : "public",
+    "signature" : "public java.awt.desktop.UserSessionEvent$Reason getReason()",
+    "returnType" : "java.awt.desktop.UserSessionEvent$Reason",
+    "genericReturnType" : "java.awt.desktop.UserSessionEvent$Reason",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

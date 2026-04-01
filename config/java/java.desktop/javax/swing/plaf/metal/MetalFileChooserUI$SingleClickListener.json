@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalFileChooserUI$SingleClickListener",
+  "canonicalName" : "javax.swing.plaf.metal.MetalFileChooserUI.SingleClickListener",
+  "simpleName" : "SingleClickListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalFileChooserUI",
+  "superClass" : "java.awt.event.MouseAdapter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalFileChooserUI$SingleClickListener",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalFileChooserUI$SingleClickListener(javax.swing.plaf.metal.MetalFileChooserUI, javax.swing.JList)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.metal.MetalFileChooserUI",
+      "genericType" : "javax.swing.plaf.metal.MetalFileChooserUI",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "list",
+      "type" : "javax.swing.JList",
+      "genericType" : "javax.swing.JList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,115 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.ConnectionPoolDataSource",
+  "canonicalName" : "javax.sql.ConnectionPoolDataSource",
+  "simpleName" : "ConnectionPoolDataSource",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.CommonDataSource" ],
+  "declaredPublicMethods" : [ {
+    "name" : "createPooledConnectionBuilder",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.PooledConnectionBuilder createPooledConnectionBuilder() throws java.sql.SQLException",
+    "returnType" : "javax.sql.PooledConnectionBuilder",
+    "genericReturnType" : "javax.sql.PooledConnectionBuilder",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getLogWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.PrintWriter getLogWriter() throws java.sql.SQLException",
+    "returnType" : "java.io.PrintWriter",
+    "genericReturnType" : "java.io.PrintWriter",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoginTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLoginTimeout() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPooledConnection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.PooledConnection getPooledConnection() throws java.sql.SQLException",
+    "returnType" : "javax.sql.PooledConnection",
+    "genericReturnType" : "javax.sql.PooledConnection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPooledConnection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.PooledConnection getPooledConnection(java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "javax.sql.PooledConnection",
+    "genericReturnType" : "javax.sql.PooledConnection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLogWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLogWriter(java.io.PrintWriter) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.PrintWriter",
+      "genericType" : "java.io.PrintWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoginTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLoginTimeout(int) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

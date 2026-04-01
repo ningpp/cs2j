@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.ContainerListener",
+  "canonicalName" : "java.awt.event.ContainerListener",
+  "simpleName" : "ContainerListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "componentAdded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void componentAdded(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentRemoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void componentRemoved(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

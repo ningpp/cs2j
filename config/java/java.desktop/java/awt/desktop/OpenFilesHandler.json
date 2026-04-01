@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.OpenFilesHandler",
+  "canonicalName" : "java.awt.desktop.OpenFilesHandler",
+  "simpleName" : "OpenFilesHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "openFiles",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void openFiles(java.awt.desktop.OpenFilesEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.OpenFilesEvent",
+      "genericType" : "java.awt.desktop.OpenFilesEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

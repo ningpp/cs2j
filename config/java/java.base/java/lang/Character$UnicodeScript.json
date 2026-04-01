@@ -1,0 +1,73 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Character$UnicodeScript",
+  "canonicalName" : "java.lang.Character.UnicodeScript",
+  "simpleName" : "UnicodeScript",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.Character",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "forName",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.lang.Character$UnicodeScript forName(java.lang.String)",
+    "returnType" : "java.lang.Character$UnicodeScript",
+    "genericReturnType" : "java.lang.Character$UnicodeScript",
+    "parameters" : [ {
+      "name" : "scriptName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Character$UnicodeScript of(int)",
+    "returnType" : "java.lang.Character$UnicodeScript",
+    "genericReturnType" : "java.lang.Character$UnicodeScript",
+    "parameters" : [ {
+      "name" : "codePoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Character$UnicodeScript valueOf(java.lang.String)",
+    "returnType" : "java.lang.Character$UnicodeScript",
+    "genericReturnType" : "java.lang.Character$UnicodeScript",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Character$UnicodeScript[] values()",
+    "returnType" : "java.lang.Character$UnicodeScript[]",
+    "genericReturnType" : "java.lang.Character$UnicodeScript[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,88 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.InvokeDynamicInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.InvokeDynamicInstruction",
+  "simpleName" : "InvokeDynamicInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "bootstrapArgs",
+    "modifiers" : "public",
+    "signature" : "public java.util.List bootstrapArgs()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "bootstrapMethod",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.DirectMethodHandleDesc bootstrapMethod()",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokedynamic",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.InvokeDynamicEntry invokedynamic()",
+    "returnType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry name()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.InvokeDynamicInstruction of(java.lang.classfile.constantpool.InvokeDynamicEntry)",
+    "returnType" : "java.lang.classfile.instruction.InvokeDynamicInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.InvokeDynamicInstruction",
+    "parameters" : [ {
+      "name" : "invokedynamic",
+      "type" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+      "genericType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "type",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry type()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "typeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodTypeDesc typeSymbol()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

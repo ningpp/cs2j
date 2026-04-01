@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.XMLReporter",
+  "canonicalName" : "javax.xml.stream.XMLReporter",
+  "simpleName" : "XMLReporter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "report",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void report(java.lang.String, java.lang.String, java.lang.Object, javax.xml.stream.Location) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "javax.xml.stream.Location",
+      "genericType" : "javax.xml.stream.Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

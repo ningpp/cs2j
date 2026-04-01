@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.IllegalFormatCodePointException",
+  "canonicalName" : "java.util.IllegalFormatCodePointException",
+  "simpleName" : "IllegalFormatCodePointException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.IllegalFormatException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.IllegalFormatCodePointException",
+    "modifiers" : "public",
+    "signature" : "public java.util.IllegalFormatCodePointException(int)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCodePoint",
+    "modifiers" : "public",
+    "signature" : "public int getCodePoint()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

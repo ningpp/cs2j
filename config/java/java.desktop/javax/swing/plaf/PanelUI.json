@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.PanelUI",
+  "canonicalName" : "javax.swing.plaf.PanelUI",
+  "simpleName" : "PanelUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI"
+}

@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.SimpleTypeVisitor8",
+  "canonicalName" : "javax.lang.model.util.SimpleTypeVisitor8",
+  "simpleName" : "SimpleTypeVisitor8",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.util.SimpleTypeVisitor7",
+  "declaredPublicMethods" : [ {
+    "name" : "visitIntersection",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitIntersection(javax.lang.model.type.IntersectionType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.IntersectionType",
+      "genericType" : "javax.lang.model.type.IntersectionType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

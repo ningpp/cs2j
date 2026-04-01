@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ls",
+  "binaryName" : "org.w3c.dom.ls.LSSerializerFilter",
+  "canonicalName" : "org.w3c.dom.ls.LSSerializerFilter",
+  "simpleName" : "LSSerializerFilter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.traversal.NodeFilter" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getWhatToShow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getWhatToShow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

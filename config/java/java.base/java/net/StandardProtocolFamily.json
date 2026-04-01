@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.StandardProtocolFamily",
+  "canonicalName" : "java.net.StandardProtocolFamily",
+  "simpleName" : "StandardProtocolFamily",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "interfaces" : [ "java.net.ProtocolFamily" ],
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.StandardProtocolFamily valueOf(java.lang.String)",
+    "returnType" : "java.net.StandardProtocolFamily",
+    "genericReturnType" : "java.net.StandardProtocolFamily",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.StandardProtocolFamily[] values()",
+    "returnType" : "java.net.StandardProtocolFamily[]",
+    "genericReturnType" : "java.net.StandardProtocolFamily[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

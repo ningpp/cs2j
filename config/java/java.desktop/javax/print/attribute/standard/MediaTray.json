@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute.standard",
+  "binaryName" : "javax.print.attribute.standard.MediaTray",
+  "canonicalName" : "javax.print.attribute.standard.MediaTray",
+  "simpleName" : "MediaTray",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.attribute.standard.Media",
+  "interfaces" : [ "javax.print.attribute.Attribute" ]
+}

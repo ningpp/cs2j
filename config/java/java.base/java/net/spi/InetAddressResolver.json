@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net.spi",
+  "binaryName" : "java.net.spi.InetAddressResolver",
+  "canonicalName" : "java.net.spi.InetAddressResolver",
+  "simpleName" : "InetAddressResolver",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "lookupByAddress",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String lookupByAddress(byte[]) throws java.net.UnknownHostException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.UnknownHostException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupByName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream lookupByName(java.lang.String, java.net.spi.InetAddressResolver$LookupPolicy) throws java.net.UnknownHostException",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.spi.InetAddressResolver$LookupPolicy",
+      "genericType" : "java.net.spi.InetAddressResolver$LookupPolicy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.UnknownHostException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

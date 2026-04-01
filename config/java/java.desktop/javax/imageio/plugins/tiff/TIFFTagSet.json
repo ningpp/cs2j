@@ -1,0 +1,78 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.tiff",
+  "binaryName" : "javax.imageio.plugins.tiff.TIFFTagSet",
+  "canonicalName" : "javax.imageio.plugins.tiff.TIFFTagSet",
+  "simpleName" : "TIFFTagSet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.tiff.TIFFTagSet",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFTagSet(java.util.List)",
+    "parameters" : [ {
+      "name" : "tags",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getTag",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFTag getTag(int)",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "parameters" : [ {
+      "name" : "tagNumber",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTag",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFTag getTag(java.lang.String)",
+    "returnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "genericReturnType" : "javax.imageio.plugins.tiff.TIFFTag",
+    "parameters" : [ {
+      "name" : "tagName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTagNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.SortedSet getTagNames()",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTagNumbers",
+    "modifiers" : "public",
+    "signature" : "public java.util.SortedSet getTagNumbers()",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MBeanServerNotification",
+  "canonicalName" : "javax.management.MBeanServerNotification",
+  "simpleName" : "MBeanServerNotification",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.Notification",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.MBeanServerNotification",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanServerNotification(java.lang.String, java.lang.Object, long, javax.management.ObjectName)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sequenceNumber",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "objectName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMBeanName",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectName getMBeanName()",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

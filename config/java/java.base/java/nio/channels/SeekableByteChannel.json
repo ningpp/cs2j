@@ -1,0 +1,105 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.SeekableByteChannel",
+  "canonicalName" : "java.nio.channels.SeekableByteChannel",
+  "simpleName" : "SeekableByteChannel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.channels.ByteChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "position",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long position() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SeekableByteChannel position(long) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SeekableByteChannel",
+    "genericReturnType" : "java.nio.channels.SeekableByteChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int read(java.nio.ByteBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long size() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "truncate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SeekableByteChannel truncate(long) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SeekableByteChannel",
+    "genericReturnType" : "java.nio.channels.SeekableByteChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int write(java.nio.ByteBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.LambdaMetafactory",
+  "canonicalName" : "java.lang.invoke.LambdaMetafactory",
+  "simpleName" : "LambdaMetafactory",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "altMetafactory",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.CallSite altMetafactory(java.lang.invoke.MethodHandles$Lookup, java.lang.String, java.lang.invoke.MethodType, java.lang.Object...) throws java.lang.invoke.LambdaConversionException",
+    "returnType" : "java.lang.invoke.CallSite",
+    "genericReturnType" : "java.lang.invoke.CallSite",
+    "parameters" : [ {
+      "name" : "caller",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factoryType",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "args",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.invoke.LambdaConversionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "metafactory",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.CallSite metafactory(java.lang.invoke.MethodHandles$Lookup, java.lang.String, java.lang.invoke.MethodType, java.lang.invoke.MethodType, java.lang.invoke.MethodHandle, java.lang.invoke.MethodType) throws java.lang.invoke.LambdaConversionException",
+    "returnType" : "java.lang.invoke.CallSite",
+    "genericReturnType" : "java.lang.invoke.CallSite",
+    "parameters" : [ {
+      "name" : "caller",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factoryType",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceMethodType",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "implementation",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dynamicMethodType",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.invoke.LambdaConversionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

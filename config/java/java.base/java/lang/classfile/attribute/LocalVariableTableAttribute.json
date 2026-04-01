@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.LocalVariableTableAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.LocalVariableTableAttribute",
+  "simpleName" : "LocalVariableTableAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute" ],
+  "declaredPublicMethods" : [ {
+    "name" : "localVariables",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List localVariables()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.LocalVariableTableAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.LocalVariableTableAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.LocalVariableTableAttribute",
+    "parameters" : [ {
+      "name" : "locals",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

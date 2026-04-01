@@ -1,0 +1,213 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.SQLException",
+  "canonicalName" : "java.sql.SQLException",
+  "simpleName" : "SQLException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "interfaces" : [ "java.lang.Iterable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException(java.lang.String, java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException(java.lang.String, java.lang.String, int, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sqlState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException(java.lang.String, java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sqlState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getErrorCode",
+    "modifiers" : "public",
+    "signature" : "public int getErrorCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException getNextException()",
+    "returnType" : "java.sql.SQLException",
+    "genericReturnType" : "java.sql.SQLException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSQLState",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSQLState()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNextException",
+    "modifiers" : "public",
+    "signature" : "public void setNextException(java.sql.SQLException)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ex",
+      "type" : "java.sql.SQLException",
+      "genericType" : "java.sql.SQLException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

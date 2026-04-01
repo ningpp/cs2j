@@ -1,0 +1,243 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time",
+  "binaryName" : "java.time.Clock",
+  "canonicalName" : "java.time.Clock",
+  "simpleName" : "Clock",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.time.InstantSource" ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fixed",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock fixed(java.time.Instant, java.time.ZoneId)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "fixedInstant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getZone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.ZoneId getZone()",
+    "returnType" : "java.time.ZoneId",
+    "genericReturnType" : "java.time.ZoneId",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "instant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.Instant instant()",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "millis",
+    "modifiers" : "public",
+    "signature" : "public long millis()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offset",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock offset(java.time.Clock, java.time.Duration)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "baseClock",
+      "type" : "java.time.Clock",
+      "genericType" : "java.time.Clock",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsetDuration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "system",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock system(java.time.ZoneId)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "systemDefaultZone",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock systemDefaultZone()",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "systemUTC",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock systemUTC()",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tick",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock tick(java.time.Clock, java.time.Duration)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "baseClock",
+      "type" : "java.time.Clock",
+      "genericType" : "java.time.Clock",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tickDuration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tickMillis",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock tickMillis(java.time.ZoneId)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tickMinutes",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock tickMinutes(java.time.ZoneId)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tickSeconds",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Clock tickSeconds(java.time.ZoneId)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.Clock withZone(java.time.ZoneId)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

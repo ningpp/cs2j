@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.RSAPrivateKeySpec",
+  "canonicalName" : "java.security.spec.RSAPrivateKeySpec",
+  "simpleName" : "RSAPrivateKeySpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.KeySpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.RSAPrivateKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.RSAPrivateKeySpec(java.math.BigInteger, java.math.BigInteger)",
+    "parameters" : [ {
+      "name" : "modulus",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "privateExponent",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.spec.RSAPrivateKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.RSAPrivateKeySpec(java.math.BigInteger, java.math.BigInteger, java.security.spec.AlgorithmParameterSpec)",
+    "parameters" : [ {
+      "name" : "modulus",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "privateExponent",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getModulus",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getModulus()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParams",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.AlgorithmParameterSpec getParams()",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrivateExponent",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getPrivateExponent()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

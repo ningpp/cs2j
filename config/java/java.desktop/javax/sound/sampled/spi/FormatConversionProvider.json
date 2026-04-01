@@ -1,0 +1,197 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled.spi",
+  "binaryName" : "javax.sound.sampled.spi.FormatConversionProvider",
+  "canonicalName" : "javax.sound.sampled.spi.FormatConversionProvider",
+  "simpleName" : "FormatConversionProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAudioInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioInputStream getAudioInputStream(javax.sound.sampled.AudioFormat$Encoding, javax.sound.sampled.AudioInputStream)",
+    "returnType" : "javax.sound.sampled.AudioInputStream",
+    "genericReturnType" : "javax.sound.sampled.AudioInputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.AudioFormat$Encoding",
+      "genericType" : "javax.sound.sampled.AudioFormat$Encoding",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.sound.sampled.AudioInputStream",
+      "genericType" : "javax.sound.sampled.AudioInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAudioInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioInputStream getAudioInputStream(javax.sound.sampled.AudioFormat, javax.sound.sampled.AudioInputStream)",
+    "returnType" : "javax.sound.sampled.AudioInputStream",
+    "genericReturnType" : "javax.sound.sampled.AudioInputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.sound.sampled.AudioInputStream",
+      "genericType" : "javax.sound.sampled.AudioInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceEncodings",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFormat$Encoding[] getSourceEncodings()",
+    "returnType" : "javax.sound.sampled.AudioFormat$Encoding[]",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat$Encoding[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetEncodings",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFormat$Encoding[] getTargetEncodings()",
+    "returnType" : "javax.sound.sampled.AudioFormat$Encoding[]",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat$Encoding[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetEncodings",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFormat$Encoding[] getTargetEncodings(javax.sound.sampled.AudioFormat)",
+    "returnType" : "javax.sound.sampled.AudioFormat$Encoding[]",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat$Encoding[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetFormats",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFormat[] getTargetFormats(javax.sound.sampled.AudioFormat$Encoding, javax.sound.sampled.AudioFormat)",
+    "returnType" : "javax.sound.sampled.AudioFormat[]",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.AudioFormat$Encoding",
+      "genericType" : "javax.sound.sampled.AudioFormat$Encoding",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConversionSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isConversionSupported(javax.sound.sampled.AudioFormat$Encoding, javax.sound.sampled.AudioFormat)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "targetEncoding",
+      "type" : "javax.sound.sampled.AudioFormat$Encoding",
+      "genericType" : "javax.sound.sampled.AudioFormat$Encoding",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceFormat",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConversionSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isConversionSupported(javax.sound.sampled.AudioFormat, javax.sound.sampled.AudioFormat)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "targetFormat",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceFormat",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSourceEncodingSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSourceEncodingSupported(javax.sound.sampled.AudioFormat$Encoding)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "sourceEncoding",
+      "type" : "javax.sound.sampled.AudioFormat$Encoding",
+      "genericType" : "javax.sound.sampled.AudioFormat$Encoding",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTargetEncodingSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isTargetEncodingSupported(javax.sound.sampled.AudioFormat$Encoding)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "targetEncoding",
+      "type" : "javax.sound.sampled.AudioFormat$Encoding",
+      "genericType" : "javax.sound.sampled.AudioFormat$Encoding",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

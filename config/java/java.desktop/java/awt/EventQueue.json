@@ -1,0 +1,164 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.EventQueue",
+  "canonicalName" : "java.awt.EventQueue",
+  "simpleName" : "EventQueue",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.EventQueue",
+    "modifiers" : "public",
+    "signature" : "public java.awt.EventQueue()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createSecondaryLoop",
+    "modifiers" : "public",
+    "signature" : "public java.awt.SecondaryLoop createSecondaryLoop()",
+    "returnType" : "java.awt.SecondaryLoop",
+    "genericReturnType" : "java.awt.SecondaryLoop",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentEvent",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AWTEvent getCurrentEvent()",
+    "returnType" : "java.awt.AWTEvent",
+    "genericReturnType" : "java.awt.AWTEvent",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMostRecentEventTime",
+    "modifiers" : "public static",
+    "signature" : "public static long getMostRecentEventTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AWTEvent getNextEvent() throws java.lang.InterruptedException",
+    "returnType" : "java.awt.AWTEvent",
+    "genericReturnType" : "java.awt.AWTEvent",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAndWait",
+    "modifiers" : "public static",
+    "signature" : "public static void invokeAndWait(java.lang.Runnable) throws java.lang.InterruptedException, java.lang.reflect.InvocationTargetException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.lang.reflect.InvocationTargetException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeLater",
+    "modifiers" : "public static",
+    "signature" : "public static void invokeLater(java.lang.Runnable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDispatchThread",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isDispatchThread()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "peekEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AWTEvent peekEvent()",
+    "returnType" : "java.awt.AWTEvent",
+    "genericReturnType" : "java.awt.AWTEvent",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "peekEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AWTEvent peekEvent(int)",
+    "returnType" : "java.awt.AWTEvent",
+    "genericReturnType" : "java.awt.AWTEvent",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postEvent",
+    "modifiers" : "public",
+    "signature" : "public void postEvent(java.awt.AWTEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "theEvent",
+      "type" : "java.awt.AWTEvent",
+      "genericType" : "java.awt.AWTEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "push",
+    "modifiers" : "public",
+    "signature" : "public void push(java.awt.EventQueue)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newEventQueue",
+      "type" : "java.awt.EventQueue",
+      "genericType" : "java.awt.EventQueue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

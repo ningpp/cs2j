@@ -1,0 +1,442 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JMenuItem",
+  "canonicalName" : "javax.swing.JMenuItem",
+  "simpleName" : "JMenuItem",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.AbstractButton",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.swing.MenuElement" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JMenuItem",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuItem()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JMenuItem",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuItem(java.lang.String)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JMenuItem",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuItem(java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mnemonic",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JMenuItem",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuItem(java.lang.String, javax.swing.Icon)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "icon",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JMenuItem",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuItem(javax.swing.Action)",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.Action",
+      "genericType" : "javax.swing.Action",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JMenuItem",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuItem(javax.swing.Icon)",
+    "parameters" : [ {
+      "name" : "icon",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addMenuDragMouseListener",
+    "modifiers" : "public",
+    "signature" : "public void addMenuDragMouseListener(javax.swing.event.MenuDragMouseListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.MenuDragMouseListener",
+      "genericType" : "javax.swing.event.MenuDragMouseListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addMenuKeyListener",
+    "modifiers" : "public",
+    "signature" : "public void addMenuKeyListener(javax.swing.event.MenuKeyListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.MenuKeyListener",
+      "genericType" : "javax.swing.event.MenuKeyListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccelerator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.KeyStroke getAccelerator()",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getComponent()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuDragMouseListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.MenuDragMouseListener[] getMenuDragMouseListeners()",
+    "returnType" : "javax.swing.event.MenuDragMouseListener[]",
+    "genericReturnType" : "javax.swing.event.MenuDragMouseListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuKeyListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.MenuKeyListener[] getMenuKeyListeners()",
+    "returnType" : "javax.swing.event.MenuKeyListener[]",
+    "genericReturnType" : "javax.swing.event.MenuKeyListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubElements",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.MenuElement[] getSubElements()",
+    "returnType" : "javax.swing.MenuElement[]",
+    "genericReturnType" : "javax.swing.MenuElement[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isArmed",
+    "modifiers" : "public",
+    "signature" : "public boolean isArmed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuSelectionChanged",
+    "modifiers" : "public",
+    "signature" : "public void menuSelectionChanged(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "isIncluded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processKeyEvent",
+    "modifiers" : "public",
+    "signature" : "public void processKeyEvent(java.awt.event.KeyEvent, javax.swing.MenuElement[], javax.swing.MenuSelectionManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path",
+      "type" : "javax.swing.MenuElement[]",
+      "genericType" : "javax.swing.MenuElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "manager",
+      "type" : "javax.swing.MenuSelectionManager",
+      "genericType" : "javax.swing.MenuSelectionManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processMenuDragMouseEvent",
+    "modifiers" : "public",
+    "signature" : "public void processMenuDragMouseEvent(javax.swing.event.MenuDragMouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.MenuDragMouseEvent",
+      "genericType" : "javax.swing.event.MenuDragMouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processMenuKeyEvent",
+    "modifiers" : "public",
+    "signature" : "public void processMenuKeyEvent(javax.swing.event.MenuKeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.MenuKeyEvent",
+      "genericType" : "javax.swing.event.MenuKeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processMouseEvent",
+    "modifiers" : "public",
+    "signature" : "public void processMouseEvent(java.awt.event.MouseEvent, javax.swing.MenuElement[], javax.swing.MenuSelectionManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path",
+      "type" : "javax.swing.MenuElement[]",
+      "genericType" : "javax.swing.MenuElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "manager",
+      "type" : "javax.swing.MenuSelectionManager",
+      "genericType" : "javax.swing.MenuSelectionManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeMenuDragMouseListener",
+    "modifiers" : "public",
+    "signature" : "public void removeMenuDragMouseListener(javax.swing.event.MenuDragMouseListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.MenuDragMouseListener",
+      "genericType" : "javax.swing.event.MenuDragMouseListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeMenuKeyListener",
+    "modifiers" : "public",
+    "signature" : "public void removeMenuKeyListener(javax.swing.event.MenuKeyListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.MenuKeyListener",
+      "genericType" : "javax.swing.event.MenuKeyListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAccelerator",
+    "modifiers" : "public",
+    "signature" : "public void setAccelerator(javax.swing.KeyStroke)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "keyStroke",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setArmed",
+    "modifiers" : "public",
+    "signature" : "public void setArmed(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModel",
+    "modifiers" : "public",
+    "signature" : "public void setModel(javax.swing.ButtonModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newModel",
+      "type" : "javax.swing.ButtonModel",
+      "genericType" : "javax.swing.ButtonModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.MenuItemUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.MenuItemUI",
+      "genericType" : "javax.swing.plaf.MenuItemUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

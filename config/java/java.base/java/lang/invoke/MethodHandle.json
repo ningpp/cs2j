@@ -1,0 +1,306 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.MethodHandle",
+  "canonicalName" : "java.lang.invoke.MethodHandle",
+  "simpleName" : "MethodHandle",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.constant.Constable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asCollector",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle asCollector(int, java.lang.Class, int)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "collectArgPos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arrayType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arrayLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asCollector",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle asCollector(java.lang.Class, int)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arrayType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arrayLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asFixedArity",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle asFixedArity()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asSpreader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle asSpreader(int, java.lang.Class, int)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "spreadArgPos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arrayType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arrayLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asSpreader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle asSpreader(java.lang.Class, int)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arrayType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arrayLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asType",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodHandle asType(java.lang.invoke.MethodType)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "newType",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asVarargsCollector",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle asVarargsCollector(java.lang.Class)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arrayType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bindTo",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle bindTo(java.lang.Object)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "describeConstable",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional describeConstable()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object invoke(java.lang.Object...) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "invokeExact",
+    "modifiers" : "public final native",
+    "signature" : "public final native java.lang.Object invokeExact(java.lang.Object...) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "invokeWithArguments",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invokeWithArguments(java.lang.Object...) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arguments",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "invokeWithArguments",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invokeWithArguments(java.util.List) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arguments",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVarargsCollector",
+    "modifiers" : "public",
+    "signature" : "public boolean isVarargsCollector()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "type",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodType type()",
+    "returnType" : "java.lang.invoke.MethodType",
+    "genericReturnType" : "java.lang.invoke.MethodType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withVarargs",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle withVarargs(boolean)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "makeVarargs",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

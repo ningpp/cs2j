@@ -1,0 +1,80 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.TabbedPaneUI",
+  "canonicalName" : "javax.swing.plaf.TabbedPaneUI",
+  "simpleName" : "TabbedPaneUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI",
+  "declaredPublicMethods" : [ {
+    "name" : "getTabBounds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Rectangle getTabBounds(javax.swing.JTabbedPane, int)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JTabbedPane",
+      "genericType" : "javax.swing.JTabbedPane",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTabRunCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getTabRunCount(javax.swing.JTabbedPane)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JTabbedPane",
+      "genericType" : "javax.swing.JTabbedPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tabForCoordinate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int tabForCoordinate(javax.swing.JTabbedPane, int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JTabbedPane",
+      "genericType" : "javax.swing.JTabbedPane",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

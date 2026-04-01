@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.Arena",
+  "canonicalName" : "java.lang.foreign.Arena",
+  "simpleName" : "Arena",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.AutoCloseable", "java.lang.foreign.SegmentAllocator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "allocate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment allocate(long, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "global",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Arena global()",
+    "returnType" : "java.lang.foreign.Arena",
+    "genericReturnType" : "java.lang.foreign.Arena",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofAuto",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Arena ofAuto()",
+    "returnType" : "java.lang.foreign.Arena",
+    "genericReturnType" : "java.lang.foreign.Arena",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofConfined",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Arena ofConfined()",
+    "returnType" : "java.lang.foreign.Arena",
+    "genericReturnType" : "java.lang.foreign.Arena",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofShared",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Arena ofShared()",
+    "returnType" : "java.lang.foreign.Arena",
+    "genericReturnType" : "java.lang.foreign.Arena",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scope",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment$Scope scope()",
+    "returnType" : "java.lang.foreign.MemorySegment$Scope",
+    "genericReturnType" : "java.lang.foreign.MemorySegment$Scope",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

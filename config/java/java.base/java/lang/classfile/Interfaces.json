@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Interfaces",
+  "canonicalName" : "java.lang.classfile.Interfaces",
+  "simpleName" : "Interfaces",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "interfaces",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List interfaces()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Interfaces of(java.lang.classfile.constantpool.ClassEntry...)",
+    "returnType" : "java.lang.classfile.Interfaces",
+    "genericReturnType" : "java.lang.classfile.Interfaces",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Interfaces of(java.util.List)",
+    "returnType" : "java.lang.classfile.Interfaces",
+    "genericReturnType" : "java.lang.classfile.Interfaces",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Interfaces ofSymbols(java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.classfile.Interfaces",
+    "genericReturnType" : "java.lang.classfile.Interfaces",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Interfaces ofSymbols(java.util.List)",
+    "returnType" : "java.lang.classfile.Interfaces",
+    "genericReturnType" : "java.lang.classfile.Interfaces",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

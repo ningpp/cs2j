@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.DrbgParameters$Instantiation",
+  "canonicalName" : "java.security.DrbgParameters.Instantiation",
+  "simpleName" : "Instantiation",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.security.DrbgParameters",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.SecureRandomParameters" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCapability",
+    "modifiers" : "public",
+    "signature" : "public java.security.DrbgParameters$Capability getCapability()",
+    "returnType" : "java.security.DrbgParameters$Capability",
+    "genericReturnType" : "java.security.DrbgParameters$Capability",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPersonalizationString",
+    "modifiers" : "public",
+    "signature" : "public byte[] getPersonalizationString()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStrength",
+    "modifiers" : "public",
+    "signature" : "public int getStrength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

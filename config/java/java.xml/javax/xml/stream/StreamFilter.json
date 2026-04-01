@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.StreamFilter",
+  "canonicalName" : "javax.xml.stream.StreamFilter",
+  "simpleName" : "StreamFilter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean accept(javax.xml.stream.XMLStreamReader)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.stream.XMLStreamReader",
+      "genericType" : "javax.xml.stream.XMLStreamReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

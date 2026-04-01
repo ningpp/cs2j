@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.AWTError",
+  "canonicalName" : "java.awt.AWTError",
+  "simpleName" : "AWTError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.AWTError",
+    "modifiers" : "public",
+    "signature" : "public java.awt.AWTError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

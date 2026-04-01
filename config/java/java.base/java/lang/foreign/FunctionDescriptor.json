@@ -1,0 +1,147 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.FunctionDescriptor",
+  "canonicalName" : "java.lang.foreign.FunctionDescriptor",
+  "simpleName" : "FunctionDescriptor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "appendArgumentLayouts",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.FunctionDescriptor appendArgumentLayouts(java.lang.foreign.MemoryLayout...)",
+    "returnType" : "java.lang.foreign.FunctionDescriptor",
+    "genericReturnType" : "java.lang.foreign.FunctionDescriptor",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout[]",
+      "genericType" : "java.lang.foreign.MemoryLayout[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "argumentLayouts",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List argumentLayouts()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "changeReturnLayout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.FunctionDescriptor changeReturnLayout(java.lang.foreign.MemoryLayout)",
+    "returnType" : "java.lang.foreign.FunctionDescriptor",
+    "genericReturnType" : "java.lang.foreign.FunctionDescriptor",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dropReturnLayout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.FunctionDescriptor dropReturnLayout()",
+    "returnType" : "java.lang.foreign.FunctionDescriptor",
+    "genericReturnType" : "java.lang.foreign.FunctionDescriptor",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertArgumentLayouts",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.FunctionDescriptor insertArgumentLayouts(int, java.lang.foreign.MemoryLayout...)",
+    "returnType" : "java.lang.foreign.FunctionDescriptor",
+    "genericReturnType" : "java.lang.foreign.FunctionDescriptor",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.foreign.MemoryLayout[]",
+      "genericType" : "java.lang.foreign.MemoryLayout[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.FunctionDescriptor of(java.lang.foreign.MemoryLayout, java.lang.foreign.MemoryLayout...)",
+    "returnType" : "java.lang.foreign.FunctionDescriptor",
+    "genericReturnType" : "java.lang.foreign.FunctionDescriptor",
+    "parameters" : [ {
+      "name" : "resLayout",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "argLayouts",
+      "type" : "java.lang.foreign.MemoryLayout[]",
+      "genericType" : "java.lang.foreign.MemoryLayout[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofVoid",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.FunctionDescriptor ofVoid(java.lang.foreign.MemoryLayout...)",
+    "returnType" : "java.lang.foreign.FunctionDescriptor",
+    "genericReturnType" : "java.lang.foreign.FunctionDescriptor",
+    "parameters" : [ {
+      "name" : "argLayouts",
+      "type" : "java.lang.foreign.MemoryLayout[]",
+      "genericType" : "java.lang.foreign.MemoryLayout[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "returnLayout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional returnLayout()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMethodType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodType toMethodType()",
+    "returnType" : "java.lang.invoke.MethodType",
+    "genericReturnType" : "java.lang.invoke.MethodType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

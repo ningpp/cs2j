@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ModuleElement$ProvidesDirective",
+  "canonicalName" : "javax.lang.model.element.ModuleElement.ProvidesDirective",
+  "simpleName" : "ProvidesDirective",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.lang.model.element.ModuleElement",
+  "interfaces" : [ "javax.lang.model.element.ModuleElement$Directive" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getImplementations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getImplementations()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getService",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.TypeElement getService()",
+    "returnType" : "javax.lang.model.element.TypeElement",
+    "genericReturnType" : "javax.lang.model.element.TypeElement",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

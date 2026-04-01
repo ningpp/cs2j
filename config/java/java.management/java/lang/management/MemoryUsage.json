@@ -1,0 +1,109 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.MemoryUsage",
+  "canonicalName" : "java.lang.management.MemoryUsage",
+  "simpleName" : "MemoryUsage",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.management.MemoryUsage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.MemoryUsage(long, long, long, long)",
+    "parameters" : [ {
+      "name" : "init",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "used",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "committed",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.MemoryUsage from(javax.management.openmbean.CompositeData)",
+    "returnType" : "java.lang.management.MemoryUsage",
+    "genericReturnType" : "java.lang.management.MemoryUsage",
+    "parameters" : [ {
+      "name" : "cd",
+      "type" : "javax.management.openmbean.CompositeData",
+      "genericType" : "javax.management.openmbean.CompositeData",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCommitted",
+    "modifiers" : "public",
+    "signature" : "public long getCommitted()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInit",
+    "modifiers" : "public",
+    "signature" : "public long getInit()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMax",
+    "modifiers" : "public",
+    "signature" : "public long getMax()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUsed",
+    "modifiers" : "public",
+    "signature" : "public long getUsed()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

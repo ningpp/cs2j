@@ -1,0 +1,242 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time",
+  "binaryName" : "java.time.DayOfWeek",
+  "canonicalName" : "java.time.DayOfWeek",
+  "simpleName" : "DayOfWeek",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "interfaces" : [ "java.time.temporal.TemporalAccessor", "java.time.temporal.TemporalAdjuster" ],
+  "declaredPublicMethods" : [ {
+    "name" : "adjustInto",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal adjustInto(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.DayOfWeek from(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public int get(java.time.temporal.TemporalField)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisplayName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDisplayName(java.time.format.TextStyle, java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "java.time.format.TextStyle",
+      "genericType" : "java.time.format.TextStyle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLong",
+    "modifiers" : "public",
+    "signature" : "public long getLong(java.time.temporal.TemporalField)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public int getValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.time.temporal.TemporalField)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.DayOfWeek minus(long)",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "parameters" : [ {
+      "name" : "days",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.DayOfWeek of(int)",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "parameters" : [ {
+      "name" : "dayOfWeek",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.DayOfWeek plus(long)",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "parameters" : [ {
+      "name" : "days",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "query",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object query(java.time.temporal.TemporalQuery)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "query",
+      "type" : "java.time.temporal.TemporalQuery",
+      "genericType" : "java.time.temporal.TemporalQuery",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.ValueRange range(java.time.temporal.TemporalField)",
+    "returnType" : "java.time.temporal.ValueRange",
+    "genericReturnType" : "java.time.temporal.ValueRange",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.DayOfWeek valueOf(java.lang.String)",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.DayOfWeek[] values()",
+    "returnType" : "java.time.DayOfWeek[]",
+    "genericReturnType" : "java.time.DayOfWeek[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

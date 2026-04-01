@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.MethodDescriptor",
+  "canonicalName" : "java.beans.MethodDescriptor",
+  "simpleName" : "MethodDescriptor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.FeatureDescriptor",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.MethodDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.MethodDescriptor(java.lang.reflect.Method)",
+    "parameters" : [ {
+      "name" : "method",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.MethodDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.MethodDescriptor(java.lang.reflect.Method, java.beans.ParameterDescriptor[])",
+    "parameters" : [ {
+      "name" : "method",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parameterDescriptors",
+      "type" : "java.beans.ParameterDescriptor[]",
+      "genericType" : "java.beans.ParameterDescriptor[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.reflect.Method getMethod()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterDescriptors",
+    "modifiers" : "public",
+    "signature" : "public java.beans.ParameterDescriptor[] getParameterDescriptors()",
+    "returnType" : "java.beans.ParameterDescriptor[]",
+    "genericReturnType" : "java.beans.ParameterDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

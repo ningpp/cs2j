@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.PrimitiveIterator$OfInt",
+  "canonicalName" : "java.util.PrimitiveIterator.OfInt",
+  "simpleName" : "OfInt",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.PrimitiveIterator",
+  "interfaces" : [ "java.util.PrimitiveIterator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.Consumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.IntConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.IntConsumer",
+      "genericType" : "java.util.function.IntConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Integer next()",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "nextInt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int nextInt()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

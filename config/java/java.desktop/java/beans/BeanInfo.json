@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.BeanInfo",
+  "canonicalName" : "java.beans.BeanInfo",
+  "simpleName" : "BeanInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAdditionalBeanInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.BeanInfo[] getAdditionalBeanInfo()",
+    "returnType" : "java.beans.BeanInfo[]",
+    "genericReturnType" : "java.beans.BeanInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.BeanDescriptor getBeanDescriptor()",
+    "returnType" : "java.beans.BeanDescriptor",
+    "genericReturnType" : "java.beans.BeanDescriptor",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultEventIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDefaultEventIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultPropertyIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDefaultPropertyIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEventSetDescriptors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.EventSetDescriptor[] getEventSetDescriptors()",
+    "returnType" : "java.beans.EventSetDescriptor[]",
+    "genericReturnType" : "java.beans.EventSetDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIcon",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Image getIcon(int)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethodDescriptors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.MethodDescriptor[] getMethodDescriptors()",
+    "returnType" : "java.beans.MethodDescriptor[]",
+    "genericReturnType" : "java.beans.MethodDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyDescriptors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.PropertyDescriptor[] getPropertyDescriptors()",
+    "returnType" : "java.beans.PropertyDescriptor[]",
+    "genericReturnType" : "java.beans.PropertyDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

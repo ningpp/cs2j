@@ -1,0 +1,208 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.RSAMultiPrimePrivateCrtKeySpec",
+  "canonicalName" : "java.security.spec.RSAMultiPrimePrivateCrtKeySpec",
+  "simpleName" : "RSAMultiPrimePrivateCrtKeySpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.spec.RSAPrivateKeySpec",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.RSAMultiPrimePrivateCrtKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.RSAMultiPrimePrivateCrtKeySpec(java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.security.spec.RSAOtherPrimeInfo[])",
+    "parameters" : [ {
+      "name" : "modulus",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "publicExponent",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "privateExponent",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeP",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeQ",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeExponentP",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeExponentQ",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "crtCoefficient",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "otherPrimeInfo",
+      "type" : "java.security.spec.RSAOtherPrimeInfo[]",
+      "genericType" : "java.security.spec.RSAOtherPrimeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.spec.RSAMultiPrimePrivateCrtKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.RSAMultiPrimePrivateCrtKeySpec(java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.math.BigInteger, java.security.spec.RSAOtherPrimeInfo[], java.security.spec.AlgorithmParameterSpec)",
+    "parameters" : [ {
+      "name" : "modulus",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "publicExponent",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "privateExponent",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeP",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeQ",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeExponentP",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeExponentQ",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "crtCoefficient",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "otherPrimeInfo",
+      "type" : "java.security.spec.RSAOtherPrimeInfo[]",
+      "genericType" : "java.security.spec.RSAOtherPrimeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyParams",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCrtCoefficient",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getCrtCoefficient()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOtherPrimeInfo",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.RSAOtherPrimeInfo[] getOtherPrimeInfo()",
+    "returnType" : "java.security.spec.RSAOtherPrimeInfo[]",
+    "genericReturnType" : "java.security.spec.RSAOtherPrimeInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeExponentP",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getPrimeExponentP()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeExponentQ",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getPrimeExponentQ()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeP",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getPrimeP()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeQ",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getPrimeQ()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublicExponent",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getPublicExponent()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

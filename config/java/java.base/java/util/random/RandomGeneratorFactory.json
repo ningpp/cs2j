@@ -1,0 +1,232 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.random",
+  "binaryName" : "java.util.random.RandomGeneratorFactory",
+  "canonicalName" : "java.util.random.RandomGeneratorFactory",
+  "simpleName" : "RandomGeneratorFactory",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "all",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream all()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "create",
+    "modifiers" : "public",
+    "signature" : "public java.util.random.RandomGenerator create()",
+    "returnType" : "java.util.random.RandomGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "create",
+    "modifiers" : "public",
+    "signature" : "public java.util.random.RandomGenerator create(byte[])",
+    "returnType" : "java.util.random.RandomGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator",
+    "parameters" : [ {
+      "name" : "seed",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "create",
+    "modifiers" : "public",
+    "signature" : "public java.util.random.RandomGenerator create(long)",
+    "returnType" : "java.util.random.RandomGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator",
+    "parameters" : [ {
+      "name" : "seed",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equidistribution",
+    "modifiers" : "public",
+    "signature" : "public int equidistribution()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.random.RandomGeneratorFactory getDefault()",
+    "returnType" : "java.util.random.RandomGeneratorFactory",
+    "genericReturnType" : "java.util.random.RandomGeneratorFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "group",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String group()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isArbitrarilyJumpable",
+    "modifiers" : "public",
+    "signature" : "public boolean isArbitrarilyJumpable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDeprecated",
+    "modifiers" : "public",
+    "signature" : "public boolean isDeprecated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHardware",
+    "modifiers" : "public",
+    "signature" : "public boolean isHardware()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isJumpable",
+    "modifiers" : "public",
+    "signature" : "public boolean isJumpable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLeapable",
+    "modifiers" : "public",
+    "signature" : "public boolean isLeapable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSplittable",
+    "modifiers" : "public",
+    "signature" : "public boolean isSplittable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStatistical",
+    "modifiers" : "public",
+    "signature" : "public boolean isStatistical()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStochastic",
+    "modifiers" : "public",
+    "signature" : "public boolean isStochastic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStreamable",
+    "modifiers" : "public",
+    "signature" : "public boolean isStreamable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String name()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.random.RandomGeneratorFactory of(java.lang.String)",
+    "returnType" : "java.util.random.RandomGeneratorFactory",
+    "genericReturnType" : "java.util.random.RandomGeneratorFactory",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "period",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger period()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stateBits",
+    "modifiers" : "public",
+    "signature" : "public int stateBits()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

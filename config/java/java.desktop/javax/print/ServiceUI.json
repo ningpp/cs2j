@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.ServiceUI",
+  "canonicalName" : "javax.print.ServiceUI",
+  "simpleName" : "ServiceUI",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.ServiceUI",
+    "modifiers" : "public",
+    "signature" : "public javax.print.ServiceUI()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "printDialog",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.PrintService printDialog(java.awt.GraphicsConfiguration, int, int, javax.print.PrintService[], javax.print.PrintService, javax.print.DocFlavor, javax.print.attribute.PrintRequestAttributeSet) throws java.awt.HeadlessException",
+    "returnType" : "javax.print.PrintService",
+    "genericReturnType" : "javax.print.PrintService",
+    "parameters" : [ {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "services",
+      "type" : "javax.print.PrintService[]",
+      "genericType" : "javax.print.PrintService[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultService",
+      "type" : "javax.print.PrintService",
+      "genericType" : "javax.print.PrintService",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flavor",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

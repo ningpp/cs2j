@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.interfaces",
+  "binaryName" : "java.security.interfaces.RSAKey",
+  "canonicalName" : "java.security.interfaces.RSAKey",
+  "simpleName" : "RSAKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getModulus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getModulus()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParams",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.AlgorithmParameterSpec getParams()",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

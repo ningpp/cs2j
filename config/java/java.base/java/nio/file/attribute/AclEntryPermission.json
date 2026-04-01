@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.AclEntryPermission",
+  "canonicalName" : "java.nio.file.attribute.AclEntryPermission",
+  "simpleName" : "AclEntryPermission",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.attribute.AclEntryPermission valueOf(java.lang.String)",
+    "returnType" : "java.nio.file.attribute.AclEntryPermission",
+    "genericReturnType" : "java.nio.file.attribute.AclEntryPermission",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.attribute.AclEntryPermission[] values()",
+    "returnType" : "java.nio.file.attribute.AclEntryPermission[]",
+    "genericReturnType" : "java.nio.file.attribute.AclEntryPermission[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

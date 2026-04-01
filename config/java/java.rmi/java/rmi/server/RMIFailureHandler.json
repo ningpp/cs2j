@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RMIFailureHandler",
+  "canonicalName" : "java.rmi.server.RMIFailureHandler",
+  "simpleName" : "RMIFailureHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "failure",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean failure(java.lang.Exception)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

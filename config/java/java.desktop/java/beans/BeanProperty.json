@@ -1,0 +1,91 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.BeanProperty",
+  "canonicalName" : "java.beans.BeanProperty",
+  "simpleName" : "BeanProperty",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ],
+  "declaredPublicMethods" : [ {
+    "name" : "bound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean bound()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "description",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String description()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enumerationValues",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] enumerationValues()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "expert",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean expert()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hidden",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hidden()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferred",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean preferred()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "required",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean required()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visualUpdate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean visualUpdate()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

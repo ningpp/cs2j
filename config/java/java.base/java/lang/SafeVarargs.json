@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.SafeVarargs",
+  "canonicalName" : "java.lang.SafeVarargs",
+  "simpleName" : "SafeVarargs",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ]
+}

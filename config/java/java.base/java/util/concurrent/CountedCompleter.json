@@ -1,0 +1,252 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.CountedCompleter",
+  "canonicalName" : "java.util.concurrent.CountedCompleter",
+  "simpleName" : "CountedCompleter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.concurrent.ForkJoinTask",
+  "declaredPublicMethods" : [ {
+    "name" : "addToPendingCount",
+    "modifiers" : "public final",
+    "signature" : "public final void addToPendingCount(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "delta",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareAndSetPendingCount",
+    "modifiers" : "public final",
+    "signature" : "public final boolean compareAndSetPendingCount(int, int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "expected",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "complete",
+    "modifiers" : "public",
+    "signature" : "public void complete(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "rawResult",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void compute()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decrementPendingCountUnlessZero",
+    "modifiers" : "public final",
+    "signature" : "public final int decrementPendingCountUnlessZero()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstComplete",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.concurrent.CountedCompleter firstComplete()",
+    "returnType" : "java.util.concurrent.CountedCompleter",
+    "genericReturnType" : "java.util.concurrent.CountedCompleter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompleter",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.concurrent.CountedCompleter getCompleter()",
+    "returnType" : "java.util.concurrent.CountedCompleter",
+    "genericReturnType" : "java.util.concurrent.CountedCompleter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPendingCount",
+    "modifiers" : "public final",
+    "signature" : "public final int getPendingCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRawResult",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getRawResult()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoot",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.concurrent.CountedCompleter getRoot()",
+    "returnType" : "java.util.concurrent.CountedCompleter",
+    "genericReturnType" : "java.util.concurrent.CountedCompleter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "helpComplete",
+    "modifiers" : "public final",
+    "signature" : "public final void helpComplete(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maxTasks",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextComplete",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.concurrent.CountedCompleter nextComplete()",
+    "returnType" : "java.util.concurrent.CountedCompleter",
+    "genericReturnType" : "java.util.concurrent.CountedCompleter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onCompletion",
+    "modifiers" : "public",
+    "signature" : "public void onCompletion(java.util.concurrent.CountedCompleter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "caller",
+      "type" : "java.util.concurrent.CountedCompleter",
+      "genericType" : "java.util.concurrent.CountedCompleter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onExceptionalCompletion",
+    "modifiers" : "public",
+    "signature" : "public boolean onExceptionalCompletion(java.lang.Throwable, java.util.concurrent.CountedCompleter)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ex",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "caller",
+      "type" : "java.util.concurrent.CountedCompleter",
+      "genericType" : "java.util.concurrent.CountedCompleter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "propagateCompletion",
+    "modifiers" : "public final",
+    "signature" : "public final void propagateCompletion()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quietlyCompleteRoot",
+    "modifiers" : "public final",
+    "signature" : "public final void quietlyCompleteRoot()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPendingCount",
+    "modifiers" : "public final",
+    "signature" : "public final void setPendingCount(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryComplete",
+    "modifiers" : "public final",
+    "signature" : "public final void tryComplete()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

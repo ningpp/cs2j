@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.DrbgParameters$NextBytes",
+  "canonicalName" : "java.security.DrbgParameters.NextBytes",
+  "simpleName" : "NextBytes",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.security.DrbgParameters",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.SecureRandomParameters" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAdditionalInput",
+    "modifiers" : "public",
+    "signature" : "public byte[] getAdditionalInput()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPredictionResistance",
+    "modifiers" : "public",
+    "signature" : "public boolean getPredictionResistance()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStrength",
+    "modifiers" : "public",
+    "signature" : "public int getStrength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

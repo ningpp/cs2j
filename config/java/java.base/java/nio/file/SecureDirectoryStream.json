@@ -1,0 +1,177 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.SecureDirectoryStream",
+  "canonicalName" : "java.nio.file.SecureDirectoryStream",
+  "simpleName" : "SecureDirectoryStream",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.file.DirectoryStream" ],
+  "declaredPublicMethods" : [ {
+    "name" : "deleteDirectory",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void deleteDirectory(java.lang.Object) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteFile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void deleteFile(java.lang.Object) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileAttributeView",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.FileAttributeView getFileAttributeView(java.lang.Class)",
+    "returnType" : "java.nio.file.attribute.FileAttributeView",
+    "genericReturnType" : "java.nio.file.attribute.FileAttributeView",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileAttributeView",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.FileAttributeView getFileAttributeView(java.lang.Object, java.lang.Class, java.nio.file.LinkOption...)",
+    "returnType" : "java.nio.file.attribute.FileAttributeView",
+    "genericReturnType" : "java.nio.file.attribute.FileAttributeView",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "move",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void move(java.lang.Object, java.nio.file.SecureDirectoryStream, java.lang.Object) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.nio.file.SecureDirectoryStream",
+      "genericType" : "java.nio.file.SecureDirectoryStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newByteChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SeekableByteChannel newByteChannel(java.lang.Object, java.util.Set, java.nio.file.attribute.FileAttribute...) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SeekableByteChannel",
+    "genericReturnType" : "java.nio.channels.SeekableByteChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.nio.file.attribute.FileAttribute[]",
+      "genericType" : "java.nio.file.attribute.FileAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "newDirectoryStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.SecureDirectoryStream newDirectoryStream(java.lang.Object, java.nio.file.LinkOption...) throws java.io.IOException",
+    "returnType" : "java.nio.file.SecureDirectoryStream",
+    "genericReturnType" : "java.nio.file.SecureDirectoryStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.nio.file.LinkOption[]",
+      "genericType" : "java.nio.file.LinkOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

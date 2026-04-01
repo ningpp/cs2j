@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AnnotationValue$OfFloat",
+  "canonicalName" : "java.lang.classfile.AnnotationValue.OfFloat",
+  "simpleName" : "OfFloat",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.AnnotationValue",
+  "interfaces" : [ "java.lang.classfile.AnnotationValue$OfConstant" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.FloatEntry constant()",
+    "returnType" : "java.lang.classfile.constantpool.FloatEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.FloatEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "floatValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float floatValue()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolvedValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Float resolvedValue()",
+    "returnType" : "java.lang.Float",
+    "genericReturnType" : "java.lang.Float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

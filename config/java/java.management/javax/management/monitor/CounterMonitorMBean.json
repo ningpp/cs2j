@@ -1,0 +1,248 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.monitor",
+  "binaryName" : "javax.management.monitor.CounterMonitorMBean",
+  "canonicalName" : "javax.management.monitor.CounterMonitorMBean",
+  "simpleName" : "CounterMonitorMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.monitor.MonitorMBean" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getDerivedGauge()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getDerivedGauge(javax.management.ObjectName)",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getDerivedGaugeTimeStamp()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getDerivedGaugeTimeStamp(javax.management.ObjectName)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDifferenceMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getDifferenceMode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInitThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getInitThreshold()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModulus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getModulus()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotify",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getNotify()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getOffset()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getThreshold()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getThreshold(javax.management.ObjectName)",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDifferenceMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDifferenceMode(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInitThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setInitThreshold(java.lang.Number) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModulus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setModulus(java.lang.Number) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNotify",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNotify(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setOffset(java.lang.Number) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setThreshold(java.lang.Number) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

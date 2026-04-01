@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.synth",
+  "binaryName" : "javax.swing.plaf.synth.ColorType",
+  "canonicalName" : "javax.swing.plaf.synth.ColorType",
+  "simpleName" : "ColorType",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getID",
+    "modifiers" : "public final",
+    "signature" : "public final int getID()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

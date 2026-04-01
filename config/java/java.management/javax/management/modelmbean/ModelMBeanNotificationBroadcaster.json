@@ -1,0 +1,143 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.ModelMBeanNotificationBroadcaster",
+  "canonicalName" : "javax.management.modelmbean.ModelMBeanNotificationBroadcaster",
+  "simpleName" : "ModelMBeanNotificationBroadcaster",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.NotificationBroadcaster" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAttributeChangeNotificationListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addAttributeChangeNotificationListener(javax.management.NotificationListener, java.lang.String, java.lang.Object) throws javax.management.MBeanException, javax.management.RuntimeOperationsException, java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException", "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributeChangeNotificationListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeAttributeChangeNotificationListener(javax.management.NotificationListener, java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException, javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException", "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendAttributeChangeNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sendAttributeChangeNotification(javax.management.Attribute, javax.management.Attribute) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Attribute",
+      "genericType" : "javax.management.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.Attribute",
+      "genericType" : "javax.management.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendAttributeChangeNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sendAttributeChangeNotification(javax.management.AttributeChangeNotification) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.AttributeChangeNotification",
+      "genericType" : "javax.management.AttributeChangeNotification",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sendNotification(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sendNotification(javax.management.Notification) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Notification",
+      "genericType" : "javax.management.Notification",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

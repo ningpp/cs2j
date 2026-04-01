@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig",
+  "binaryName" : "javax.xml.crypto.dsig.XMLValidateContext",
+  "canonicalName" : "javax.xml.crypto.dsig.XMLValidateContext",
+  "simpleName" : "XMLValidateContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLCryptoContext" ]
+}

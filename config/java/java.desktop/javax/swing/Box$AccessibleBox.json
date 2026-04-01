@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.Box$AccessibleBox",
+  "canonicalName" : "javax.swing.Box.AccessibleBox",
+  "simpleName" : "AccessibleBox",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.Box",
+  "superClass" : "java.awt.Container$AccessibleAWTContainer",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

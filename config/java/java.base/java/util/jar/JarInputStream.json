@@ -1,0 +1,106 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.jar",
+  "binaryName" : "java.util.jar.JarInputStream",
+  "canonicalName" : "java.util.jar.JarInputStream",
+  "simpleName" : "JarInputStream",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.zip.ZipInputStream",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.jar.JarInputStream",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarInputStream(java.io.InputStream) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarInputStream",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarInputStream(java.io.InputStream, boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "verify",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getManifest",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.Manifest getManifest()",
+    "returnType" : "java.util.jar.Manifest",
+    "genericReturnType" : "java.util.jar.Manifest",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipEntry getNextEntry() throws java.io.IOException",
+    "returnType" : "java.util.zip.ZipEntry",
+    "genericReturnType" : "java.util.zip.ZipEntry",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextJarEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarEntry getNextJarEntry() throws java.io.IOException",
+    "returnType" : "java.util.jar.JarEntry",
+    "genericReturnType" : "java.util.jar.JarEntry",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(byte[], int, int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

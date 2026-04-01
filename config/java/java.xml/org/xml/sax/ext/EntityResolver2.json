@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax.ext",
+  "binaryName" : "org.xml.sax.ext.EntityResolver2",
+  "canonicalName" : "org.xml.sax.ext.EntityResolver2",
+  "simpleName" : "EntityResolver2",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.xml.sax.EntityResolver" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getExternalSubset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.InputSource getExternalSubset(java.lang.String, java.lang.String) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "org.xml.sax.InputSource",
+    "genericReturnType" : "org.xml.sax.InputSource",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveEntity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.InputSource resolveEntity(java.lang.String, java.lang.String, java.lang.String, java.lang.String) throws org.xml.sax.SAXException, java.io.IOException",
+    "returnType" : "org.xml.sax.InputSource",
+    "genericReturnType" : "org.xml.sax.InputSource",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

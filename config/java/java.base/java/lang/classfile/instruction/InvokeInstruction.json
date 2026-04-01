@@ -1,0 +1,180 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.InvokeInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.InvokeInstruction",
+  "simpleName" : "InvokeInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "count",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int count()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInterface",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isInterface()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "method",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.MemberRefEntry method()",
+    "returnType" : "java.lang.classfile.constantpool.MemberRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MemberRefEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry name()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.InvokeInstruction of(java.lang.classfile.Opcode, java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.NameAndTypeEntry, boolean)",
+    "returnType" : "java.lang.classfile.instruction.InvokeInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.InvokeInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameAndType",
+      "type" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "genericType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isInterface",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.InvokeInstruction of(java.lang.classfile.Opcode, java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry, boolean)",
+    "returnType" : "java.lang.classfile.instruction.InvokeInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.InvokeInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isInterface",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.InvokeInstruction of(java.lang.classfile.Opcode, java.lang.classfile.constantpool.MemberRefEntry)",
+    "returnType" : "java.lang.classfile.instruction.InvokeInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.InvokeInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "method",
+      "type" : "java.lang.classfile.constantpool.MemberRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.MemberRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "owner",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ClassEntry owner()",
+    "returnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "type",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry type()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "typeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodTypeDesc typeSymbol()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

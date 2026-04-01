@@ -1,0 +1,107 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.BufferCapabilities",
+  "canonicalName" : "java.awt.BufferCapabilities",
+  "simpleName" : "BufferCapabilities",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.BufferCapabilities",
+    "modifiers" : "public",
+    "signature" : "public java.awt.BufferCapabilities(java.awt.ImageCapabilities, java.awt.ImageCapabilities, java.awt.BufferCapabilities$FlipContents)",
+    "parameters" : [ {
+      "name" : "frontCaps",
+      "type" : "java.awt.ImageCapabilities",
+      "genericType" : "java.awt.ImageCapabilities",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "backCaps",
+      "type" : "java.awt.ImageCapabilities",
+      "genericType" : "java.awt.ImageCapabilities",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flipContents",
+      "type" : "java.awt.BufferCapabilities$FlipContents",
+      "genericType" : "java.awt.BufferCapabilities$FlipContents",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBackBufferCapabilities",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ImageCapabilities getBackBufferCapabilities()",
+    "returnType" : "java.awt.ImageCapabilities",
+    "genericReturnType" : "java.awt.ImageCapabilities",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFlipContents",
+    "modifiers" : "public",
+    "signature" : "public java.awt.BufferCapabilities$FlipContents getFlipContents()",
+    "returnType" : "java.awt.BufferCapabilities$FlipContents",
+    "genericReturnType" : "java.awt.BufferCapabilities$FlipContents",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFrontBufferCapabilities",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ImageCapabilities getFrontBufferCapabilities()",
+    "returnType" : "java.awt.ImageCapabilities",
+    "genericReturnType" : "java.awt.ImageCapabilities",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFullScreenRequired",
+    "modifiers" : "public",
+    "signature" : "public boolean isFullScreenRequired()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMultiBufferAvailable",
+    "modifiers" : "public",
+    "signature" : "public boolean isMultiBufferAvailable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPageFlipping",
+    "modifiers" : "public",
+    "signature" : "public boolean isPageFlipping()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

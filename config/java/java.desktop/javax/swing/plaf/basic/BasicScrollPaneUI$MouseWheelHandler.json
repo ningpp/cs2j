@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicScrollPaneUI$MouseWheelHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicScrollPaneUI.MouseWheelHandler",
+  "simpleName" : "MouseWheelHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicScrollPaneUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.MouseWheelListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "mouseWheelMoved",
+    "modifiers" : "public",
+    "signature" : "public void mouseWheelMoved(java.awt.event.MouseWheelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseWheelEvent",
+      "genericType" : "java.awt.event.MouseWheelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

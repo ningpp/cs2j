@@ -1,0 +1,341 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Module",
+  "canonicalName" : "java.lang.Module",
+  "simpleName" : "Module",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.reflect.AnnotatedElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addExports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Module addExports(java.lang.String, java.lang.Module)",
+    "returnType" : "java.lang.Module",
+    "genericReturnType" : "java.lang.Module",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "other",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addOpens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Module addOpens(java.lang.String, java.lang.Module)",
+    "returnType" : "java.lang.Module",
+    "genericReturnType" : "java.lang.Module",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "other",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addReads",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Module addReads(java.lang.Module)",
+    "returnType" : "java.lang.Module",
+    "genericReturnType" : "java.lang.Module",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addUses",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Module addUses(java.lang.Class)",
+    "returnType" : "java.lang.Module",
+    "genericReturnType" : "java.lang.Module",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canRead",
+    "modifiers" : "public",
+    "signature" : "public boolean canRead(java.lang.Module)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canUse",
+    "modifiers" : "public",
+    "signature" : "public boolean canUse(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotation",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation getAnnotation(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation",
+    "genericReturnType" : "java.lang.annotation.Annotation",
+    "parameters" : [ {
+      "name" : "annotationClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotations",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation[] getAnnotations()",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassLoader getClassLoader()",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredAnnotations",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation[] getDeclaredAnnotations()",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor getDescriptor()",
+    "returnType" : "java.lang.module.ModuleDescriptor",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayer",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer getLayer()",
+    "returnType" : "java.lang.ModuleLayer",
+    "genericReturnType" : "java.lang.ModuleLayer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPackages",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getPackages()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceAsStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream getResourceAsStream(java.lang.String) throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isExported",
+    "modifiers" : "public",
+    "signature" : "public boolean isExported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isExported",
+    "modifiers" : "public",
+    "signature" : "public boolean isExported(java.lang.String, java.lang.Module)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "other",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNamed",
+    "modifiers" : "public",
+    "signature" : "public boolean isNamed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNativeAccessEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isNativeAccessEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpen",
+    "modifiers" : "public",
+    "signature" : "public boolean isOpen(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpen",
+    "modifiers" : "public",
+    "signature" : "public boolean isOpen(java.lang.String, java.lang.Module)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "other",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

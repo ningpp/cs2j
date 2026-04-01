@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.stax",
+  "binaryName" : "javax.xml.transform.stax.StAXSource",
+  "canonicalName" : "javax.xml.transform.stax.StAXSource",
+  "simpleName" : "StAXSource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.transform.Source" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.transform.stax.StAXSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stax.StAXSource(javax.xml.stream.XMLEventReader) throws javax.xml.stream.XMLStreamException",
+    "parameters" : [ {
+      "name" : "xmlEventReader",
+      "type" : "javax.xml.stream.XMLEventReader",
+      "genericType" : "javax.xml.stream.XMLEventReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.stax.StAXSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stax.StAXSource(javax.xml.stream.XMLStreamReader)",
+    "parameters" : [ {
+      "name" : "xmlStreamReader",
+      "type" : "javax.xml.stream.XMLStreamReader",
+      "genericType" : "javax.xml.stream.XMLStreamReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLEventReader",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLEventReader getXMLEventReader()",
+    "returnType" : "javax.xml.stream.XMLEventReader",
+    "genericReturnType" : "javax.xml.stream.XMLEventReader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLStreamReader",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamReader getXMLStreamReader()",
+    "returnType" : "javax.xml.stream.XMLStreamReader",
+    "genericReturnType" : "javax.xml.stream.XMLStreamReader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

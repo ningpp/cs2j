@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio",
+  "binaryName" : "javax.imageio.IIOParamController",
+  "canonicalName" : "javax.imageio.IIOParamController",
+  "simpleName" : "IIOParamController",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "activate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean activate(javax.imageio.IIOParam)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.IIOParam",
+      "genericType" : "javax.imageio.IIOParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

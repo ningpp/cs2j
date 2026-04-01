@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.NonReadableChannelException",
+  "canonicalName" : "java.nio.channels.NonReadableChannelException",
+  "simpleName" : "NonReadableChannelException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.NonReadableChannelException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.NonReadableChannelException()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,374 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTextField",
+  "canonicalName" : "javax.swing.JTextField",
+  "simpleName" : "JTextField",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.JTextComponent",
+  "interfaces" : [ "javax.swing.SwingConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JTextField",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextField()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextField",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextField(int)",
+    "parameters" : [ {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextField",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextField(java.lang.String)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextField",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextField(java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JTextField",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTextField(javax.swing.text.Document, java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "doc",
+      "type" : "javax.swing.text.Document",
+      "genericType" : "javax.swing.text.Document",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "text",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addActionListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addActionListener(java.awt.event.ActionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action getAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getActionListeners",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.event.ActionListener[] getActionListeners()",
+    "returnType" : "java.awt.event.ActionListener[]",
+    "genericReturnType" : "java.awt.event.ActionListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getActions",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action[] getActions()",
+    "returnType" : "javax.swing.Action[]",
+    "genericReturnType" : "javax.swing.Action[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumns",
+    "modifiers" : "public",
+    "signature" : "public int getColumns()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHorizontalAlignment",
+    "modifiers" : "public",
+    "signature" : "public int getHorizontalAlignment()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHorizontalVisibility",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.BoundedRangeModel getHorizontalVisibility()",
+    "returnType" : "javax.swing.BoundedRangeModel",
+    "genericReturnType" : "javax.swing.BoundedRangeModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollOffset",
+    "modifiers" : "public",
+    "signature" : "public int getScrollOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValidateRoot",
+    "modifiers" : "public",
+    "signature" : "public boolean isValidateRoot()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postActionEvent",
+    "modifiers" : "public",
+    "signature" : "public void postActionEvent()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeActionListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeActionListener(java.awt.event.ActionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scrollRectToVisible",
+    "modifiers" : "public",
+    "signature" : "public void scrollRectToVisible(java.awt.Rectangle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAction",
+    "modifiers" : "public",
+    "signature" : "public void setAction(javax.swing.Action)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.Action",
+      "genericType" : "javax.swing.Action",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setActionCommand",
+    "modifiers" : "public",
+    "signature" : "public void setActionCommand(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumns",
+    "modifiers" : "public",
+    "signature" : "public void setColumns(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "columns",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDocument",
+    "modifiers" : "public",
+    "signature" : "public void setDocument(javax.swing.text.Document)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "doc",
+      "type" : "javax.swing.text.Document",
+      "genericType" : "javax.swing.text.Document",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFont",
+    "modifiers" : "public",
+    "signature" : "public void setFont(java.awt.Font)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHorizontalAlignment",
+    "modifiers" : "public",
+    "signature" : "public void setHorizontalAlignment(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "alignment",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setScrollOffset",
+    "modifiers" : "public",
+    "signature" : "public void setScrollOffset(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "scrollOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

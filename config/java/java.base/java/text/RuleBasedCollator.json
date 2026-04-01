@@ -1,0 +1,146 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.RuleBasedCollator",
+  "canonicalName" : "java.text.RuleBasedCollator",
+  "simpleName" : "RuleBasedCollator",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.text.Collator",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.text.RuleBasedCollator",
+    "modifiers" : "public",
+    "signature" : "public java.text.RuleBasedCollator(java.lang.String) throws java.text.ParseException",
+    "parameters" : [ {
+      "name" : "rules",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compare",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int compare(java.lang.String, java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCollationElementIterator",
+    "modifiers" : "public",
+    "signature" : "public java.text.CollationElementIterator getCollationElementIterator(java.lang.String)",
+    "returnType" : "java.text.CollationElementIterator",
+    "genericReturnType" : "java.text.CollationElementIterator",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCollationElementIterator",
+    "modifiers" : "public",
+    "signature" : "public java.text.CollationElementIterator getCollationElementIterator(java.text.CharacterIterator)",
+    "returnType" : "java.text.CollationElementIterator",
+    "genericReturnType" : "java.text.CollationElementIterator",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.text.CharacterIterator",
+      "genericType" : "java.text.CharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCollationKey",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.text.CollationKey getCollationKey(java.lang.String)",
+    "returnType" : "java.text.CollationKey",
+    "genericReturnType" : "java.text.CollationKey",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRules",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getRules()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

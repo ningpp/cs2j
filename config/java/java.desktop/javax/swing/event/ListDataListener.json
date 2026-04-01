@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.ListDataListener",
+  "canonicalName" : "javax.swing.event.ListDataListener",
+  "simpleName" : "ListDataListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "contentsChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void contentsChanged(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intervalAdded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void intervalAdded(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intervalRemoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void intervalRemoved(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

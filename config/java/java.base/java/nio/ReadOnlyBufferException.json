@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio",
+  "binaryName" : "java.nio.ReadOnlyBufferException",
+  "canonicalName" : "java.nio.ReadOnlyBufferException",
+  "simpleName" : "ReadOnlyBufferException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.UnsupportedOperationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.ReadOnlyBufferException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ReadOnlyBufferException()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,276 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.StandardMBean",
+  "canonicalName" : "javax.management.StandardMBean",
+  "simpleName" : "StandardMBean",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.management.DynamicMBean", "javax.management.MBeanRegistration" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.StandardMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.StandardMBean(java.lang.Object, java.lang.Class) throws javax.management.NotCompliantMBeanException",
+    "parameters" : [ {
+      "name" : "implementation",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanInterface",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.NotCompliantMBeanException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.StandardMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.StandardMBean(java.lang.Object, java.lang.Class, boolean)",
+    "parameters" : [ {
+      "name" : "implementation",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanInterface",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isMXBean",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttribute",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getAttribute(java.lang.String) throws javax.management.AttributeNotFoundException, javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "attribute",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.AttributeNotFoundException", "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeList getAttributes(java.lang.String[])",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImplementation",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getImplementation()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImplementationClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getImplementationClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanInfo getMBeanInfo()",
+    "returnType" : "javax.management.MBeanInfo",
+    "genericReturnType" : "javax.management.MBeanInfo",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanInterface",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Class getMBeanInterface()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invoke(java.lang.String, java.lang.Object[], java.lang.String[]) throws javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "actionName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signature",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postDeregister",
+    "modifiers" : "public",
+    "signature" : "public void postDeregister()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postRegister",
+    "modifiers" : "public",
+    "signature" : "public void postRegister(java.lang.Boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "registrationDone",
+      "type" : "java.lang.Boolean",
+      "genericType" : "java.lang.Boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preDeregister",
+    "modifiers" : "public",
+    "signature" : "public void preDeregister() throws java.lang.Exception",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preRegister",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectName preRegister(javax.management.MBeanServer, javax.management.ObjectName) throws java.lang.Exception",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "server",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public",
+    "signature" : "public void setAttribute(javax.management.Attribute) throws javax.management.AttributeNotFoundException, javax.management.InvalidAttributeValueException, javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attribute",
+      "type" : "javax.management.Attribute",
+      "genericType" : "javax.management.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.AttributeNotFoundException", "javax.management.InvalidAttributeValueException", "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeList setAttributes(javax.management.AttributeList)",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.management.AttributeList",
+      "genericType" : "javax.management.AttributeList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setImplementation",
+    "modifiers" : "public",
+    "signature" : "public void setImplementation(java.lang.Object) throws javax.management.NotCompliantMBeanException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "implementation",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.NotCompliantMBeanException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

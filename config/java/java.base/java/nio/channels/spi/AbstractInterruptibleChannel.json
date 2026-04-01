@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels.spi",
+  "binaryName" : "java.nio.channels.spi.AbstractInterruptibleChannel",
+  "canonicalName" : "java.nio.channels.spi.AbstractInterruptibleChannel",
+  "simpleName" : "AbstractInterruptibleChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.nio.channels.Channel", "java.nio.channels.InterruptibleChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public final",
+    "signature" : "public final void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpen",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isOpen()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

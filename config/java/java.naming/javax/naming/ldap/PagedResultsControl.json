@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.PagedResultsControl",
+  "canonicalName" : "javax.naming.ldap.PagedResultsControl",
+  "simpleName" : "PagedResultsControl",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.naming.ldap.BasicControl",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.PagedResultsControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.PagedResultsControl(int, boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "pageSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.PagedResultsControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.PagedResultsControl(int, byte[], boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "pageSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cookie",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ]
+}

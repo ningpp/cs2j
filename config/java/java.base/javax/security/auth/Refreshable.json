@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth",
+  "binaryName" : "javax.security.auth.Refreshable",
+  "canonicalName" : "javax.security.auth.Refreshable",
+  "simpleName" : "Refreshable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "isCurrent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCurrent()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "refresh",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void refresh() throws javax.security.auth.RefreshFailedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.auth.RefreshFailedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

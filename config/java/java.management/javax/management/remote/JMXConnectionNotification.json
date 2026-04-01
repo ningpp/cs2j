@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.JMXConnectionNotification",
+  "canonicalName" : "javax.management.remote.JMXConnectionNotification",
+  "simpleName" : "JMXConnectionNotification",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.Notification",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.JMXConnectionNotification",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.JMXConnectionNotification(java.lang.String, java.lang.Object, java.lang.String, long, java.lang.String, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "connectionId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sequenceNumber",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "userData",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getConnectionId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getConnectionId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

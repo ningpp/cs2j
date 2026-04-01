@@ -1,0 +1,162 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.TransferHandler$TransferSupport",
+  "canonicalName" : "javax.swing.TransferHandler.TransferSupport",
+  "simpleName" : "TransferSupport",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.TransferHandler",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.TransferHandler$TransferSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.TransferHandler$TransferSupport(java.awt.Component, java.awt.datatransfer.Transferable)",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transferable",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getComponent()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDataFlavors",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor[] getDataFlavors()",
+    "returnType" : "java.awt.datatransfer.DataFlavor[]",
+    "genericReturnType" : "java.awt.datatransfer.DataFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDropAction",
+    "modifiers" : "public",
+    "signature" : "public int getDropAction()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDropLocation",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.TransferHandler$DropLocation getDropLocation()",
+    "returnType" : "javax.swing.TransferHandler$DropLocation",
+    "genericReturnType" : "javax.swing.TransferHandler$DropLocation",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceDropActions",
+    "modifiers" : "public",
+    "signature" : "public int getSourceDropActions()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransferable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.Transferable getTransferable()",
+    "returnType" : "java.awt.datatransfer.Transferable",
+    "genericReturnType" : "java.awt.datatransfer.Transferable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserDropAction",
+    "modifiers" : "public",
+    "signature" : "public int getUserDropAction()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDataFlavorSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isDataFlavorSupported(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "df",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDrop",
+    "modifiers" : "public",
+    "signature" : "public boolean isDrop()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDropAction",
+    "modifiers" : "public",
+    "signature" : "public void setDropAction(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dropAction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setShowDropLocation",
+    "modifiers" : "public",
+    "signature" : "public void setShowDropLocation(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "showDropLocation",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

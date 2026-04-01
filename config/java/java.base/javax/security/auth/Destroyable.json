@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth",
+  "binaryName" : "javax.security.auth.Destroyable",
+  "canonicalName" : "javax.security.auth.Destroyable",
+  "simpleName" : "Destroyable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "destroy",
+    "modifiers" : "public",
+    "signature" : "public void destroy() throws javax.security.auth.DestroyFailedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.security.auth.DestroyFailedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isDestroyed",
+    "modifiers" : "public",
+    "signature" : "public boolean isDestroyed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

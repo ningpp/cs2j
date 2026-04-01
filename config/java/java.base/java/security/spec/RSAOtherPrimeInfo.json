@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.RSAOtherPrimeInfo",
+  "canonicalName" : "java.security.spec.RSAOtherPrimeInfo",
+  "simpleName" : "RSAOtherPrimeInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.RSAOtherPrimeInfo",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.RSAOtherPrimeInfo(java.math.BigInteger, java.math.BigInteger, java.math.BigInteger)",
+    "parameters" : [ {
+      "name" : "prime",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primeExponent",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "crtCoefficient",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCrtCoefficient",
+    "modifiers" : "public final",
+    "signature" : "public final java.math.BigInteger getCrtCoefficient()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExponent",
+    "modifiers" : "public final",
+    "signature" : "public final java.math.BigInteger getExponent()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrime",
+    "modifiers" : "public final",
+    "signature" : "public final java.math.BigInteger getPrime()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

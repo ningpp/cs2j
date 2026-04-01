@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.geom",
+  "binaryName" : "java.awt.geom.NoninvertibleTransformException",
+  "canonicalName" : "java.awt.geom.NoninvertibleTransformException",
+  "simpleName" : "NoninvertibleTransformException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.geom.NoninvertibleTransformException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.NoninvertibleTransformException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

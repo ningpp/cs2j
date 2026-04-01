@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.DocAttribute",
+  "canonicalName" : "javax.print.attribute.DocAttribute",
+  "simpleName" : "DocAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.print.attribute.Attribute" ]
+}

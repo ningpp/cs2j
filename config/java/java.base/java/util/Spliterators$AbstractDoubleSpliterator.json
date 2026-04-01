@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Spliterators$AbstractDoubleSpliterator",
+  "canonicalName" : "java.util.Spliterators.AbstractDoubleSpliterator",
+  "simpleName" : "AbstractDoubleSpliterator",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "java.util.Spliterators",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.Spliterator$OfDouble" ],
+  "declaredPublicMethods" : [ {
+    "name" : "characteristics",
+    "modifiers" : "public",
+    "signature" : "public int characteristics()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "estimateSize",
+    "modifiers" : "public",
+    "signature" : "public long estimateSize()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "trySplit",
+    "modifiers" : "public",
+    "signature" : "public java.util.Spliterator$OfDouble trySplit()",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

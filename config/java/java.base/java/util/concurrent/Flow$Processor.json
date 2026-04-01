@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Flow$Processor",
+  "canonicalName" : "java.util.concurrent.Flow.Processor",
+  "simpleName" : "Processor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.Flow",
+  "interfaces" : [ "java.util.concurrent.Flow$Publisher", "java.util.concurrent.Flow$Subscriber" ]
+}

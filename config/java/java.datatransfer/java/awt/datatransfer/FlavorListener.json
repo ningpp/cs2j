@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.FlavorListener",
+  "canonicalName" : "java.awt.datatransfer.FlavorListener",
+  "simpleName" : "FlavorListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "flavorsChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void flavorsChanged(java.awt.datatransfer.FlavorEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.datatransfer.FlavorEvent",
+      "genericType" : "java.awt.datatransfer.FlavorEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

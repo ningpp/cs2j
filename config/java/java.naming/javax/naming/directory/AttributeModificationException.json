@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.AttributeModificationException",
+  "canonicalName" : "javax.naming.directory.AttributeModificationException",
+  "simpleName" : "AttributeModificationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.AttributeModificationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.AttributeModificationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.AttributeModificationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.AttributeModificationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getUnexecutedModifications",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.ModificationItem[] getUnexecutedModifications()",
+    "returnType" : "javax.naming.directory.ModificationItem[]",
+    "genericReturnType" : "javax.naming.directory.ModificationItem[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUnexecutedModifications",
+    "modifiers" : "public",
+    "signature" : "public void setUnexecutedModifications(javax.naming.directory.ModificationItem[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.naming.directory.ModificationItem[]",
+      "genericType" : "javax.naming.directory.ModificationItem[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

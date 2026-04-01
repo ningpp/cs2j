@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.AclFileAttributeView",
+  "canonicalName" : "java.nio.file.attribute.AclFileAttributeView",
+  "simpleName" : "AclFileAttributeView",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.file.attribute.FileOwnerAttributeView" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAcl",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getAcl() throws java.io.IOException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String name()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAcl",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAcl(java.util.List) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

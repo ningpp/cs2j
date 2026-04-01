@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalToolBarUI$MetalRolloverListener",
+  "canonicalName" : "javax.swing.plaf.metal.MetalToolBarUI.MetalRolloverListener",
+  "simpleName" : "MetalRolloverListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalToolBarUI",
+  "superClass" : "javax.swing.plaf.basic.BasicToolBarUI$PropertyListener"
+}

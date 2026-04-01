@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.CancellationException",
+  "canonicalName" : "java.util.concurrent.CancellationException",
+  "simpleName" : "CancellationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.CancellationException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CancellationException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.CancellationException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CancellationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,680 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time",
+  "binaryName" : "java.time.Instant",
+  "canonicalName" : "java.time.Instant",
+  "simpleName" : "Instant",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Comparable", "java.time.temporal.Temporal", "java.time.temporal.TemporalAdjuster" ],
+  "declaredPublicMethods" : [ {
+    "name" : "adjustInto",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal adjustInto(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "atOffset",
+    "modifiers" : "public",
+    "signature" : "public java.time.OffsetDateTime atOffset(java.time.ZoneOffset)",
+    "returnType" : "java.time.OffsetDateTime",
+    "genericReturnType" : "java.time.OffsetDateTime",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "atZone",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime atZone(java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.time.Instant)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "otherInstant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Instant from(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public int get(java.time.temporal.TemporalField)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEpochSecond",
+    "modifiers" : "public",
+    "signature" : "public long getEpochSecond()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLong",
+    "modifiers" : "public",
+    "signature" : "public long getLong(java.time.temporal.TemporalField)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNano",
+    "modifiers" : "public",
+    "signature" : "public int getNano()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAfter",
+    "modifiers" : "public",
+    "signature" : "public boolean isAfter(java.time.Instant)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "otherInstant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBefore",
+    "modifiers" : "public",
+    "signature" : "public boolean isBefore(java.time.Instant)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "otherInstant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.time.temporal.TemporalField)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.time.temporal.TemporalUnit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant minus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant minus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusMillis",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant minusMillis(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "millisToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusNanos",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant minusNanos(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "nanosToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusSeconds",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant minusSeconds(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "secondsToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "now",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Instant now()",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "now",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Instant now(java.time.Clock)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "clock",
+      "type" : "java.time.Clock",
+      "genericType" : "java.time.Clock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofEpochMilli",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Instant ofEpochMilli(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "epochMilli",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofEpochSecond",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Instant ofEpochSecond(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "epochSecond",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofEpochSecond",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Instant ofEpochSecond(long, long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "epochSecond",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nanoAdjustment",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Instant parse(java.lang.CharSequence)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant plus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "amountToAdd",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant plus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "amountToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusMillis",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant plusMillis(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "millisToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusNanos",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant plusNanos(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "nanosToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusSeconds",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant plusSeconds(long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "secondsToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "query",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object query(java.time.temporal.TemporalQuery)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "query",
+      "type" : "java.time.temporal.TemporalQuery",
+      "genericType" : "java.time.temporal.TemporalQuery",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.ValueRange range(java.time.temporal.TemporalField)",
+    "returnType" : "java.time.temporal.ValueRange",
+    "genericReturnType" : "java.time.temporal.ValueRange",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toEpochMilli",
+    "modifiers" : "public",
+    "signature" : "public long toEpochMilli()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "truncatedTo",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant truncatedTo(java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "until",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration until(java.time.Instant)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "endExclusive",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "until",
+    "modifiers" : "public",
+    "signature" : "public long until(java.time.temporal.Temporal, java.time.temporal.TemporalUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "endExclusive",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant with(java.time.temporal.TemporalAdjuster)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "adjuster",
+      "type" : "java.time.temporal.TemporalAdjuster",
+      "genericType" : "java.time.temporal.TemporalAdjuster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant with(java.time.temporal.TemporalField, long)",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,1009 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Scanner",
+  "canonicalName" : "java.util.Scanner",
+  "simpleName" : "Scanner",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Closeable", "java.util.Iterator" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.io.File) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.io.File, java.lang.String) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.io.File, java.nio.charset.Charset) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.io.InputStream)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.io.InputStream, java.lang.String)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.io.InputStream, java.nio.charset.Charset)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.lang.Readable)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Readable",
+      "genericType" : "java.lang.Readable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.lang.String)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.nio.channels.ReadableByteChannel)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.nio.channels.ReadableByteChannel, java.lang.String)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.nio.channels.ReadableByteChannel, java.nio.charset.Charset)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.nio.file.Path) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.nio.file.Path, java.lang.String) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Scanner",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner(java.nio.file.Path, java.nio.charset.Charset) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "delimiter",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.Pattern delimiter()",
+    "returnType" : "java.util.regex.Pattern",
+    "genericReturnType" : "java.util.regex.Pattern",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findAll",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream findAll(java.lang.String)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "patString",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findAll",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream findAll(java.util.regex.Pattern)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findInLine",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String findInLine(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findInLine",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String findInLine(java.util.regex.Pattern)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findWithinHorizon",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String findWithinHorizon(java.lang.String, int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "horizon",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findWithinHorizon",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String findWithinHorizon(java.util.regex.Pattern, int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "horizon",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNext",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNext()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNext",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNext(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNext",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNext(java.util.regex.Pattern)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextBigDecimal",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextBigDecimal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextBigInteger",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextBigInteger()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextBigInteger",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextBigInteger(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextBoolean",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextBoolean()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextByte",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextByte()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextByte",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextByte(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextDouble",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextDouble()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextFloat",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextFloat()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextInt",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextInt()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextInt",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextInt(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextLine",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextLine()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextLong",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextLong()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextLong",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextLong(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextShort",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextShort()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNextShort",
+    "modifiers" : "public",
+    "signature" : "public boolean hasNextShort(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ioException",
+    "modifiers" : "public",
+    "signature" : "public java.io.IOException ioException()",
+    "returnType" : "java.io.IOException",
+    "genericReturnType" : "java.io.IOException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "locale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale locale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "match",
+    "modifiers" : "public",
+    "signature" : "public java.util.regex.MatchResult match()",
+    "returnType" : "java.util.regex.MatchResult",
+    "genericReturnType" : "java.util.regex.MatchResult",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String next()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String next(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String next(java.util.regex.Pattern)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextBigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal nextBigDecimal()",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextBigInteger",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger nextBigInteger()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextBigInteger",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger nextBigInteger(int)",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextBoolean",
+    "modifiers" : "public",
+    "signature" : "public boolean nextBoolean()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextByte",
+    "modifiers" : "public",
+    "signature" : "public byte nextByte()",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextByte",
+    "modifiers" : "public",
+    "signature" : "public byte nextByte(int)",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextDouble",
+    "modifiers" : "public",
+    "signature" : "public double nextDouble()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextFloat",
+    "modifiers" : "public",
+    "signature" : "public float nextFloat()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextInt",
+    "modifiers" : "public",
+    "signature" : "public int nextInt()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextInt",
+    "modifiers" : "public",
+    "signature" : "public int nextInt(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextLine",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String nextLine()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextLong",
+    "modifiers" : "public",
+    "signature" : "public long nextLong()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextLong",
+    "modifiers" : "public",
+    "signature" : "public long nextLong(int)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextShort",
+    "modifiers" : "public",
+    "signature" : "public short nextShort()",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextShort",
+    "modifiers" : "public",
+    "signature" : "public short nextShort(int)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "radix",
+    "modifiers" : "public",
+    "signature" : "public int radix()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner reset()",
+    "returnType" : "java.util.Scanner",
+    "genericReturnType" : "java.util.Scanner",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skip",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner skip(java.lang.String)",
+    "returnType" : "java.util.Scanner",
+    "genericReturnType" : "java.util.Scanner",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skip",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner skip(java.util.regex.Pattern)",
+    "returnType" : "java.util.Scanner",
+    "genericReturnType" : "java.util.Scanner",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tokens",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream tokens()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "useDelimiter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner useDelimiter(java.lang.String)",
+    "returnType" : "java.util.Scanner",
+    "genericReturnType" : "java.util.Scanner",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "useDelimiter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner useDelimiter(java.util.regex.Pattern)",
+    "returnType" : "java.util.Scanner",
+    "genericReturnType" : "java.util.Scanner",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.util.regex.Pattern",
+      "genericType" : "java.util.regex.Pattern",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "useLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner useLocale(java.util.Locale)",
+    "returnType" : "java.util.Scanner",
+    "genericReturnType" : "java.util.Scanner",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "useRadix",
+    "modifiers" : "public",
+    "signature" : "public java.util.Scanner useRadix(int)",
+    "returnType" : "java.util.Scanner",
+    "genericReturnType" : "java.util.Scanner",
+    "parameters" : [ {
+      "name" : "radix",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

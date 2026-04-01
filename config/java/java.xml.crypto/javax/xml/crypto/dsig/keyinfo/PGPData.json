@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.keyinfo",
+  "binaryName" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+  "canonicalName" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+  "simpleName" : "PGPData",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getExternalElements",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getExternalElements()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getKeyId()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyPacket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getKeyPacket()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

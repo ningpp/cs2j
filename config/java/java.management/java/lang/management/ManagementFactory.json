@@ -1,0 +1,233 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.ManagementFactory",
+  "canonicalName" : "java.lang.management.ManagementFactory",
+  "simpleName" : "ManagementFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getClassLoadingMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.ClassLoadingMXBean getClassLoadingMXBean()",
+    "returnType" : "java.lang.management.ClassLoadingMXBean",
+    "genericReturnType" : "java.lang.management.ClassLoadingMXBean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompilationMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.CompilationMXBean getCompilationMXBean()",
+    "returnType" : "java.lang.management.CompilationMXBean",
+    "genericReturnType" : "java.lang.management.CompilationMXBean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGarbageCollectorMXBeans",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List getGarbageCollectorMXBeans()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMemoryMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.MemoryMXBean getMemoryMXBean()",
+    "returnType" : "java.lang.management.MemoryMXBean",
+    "genericReturnType" : "java.lang.management.MemoryMXBean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMemoryManagerMXBeans",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List getMemoryManagerMXBeans()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMemoryPoolMXBeans",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List getMemoryPoolMXBeans()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOperatingSystemMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.OperatingSystemMXBean getOperatingSystemMXBean()",
+    "returnType" : "java.lang.management.OperatingSystemMXBean",
+    "genericReturnType" : "java.lang.management.OperatingSystemMXBean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPlatformMBeanServer",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized javax.management.MBeanServer getPlatformMBeanServer()",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPlatformMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.PlatformManagedObject getPlatformMXBean(java.lang.Class)",
+    "returnType" : "java.lang.management.PlatformManagedObject",
+    "genericReturnType" : "java.lang.management.PlatformManagedObject",
+    "parameters" : [ {
+      "name" : "mxbeanInterface",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPlatformMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.PlatformManagedObject getPlatformMXBean(javax.management.MBeanServerConnection, java.lang.Class) throws java.io.IOException",
+    "returnType" : "java.lang.management.PlatformManagedObject",
+    "genericReturnType" : "java.lang.management.PlatformManagedObject",
+    "parameters" : [ {
+      "name" : "connection",
+      "type" : "javax.management.MBeanServerConnection",
+      "genericType" : "javax.management.MBeanServerConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mxbeanInterface",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPlatformMXBeans",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List getPlatformMXBeans(java.lang.Class)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "mxbeanInterface",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPlatformMXBeans",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List getPlatformMXBeans(javax.management.MBeanServerConnection, java.lang.Class) throws java.io.IOException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "connection",
+      "type" : "javax.management.MBeanServerConnection",
+      "genericType" : "javax.management.MBeanServerConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mxbeanInterface",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPlatformManagementInterfaces",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set getPlatformManagementInterfaces()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRuntimeMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.RuntimeMXBean getRuntimeMXBean()",
+    "returnType" : "java.lang.management.RuntimeMXBean",
+    "genericReturnType" : "java.lang.management.RuntimeMXBean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadMXBean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.ThreadMXBean getThreadMXBean()",
+    "returnType" : "java.lang.management.ThreadMXBean",
+    "genericReturnType" : "java.lang.management.ThreadMXBean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPlatformMXBeanProxy",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object newPlatformMXBeanProxy(javax.management.MBeanServerConnection, java.lang.String, java.lang.Class) throws java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "connection",
+      "type" : "javax.management.MBeanServerConnection",
+      "genericType" : "javax.management.MBeanServerConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mxbeanName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mxbeanInterface",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

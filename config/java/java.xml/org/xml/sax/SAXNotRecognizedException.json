@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax",
+  "binaryName" : "org.xml.sax.SAXNotRecognizedException",
+  "canonicalName" : "org.xml.sax.SAXNotRecognizedException",
+  "simpleName" : "SAXNotRecognizedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "org.xml.sax.SAXException",
+  "declaredPublicConstructors" : [ {
+    "name" : "org.xml.sax.SAXNotRecognizedException",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.SAXNotRecognizedException()",
+    "varArgs" : false
+  }, {
+    "name" : "org.xml.sax.SAXNotRecognizedException",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.SAXNotRecognizedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

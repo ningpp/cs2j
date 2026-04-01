@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.DescriptorRead",
+  "canonicalName" : "javax.management.DescriptorRead",
+  "simpleName" : "DescriptorRead",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.Descriptor getDescriptor()",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

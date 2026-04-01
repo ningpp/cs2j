@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.ElementIterator",
+  "canonicalName" : "javax.swing.text.ElementIterator",
+  "simpleName" : "ElementIterator",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.ElementIterator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.ElementIterator(javax.swing.text.Document)",
+    "parameters" : [ {
+      "name" : "document",
+      "type" : "javax.swing.text.Document",
+      "genericType" : "javax.swing.text.Document",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.ElementIterator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.ElementIterator(javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "root",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "current",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element current()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "depth",
+    "modifiers" : "public",
+    "signature" : "public int depth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "first",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element first()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element next()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previous",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element previous()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

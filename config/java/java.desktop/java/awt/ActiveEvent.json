@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.ActiveEvent",
+  "canonicalName" : "java.awt.ActiveEvent",
+  "simpleName" : "ActiveEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "dispatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dispatch()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

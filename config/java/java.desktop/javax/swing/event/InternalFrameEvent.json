@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.InternalFrameEvent",
+  "canonicalName" : "javax.swing.event.InternalFrameEvent",
+  "simpleName" : "InternalFrameEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.AWTEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.InternalFrameEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.InternalFrameEvent(javax.swing.JInternalFrame, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getInternalFrame",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JInternalFrame getInternalFrame()",
+    "returnType" : "javax.swing.JInternalFrame",
+    "genericReturnType" : "javax.swing.JInternalFrame",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

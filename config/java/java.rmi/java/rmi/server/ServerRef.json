@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.ServerRef",
+  "canonicalName" : "java.rmi.server.ServerRef",
+  "simpleName" : "ServerRef",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.rmi.server.RemoteRef" ],
+  "declaredPublicMethods" : [ {
+    "name" : "exportObject",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.rmi.server.RemoteStub exportObject(java.rmi.Remote, java.lang.Object) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.server.RemoteStub",
+    "genericReturnType" : "java.rmi.server.RemoteStub",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClientHost",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getClientHost() throws java.rmi.server.ServerNotActiveException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.rmi.server.ServerNotActiveException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

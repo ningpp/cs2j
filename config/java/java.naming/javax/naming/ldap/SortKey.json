@@ -1,0 +1,78 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.SortKey",
+  "canonicalName" : "javax.naming.ldap.SortKey",
+  "simpleName" : "SortKey",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.SortKey",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.SortKey(java.lang.String)",
+    "parameters" : [ {
+      "name" : "attrID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.SortKey",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.SortKey(java.lang.String, boolean, java.lang.String)",
+    "parameters" : [ {
+      "name" : "attrID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ascendingOrder",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "matchingRuleID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributeID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAttributeID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMatchingRuleID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMatchingRuleID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAscending",
+    "modifiers" : "public",
+    "signature" : "public boolean isAscending()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

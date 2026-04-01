@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.XPathFilter2ParameterSpec",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.XPathFilter2ParameterSpec",
+  "simpleName" : "XPathFilter2ParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.crypto.dsig.spec.TransformParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.spec.XPathFilter2ParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.XPathFilter2ParameterSpec(java.util.List)",
+    "parameters" : [ {
+      "name" : "xPathList",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getXPathList",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getXPathList()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

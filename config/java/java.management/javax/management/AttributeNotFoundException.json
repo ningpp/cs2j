@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.AttributeNotFoundException",
+  "canonicalName" : "javax.management.AttributeNotFoundException",
+  "simpleName" : "AttributeNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.OperationsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.AttributeNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.AttributeNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

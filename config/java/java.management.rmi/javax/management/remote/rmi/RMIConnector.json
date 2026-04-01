@@ -1,0 +1,208 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIConnector",
+  "canonicalName" : "javax.management.remote.rmi.RMIConnector",
+  "simpleName" : "RMIConnector",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.management.remote.JMXAddressable", "javax.management.remote.JMXConnector" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.rmi.RMIConnector",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnector(javax.management.remote.JMXServiceURL, java.util.Map)",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "javax.management.remote.JMXServiceURL",
+      "genericType" : "javax.management.remote.JMXServiceURL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.remote.rmi.RMIConnector",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnector(javax.management.remote.rmi.RMIServer, java.util.Map)",
+    "parameters" : [ {
+      "name" : "rmiServer",
+      "type" : "javax.management.remote.rmi.RMIServer",
+      "genericType" : "javax.management.remote.rmi.RMIServer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addConnectionNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void addConnectionNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "javax.management.NotificationFilter",
+      "genericType" : "javax.management.NotificationFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handback",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connect",
+    "modifiers" : "public",
+    "signature" : "public void connect() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connect",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void connect(java.util.Map) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "environment",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAddress",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.JMXServiceURL getAddress()",
+    "returnType" : "javax.management.remote.JMXServiceURL",
+    "genericReturnType" : "javax.management.remote.JMXServiceURL",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnectionId",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.String getConnectionId() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanServerConnection",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized javax.management.MBeanServerConnection getMBeanServerConnection() throws java.io.IOException",
+    "returnType" : "javax.management.MBeanServerConnection",
+    "genericReturnType" : "javax.management.MBeanServerConnection",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeConnectionNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeConnectionNotificationListener(javax.management.NotificationListener) throws javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeConnectionNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeConnectionNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object) throws javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "javax.management.NotificationFilter",
+      "genericType" : "javax.management.NotificationFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handback",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

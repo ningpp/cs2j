@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Sink$OfDouble",
+  "canonicalName" : "java.util.stream.Sink.OfDouble",
+  "simpleName" : "OfDouble",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Sink",
+  "interfaces" : [ "java.util.function.DoubleConsumer", "java.util.stream.Sink" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "accept",
+    "modifiers" : "public",
+    "signature" : "public void accept(java.lang.Double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "java.lang.Double",
+      "genericType" : "java.lang.Double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

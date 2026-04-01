@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.Patch",
+  "canonicalName" : "javax.sound.midi.Patch",
+  "simpleName" : "Patch",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.midi.Patch",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.Patch(int, int)",
+    "parameters" : [ {
+      "name" : "bank",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "program",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBank",
+    "modifiers" : "public",
+    "signature" : "public int getBank()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProgram",
+    "modifiers" : "public",
+    "signature" : "public int getProgram()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

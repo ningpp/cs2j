@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.ImageTranscoderSpi",
+  "canonicalName" : "javax.imageio.spi.ImageTranscoderSpi",
+  "simpleName" : "ImageTranscoderSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.imageio.spi.IIOServiceProvider",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.spi.ImageTranscoderSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.ImageTranscoderSpi(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "vendorName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createTranscoderInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.ImageTranscoder createTranscoderInstance()",
+    "returnType" : "javax.imageio.ImageTranscoder",
+    "genericReturnType" : "javax.imageio.ImageTranscoder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReaderServiceProviderName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getReaderServiceProviderName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWriterServiceProviderName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getWriterServiceProviderName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

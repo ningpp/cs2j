@@ -1,0 +1,49 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JMenu$WinListener",
+  "canonicalName" : "javax.swing.JMenu.WinListener",
+  "simpleName" : "WinListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JMenu",
+  "superClass" : "java.awt.event.WindowAdapter",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JMenu$WinListener",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenu$WinListener(javax.swing.JMenu, javax.swing.JPopupMenu)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.JMenu",
+      "genericType" : "javax.swing.JMenu",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "javax.swing.JPopupMenu",
+      "genericType" : "javax.swing.JPopupMenu",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "windowClosing",
+    "modifiers" : "public",
+    "signature" : "public void windowClosing(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

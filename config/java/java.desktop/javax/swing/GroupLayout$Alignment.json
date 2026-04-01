@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.GroupLayout$Alignment",
+  "canonicalName" : "javax.swing.GroupLayout.Alignment",
+  "simpleName" : "Alignment",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.GroupLayout",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.GroupLayout$Alignment valueOf(java.lang.String)",
+    "returnType" : "javax.swing.GroupLayout$Alignment",
+    "genericReturnType" : "javax.swing.GroupLayout$Alignment",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.GroupLayout$Alignment[] values()",
+    "returnType" : "javax.swing.GroupLayout$Alignment[]",
+    "genericReturnType" : "javax.swing.GroupLayout$Alignment[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

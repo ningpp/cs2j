@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.synth",
+  "binaryName" : "javax.swing.plaf.synth.SynthContext",
+  "canonicalName" : "javax.swing.plaf.synth.SynthContext",
+  "simpleName" : "SynthContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.synth.SynthContext",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.SynthContext(javax.swing.JComponent, javax.swing.plaf.synth.Region, javax.swing.plaf.synth.SynthStyle, int)",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "region",
+      "type" : "javax.swing.plaf.synth.Region",
+      "genericType" : "javax.swing.plaf.synth.Region",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "style",
+      "type" : "javax.swing.plaf.synth.SynthStyle",
+      "genericType" : "javax.swing.plaf.synth.SynthStyle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "state",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JComponent getComponent()",
+    "returnType" : "javax.swing.JComponent",
+    "genericReturnType" : "javax.swing.JComponent",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentState",
+    "modifiers" : "public",
+    "signature" : "public int getComponentState()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRegion",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.Region getRegion()",
+    "returnType" : "javax.swing.plaf.synth.Region",
+    "genericReturnType" : "javax.swing.plaf.synth.Region",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyle",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.SynthStyle getStyle()",
+    "returnType" : "javax.swing.plaf.synth.SynthStyle",
+    "genericReturnType" : "javax.swing.plaf.synth.SynthStyle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

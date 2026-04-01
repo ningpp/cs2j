@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.DEREncodable",
+  "canonicalName" : "java.security.DEREncodable",
+  "simpleName" : "DEREncodable",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

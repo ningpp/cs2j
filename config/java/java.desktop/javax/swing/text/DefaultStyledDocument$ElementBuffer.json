@@ -1,0 +1,158 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.DefaultStyledDocument$ElementBuffer",
+  "canonicalName" : "javax.swing.text.DefaultStyledDocument.ElementBuffer",
+  "simpleName" : "ElementBuffer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.DefaultStyledDocument",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.DefaultStyledDocument$ElementBuffer",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultStyledDocument$ElementBuffer(javax.swing.text.DefaultStyledDocument, javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.DefaultStyledDocument",
+      "genericType" : "javax.swing.text.DefaultStyledDocument",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "root",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "change",
+    "modifiers" : "public",
+    "signature" : "public void change(int, int, javax.swing.text.AbstractDocument$DefaultDocumentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "de",
+      "type" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+      "genericType" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element clone(javax.swing.text.Element, javax.swing.text.Element)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "clonee",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRootElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getRootElement()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insert",
+    "modifiers" : "public",
+    "signature" : "public void insert(int, int, javax.swing.text.DefaultStyledDocument$ElementSpec[], javax.swing.text.AbstractDocument$DefaultDocumentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "javax.swing.text.DefaultStyledDocument$ElementSpec[]",
+      "genericType" : "javax.swing.text.DefaultStyledDocument$ElementSpec[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "de",
+      "type" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+      "genericType" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(int, int, javax.swing.text.AbstractDocument$DefaultDocumentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "de",
+      "type" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+      "genericType" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,283 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JList$AccessibleJList",
+  "canonicalName" : "javax.swing.JList.AccessibleJList",
+  "simpleName" : "AccessibleJList",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JList",
+  "superClass" : "javax.swing.JComponent$AccessibleJComponent",
+  "interfaces" : [ "java.beans.PropertyChangeListener", "javax.accessibility.AccessibleSelection", "javax.swing.event.ListDataListener", "javax.swing.event.ListSelectionListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JList$AccessibleJList",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JList$AccessibleJList(javax.swing.JList)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.JList",
+      "genericType" : "javax.swing.JList",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void addAccessibleSelection(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clearAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void clearAccessibleSelection()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contentsChanged",
+    "modifiers" : "public",
+    "signature" : "public void contentsChanged(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleAt",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleAt(java.awt.Point)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChild",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleChild(int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleChildrenCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleChildrenCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleSelection getAccessibleSelection()",
+    "returnType" : "javax.accessibility.AccessibleSelection",
+    "genericReturnType" : "javax.accessibility.AccessibleSelection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.Accessible getAccessibleSelection(int)",
+    "returnType" : "javax.accessibility.Accessible",
+    "genericReturnType" : "javax.accessibility.Accessible",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleSelectionCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleSelectionCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intervalAdded",
+    "modifiers" : "public",
+    "signature" : "public void intervalAdded(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intervalRemoved",
+    "modifiers" : "public",
+    "signature" : "public void intervalRemoved(javax.swing.event.ListDataEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListDataEvent",
+      "genericType" : "javax.swing.event.ListDataEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAccessibleChildSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isAccessibleChildSelected(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "propertyChange",
+    "modifiers" : "public",
+    "signature" : "public void propertyChange(java.beans.PropertyChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void removeAccessibleSelection(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectAllAccessibleSelection",
+    "modifiers" : "public",
+    "signature" : "public void selectAllAccessibleSelection()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueChanged",
+    "modifiers" : "public",
+    "signature" : "public void valueChanged(javax.swing.event.ListSelectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListSelectionEvent",
+      "genericType" : "javax.swing.event.ListSelectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

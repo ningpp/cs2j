@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.InvocationTargetException",
+  "canonicalName" : "java.lang.reflect.InvocationTargetException",
+  "simpleName" : "InvocationTargetException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ReflectiveOperationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.reflect.InvocationTargetException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.InvocationTargetException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.reflect.InvocationTargetException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.InvocationTargetException(java.lang.Throwable, java.lang.String)",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getTargetException()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

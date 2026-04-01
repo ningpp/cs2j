@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.StackMapTableAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.StackMapTableAttribute",
+  "simpleName" : "StackMapTableAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.CodeElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "entries",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List entries()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.StackMapTableAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.StackMapTableAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.StackMapTableAttribute",
+    "parameters" : [ {
+      "name" : "entries",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

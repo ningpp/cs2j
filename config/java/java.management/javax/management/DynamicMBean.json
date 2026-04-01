@@ -1,0 +1,120 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.DynamicMBean",
+  "canonicalName" : "javax.management.DynamicMBean",
+  "simpleName" : "DynamicMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getAttribute(java.lang.String) throws javax.management.AttributeNotFoundException, javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.AttributeNotFoundException", "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.AttributeList getAttributes(java.lang.String[])",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanInfo getMBeanInfo()",
+    "returnType" : "javax.management.MBeanInfo",
+    "genericReturnType" : "javax.management.MBeanInfo",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object invoke(java.lang.String, java.lang.Object[], java.lang.String[]) throws javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAttribute(javax.management.Attribute) throws javax.management.AttributeNotFoundException, javax.management.InvalidAttributeValueException, javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Attribute",
+      "genericType" : "javax.management.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.AttributeNotFoundException", "javax.management.InvalidAttributeValueException", "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.AttributeList setAttributes(javax.management.AttributeList)",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.AttributeList",
+      "genericType" : "javax.management.AttributeList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

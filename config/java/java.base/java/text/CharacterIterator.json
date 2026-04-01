@@ -1,0 +1,118 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.CharacterIterator",
+  "canonicalName" : "java.text.CharacterIterator",
+  "simpleName" : "CharacterIterator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "current",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char current()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "first",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char first()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeginIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getBeginIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getEndIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "last",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char last()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char next()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previous",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char previous()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char setIndex(int)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

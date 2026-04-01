@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Signature$BaseTypeSig",
+  "canonicalName" : "java.lang.classfile.Signature.BaseTypeSig",
+  "simpleName" : "BaseTypeSig",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.Signature",
+  "interfaces" : [ "java.lang.classfile.Signature" ],
+  "declaredPublicMethods" : [ {
+    "name" : "baseType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char baseType()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$BaseTypeSig of(char)",
+    "returnType" : "java.lang.classfile.Signature$BaseTypeSig",
+    "genericReturnType" : "java.lang.classfile.Signature$BaseTypeSig",
+    "parameters" : [ {
+      "name" : "baseType",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$BaseTypeSig of(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.Signature$BaseTypeSig",
+    "genericReturnType" : "java.lang.classfile.Signature$BaseTypeSig",
+    "parameters" : [ {
+      "name" : "classDesc",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

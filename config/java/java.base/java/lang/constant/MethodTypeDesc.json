@@ -1,0 +1,289 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.constant",
+  "binaryName" : "java.lang.constant.MethodTypeDesc",
+  "canonicalName" : "java.lang.constant.MethodTypeDesc",
+  "simpleName" : "MethodTypeDesc",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.constant.ConstantDesc", "java.lang.invoke.TypeDescriptor$OfMethod" ],
+  "declaredPublicMethods" : [ {
+    "name" : "changeParameterType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.MethodTypeDesc changeParameterType(int, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "changeReturnType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.MethodTypeDesc changeReturnType(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descriptorString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String descriptorString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "displayDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String displayDescriptor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dropParameterTypes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.MethodTypeDesc dropParameterTypes(int, int)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertParameterTypes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.MethodTypeDesc insertParameterTypes(int, java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.MethodTypeDesc of(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "returnDesc",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.MethodTypeDesc of(java.lang.constant.ClassDesc, java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "returnDesc",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paramDescs",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.MethodTypeDesc of(java.lang.constant.ClassDesc, java.util.List)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "returnDesc",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paramDescs",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDescriptor",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.MethodTypeDesc ofDescriptor(java.lang.String)",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "parameters" : [ {
+      "name" : "descriptor",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parameterArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.ClassDesc[] parameterArray()",
+    "returnType" : "java.lang.constant.ClassDesc[]",
+    "genericReturnType" : "java.lang.constant.ClassDesc[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parameterCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int parameterCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parameterList",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List parameterList()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parameterType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.ClassDesc parameterType(int)",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveConstantDesc",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodType resolveConstantDesc(java.lang.invoke.MethodHandles$Lookup) throws java.lang.ReflectiveOperationException",
+    "returnType" : "java.lang.invoke.MethodType",
+    "genericReturnType" : "java.lang.invoke.MethodType",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ReflectiveOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "returnType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.ClassDesc returnType()",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

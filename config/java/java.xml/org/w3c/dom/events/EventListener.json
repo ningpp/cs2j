@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.events",
+  "binaryName" : "org.w3c.dom.events.EventListener",
+  "canonicalName" : "org.w3c.dom.events.EventListener",
+  "simpleName" : "EventListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "handleEvent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void handleEvent(org.w3c.dom.events.Event)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.events.Event",
+      "genericType" : "org.w3c.dom.events.Event",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

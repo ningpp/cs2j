@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.UnsupportedTemporalTypeException",
+  "canonicalName" : "java.time.temporal.UnsupportedTemporalTypeException",
+  "simpleName" : "UnsupportedTemporalTypeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.time.DateTimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.time.temporal.UnsupportedTemporalTypeException",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.UnsupportedTemporalTypeException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.time.temporal.UnsupportedTemporalTypeException",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.UnsupportedTemporalTypeException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

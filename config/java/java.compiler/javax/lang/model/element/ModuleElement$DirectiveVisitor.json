@@ -1,0 +1,189 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ModuleElement$DirectiveVisitor",
+  "canonicalName" : "javax.lang.model.element.ModuleElement.DirectiveVisitor",
+  "simpleName" : "DirectiveVisitor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.lang.model.element.ModuleElement",
+  "declaredPublicMethods" : [ {
+    "name" : "visit",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visit(javax.lang.model.element.ModuleElement$Directive)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "javax.lang.model.element.ModuleElement$Directive",
+      "genericType" : "javax.lang.model.element.ModuleElement$Directive",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "visit",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visit(javax.lang.model.element.ModuleElement$Directive, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "javax.lang.model.element.ModuleElement$Directive",
+      "genericType" : "javax.lang.model.element.ModuleElement$Directive",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "visitExports",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitExports(javax.lang.model.element.ModuleElement$ExportsDirective, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ModuleElement$ExportsDirective",
+      "genericType" : "javax.lang.model.element.ModuleElement$ExportsDirective",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitOpens",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitOpens(javax.lang.model.element.ModuleElement$OpensDirective, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ModuleElement$OpensDirective",
+      "genericType" : "javax.lang.model.element.ModuleElement$OpensDirective",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitProvides",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitProvides(javax.lang.model.element.ModuleElement$ProvidesDirective, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ModuleElement$ProvidesDirective",
+      "genericType" : "javax.lang.model.element.ModuleElement$ProvidesDirective",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitRequires",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitRequires(javax.lang.model.element.ModuleElement$RequiresDirective, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ModuleElement$RequiresDirective",
+      "genericType" : "javax.lang.model.element.ModuleElement$RequiresDirective",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitUnknown",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitUnknown(javax.lang.model.element.ModuleElement$Directive, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "d",
+      "type" : "javax.lang.model.element.ModuleElement$Directive",
+      "genericType" : "javax.lang.model.element.ModuleElement$Directive",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "visitUses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object visitUses(javax.lang.model.element.ModuleElement$UsesDirective, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ModuleElement$UsesDirective",
+      "genericType" : "javax.lang.model.element.ModuleElement$UsesDirective",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

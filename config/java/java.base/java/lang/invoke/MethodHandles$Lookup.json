@@ -1,0 +1,705 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.MethodHandles$Lookup",
+  "canonicalName" : "java.lang.invoke.MethodHandles.Lookup",
+  "simpleName" : "Lookup",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.invoke.MethodHandles",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "accessClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class accessClass(java.lang.Class) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "targetClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle bind(java.lang.Object, java.lang.String, java.lang.invoke.MethodType) throws java.lang.NoSuchMethodException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "receiver",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class defineClass(byte[]) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "bytes",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineHiddenClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandles$Lookup defineHiddenClass(byte[], boolean, java.lang.invoke.MethodHandles$Lookup$ClassOption...) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "genericReturnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "parameters" : [ {
+      "name" : "bytes",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialize",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.lang.invoke.MethodHandles$Lookup$ClassOption[]",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup$ClassOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "defineHiddenClassWithClassData",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandles$Lookup defineHiddenClassWithClassData(byte[], java.lang.Object, boolean, java.lang.invoke.MethodHandles$Lookup$ClassOption...) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "genericReturnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "parameters" : [ {
+      "name" : "bytes",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classData",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialize",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.lang.invoke.MethodHandles$Lookup$ClassOption[]",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup$ClassOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "dropLookupMode",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandles$Lookup dropLookupMode(int)",
+    "returnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "genericReturnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "parameters" : [ {
+      "name" : "modeToDrop",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ensureInitialized",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class ensureInitialized(java.lang.Class) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "targetClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class findClass(java.lang.String) throws java.lang.ClassNotFoundException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "targetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findConstructor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findConstructor(java.lang.Class, java.lang.invoke.MethodType) throws java.lang.NoSuchMethodException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findGetter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findGetter(java.lang.Class, java.lang.String, java.lang.Class) throws java.lang.NoSuchFieldException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findSetter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findSetter(java.lang.Class, java.lang.String, java.lang.Class) throws java.lang.NoSuchFieldException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findSpecial",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findSpecial(java.lang.Class, java.lang.String, java.lang.invoke.MethodType, java.lang.Class) throws java.lang.NoSuchMethodException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "specialCaller",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findStatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findStatic(java.lang.Class, java.lang.String, java.lang.invoke.MethodType) throws java.lang.NoSuchMethodException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findStaticGetter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findStaticGetter(java.lang.Class, java.lang.String, java.lang.Class) throws java.lang.NoSuchFieldException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findStaticSetter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findStaticSetter(java.lang.Class, java.lang.String, java.lang.Class) throws java.lang.NoSuchFieldException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findStaticVarHandle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.VarHandle findStaticVarHandle(java.lang.Class, java.lang.String, java.lang.Class) throws java.lang.NoSuchFieldException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "parameters" : [ {
+      "name" : "decl",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findVarHandle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.VarHandle findVarHandle(java.lang.Class, java.lang.String, java.lang.Class) throws java.lang.NoSuchFieldException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "parameters" : [ {
+      "name" : "recv",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findVirtual",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle findVirtual(java.lang.Class, java.lang.String, java.lang.invoke.MethodType) throws java.lang.NoSuchMethodException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "refc",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasFullPrivilegeAccess",
+    "modifiers" : "public",
+    "signature" : "public boolean hasFullPrivilegeAccess()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasPrivateAccess",
+    "modifiers" : "public",
+    "signature" : "public boolean hasPrivateAccess()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "in",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandles$Lookup in(java.lang.Class)",
+    "returnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "genericReturnType" : "java.lang.invoke.MethodHandles$Lookup",
+    "parameters" : [ {
+      "name" : "requestedLookupClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class lookupClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupModes",
+    "modifiers" : "public",
+    "signature" : "public int lookupModes()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousLookupClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class previousLookupClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "revealDirect",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandleInfo revealDirect(java.lang.invoke.MethodHandle)",
+    "returnType" : "java.lang.invoke.MethodHandleInfo",
+    "genericReturnType" : "java.lang.invoke.MethodHandleInfo",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unreflect",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle unreflect(java.lang.reflect.Method) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unreflectConstructor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle unreflectConstructor(java.lang.reflect.Constructor) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.reflect.Constructor",
+      "genericType" : "java.lang.reflect.Constructor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unreflectGetter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle unreflectGetter(java.lang.reflect.Field) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.lang.reflect.Field",
+      "genericType" : "java.lang.reflect.Field",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unreflectSetter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle unreflectSetter(java.lang.reflect.Field) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.lang.reflect.Field",
+      "genericType" : "java.lang.reflect.Field",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unreflectSpecial",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodHandle unreflectSpecial(java.lang.reflect.Method, java.lang.Class) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "specialCaller",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unreflectVarHandle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.VarHandle unreflectVarHandle(java.lang.reflect.Field) throws java.lang.IllegalAccessException",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.lang.reflect.Field",
+      "genericType" : "java.lang.reflect.Field",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,253 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.ScrollPane",
+  "canonicalName" : "java.awt.ScrollPane",
+  "simpleName" : "ScrollPane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Container",
+  "interfaces" : [ "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.ScrollPane",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ScrollPane() throws java.awt.HeadlessException",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.ScrollPane",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ScrollPane(int) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "scrollbarDisplayPolicy",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doLayout",
+    "modifiers" : "public",
+    "signature" : "public void doLayout()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHAdjustable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Adjustable getHAdjustable()",
+    "returnType" : "java.awt.Adjustable",
+    "genericReturnType" : "java.awt.Adjustable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHScrollbarHeight",
+    "modifiers" : "public",
+    "signature" : "public int getHScrollbarHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollPosition",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point getScrollPosition()",
+    "returnType" : "java.awt.Point",
+    "genericReturnType" : "java.awt.Point",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollbarDisplayPolicy",
+    "modifiers" : "public",
+    "signature" : "public int getScrollbarDisplayPolicy()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVAdjustable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Adjustable getVAdjustable()",
+    "returnType" : "java.awt.Adjustable",
+    "genericReturnType" : "java.awt.Adjustable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVScrollbarWidth",
+    "modifiers" : "public",
+    "signature" : "public int getVScrollbarWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewportSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getViewportSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWheelScrollingEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isWheelScrollingEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "layout",
+    "modifiers" : "public",
+    "signature" : "public void layout()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printComponents",
+    "modifiers" : "public",
+    "signature" : "public void printComponents(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLayout",
+    "modifiers" : "public final",
+    "signature" : "public final void setLayout(java.awt.LayoutManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mgr",
+      "type" : "java.awt.LayoutManager",
+      "genericType" : "java.awt.LayoutManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setScrollPosition",
+    "modifiers" : "public",
+    "signature" : "public void setScrollPosition(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setScrollPosition",
+    "modifiers" : "public",
+    "signature" : "public void setScrollPosition(java.awt.Point)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWheelScrollingEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setWheelScrollingEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handleWheel",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

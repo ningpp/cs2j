@@ -1,0 +1,120 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time",
+  "binaryName" : "java.time.InstantSource",
+  "canonicalName" : "java.time.InstantSource",
+  "simpleName" : "InstantSource",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "fixed",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.InstantSource fixed(java.time.Instant)",
+    "returnType" : "java.time.InstantSource",
+    "genericReturnType" : "java.time.InstantSource",
+    "parameters" : [ {
+      "name" : "fixedInstant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "instant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.Instant instant()",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "millis",
+    "modifiers" : "public",
+    "signature" : "public long millis()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "offset",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.InstantSource offset(java.time.InstantSource, java.time.Duration)",
+    "returnType" : "java.time.InstantSource",
+    "genericReturnType" : "java.time.InstantSource",
+    "parameters" : [ {
+      "name" : "baseSource",
+      "type" : "java.time.InstantSource",
+      "genericType" : "java.time.InstantSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsetDuration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "system",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.InstantSource system()",
+    "returnType" : "java.time.InstantSource",
+    "genericReturnType" : "java.time.InstantSource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tick",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.InstantSource tick(java.time.InstantSource, java.time.Duration)",
+    "returnType" : "java.time.InstantSource",
+    "genericReturnType" : "java.time.InstantSource",
+    "parameters" : [ {
+      "name" : "baseSource",
+      "type" : "java.time.InstantSource",
+      "genericType" : "java.time.InstantSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tickDuration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZone",
+    "modifiers" : "public",
+    "signature" : "public java.time.Clock withZone(java.time.ZoneId)",
+    "returnType" : "java.time.Clock",
+    "genericReturnType" : "java.time.Clock",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,346 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.SocketChannel",
+  "canonicalName" : "java.nio.channels.SocketChannel",
+  "simpleName" : "SocketChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.channels.spi.AbstractSelectableChannel",
+  "interfaces" : [ "java.nio.channels.ByteChannel", "java.nio.channels.GatheringByteChannel", "java.nio.channels.NetworkChannel", "java.nio.channels.ScatteringByteChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "bind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SocketChannel bind(java.net.SocketAddress) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean connect(java.net.SocketAddress) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finishConnect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean finishConnect() throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalAddress",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.SocketAddress getLocalAddress() throws java.io.IOException",
+    "returnType" : "java.net.SocketAddress",
+    "genericReturnType" : "java.net.SocketAddress",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRemoteAddress",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.SocketAddress getRemoteAddress() throws java.io.IOException",
+    "returnType" : "java.net.SocketAddress",
+    "genericReturnType" : "java.net.SocketAddress",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConnected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isConnected()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConnectionPending",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isConnectionPending()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.SocketChannel open() throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.SocketChannel open(java.net.ProtocolFamily) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "parameters" : [ {
+      "name" : "family",
+      "type" : "java.net.ProtocolFamily",
+      "genericType" : "java.net.ProtocolFamily",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.SocketChannel open(java.net.SocketAddress) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "parameters" : [ {
+      "name" : "remote",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int read(java.nio.ByteBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public final",
+    "signature" : "public final long read(java.nio.ByteBuffer[]) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "dsts",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long read(java.nio.ByteBuffer[], int, int) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOption",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SocketChannel setOption(java.net.SocketOption, java.lang.Object) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.SocketOption",
+      "genericType" : "java.net.SocketOption",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdownInput",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SocketChannel shutdownInput() throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdownOutput",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SocketChannel shutdownOutput() throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "socket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.Socket socket()",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validOps",
+    "modifiers" : "public final",
+    "signature" : "public final int validOps()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int write(java.nio.ByteBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public final",
+    "signature" : "public final long write(java.nio.ByteBuffer[]) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "srcs",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long write(java.nio.ByteBuffer[], int, int) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

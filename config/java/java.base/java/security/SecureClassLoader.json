@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.SecureClassLoader",
+  "canonicalName" : "java.security.SecureClassLoader",
+  "simpleName" : "SecureClassLoader",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ClassLoader"
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.UnresolvedAddressException",
+  "canonicalName" : "java.nio.channels.UnresolvedAddressException",
+  "simpleName" : "UnresolvedAddressException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.UnresolvedAddressException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.UnresolvedAddressException()",
+    "varArgs" : false
+  } ]
+}

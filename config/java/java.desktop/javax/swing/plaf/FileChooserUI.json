@@ -1,0 +1,136 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.FileChooserUI",
+  "canonicalName" : "javax.swing.plaf.FileChooserUI",
+  "simpleName" : "FileChooserUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI",
+  "declaredPublicMethods" : [ {
+    "name" : "ensureFileIsVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void ensureFileIsVisible(javax.swing.JFileChooser, java.io.File)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAcceptAllFileFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.filechooser.FileFilter getAcceptAllFileFilter(javax.swing.JFileChooser)",
+    "returnType" : "javax.swing.filechooser.FileFilter",
+    "genericReturnType" : "javax.swing.filechooser.FileFilter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApproveButtonText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getApproveButtonText(javax.swing.JFileChooser)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultButton",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JButton getDefaultButton(javax.swing.JFileChooser)",
+    "returnType" : "javax.swing.JButton",
+    "genericReturnType" : "javax.swing.JButton",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDialogTitle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDialogTitle(javax.swing.JFileChooser)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileView",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.filechooser.FileView getFileView(javax.swing.JFileChooser)",
+    "returnType" : "javax.swing.filechooser.FileView",
+    "genericReturnType" : "javax.swing.filechooser.FileView",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rescanCurrentDirectory",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rescanCurrentDirectory(javax.swing.JFileChooser)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

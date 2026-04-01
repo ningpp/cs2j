@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.DocumentEvent$ElementChange",
+  "canonicalName" : "javax.swing.event.DocumentEvent.ElementChange",
+  "simpleName" : "ElementChange",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.event.DocumentEvent",
+  "declaredPublicMethods" : [ {
+    "name" : "getChildrenAdded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.Element[] getChildrenAdded()",
+    "returnType" : "javax.swing.text.Element[]",
+    "genericReturnType" : "javax.swing.text.Element[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChildrenRemoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.Element[] getChildrenRemoved()",
+    "returnType" : "javax.swing.text.Element[]",
+    "genericReturnType" : "javax.swing.text.Element[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.Element getElement()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,130 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.WindowListener",
+  "canonicalName" : "java.awt.event.WindowListener",
+  "simpleName" : "WindowListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "windowActivated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowActivated(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowClosed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowClosed(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowClosing",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowClosing(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowDeactivated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowDeactivated(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowDeiconified",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowDeiconified(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowIconified",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowIconified(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowOpened",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowOpened(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.color",
+  "binaryName" : "java.awt.color.ICC_ProfileRGB",
+  "canonicalName" : "java.awt.color.ICC_ProfileRGB",
+  "simpleName" : "ICC_ProfileRGB",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.color.ICC_Profile",
+  "declaredPublicMethods" : [ {
+    "name" : "getGamma",
+    "modifiers" : "public",
+    "signature" : "public float getGamma(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMatrix",
+    "modifiers" : "public",
+    "signature" : "public float[][] getMatrix()",
+    "returnType" : "float[][]",
+    "genericReturnType" : "float[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMediaWhitePoint",
+    "modifiers" : "public",
+    "signature" : "public float[] getMediaWhitePoint()",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTRC",
+    "modifiers" : "public",
+    "signature" : "public short[] getTRC(int)",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

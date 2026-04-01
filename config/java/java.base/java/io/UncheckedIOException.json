@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.UncheckedIOException",
+  "canonicalName" : "java.io.UncheckedIOException",
+  "simpleName" : "UncheckedIOException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.UncheckedIOException",
+    "modifiers" : "public",
+    "signature" : "public java.io.UncheckedIOException(java.io.IOException)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.io.IOException",
+      "genericType" : "java.io.IOException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.UncheckedIOException",
+    "modifiers" : "public",
+    "signature" : "public java.io.UncheckedIOException(java.lang.String, java.io.IOException)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.io.IOException",
+      "genericType" : "java.io.IOException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.io.IOException getCause()",
+    "returnType" : "java.io.IOException",
+    "genericReturnType" : "java.io.IOException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

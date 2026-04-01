@@ -1,0 +1,49 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RemoteServer",
+  "canonicalName" : "java.rmi.server.RemoteServer",
+  "simpleName" : "RemoteServer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.rmi.server.RemoteObject",
+  "declaredPublicMethods" : [ {
+    "name" : "getClientHost",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String getClientHost() throws java.rmi.server.ServerNotActiveException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.rmi.server.ServerNotActiveException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLog",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.PrintStream getLog()",
+    "returnType" : "java.io.PrintStream",
+    "genericReturnType" : "java.io.PrintStream",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLog",
+    "modifiers" : "public static",
+    "signature" : "public static void setLog(java.io.OutputStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

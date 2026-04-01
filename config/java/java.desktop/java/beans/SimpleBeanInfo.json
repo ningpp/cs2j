@@ -1,0 +1,122 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.SimpleBeanInfo",
+  "canonicalName" : "java.beans.SimpleBeanInfo",
+  "simpleName" : "SimpleBeanInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.beans.BeanInfo" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.SimpleBeanInfo",
+    "modifiers" : "public",
+    "signature" : "public java.beans.SimpleBeanInfo()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAdditionalBeanInfo",
+    "modifiers" : "public",
+    "signature" : "public java.beans.BeanInfo[] getAdditionalBeanInfo()",
+    "returnType" : "java.beans.BeanInfo[]",
+    "genericReturnType" : "java.beans.BeanInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.BeanDescriptor getBeanDescriptor()",
+    "returnType" : "java.beans.BeanDescriptor",
+    "genericReturnType" : "java.beans.BeanDescriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultEventIndex",
+    "modifiers" : "public",
+    "signature" : "public int getDefaultEventIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultPropertyIndex",
+    "modifiers" : "public",
+    "signature" : "public int getDefaultPropertyIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEventSetDescriptors",
+    "modifiers" : "public",
+    "signature" : "public java.beans.EventSetDescriptor[] getEventSetDescriptors()",
+    "returnType" : "java.beans.EventSetDescriptor[]",
+    "genericReturnType" : "java.beans.EventSetDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIcon",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image getIcon(int)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "iconKind",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethodDescriptors",
+    "modifiers" : "public",
+    "signature" : "public java.beans.MethodDescriptor[] getMethodDescriptors()",
+    "returnType" : "java.beans.MethodDescriptor[]",
+    "genericReturnType" : "java.beans.MethodDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyDescriptors",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyDescriptor[] getPropertyDescriptors()",
+    "returnType" : "java.beans.PropertyDescriptor[]",
+    "genericReturnType" : "java.beans.PropertyDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image loadImage(java.lang.String)",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "parameters" : [ {
+      "name" : "resourceName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

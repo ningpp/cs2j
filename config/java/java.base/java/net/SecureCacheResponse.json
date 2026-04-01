@@ -1,0 +1,79 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.SecureCacheResponse",
+  "canonicalName" : "java.net.SecureCacheResponse",
+  "simpleName" : "SecureCacheResponse",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.net.CacheResponse",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.SecureCacheResponse",
+    "modifiers" : "public",
+    "signature" : "public java.net.SecureCacheResponse()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCipherSuite",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getCipherSuite()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalCertificateChain",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getLocalCertificateChain()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalPrincipal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getLocalPrincipal()",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerPrincipal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getPeerPrincipal() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSSLSession",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional getSSLSession()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServerCertificateChain",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getServerCertificateChain() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

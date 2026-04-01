@@ -1,0 +1,384 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.zip",
+  "binaryName" : "java.util.zip.ZipEntry",
+  "canonicalName" : "java.util.zip.ZipEntry",
+  "simpleName" : "ZipEntry",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable", "java.util.zip.ZipConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.zip.ZipEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipEntry(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.zip.ZipEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipEntry(java.util.zip.ZipEntry)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.util.zip.ZipEntry",
+      "genericType" : "java.util.zip.ZipEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComment",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getComment()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompressedSize",
+    "modifiers" : "public",
+    "signature" : "public long getCompressedSize()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCrc",
+    "modifiers" : "public",
+    "signature" : "public long getCrc()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCreationTime",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.FileTime getCreationTime()",
+    "returnType" : "java.nio.file.attribute.FileTime",
+    "genericReturnType" : "java.nio.file.attribute.FileTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtra",
+    "modifiers" : "public",
+    "signature" : "public byte[] getExtra()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastAccessTime",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.FileTime getLastAccessTime()",
+    "returnType" : "java.nio.file.attribute.FileTime",
+    "genericReturnType" : "java.nio.file.attribute.FileTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastModifiedTime",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.FileTime getLastModifiedTime()",
+    "returnType" : "java.nio.file.attribute.FileTime",
+    "genericReturnType" : "java.nio.file.attribute.FileTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethod",
+    "modifiers" : "public",
+    "signature" : "public int getMethod()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSize",
+    "modifiers" : "public",
+    "signature" : "public long getSize()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTime",
+    "modifiers" : "public",
+    "signature" : "public long getTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeLocal",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalDateTime getTimeLocal()",
+    "returnType" : "java.time.LocalDateTime",
+    "genericReturnType" : "java.time.LocalDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDirectory",
+    "modifiers" : "public",
+    "signature" : "public boolean isDirectory()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setComment",
+    "modifiers" : "public",
+    "signature" : "public void setComment(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "comment",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCompressedSize",
+    "modifiers" : "public",
+    "signature" : "public void setCompressedSize(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "csize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCrc",
+    "modifiers" : "public",
+    "signature" : "public void setCrc(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "crc",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCreationTime",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipEntry setCreationTime(java.nio.file.attribute.FileTime)",
+    "returnType" : "java.util.zip.ZipEntry",
+    "genericReturnType" : "java.util.zip.ZipEntry",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "java.nio.file.attribute.FileTime",
+      "genericType" : "java.nio.file.attribute.FileTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExtra",
+    "modifiers" : "public",
+    "signature" : "public void setExtra(byte[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "extra",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLastAccessTime",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipEntry setLastAccessTime(java.nio.file.attribute.FileTime)",
+    "returnType" : "java.util.zip.ZipEntry",
+    "genericReturnType" : "java.util.zip.ZipEntry",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "java.nio.file.attribute.FileTime",
+      "genericType" : "java.nio.file.attribute.FileTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLastModifiedTime",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipEntry setLastModifiedTime(java.nio.file.attribute.FileTime)",
+    "returnType" : "java.util.zip.ZipEntry",
+    "genericReturnType" : "java.util.zip.ZipEntry",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "java.nio.file.attribute.FileTime",
+      "genericType" : "java.nio.file.attribute.FileTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMethod",
+    "modifiers" : "public",
+    "signature" : "public void setMethod(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "method",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSize",
+    "modifiers" : "public",
+    "signature" : "public void setSize(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTime",
+    "modifiers" : "public",
+    "signature" : "public void setTime(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTimeLocal",
+    "modifiers" : "public",
+    "signature" : "public void setTimeLocal(java.time.LocalDateTime)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

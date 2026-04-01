@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.CDATASection",
+  "canonicalName" : "org.w3c.dom.CDATASection",
+  "simpleName" : "CDATASection",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.Text" ]
+}

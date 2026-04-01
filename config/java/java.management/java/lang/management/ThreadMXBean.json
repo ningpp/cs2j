@@ -1,0 +1,445 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.ThreadMXBean",
+  "canonicalName" : "java.lang.management.ThreadMXBean",
+  "simpleName" : "ThreadMXBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.management.PlatformManagedObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "dumpAllThreads",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.ThreadInfo[] dumpAllThreads(boolean, boolean)",
+    "returnType" : "java.lang.management.ThreadInfo[]",
+    "genericReturnType" : "java.lang.management.ThreadInfo[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dumpAllThreads",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.ThreadInfo[] dumpAllThreads(boolean, boolean, int)",
+    "returnType" : "java.lang.management.ThreadInfo[]",
+    "genericReturnType" : "java.lang.management.ThreadInfo[]",
+    "parameters" : [ {
+      "name" : "lockedMonitors",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lockedSynchronizers",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "findDeadlockedThreads",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long[] findDeadlockedThreads()",
+    "returnType" : "long[]",
+    "genericReturnType" : "long[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findMonitorDeadlockedThreads",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long[] findMonitorDeadlockedThreads()",
+    "returnType" : "long[]",
+    "genericReturnType" : "long[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllThreadIds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long[] getAllThreadIds()",
+    "returnType" : "long[]",
+    "genericReturnType" : "long[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentThreadCpuTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getCurrentThreadCpuTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentThreadUserTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getCurrentThreadUserTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDaemonThreadCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDaemonThreadCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeakThreadCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getPeakThreadCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getThreadCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadCpuTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getThreadCpuTime(long)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.ThreadInfo getThreadInfo(long)",
+    "returnType" : "java.lang.management.ThreadInfo",
+    "genericReturnType" : "java.lang.management.ThreadInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.ThreadInfo getThreadInfo(long, int)",
+    "returnType" : "java.lang.management.ThreadInfo",
+    "genericReturnType" : "java.lang.management.ThreadInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.ThreadInfo[] getThreadInfo(long[])",
+    "returnType" : "java.lang.management.ThreadInfo[]",
+    "genericReturnType" : "java.lang.management.ThreadInfo[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.ThreadInfo[] getThreadInfo(long[], boolean, boolean)",
+    "returnType" : "java.lang.management.ThreadInfo[]",
+    "genericReturnType" : "java.lang.management.ThreadInfo[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadInfo",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.ThreadInfo[] getThreadInfo(long[], boolean, boolean, int)",
+    "returnType" : "java.lang.management.ThreadInfo[]",
+    "genericReturnType" : "java.lang.management.ThreadInfo[]",
+    "parameters" : [ {
+      "name" : "ids",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lockedMonitors",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lockedSynchronizers",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.ThreadInfo[] getThreadInfo(long[], int)",
+    "returnType" : "java.lang.management.ThreadInfo[]",
+    "genericReturnType" : "java.lang.management.ThreadInfo[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadUserTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getThreadUserTime(long)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTotalStartedThreadCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getTotalStartedThreadCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCurrentThreadCpuTimeSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCurrentThreadCpuTimeSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isObjectMonitorUsageSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isObjectMonitorUsageSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSynchronizerUsageSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSynchronizerUsageSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isThreadContentionMonitoringEnabled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isThreadContentionMonitoringEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isThreadContentionMonitoringSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isThreadContentionMonitoringSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isThreadCpuTimeEnabled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isThreadCpuTimeEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isThreadCpuTimeSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isThreadCpuTimeSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resetPeakThreadCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void resetPeakThreadCount()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setThreadContentionMonitoringEnabled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setThreadContentionMonitoringEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setThreadCpuTimeEnabled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setThreadCpuTimeEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

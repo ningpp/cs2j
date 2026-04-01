@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.XMLStreamException",
+  "canonicalName" : "javax.xml.stream.XMLStreamException",
+  "simpleName" : "XMLStreamException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.stream.XMLStreamException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.XMLStreamException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.XMLStreamException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "th",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.XMLStreamException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamException(java.lang.String, javax.xml.stream.Location)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "location",
+      "type" : "javax.xml.stream.Location",
+      "genericType" : "javax.xml.stream.Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.XMLStreamException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamException(java.lang.String, javax.xml.stream.Location, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "location",
+      "type" : "javax.xml.stream.Location",
+      "genericType" : "javax.xml.stream.Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "th",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.XMLStreamException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "th",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLocation",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.Location getLocation()",
+    "returnType" : "javax.xml.stream.Location",
+    "genericReturnType" : "javax.xml.stream.Location",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNestedException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getNestedException()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

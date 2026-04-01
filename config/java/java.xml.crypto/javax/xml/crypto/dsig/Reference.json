@@ -1,0 +1,99 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig",
+  "binaryName" : "javax.xml.crypto.dsig.Reference",
+  "canonicalName" : "javax.xml.crypto.dsig.Reference",
+  "simpleName" : "Reference",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.URIReference", "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCalculatedDigestValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getCalculatedDigestValue()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDereferencedData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.Data getDereferencedData()",
+    "returnType" : "javax.xml.crypto.Data",
+    "genericReturnType" : "javax.xml.crypto.Data",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDigestInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getDigestInputStream()",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDigestMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.DigestMethod getDigestMethod()",
+    "returnType" : "javax.xml.crypto.dsig.DigestMethod",
+    "genericReturnType" : "javax.xml.crypto.dsig.DigestMethod",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDigestValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getDigestValue()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransforms",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getTransforms()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean validate(javax.xml.crypto.dsig.XMLValidateContext) throws javax.xml.crypto.dsig.XMLSignatureException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.dsig.XMLValidateContext",
+      "genericType" : "javax.xml.crypto.dsig.XMLValidateContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.dsig.XMLSignatureException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

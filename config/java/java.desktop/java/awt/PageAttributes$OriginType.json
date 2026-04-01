@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.PageAttributes$OriginType",
+  "canonicalName" : "java.awt.PageAttributes.OriginType",
+  "simpleName" : "OriginType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.PageAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

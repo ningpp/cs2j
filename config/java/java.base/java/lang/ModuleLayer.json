@@ -1,0 +1,261 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ModuleLayer",
+  "canonicalName" : "java.lang.ModuleLayer",
+  "simpleName" : "ModuleLayer",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "boot",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ModuleLayer boot()",
+    "returnType" : "java.lang.ModuleLayer",
+    "genericReturnType" : "java.lang.ModuleLayer",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "configuration",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.Configuration configuration()",
+    "returnType" : "java.lang.module.Configuration",
+    "genericReturnType" : "java.lang.module.Configuration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineModules",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ModuleLayer$Controller defineModules(java.lang.module.Configuration, java.util.List, java.util.function.Function)",
+    "returnType" : "java.lang.ModuleLayer$Controller",
+    "genericReturnType" : "java.lang.ModuleLayer$Controller",
+    "parameters" : [ {
+      "name" : "cf",
+      "type" : "java.lang.module.Configuration",
+      "genericType" : "java.lang.module.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentLayers",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "clf",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineModules",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer defineModules(java.lang.module.Configuration, java.util.function.Function)",
+    "returnType" : "java.lang.ModuleLayer",
+    "genericReturnType" : "java.lang.ModuleLayer",
+    "parameters" : [ {
+      "name" : "cf",
+      "type" : "java.lang.module.Configuration",
+      "genericType" : "java.lang.module.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "clf",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineModulesWithManyLoaders",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer defineModulesWithManyLoaders(java.lang.module.Configuration, java.lang.ClassLoader)",
+    "returnType" : "java.lang.ModuleLayer",
+    "genericReturnType" : "java.lang.ModuleLayer",
+    "parameters" : [ {
+      "name" : "cf",
+      "type" : "java.lang.module.Configuration",
+      "genericType" : "java.lang.module.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineModulesWithManyLoaders",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ModuleLayer$Controller defineModulesWithManyLoaders(java.lang.module.Configuration, java.util.List, java.lang.ClassLoader)",
+    "returnType" : "java.lang.ModuleLayer$Controller",
+    "genericReturnType" : "java.lang.ModuleLayer$Controller",
+    "parameters" : [ {
+      "name" : "cf",
+      "type" : "java.lang.module.Configuration",
+      "genericType" : "java.lang.module.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentLayers",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineModulesWithOneLoader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer defineModulesWithOneLoader(java.lang.module.Configuration, java.lang.ClassLoader)",
+    "returnType" : "java.lang.ModuleLayer",
+    "genericReturnType" : "java.lang.ModuleLayer",
+    "parameters" : [ {
+      "name" : "cf",
+      "type" : "java.lang.module.Configuration",
+      "genericType" : "java.lang.module.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineModulesWithOneLoader",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ModuleLayer$Controller defineModulesWithOneLoader(java.lang.module.Configuration, java.util.List, java.lang.ClassLoader)",
+    "returnType" : "java.lang.ModuleLayer$Controller",
+    "genericReturnType" : "java.lang.ModuleLayer$Controller",
+    "parameters" : [ {
+      "name" : "cf",
+      "type" : "java.lang.module.Configuration",
+      "genericType" : "java.lang.module.Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentLayers",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "empty",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ModuleLayer empty()",
+    "returnType" : "java.lang.ModuleLayer",
+    "genericReturnType" : "java.lang.ModuleLayer",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findLoader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassLoader findLoader(java.lang.String)",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findModule",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional findModule(java.lang.String)",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modules",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set modules()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parents",
+    "modifiers" : "public",
+    "signature" : "public java.util.List parents()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,617 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.Query",
+  "canonicalName" : "javax.management.Query",
+  "simpleName" : "Query",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.Query",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Query()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "and",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp and(javax.management.QueryExp, javax.management.QueryExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "q1",
+      "type" : "javax.management.QueryExp",
+      "genericType" : "javax.management.QueryExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "q2",
+      "type" : "javax.management.QueryExp",
+      "genericType" : "javax.management.QueryExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "anySubString",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp anySubString(javax.management.AttributeValueExp, javax.management.StringValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.management.AttributeValueExp",
+      "genericType" : "javax.management.AttributeValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.management.StringValueExp",
+      "genericType" : "javax.management.StringValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "attr",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.AttributeValueExp attr(java.lang.String)",
+    "returnType" : "javax.management.AttributeValueExp",
+    "genericReturnType" : "javax.management.AttributeValueExp",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "attr",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.AttributeValueExp attr(java.lang.String, java.lang.String)",
+    "returnType" : "javax.management.AttributeValueExp",
+    "genericReturnType" : "javax.management.AttributeValueExp",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "between",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp between(javax.management.ValueExp, javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "v1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v3",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "classattr",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.AttributeValueExp classattr()",
+    "returnType" : "javax.management.AttributeValueExp",
+    "genericReturnType" : "javax.management.AttributeValueExp",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "div",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp div(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "value1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eq",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp eq(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "v1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "finalSubString",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp finalSubString(javax.management.AttributeValueExp, javax.management.StringValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.management.AttributeValueExp",
+      "genericType" : "javax.management.AttributeValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.management.StringValueExp",
+      "genericType" : "javax.management.StringValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "geq",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp geq(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "v1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "gt",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp gt(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "v1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "in",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp in(javax.management.ValueExp, javax.management.ValueExp[])",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueList",
+      "type" : "javax.management.ValueExp[]",
+      "genericType" : "javax.management.ValueExp[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialSubString",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp initialSubString(javax.management.AttributeValueExp, javax.management.StringValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.management.AttributeValueExp",
+      "genericType" : "javax.management.AttributeValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.management.StringValueExp",
+      "genericType" : "javax.management.StringValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInstanceOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp isInstanceOf(javax.management.StringValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "classNameValue",
+      "type" : "javax.management.StringValueExp",
+      "genericType" : "javax.management.StringValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "leq",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp leq(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "v1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lt",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp lt(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "v1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "match",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp match(javax.management.AttributeValueExp, javax.management.StringValueExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.management.AttributeValueExp",
+      "genericType" : "javax.management.AttributeValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.management.StringValueExp",
+      "genericType" : "javax.management.StringValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp minus(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "value1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "not",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp not(javax.management.QueryExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "queryExp",
+      "type" : "javax.management.QueryExp",
+      "genericType" : "javax.management.QueryExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "or",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.QueryExp or(javax.management.QueryExp, javax.management.QueryExp)",
+    "returnType" : "javax.management.QueryExp",
+    "genericReturnType" : "javax.management.QueryExp",
+    "parameters" : [ {
+      "name" : "q1",
+      "type" : "javax.management.QueryExp",
+      "genericType" : "javax.management.QueryExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "q2",
+      "type" : "javax.management.QueryExp",
+      "genericType" : "javax.management.QueryExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp plus(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "value1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "times",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp times(javax.management.ValueExp, javax.management.ValueExp)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "value1",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value2",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp value(boolean)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp value(double)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp value(float)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp value(int)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp value(java.lang.Number)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.StringValueExp value(java.lang.String)",
+    "returnType" : "javax.management.StringValueExp",
+    "genericReturnType" : "javax.management.StringValueExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.ValueExp value(long)",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

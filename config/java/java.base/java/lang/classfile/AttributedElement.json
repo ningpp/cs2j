@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AttributedElement",
+  "canonicalName" : "java.lang.classfile.AttributedElement",
+  "simpleName" : "AttributedElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "attributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List attributes()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findAttribute",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional findAttribute(java.lang.classfile.AttributeMapper)",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "java.lang.classfile.AttributeMapper",
+      "genericType" : "java.lang.classfile.AttributeMapper",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "findAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.util.List findAttributes(java.lang.classfile.AttributeMapper)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "java.lang.classfile.AttributeMapper",
+      "genericType" : "java.lang.classfile.AttributeMapper",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

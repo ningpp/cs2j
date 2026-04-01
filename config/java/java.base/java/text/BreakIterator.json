@@ -1,0 +1,302 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.BreakIterator",
+  "canonicalName" : "java.text.BreakIterator",
+  "simpleName" : "BreakIterator",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "current",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int current()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "first",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int first()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "following",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int following(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableLocales",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized java.util.Locale[] getAvailableLocales()",
+    "returnType" : "java.util.Locale[]",
+    "genericReturnType" : "java.util.Locale[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getCharacterInstance()",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getCharacterInstance(java.util.Locale)",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getLineInstance()",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getLineInstance(java.util.Locale)",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSentenceInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getSentenceInstance()",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSentenceInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getSentenceInstance(java.util.Locale)",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.CharacterIterator getText()",
+    "returnType" : "java.text.CharacterIterator",
+    "genericReturnType" : "java.text.CharacterIterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWordInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getWordInstance()",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWordInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.BreakIterator getWordInstance(java.util.Locale)",
+    "returnType" : "java.text.BreakIterator",
+    "genericReturnType" : "java.text.BreakIterator",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBoundary",
+    "modifiers" : "public",
+    "signature" : "public boolean isBoundary(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "last",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int last()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int next()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int next(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preceding",
+    "modifiers" : "public",
+    "signature" : "public int preceding(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previous",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int previous()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setText",
+    "modifiers" : "public",
+    "signature" : "public void setText(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setText(java.text.CharacterIterator)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.text.CharacterIterator",
+      "genericType" : "java.text.CharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

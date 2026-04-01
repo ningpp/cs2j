@@ -1,0 +1,70 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$LocalVarTargetInfo",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.LocalVarTargetInfo",
+  "simpleName" : "LocalVarTargetInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "declaredPublicMethods" : [ {
+    "name" : "endLabel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label endLabel()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "index",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int index()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$LocalVarTargetInfo of(java.lang.classfile.Label, java.lang.classfile.Label, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$LocalVarTargetInfo",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$LocalVarTargetInfo",
+    "parameters" : [ {
+      "name" : "startLabel",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endLabel",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startLabel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label startLabel()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

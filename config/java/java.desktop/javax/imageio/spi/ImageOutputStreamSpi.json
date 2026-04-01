@@ -1,0 +1,114 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.ImageOutputStreamSpi",
+  "canonicalName" : "javax.imageio.spi.ImageOutputStreamSpi",
+  "simpleName" : "ImageOutputStreamSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.imageio.spi.IIOServiceProvider",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.spi.ImageOutputStreamSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.ImageOutputStreamSpi(java.lang.String, java.lang.String, java.lang.Class)",
+    "parameters" : [ {
+      "name" : "vendorName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outputClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "canUseCacheFile",
+    "modifiers" : "public",
+    "signature" : "public boolean canUseCacheFile()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createOutputStreamInstance",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.stream.ImageOutputStream createOutputStreamInstance(java.lang.Object) throws java.io.IOException",
+    "returnType" : "javax.imageio.stream.ImageOutputStream",
+    "genericReturnType" : "javax.imageio.stream.ImageOutputStream",
+    "parameters" : [ {
+      "name" : "output",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createOutputStreamInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.stream.ImageOutputStream createOutputStreamInstance(java.lang.Object, boolean, java.io.File) throws java.io.IOException",
+    "returnType" : "javax.imageio.stream.ImageOutputStream",
+    "genericReturnType" : "javax.imageio.stream.ImageOutputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutputClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getOutputClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "needsCacheFile",
+    "modifiers" : "public",
+    "signature" : "public boolean needsCacheFile()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

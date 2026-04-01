@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.FieldBuilder",
+  "canonicalName" : "java.lang.classfile.FieldBuilder",
+  "simpleName" : "FieldBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileBuilder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "withFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.FieldBuilder withFlags(int)",
+    "returnType" : "java.lang.classfile.FieldBuilder",
+    "genericReturnType" : "java.lang.classfile.FieldBuilder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.FieldBuilder withFlags(java.lang.reflect.AccessFlag...)",
+    "returnType" : "java.lang.classfile.FieldBuilder",
+    "genericReturnType" : "java.lang.classfile.FieldBuilder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "java.lang.reflect.AccessFlag[]",
+      "genericType" : "java.lang.reflect.AccessFlag[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  } ]
+}

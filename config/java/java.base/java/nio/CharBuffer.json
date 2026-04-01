@@ -1,0 +1,948 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio",
+  "binaryName" : "java.nio.CharBuffer",
+  "canonicalName" : "java.nio.CharBuffer",
+  "simpleName" : "CharBuffer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.Buffer",
+  "interfaces" : [ "java.lang.Appendable", "java.lang.CharSequence", "java.lang.Comparable", "java.lang.Readable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "allocate",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.CharBuffer allocate(int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "capacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer append(char)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer append(java.lang.CharSequence)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "csq",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "append",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer append(java.lang.CharSequence, int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "csq",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "array",
+    "modifiers" : "public final",
+    "signature" : "public final char[] array()",
+    "returnType" : "char[]",
+    "genericReturnType" : "char[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "arrayOffset",
+    "modifiers" : "public final",
+    "signature" : "public final int arrayOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asReadOnlyBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer asReadOnlyBuffer()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "charAt",
+    "modifiers" : "public final",
+    "signature" : "public final char charAt(int)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "chars",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.IntStream chars()",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clear",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer clear()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compact",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer compact()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.nio.CharBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "duplicate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer duplicate()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ob",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flip",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer flip()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char get()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer get(char[])",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "dst",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer get(char[], int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "dst",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char get(int)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer get(int, char[])",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer get(int, char[], int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChars",
+    "modifiers" : "public",
+    "signature" : "public void getChars(int, int, char[], int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "srcBegin",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstBegin",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasArray",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasArray()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDirect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDirect()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public final",
+    "signature" : "public final int length()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limit",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer limit(int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "newLimit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mark",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer mark()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mismatch",
+    "modifiers" : "public",
+    "signature" : "public int mismatch(java.nio.CharBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "order",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteOrder order()",
+    "returnType" : "java.nio.ByteOrder",
+    "genericReturnType" : "java.nio.ByteOrder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer position(int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "newPosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer put(char)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer put(char[])",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer put(char[], int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer put(int, char)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer put(int, char[])",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer put(int, char[], int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer put(int, java.nio.CharBuffer, int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer put(java.lang.String)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer put(java.lang.String, int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.CharBuffer put(java.nio.CharBuffer)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(java.nio.CharBuffer) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer reset()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rewind",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer rewind()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer slice()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer slice(int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subSequence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer subSequence(int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.CharBuffer wrap(char[])",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.CharBuffer wrap(char[], int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.CharBuffer wrap(java.lang.CharSequence)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "csq",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.CharBuffer wrap(java.lang.CharSequence, int, int)",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "csq",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

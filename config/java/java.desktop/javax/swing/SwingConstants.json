@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.SwingConstants",
+  "canonicalName" : "javax.swing.SwingConstants",
+  "simpleName" : "SwingConstants",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

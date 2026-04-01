@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.PointerInfo",
+  "canonicalName" : "java.awt.PointerInfo",
+  "simpleName" : "PointerInfo",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getDevice",
+    "modifiers" : "public",
+    "signature" : "public java.awt.GraphicsDevice getDevice()",
+    "returnType" : "java.awt.GraphicsDevice",
+    "genericReturnType" : "java.awt.GraphicsDevice",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocation",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point getLocation()",
+    "returnType" : "java.awt.Point",
+    "genericReturnType" : "java.awt.Point",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

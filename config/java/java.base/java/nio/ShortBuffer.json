@@ -1,0 +1,670 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio",
+  "binaryName" : "java.nio.ShortBuffer",
+  "canonicalName" : "java.nio.ShortBuffer",
+  "simpleName" : "ShortBuffer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.Buffer",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "allocate",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.ShortBuffer allocate(int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "capacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "array",
+    "modifiers" : "public final",
+    "signature" : "public final short[] array()",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "arrayOffset",
+    "modifiers" : "public final",
+    "signature" : "public final int arrayOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asReadOnlyBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer asReadOnlyBuffer()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clear",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer clear()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compact",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer compact()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.nio.ShortBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.nio.ShortBuffer",
+      "genericType" : "java.nio.ShortBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "duplicate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer duplicate()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ob",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flip",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer flip()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short get()",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short get(int)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer get(int, short[])",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer get(int, short[], int, int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer get(short[])",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "dst",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer get(short[], int, int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "dst",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasArray",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasArray()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDirect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDirect()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limit",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer limit(int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "newLimit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mark",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer mark()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mismatch",
+    "modifiers" : "public",
+    "signature" : "public int mismatch(java.nio.ShortBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.nio.ShortBuffer",
+      "genericType" : "java.nio.ShortBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "order",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteOrder order()",
+    "returnType" : "java.nio.ByteOrder",
+    "genericReturnType" : "java.nio.ByteOrder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer position(int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "newPosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer put(int, java.nio.ShortBuffer, int, int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "java.nio.ShortBuffer",
+      "genericType" : "java.nio.ShortBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer put(int, short)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer put(int, short[])",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer put(int, short[], int, int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer put(java.nio.ShortBuffer)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.nio.ShortBuffer",
+      "genericType" : "java.nio.ShortBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer put(short)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer put(short[])",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ShortBuffer put(short[], int, int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer reset()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rewind",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ShortBuffer rewind()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer slice()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer slice(int, int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.ShortBuffer wrap(short[])",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.ShortBuffer wrap(short[], int, int)",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

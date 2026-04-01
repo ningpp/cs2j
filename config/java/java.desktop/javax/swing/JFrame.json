@@ -1,0 +1,390 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JFrame",
+  "canonicalName" : "javax.swing.JFrame",
+  "simpleName" : "JFrame",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Frame",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.swing.RootPaneContainer", "javax.swing.TransferHandler$HasGetTransferHandler", "javax.swing.WindowConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JFrame",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFrame() throws java.awt.HeadlessException",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JFrame",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFrame(java.awt.GraphicsConfiguration)",
+    "parameters" : [ {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JFrame",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFrame(java.lang.String) throws java.awt.HeadlessException",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JFrame",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFrame(java.lang.String, java.awt.GraphicsConfiguration)",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContentPane",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Container getContentPane()",
+    "returnType" : "java.awt.Container",
+    "genericReturnType" : "java.awt.Container",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultCloseOperation",
+    "modifiers" : "public",
+    "signature" : "public int getDefaultCloseOperation()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGlassPane",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getGlassPane()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGraphics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Graphics getGraphics()",
+    "returnType" : "java.awt.Graphics",
+    "genericReturnType" : "java.awt.Graphics",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJMenuBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JMenuBar getJMenuBar()",
+    "returnType" : "javax.swing.JMenuBar",
+    "genericReturnType" : "javax.swing.JMenuBar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayeredPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JLayeredPane getLayeredPane()",
+    "returnType" : "javax.swing.JLayeredPane",
+    "genericReturnType" : "javax.swing.JLayeredPane",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRootPane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JRootPane getRootPane()",
+    "returnType" : "javax.swing.JRootPane",
+    "genericReturnType" : "javax.swing.JRootPane",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransferHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.TransferHandler getTransferHandler()",
+    "returnType" : "javax.swing.TransferHandler",
+    "genericReturnType" : "javax.swing.TransferHandler",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDefaultLookAndFeelDecorated",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isDefaultLookAndFeelDecorated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "comp",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "repaint",
+    "modifiers" : "public",
+    "signature" : "public void repaint(long, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContentPane",
+    "modifiers" : "public",
+    "signature" : "public void setContentPane(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "contentPane",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultCloseOperation",
+    "modifiers" : "public",
+    "signature" : "public void setDefaultCloseOperation(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "operation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultLookAndFeelDecorated",
+    "modifiers" : "public static",
+    "signature" : "public static void setDefaultLookAndFeelDecorated(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "defaultLookAndFeelDecorated",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setGlassPane",
+    "modifiers" : "public",
+    "signature" : "public void setGlassPane(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "glassPane",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIconImage",
+    "modifiers" : "public",
+    "signature" : "public void setIconImage(java.awt.Image)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setJMenuBar",
+    "modifiers" : "public",
+    "signature" : "public void setJMenuBar(javax.swing.JMenuBar)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "menubar",
+      "type" : "javax.swing.JMenuBar",
+      "genericType" : "javax.swing.JMenuBar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLayeredPane",
+    "modifiers" : "public",
+    "signature" : "public void setLayeredPane(javax.swing.JLayeredPane)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "layeredPane",
+      "type" : "javax.swing.JLayeredPane",
+      "genericType" : "javax.swing.JLayeredPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLayout",
+    "modifiers" : "public",
+    "signature" : "public void setLayout(java.awt.LayoutManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "manager",
+      "type" : "java.awt.LayoutManager",
+      "genericType" : "java.awt.LayoutManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTransferHandler",
+    "modifiers" : "public",
+    "signature" : "public void setTransferHandler(javax.swing.TransferHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newHandler",
+      "type" : "javax.swing.TransferHandler",
+      "genericType" : "javax.swing.TransferHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "update",
+    "modifiers" : "public",
+    "signature" : "public void update(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

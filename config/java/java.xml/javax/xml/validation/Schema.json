@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.validation",
+  "binaryName" : "javax.xml.validation.Schema",
+  "canonicalName" : "javax.xml.validation.Schema",
+  "simpleName" : "Schema",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "newValidator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.validation.Validator newValidator()",
+    "returnType" : "javax.xml.validation.Validator",
+    "genericReturnType" : "javax.xml.validation.Validator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newValidatorHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.validation.ValidatorHandler newValidatorHandler()",
+    "returnType" : "javax.xml.validation.ValidatorHandler",
+    "genericReturnType" : "javax.xml.validation.ValidatorHandler",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

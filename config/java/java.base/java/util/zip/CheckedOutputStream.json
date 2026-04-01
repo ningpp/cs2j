@@ -1,0 +1,88 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.zip",
+  "binaryName" : "java.util.zip.CheckedOutputStream",
+  "canonicalName" : "java.util.zip.CheckedOutputStream",
+  "simpleName" : "CheckedOutputStream",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.FilterOutputStream",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.zip.CheckedOutputStream",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.CheckedOutputStream(java.io.OutputStream, java.util.zip.Checksum)",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cksum",
+      "type" : "java.util.zip.Checksum",
+      "genericType" : "java.util.zip.Checksum",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getChecksum",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.Checksum getChecksum()",
+    "returnType" : "java.util.zip.Checksum",
+    "genericReturnType" : "java.util.zip.Checksum",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(byte[], int, int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

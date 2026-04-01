@@ -1,0 +1,106 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.registry",
+  "binaryName" : "java.rmi.registry.Registry",
+  "canonicalName" : "java.rmi.registry.Registry",
+  "simpleName" : "Registry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.rmi.Remote" ],
+  "declaredPublicMethods" : [ {
+    "name" : "bind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void bind(java.lang.String, java.rmi.Remote) throws java.rmi.RemoteException, java.rmi.AlreadyBoundException, java.rmi.AccessException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.rmi.AlreadyBoundException", "java.rmi.AccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] list() throws java.rmi.RemoteException, java.rmi.AccessException",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "exceptions" : [ "java.rmi.RemoteException", "java.rmi.AccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookup",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.rmi.Remote lookup(java.lang.String) throws java.rmi.RemoteException, java.rmi.NotBoundException, java.rmi.AccessException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.rmi.NotBoundException", "java.rmi.AccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rebind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rebind(java.lang.String, java.rmi.Remote) throws java.rmi.RemoteException, java.rmi.AccessException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.rmi.AccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unbind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void unbind(java.lang.String) throws java.rmi.RemoteException, java.rmi.NotBoundException, java.rmi.AccessException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.rmi.NotBoundException", "java.rmi.AccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

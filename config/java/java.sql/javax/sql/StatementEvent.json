@@ -1,0 +1,74 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.StatementEvent",
+  "canonicalName" : "javax.sql.StatementEvent",
+  "simpleName" : "StatementEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.StatementEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.StatementEvent(javax.sql.PooledConnection, java.sql.PreparedStatement)",
+    "parameters" : [ {
+      "name" : "con",
+      "type" : "javax.sql.PooledConnection",
+      "genericType" : "javax.sql.PooledConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "statement",
+      "type" : "java.sql.PreparedStatement",
+      "genericType" : "java.sql.PreparedStatement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sql.StatementEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.StatementEvent(javax.sql.PooledConnection, java.sql.PreparedStatement, java.sql.SQLException)",
+    "parameters" : [ {
+      "name" : "con",
+      "type" : "javax.sql.PooledConnection",
+      "genericType" : "javax.sql.PooledConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "statement",
+      "type" : "java.sql.PreparedStatement",
+      "genericType" : "java.sql.PreparedStatement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exception",
+      "type" : "java.sql.SQLException",
+      "genericType" : "java.sql.SQLException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getSQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException getSQLException()",
+    "returnType" : "java.sql.SQLException",
+    "genericReturnType" : "java.sql.SQLException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStatement",
+    "modifiers" : "public",
+    "signature" : "public java.sql.PreparedStatement getStatement()",
+    "returnType" : "java.sql.PreparedStatement",
+    "genericReturnType" : "java.sql.PreparedStatement",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

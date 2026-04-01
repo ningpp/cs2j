@@ -1,0 +1,69 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.SwingPropertyChangeSupport",
+  "canonicalName" : "javax.swing.event.SwingPropertyChangeSupport",
+  "simpleName" : "SwingPropertyChangeSupport",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.beans.PropertyChangeSupport",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.SwingPropertyChangeSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.SwingPropertyChangeSupport(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "sourceBean",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.SwingPropertyChangeSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.SwingPropertyChangeSupport(java.lang.Object, boolean)",
+    "parameters" : [ {
+      "name" : "sourceBean",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifyOnEDT",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "firePropertyChange",
+    "modifiers" : "public",
+    "signature" : "public void firePropertyChange(java.beans.PropertyChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "evt",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNotifyOnEDT",
+    "modifiers" : "public",
+    "signature" : "public boolean isNotifyOnEDT()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

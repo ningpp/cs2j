@@ -1,0 +1,201 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio",
+  "binaryName" : "java.nio.MappedByteBuffer",
+  "canonicalName" : "java.nio.MappedByteBuffer",
+  "simpleName" : "MappedByteBuffer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.ByteBuffer",
+  "declaredPublicMethods" : [ {
+    "name" : "clear",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer clear()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compact",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.MappedByteBuffer compact()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "duplicate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.MappedByteBuffer duplicate()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flip",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer flip()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "force",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer force()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "force",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer force(int, int)",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLoaded",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isLoaded()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limit",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer limit(int)",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "parameters" : [ {
+      "name" : "newLimit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer load()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mark",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer mark()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer position(int)",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "parameters" : [ {
+      "name" : "newPosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer reset()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rewind",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.MappedByteBuffer rewind()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.MappedByteBuffer slice()",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.MappedByteBuffer slice(int, int)",
+    "returnType" : "java.nio.MappedByteBuffer",
+    "genericReturnType" : "java.nio.MappedByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

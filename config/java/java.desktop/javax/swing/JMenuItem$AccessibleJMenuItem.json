@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JMenuItem$AccessibleJMenuItem",
+  "canonicalName" : "javax.swing.JMenuItem.AccessibleJMenuItem",
+  "simpleName" : "AccessibleJMenuItem",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JMenuItem",
+  "superClass" : "javax.swing.AbstractButton$AccessibleAbstractButton",
+  "interfaces" : [ "javax.swing.event.ChangeListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stateChanged",
+    "modifiers" : "public",
+    "signature" : "public void stateChanged(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

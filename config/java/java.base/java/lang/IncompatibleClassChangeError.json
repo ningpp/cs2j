@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.IncompatibleClassChangeError",
+  "canonicalName" : "java.lang.IncompatibleClassChangeError",
+  "simpleName" : "IncompatibleClassChangeError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.IncompatibleClassChangeError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IncompatibleClassChangeError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.IncompatibleClassChangeError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IncompatibleClassChangeError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

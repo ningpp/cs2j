@@ -1,0 +1,249 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpRequest$Builder",
+  "canonicalName" : "java.net.http.HttpRequest.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpRequest",
+  "declaredPublicMethods" : [ {
+    "name" : "DELETE",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder DELETE()",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "GET",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder GET()",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "HEAD",
+    "modifiers" : "public",
+    "signature" : "public java.net.http.HttpRequest$Builder HEAD()",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "POST",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder POST(java.net.http.HttpRequest$BodyPublisher)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpRequest$BodyPublisher",
+      "genericType" : "java.net.http.HttpRequest$BodyPublisher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "PUT",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder PUT(java.net.http.HttpRequest$BodyPublisher)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpRequest$BodyPublisher",
+      "genericType" : "java.net.http.HttpRequest$BodyPublisher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest build()",
+    "returnType" : "java.net.http.HttpRequest",
+    "genericReturnType" : "java.net.http.HttpRequest",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder copy()",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "expectContinue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder expectContinue(boolean)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "header",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder header(java.lang.String, java.lang.String)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder headers(java.lang.String...)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "method",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder method(java.lang.String, java.net.http.HttpRequest$BodyPublisher)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.http.HttpRequest$BodyPublisher",
+      "genericType" : "java.net.http.HttpRequest$BodyPublisher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHeader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder setHeader(java.lang.String, java.lang.String)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "timeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder timeout(java.time.Duration)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uri",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder uri(java.net.URI)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest$Builder version(java.net.http.HttpClient$Version)",
+    "returnType" : "java.net.http.HttpRequest$Builder",
+    "genericReturnType" : "java.net.http.HttpRequest$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpClient$Version",
+      "genericType" : "java.net.http.HttpClient$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

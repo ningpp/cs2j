@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi.spi",
+  "binaryName" : "javax.sound.midi.spi.SoundbankReader",
+  "canonicalName" : "javax.sound.midi.spi.SoundbankReader",
+  "simpleName" : "SoundbankReader",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getSoundbank",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Soundbank getSoundbank(java.io.File) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Soundbank",
+    "genericReturnType" : "javax.sound.midi.Soundbank",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSoundbank",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Soundbank getSoundbank(java.io.InputStream) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Soundbank",
+    "genericReturnType" : "javax.sound.midi.Soundbank",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSoundbank",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Soundbank getSoundbank(java.net.URL) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Soundbank",
+    "genericReturnType" : "javax.sound.midi.Soundbank",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.UnionLayout",
+  "canonicalName" : "java.lang.foreign.UnionLayout",
+  "simpleName" : "UnionLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.foreign.GroupLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.UnionLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.UnionLayout",
+    "genericReturnType" : "java.lang.foreign.UnionLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.UnionLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.UnionLayout",
+    "genericReturnType" : "java.lang.foreign.UnionLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.UnionLayout withoutName()",
+    "returnType" : "java.lang.foreign.UnionLayout",
+    "genericReturnType" : "java.lang.foreign.UnionLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

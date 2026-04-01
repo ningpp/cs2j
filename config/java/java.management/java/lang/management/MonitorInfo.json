@@ -1,0 +1,79 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.MonitorInfo",
+  "canonicalName" : "java.lang.management.MonitorInfo",
+  "simpleName" : "MonitorInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.management.LockInfo",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.management.MonitorInfo",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.MonitorInfo(java.lang.String, int, int, java.lang.StackTraceElement)",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "identityHashCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stackDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stackFrame",
+      "type" : "java.lang.StackTraceElement",
+      "genericType" : "java.lang.StackTraceElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.MonitorInfo from(javax.management.openmbean.CompositeData)",
+    "returnType" : "java.lang.management.MonitorInfo",
+    "genericReturnType" : "java.lang.management.MonitorInfo",
+    "parameters" : [ {
+      "name" : "cd",
+      "type" : "javax.management.openmbean.CompositeData",
+      "genericType" : "javax.management.openmbean.CompositeData",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockedStackDepth",
+    "modifiers" : "public",
+    "signature" : "public int getLockedStackDepth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockedStackFrame",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StackTraceElement getLockedStackFrame()",
+    "returnType" : "java.lang.StackTraceElement",
+    "genericReturnType" : "java.lang.StackTraceElement",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,584 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset",
+  "binaryName" : "javax.sql.rowset.CachedRowSet",
+  "canonicalName" : "javax.sql.rowset.CachedRowSet",
+  "simpleName" : "CachedRowSet",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.RowSet", "javax.sql.rowset.Joinable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "acceptChanges",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void acceptChanges() throws javax.sql.rowset.spi.SyncProviderException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.sql.rowset.spi.SyncProviderException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acceptChanges",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void acceptChanges(java.sql.Connection) throws javax.sql.rowset.spi.SyncProviderException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.Connection",
+      "genericType" : "java.sql.Connection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.spi.SyncProviderException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "columnUpdated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean columnUpdated(int) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "columnUpdated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean columnUpdated(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "commit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void commit() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCopy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.CachedRowSet createCopy() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.CachedRowSet",
+    "genericReturnType" : "javax.sql.rowset.CachedRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCopyNoConstraints",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.CachedRowSet createCopyNoConstraints() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.CachedRowSet",
+    "genericReturnType" : "javax.sql.rowset.CachedRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCopySchema",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.CachedRowSet createCopySchema() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.CachedRowSet",
+    "genericReturnType" : "javax.sql.rowset.CachedRowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createShared",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.RowSet createShared() throws java.sql.SQLException",
+    "returnType" : "javax.sql.RowSet",
+    "genericReturnType" : "javax.sql.RowSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "execute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void execute(java.sql.Connection) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.Connection",
+      "genericType" : "java.sql.Connection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] getKeyColumns() throws java.sql.SQLException",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOriginal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getOriginal() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOriginalRow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getOriginalRow() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPageSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getPageSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowSetWarnings",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.RowSetWarning getRowSetWarnings() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.RowSetWarning",
+    "genericReturnType" : "javax.sql.rowset.RowSetWarning",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getShowDeleted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getShowDeleted() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSyncProvider",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.rowset.spi.SyncProvider getSyncProvider() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.spi.SyncProvider",
+    "genericReturnType" : "javax.sql.rowset.spi.SyncProvider",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTableName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getTableName() throws java.sql.SQLException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextPage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean nextPage() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "populate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void populate(java.sql.ResultSet) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ResultSet",
+      "genericType" : "java.sql.ResultSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "populate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void populate(java.sql.ResultSet, int) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ResultSet",
+      "genericType" : "java.sql.ResultSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousPage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean previousPage() throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "release",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void release() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "restoreOriginal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void restoreOriginal() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rollback",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rollback() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rollback",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rollback(java.sql.Savepoint) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.Savepoint",
+      "genericType" : "java.sql.Savepoint",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rowSetPopulated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rowSetPopulated(javax.sql.RowSetEvent, int) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetEvent",
+      "genericType" : "javax.sql.RowSetEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setKeyColumns",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setKeyColumns(int[]) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMetaData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMetaData(javax.sql.RowSetMetaData) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetMetaData",
+      "genericType" : "javax.sql.RowSetMetaData",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOriginalRow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setOriginalRow() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPageSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setPageSize(int) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setShowDeleted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setShowDeleted(boolean) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSyncProvider",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSyncProvider(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTableName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTableName(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toCollection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Collection toCollection() throws java.sql.SQLException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toCollection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Collection toCollection(int) throws java.sql.SQLException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toCollection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Collection toCollection(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undoDelete",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void undoDelete() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undoInsert",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void undoInsert() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undoUpdate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void undoUpdate() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

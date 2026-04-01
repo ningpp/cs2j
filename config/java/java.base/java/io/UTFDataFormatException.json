@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.UTFDataFormatException",
+  "canonicalName" : "java.io.UTFDataFormatException",
+  "simpleName" : "UTFDataFormatException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.UTFDataFormatException",
+    "modifiers" : "public",
+    "signature" : "public java.io.UTFDataFormatException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.UTFDataFormatException",
+    "modifiers" : "public",
+    "signature" : "public java.io.UTFDataFormatException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

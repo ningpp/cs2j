@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.PrimitiveIterator$OfDouble",
+  "canonicalName" : "java.util.PrimitiveIterator.OfDouble",
+  "simpleName" : "OfDouble",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.PrimitiveIterator",
+  "interfaces" : [ "java.util.PrimitiveIterator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.Consumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.DoubleConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Double next()",
+    "returnType" : "java.lang.Double",
+    "genericReturnType" : "java.lang.Double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "nextDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double nextDouble()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

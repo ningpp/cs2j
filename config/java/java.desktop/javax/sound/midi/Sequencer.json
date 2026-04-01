@@ -1,0 +1,627 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.Sequencer",
+  "canonicalName" : "javax.sound.midi.Sequencer",
+  "simpleName" : "Sequencer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sound.midi.MidiDevice" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addControllerEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] addControllerEventListener(javax.sound.midi.ControllerEventListener, int[])",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.ControllerEventListener",
+      "genericType" : "javax.sound.midi.ControllerEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addMetaEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean addMetaEventListener(javax.sound.midi.MetaEventListener)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.MetaEventListener",
+      "genericType" : "javax.sound.midi.MetaEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoopCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLoopCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoopEndPoint",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getLoopEndPoint()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoopStartPoint",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getLoopStartPoint()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMasterSyncMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequencer$SyncMode getMasterSyncMode()",
+    "returnType" : "javax.sound.midi.Sequencer$SyncMode",
+    "genericReturnType" : "javax.sound.midi.Sequencer$SyncMode",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMasterSyncModes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequencer$SyncMode[] getMasterSyncModes()",
+    "returnType" : "javax.sound.midi.Sequencer$SyncMode[]",
+    "genericReturnType" : "javax.sound.midi.Sequencer$SyncMode[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMicrosecondLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getMicrosecondLength()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMicrosecondPosition",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getMicrosecondPosition()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequence getSequence()",
+    "returnType" : "javax.sound.midi.Sequence",
+    "genericReturnType" : "javax.sound.midi.Sequence",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSlaveSyncMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequencer$SyncMode getSlaveSyncMode()",
+    "returnType" : "javax.sound.midi.Sequencer$SyncMode",
+    "genericReturnType" : "javax.sound.midi.Sequencer$SyncMode",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSlaveSyncModes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Sequencer$SyncMode[] getSlaveSyncModes()",
+    "returnType" : "javax.sound.midi.Sequencer$SyncMode[]",
+    "genericReturnType" : "javax.sound.midi.Sequencer$SyncMode[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTempoFactor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getTempoFactor()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTempoInBPM",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getTempoInBPM()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTempoInMPQ",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getTempoInMPQ()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTickLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getTickLength()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTickPosition",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getTickPosition()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTrackMute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getTrackMute(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTrackSolo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getTrackSolo(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRecording",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isRecording()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRunning",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isRunning()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "recordDisable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void recordDisable(javax.sound.midi.Track)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.Track",
+      "genericType" : "javax.sound.midi.Track",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "recordEnable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void recordEnable(javax.sound.midi.Track, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.Track",
+      "genericType" : "javax.sound.midi.Track",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeControllerEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] removeControllerEventListener(javax.sound.midi.ControllerEventListener, int[])",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.ControllerEventListener",
+      "genericType" : "javax.sound.midi.ControllerEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeMetaEventListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeMetaEventListener(javax.sound.midi.MetaEventListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.MetaEventListener",
+      "genericType" : "javax.sound.midi.MetaEventListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoopCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLoopCount(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoopEndPoint",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLoopEndPoint(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoopStartPoint",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLoopStartPoint(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMasterSyncMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMasterSyncMode(javax.sound.midi.Sequencer$SyncMode)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.Sequencer$SyncMode",
+      "genericType" : "javax.sound.midi.Sequencer$SyncMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMicrosecondPosition",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMicrosecondPosition(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSequence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSequence(java.io.InputStream) throws java.io.IOException, javax.sound.midi.InvalidMidiDataException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.sound.midi.InvalidMidiDataException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSequence",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSequence(javax.sound.midi.Sequence) throws javax.sound.midi.InvalidMidiDataException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.Sequence",
+      "genericType" : "javax.sound.midi.Sequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSlaveSyncMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSlaveSyncMode(javax.sound.midi.Sequencer$SyncMode)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.Sequencer$SyncMode",
+      "genericType" : "javax.sound.midi.Sequencer$SyncMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTempoFactor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTempoFactor(float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTempoInBPM",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTempoInBPM(float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTempoInMPQ",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTempoInMPQ(float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTickPosition",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTickPosition(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTrackMute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTrackMute(int, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTrackSolo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setTrackSolo(int, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void start()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startRecording",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void startRecording()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void stop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stopRecording",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void stopRecording()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

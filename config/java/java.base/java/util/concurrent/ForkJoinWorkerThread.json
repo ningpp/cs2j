@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ForkJoinWorkerThread",
+  "canonicalName" : "java.util.concurrent.ForkJoinWorkerThread",
+  "simpleName" : "ForkJoinWorkerThread",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Thread",
+  "declaredPublicMethods" : [ {
+    "name" : "getPool",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinPool getPool()",
+    "returnType" : "java.util.concurrent.ForkJoinPool",
+    "genericReturnType" : "java.util.concurrent.ForkJoinPool",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoolIndex",
+    "modifiers" : "public",
+    "signature" : "public int getPoolIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueuedTaskCount",
+    "modifiers" : "public",
+    "signature" : "public int getQueuedTaskCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "run",
+    "modifiers" : "public",
+    "signature" : "public void run()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,3396 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.CodeBuilder",
+  "canonicalName" : "java.lang.classfile.CodeBuilder",
+  "simpleName" : "CodeBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileBuilder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "aaload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder aaload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "aastore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder aastore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "aconst_null",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder aconst_null()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateLocal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int allocateLocal(java.lang.classfile.TypeKind)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "aload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder aload(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "anewarray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder anewarray(java.lang.classfile.constantpool.ClassEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "classEntry",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "anewarray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder anewarray(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "areturn",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder areturn()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "arrayLoad",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder arrayLoad(java.lang.classfile.TypeKind)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "tk",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "arrayStore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder arrayStore(java.lang.classfile.TypeKind)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "tk",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "arraylength",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder arraylength()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "astore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder astore(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "athrow",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder athrow()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "baload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder baload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "bastore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder bastore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "bipush",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder bipush(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "block",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder block(java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "branch",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder branch(java.lang.classfile.Opcode, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "caload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder caload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "castore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder castore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "characterRange",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder characterRange(java.lang.classfile.Label, java.lang.classfile.Label, int, int, int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "startScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characterRangeStart",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characterRangeEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "checkcast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder checkcast(java.lang.classfile.constantpool.ClassEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "checkcast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder checkcast(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "conversion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder conversion(java.lang.classfile.TypeKind, java.lang.classfile.TypeKind)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "fromType",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toType",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "d2f",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder d2f()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "d2i",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder d2i()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "d2l",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder d2l()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dadd",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dadd()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "daload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder daload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dastore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dastore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dcmpg",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dcmpg()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dcmpl",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dcmpl()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dconst_0",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dconst_0()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dconst_1",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dconst_1()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ddiv",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ddiv()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dload(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dmul",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dmul()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dneg",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dneg()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "drem",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder drem()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dreturn",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dreturn()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dstore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dstore(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dsub",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dsub()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dup",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dup()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dup2",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dup2()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dup2_x1",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dup2_x1()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dup2_x2",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dup2_x2()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dup_x1",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dup_x1()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dup_x2",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder dup_x2()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "endLabel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label endLabel()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionCatch",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder exceptionCatch(java.lang.classfile.Label, java.lang.classfile.Label, java.lang.classfile.Label, java.lang.classfile.constantpool.ClassEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "catchType",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionCatch",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder exceptionCatch(java.lang.classfile.Label, java.lang.classfile.Label, java.lang.classfile.Label, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "catchType",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionCatch",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder exceptionCatch(java.lang.classfile.Label, java.lang.classfile.Label, java.lang.classfile.Label, java.util.Optional)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "catchType",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionCatchAll",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder exceptionCatchAll(java.lang.classfile.Label, java.lang.classfile.Label, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "f2d",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder f2d()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "f2i",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder f2i()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "f2l",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder f2l()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fadd",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fadd()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "faload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder faload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fastore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fastore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fcmpg",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fcmpg()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fcmpl",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fcmpl()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fconst_0",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fconst_0()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fconst_1",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fconst_1()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fconst_2",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fconst_2()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fdiv",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fdiv()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fieldAccess",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fieldAccess(java.lang.classfile.Opcode, java.lang.classfile.constantpool.FieldRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "opcode",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fieldAccess",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fieldAccess(java.lang.classfile.Opcode, java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "opcode",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fload(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fmul",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fmul()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fneg",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fneg()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "frem",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder frem()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "freturn",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder freturn()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fstore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fstore(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "fsub",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder fsub()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getfield",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder getfield(java.lang.classfile.constantpool.FieldRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getfield",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder getfield(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getstatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder getstatic(java.lang.classfile.constantpool.FieldRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getstatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder getstatic(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "goto_",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder goto_(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "goto_w",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder goto_w(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "i2b",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder i2b()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "i2c",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder i2c()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "i2d",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder i2d()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "i2f",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder i2f()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "i2l",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder i2l()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "i2s",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder i2s()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iadd",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iadd()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iaload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iaload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iand",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iand()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iastore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iastore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iconst_0",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iconst_0()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iconst_1",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iconst_1()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iconst_2",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iconst_2()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iconst_3",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iconst_3()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iconst_4",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iconst_4()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iconst_5",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iconst_5()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iconst_m1",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iconst_m1()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "idiv",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder idiv()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifThen",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifThen(java.lang.classfile.Opcode, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "opcode",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thenHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifThen",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifThen(java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "thenHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifThenElse",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifThenElse(java.lang.classfile.Opcode, java.util.function.Consumer, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "opcode",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thenHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elseHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifThenElse",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifThenElse(java.util.function.Consumer, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "thenHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elseHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_acmpeq",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_acmpeq(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_acmpne",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_acmpne(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_icmpeq",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_icmpeq(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_icmpge",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_icmpge(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_icmpgt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_icmpgt(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_icmple",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_icmple(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_icmplt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_icmplt(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "if_icmpne",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder if_icmpne(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifeq",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifeq(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifge",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifge(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifgt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifgt(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifle(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iflt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iflt(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifne",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifne(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifnonnull",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifnonnull(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ifnull",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ifnull(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iinc",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iinc(int, int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "val",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iload(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "imul",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder imul()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ineg",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ineg()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "instanceOf",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder instanceOf(java.lang.classfile.constantpool.ClassEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "instanceOf",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder instanceOf(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invoke(java.lang.classfile.Opcode, java.lang.classfile.constantpool.MemberRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "opcode",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.MemberRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.MemberRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invoke(java.lang.classfile.Opcode, java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc, boolean)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "opcode",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "desc",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isInterface",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokedynamic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokedynamic(java.lang.classfile.constantpool.InvokeDynamicEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+      "genericType" : "java.lang.classfile.constantpool.InvokeDynamicEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokedynamic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokedynamic(java.lang.constant.DynamicCallSiteDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.constant.DynamicCallSiteDesc",
+      "genericType" : "java.lang.constant.DynamicCallSiteDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokeinterface",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokeinterface(java.lang.classfile.constantpool.InterfaceMethodRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokeinterface",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokeinterface(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokespecial",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokespecial(java.lang.classfile.constantpool.InterfaceMethodRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokespecial",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokespecial(java.lang.classfile.constantpool.MethodRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.MethodRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.MethodRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokespecial",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokespecial(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokespecial",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokespecial(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc, boolean)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isInterface",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokestatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokestatic(java.lang.classfile.constantpool.InterfaceMethodRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.InterfaceMethodRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokestatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokestatic(java.lang.classfile.constantpool.MethodRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.MethodRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.MethodRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokestatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokestatic(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokestatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokestatic(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc, boolean)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isInterface",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokevirtual",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokevirtual(java.lang.classfile.constantpool.MethodRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.MethodRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.MethodRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "invokevirtual",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder invokevirtual(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ior",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ior()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "irem",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder irem()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ireturn",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ireturn()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ishl",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ishl()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ishr",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ishr()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "istore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder istore(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isub",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder isub()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "iushr",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder iushr()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ixor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ixor()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "l2d",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder l2d()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "l2f",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder l2f()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "l2i",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder l2i()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "labelBinding",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder labelBinding(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "label",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ladd",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ladd()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "laload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder laload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "land",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder land()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lastore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lastore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lcmp",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lcmp()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lconst_0",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lconst_0()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lconst_1",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lconst_1()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ldc",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ldc(java.lang.classfile.constantpool.LoadableConstantEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "entry",
+      "type" : "java.lang.classfile.constantpool.LoadableConstantEntry",
+      "genericType" : "java.lang.classfile.constantpool.LoadableConstantEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ldc",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ldc(java.lang.constant.ConstantDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.constant.ConstantDesc",
+      "genericType" : "java.lang.constant.ConstantDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "ldiv",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder ldiv()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lineNumber",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lineNumber(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "line",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lload(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lmul",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lmul()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lneg",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lneg()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "loadConstant",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder loadConstant(double)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "loadConstant",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder loadConstant(float)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "loadConstant",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder loadConstant(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "loadConstant",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder loadConstant(java.lang.constant.ConstantDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.constant.ConstantDesc",
+      "genericType" : "java.lang.constant.ConstantDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "loadConstant",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder loadConstant(long)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "loadLocal",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder loadLocal(java.lang.classfile.TypeKind, int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "tk",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "localVariable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder localVariable(int, java.lang.String, java.lang.constant.ClassDesc, java.lang.classfile.Label, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "localVariable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder localVariable(int, java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.Label, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameEntry",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptorEntry",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "localVariableType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder localVariableType(int, java.lang.String, java.lang.classfile.Signature, java.lang.classfile.Label, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signature",
+      "type" : "java.lang.classfile.Signature",
+      "genericType" : "java.lang.classfile.Signature",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "localVariableType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder localVariableType(int, java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.Label, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameEntry",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signatureEntry",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lookupswitch",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lookupswitch(java.lang.classfile.Label, java.util.List)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "defaultTarget",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cases",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lor()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lrem",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lrem()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lreturn",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lreturn()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lshl",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lshl()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lshr",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lshr()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lstore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lstore(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lsub",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lsub()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lushr",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lushr()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lxor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder lxor()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "monitorenter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder monitorenter()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "monitorexit",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder monitorexit()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "multianewarray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder multianewarray(java.lang.classfile.constantpool.ClassEntry, int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dims",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "multianewarray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder multianewarray(java.lang.constant.ClassDesc, int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dims",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "newBoundLabel",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.Label newBoundLabel()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "newLabel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label newLabel()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "new_",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder new_(java.lang.classfile.constantpool.ClassEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "clazz",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "new_",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder new_(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "clazz",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "newarray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder newarray(java.lang.classfile.TypeKind)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "typeKind",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "nop",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder nop()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "parameterSlot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int parameterSlot(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pop",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder pop()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "pop2",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder pop2()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "putfield",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder putfield(java.lang.classfile.constantpool.FieldRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "putfield",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder putfield(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "putstatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder putstatic(java.lang.classfile.constantpool.FieldRefEntry)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "putstatic",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder putstatic(java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "receiverSlot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int receiverSlot()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "return_",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder return_()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "return_",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder return_(java.lang.classfile.TypeKind)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "tk",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "saload",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder saload()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "sastore",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder sastore()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "sipush",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder sipush(int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "startLabel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label startLabel()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "storeLocal",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder storeLocal(java.lang.classfile.TypeKind, int)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "tk",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "swap",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder swap()",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "tableswitch",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder tableswitch(int, int, java.lang.classfile.Label, java.util.List)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "low",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "high",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultTarget",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cases",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "tableswitch",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder tableswitch(java.lang.classfile.Label, java.util.List)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "defaultTarget",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cases",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "transforming",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder transforming(java.lang.classfile.CodeTransform, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "transform",
+      "type" : "java.lang.classfile.CodeTransform",
+      "genericType" : "java.lang.classfile.CodeTransform",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "trying",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeBuilder trying(java.util.function.Consumer, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder",
+    "parameters" : [ {
+      "name" : "tryHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "catchesHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

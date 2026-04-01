@@ -1,0 +1,449 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.table",
+  "binaryName" : "javax.swing.table.TableColumn",
+  "canonicalName" : "javax.swing.table.TableColumn",
+  "simpleName" : "TableColumn",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.table.TableColumn",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumn()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.table.TableColumn",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumn(int)",
+    "parameters" : [ {
+      "name" : "modelIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.table.TableColumn",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumn(int, int)",
+    "parameters" : [ {
+      "name" : "modelIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.table.TableColumn",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumn(int, int, javax.swing.table.TableCellRenderer, javax.swing.table.TableCellEditor)",
+    "parameters" : [ {
+      "name" : "modelIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cellRenderer",
+      "type" : "javax.swing.table.TableCellRenderer",
+      "genericType" : "javax.swing.table.TableCellRenderer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cellEditor",
+      "type" : "javax.swing.table.TableCellEditor",
+      "genericType" : "javax.swing.table.TableCellEditor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addPropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "disableResizedPosting",
+    "modifiers" : "public",
+    "signature" : "public void disableResizedPosting()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableResizedPosting",
+    "modifiers" : "public",
+    "signature" : "public void enableResizedPosting()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCellEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableCellEditor getCellEditor()",
+    "returnType" : "javax.swing.table.TableCellEditor",
+    "genericReturnType" : "javax.swing.table.TableCellEditor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCellRenderer",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableCellRenderer getCellRenderer()",
+    "returnType" : "javax.swing.table.TableCellRenderer",
+    "genericReturnType" : "javax.swing.table.TableCellRenderer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeaderRenderer",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableCellRenderer getHeaderRenderer()",
+    "returnType" : "javax.swing.table.TableCellRenderer",
+    "genericReturnType" : "javax.swing.table.TableCellRenderer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeaderValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getHeaderValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIdentifier",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getIdentifier()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxWidth",
+    "modifiers" : "public",
+    "signature" : "public int getMaxWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinWidth",
+    "modifiers" : "public",
+    "signature" : "public int getMinWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModelIndex",
+    "modifiers" : "public",
+    "signature" : "public int getModelIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredWidth",
+    "modifiers" : "public",
+    "signature" : "public int getPreferredWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyChangeListeners",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.beans.PropertyChangeListener[] getPropertyChangeListeners()",
+    "returnType" : "java.beans.PropertyChangeListener[]",
+    "genericReturnType" : "java.beans.PropertyChangeListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResizable",
+    "modifiers" : "public",
+    "signature" : "public boolean getResizable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public",
+    "signature" : "public int getWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removePropertyChangeListener(java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCellEditor",
+    "modifiers" : "public",
+    "signature" : "public void setCellEditor(javax.swing.table.TableCellEditor)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cellEditor",
+      "type" : "javax.swing.table.TableCellEditor",
+      "genericType" : "javax.swing.table.TableCellEditor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCellRenderer",
+    "modifiers" : "public",
+    "signature" : "public void setCellRenderer(javax.swing.table.TableCellRenderer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cellRenderer",
+      "type" : "javax.swing.table.TableCellRenderer",
+      "genericType" : "javax.swing.table.TableCellRenderer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHeaderRenderer",
+    "modifiers" : "public",
+    "signature" : "public void setHeaderRenderer(javax.swing.table.TableCellRenderer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "headerRenderer",
+      "type" : "javax.swing.table.TableCellRenderer",
+      "genericType" : "javax.swing.table.TableCellRenderer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHeaderValue",
+    "modifiers" : "public",
+    "signature" : "public void setHeaderValue(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "headerValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIdentifier",
+    "modifiers" : "public",
+    "signature" : "public void setIdentifier(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "identifier",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaxWidth",
+    "modifiers" : "public",
+    "signature" : "public void setMaxWidth(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maxWidth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinWidth",
+    "modifiers" : "public",
+    "signature" : "public void setMinWidth(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "minWidth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModelIndex",
+    "modifiers" : "public",
+    "signature" : "public void setModelIndex(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "modelIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPreferredWidth",
+    "modifiers" : "public",
+    "signature" : "public void setPreferredWidth(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "preferredWidth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResizable",
+    "modifiers" : "public",
+    "signature" : "public void setResizable(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "isResizable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWidth",
+    "modifiers" : "public",
+    "signature" : "public void setWidth(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sizeWidthToFit",
+    "modifiers" : "public",
+    "signature" : "public void sizeWidthToFit()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

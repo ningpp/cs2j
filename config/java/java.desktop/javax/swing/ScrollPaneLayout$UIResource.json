@@ -1,0 +1,18 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ScrollPaneLayout$UIResource",
+  "canonicalName" : "javax.swing.ScrollPaneLayout.UIResource",
+  "simpleName" : "UIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.ScrollPaneLayout",
+  "superClass" : "javax.swing.ScrollPaneLayout",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.ScrollPaneLayout$UIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ScrollPaneLayout$UIResource()",
+    "varArgs" : false
+  } ]
+}

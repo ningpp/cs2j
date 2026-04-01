@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.cert",
+  "binaryName" : "javax.security.cert.CertificateEncodingException",
+  "canonicalName" : "javax.security.cert.CertificateEncodingException",
+  "simpleName" : "CertificateEncodingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.security.cert.CertificateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.cert.CertificateEncodingException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.CertificateEncodingException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.cert.CertificateEncodingException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.CertificateEncodingException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

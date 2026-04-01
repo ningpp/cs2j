@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax",
+  "binaryName" : "org.xml.sax.ErrorHandler",
+  "canonicalName" : "org.xml.sax.ErrorHandler",
+  "simpleName" : "ErrorHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "error",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void error(org.xml.sax.SAXParseException) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.SAXParseException",
+      "genericType" : "org.xml.sax.SAXParseException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fatalError",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void fatalError(org.xml.sax.SAXParseException) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.SAXParseException",
+      "genericType" : "org.xml.sax.SAXParseException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "warning",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void warning(org.xml.sax.SAXParseException) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.SAXParseException",
+      "genericType" : "org.xml.sax.SAXParseException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

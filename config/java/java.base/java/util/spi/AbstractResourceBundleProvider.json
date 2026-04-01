@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.spi",
+  "binaryName" : "java.util.spi.AbstractResourceBundleProvider",
+  "canonicalName" : "java.util.spi.AbstractResourceBundleProvider",
+  "simpleName" : "AbstractResourceBundleProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.spi.ResourceBundleProvider" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBundle",
+    "modifiers" : "public",
+    "signature" : "public java.util.ResourceBundle getBundle(java.lang.String, java.util.Locale)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

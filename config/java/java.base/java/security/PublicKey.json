@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.PublicKey",
+  "canonicalName" : "java.security.PublicKey",
+  "simpleName" : "PublicKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.AsymmetricKey" ]
+}

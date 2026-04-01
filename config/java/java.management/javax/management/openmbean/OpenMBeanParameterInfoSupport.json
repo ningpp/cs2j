@@ -1,0 +1,322 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.OpenMBeanParameterInfoSupport",
+  "canonicalName" : "javax.management.openmbean.OpenMBeanParameterInfoSupport",
+  "simpleName" : "OpenMBeanParameterInfoSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.MBeanParameterInfo",
+  "interfaces" : [ "javax.management.openmbean.OpenMBeanParameterInfo" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.OpenMBeanParameterInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanParameterInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenType)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.OpenMBeanParameterInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanParameterInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenType, java.lang.Object) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.OpenMBeanParameterInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanParameterInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenType, java.lang.Object, java.lang.Comparable, java.lang.Comparable) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minValue",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxValue",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.OpenMBeanParameterInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanParameterInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenType, java.lang.Object, java.lang.Object[]) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "legalValues",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.OpenMBeanParameterInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanParameterInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenType, javax.management.Descriptor)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getDefaultValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLegalValues",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getLegalValues()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Comparable getMaxValue()",
+    "returnType" : "java.lang.Comparable",
+    "genericReturnType" : "java.lang.Comparable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Comparable getMinValue()",
+    "returnType" : "java.lang.Comparable",
+    "genericReturnType" : "java.lang.Comparable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOpenType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenType getOpenType()",
+    "returnType" : "javax.management.openmbean.OpenType",
+    "genericReturnType" : "javax.management.openmbean.OpenType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasDefaultValue",
+    "modifiers" : "public",
+    "signature" : "public boolean hasDefaultValue()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasLegalValues",
+    "modifiers" : "public",
+    "signature" : "public boolean hasLegalValues()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasMaxValue",
+    "modifiers" : "public",
+    "signature" : "public boolean hasMaxValue()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasMinValue",
+    "modifiers" : "public",
+    "signature" : "public boolean hasMinValue()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValue",
+    "modifiers" : "public",
+    "signature" : "public boolean isValue(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

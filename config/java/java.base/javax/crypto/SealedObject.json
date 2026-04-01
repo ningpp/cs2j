@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.SealedObject",
+  "canonicalName" : "javax.crypto.SealedObject",
+  "simpleName" : "SealedObject",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.SealedObject",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.SealedObject(java.io.Serializable, javax.crypto.Cipher) throws java.io.IOException, javax.crypto.IllegalBlockSizeException",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.io.Serializable",
+      "genericType" : "java.io.Serializable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "javax.crypto.Cipher",
+      "genericType" : "javax.crypto.Cipher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.crypto.IllegalBlockSizeException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAlgorithm",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object getObject(java.security.Key) throws java.io.IOException, java.lang.ClassNotFoundException, java.security.NoSuchAlgorithmException, java.security.InvalidKeyException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException", "java.security.NoSuchAlgorithmException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object getObject(java.security.Key, java.lang.String) throws java.io.IOException, java.lang.ClassNotFoundException, java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException, java.security.InvalidKeyException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException", "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object getObject(javax.crypto.Cipher) throws java.io.IOException, java.lang.ClassNotFoundException, javax.crypto.IllegalBlockSizeException, javax.crypto.BadPaddingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.crypto.Cipher",
+      "genericType" : "javax.crypto.Cipher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException", "javax.crypto.IllegalBlockSizeException", "javax.crypto.BadPaddingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

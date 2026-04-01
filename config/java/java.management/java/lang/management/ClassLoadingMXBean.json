@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.ClassLoadingMXBean",
+  "canonicalName" : "java.lang.management.ClassLoadingMXBean",
+  "simpleName" : "ClassLoadingMXBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.management.PlatformManagedObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLoadedClassCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLoadedClassCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTotalLoadedClassCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getTotalLoadedClassCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnloadedClassCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getUnloadedClassCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVerbose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isVerbose()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVerbose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setVerbose(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

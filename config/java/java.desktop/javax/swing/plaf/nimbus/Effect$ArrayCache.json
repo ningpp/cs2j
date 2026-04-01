@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.nimbus",
+  "binaryName" : "javax.swing.plaf.nimbus.Effect$ArrayCache",
+  "canonicalName" : "javax.swing.plaf.nimbus.Effect.ArrayCache",
+  "simpleName" : "ArrayCache",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.nimbus.Effect",
+  "superClass" : "java.lang.Object"
+}

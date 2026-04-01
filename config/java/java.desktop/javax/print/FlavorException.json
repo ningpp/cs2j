@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.FlavorException",
+  "canonicalName" : "javax.print.FlavorException",
+  "simpleName" : "FlavorException",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getUnsupportedFlavors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.DocFlavor[] getUnsupportedFlavors()",
+    "returnType" : "javax.print.DocFlavor[]",
+    "genericReturnType" : "javax.print.DocFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

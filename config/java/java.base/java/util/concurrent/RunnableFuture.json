@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.RunnableFuture",
+  "canonicalName" : "java.util.concurrent.RunnableFuture",
+  "simpleName" : "RunnableFuture",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.Runnable", "java.util.concurrent.Future" ],
+  "declaredPublicMethods" : [ {
+    "name" : "run",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void run()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

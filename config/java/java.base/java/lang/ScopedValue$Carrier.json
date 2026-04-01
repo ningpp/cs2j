@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ScopedValue$Carrier",
+  "canonicalName" : "java.lang.ScopedValue.Carrier",
+  "simpleName" : "Carrier",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.ScopedValue",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "call",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object call(java.lang.ScopedValue$CallableOp) throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.ScopedValue$CallableOp",
+      "genericType" : "java.lang.ScopedValue$CallableOp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(java.lang.ScopedValue)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.ScopedValue",
+      "genericType" : "java.lang.ScopedValue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "run",
+    "modifiers" : "public",
+    "signature" : "public void run(java.lang.Runnable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "where",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ScopedValue$Carrier where(java.lang.ScopedValue, java.lang.Object)",
+    "returnType" : "java.lang.ScopedValue$Carrier",
+    "genericReturnType" : "java.lang.ScopedValue$Carrier",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.ScopedValue",
+      "genericType" : "java.lang.ScopedValue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

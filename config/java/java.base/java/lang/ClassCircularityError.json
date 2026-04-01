@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ClassCircularityError",
+  "canonicalName" : "java.lang.ClassCircularityError",
+  "simpleName" : "ClassCircularityError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ClassCircularityError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassCircularityError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ClassCircularityError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassCircularityError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

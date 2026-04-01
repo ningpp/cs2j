@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.FieldElement",
+  "canonicalName" : "java.lang.classfile.FieldElement",
+  "simpleName" : "FieldElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileElement" ]
+}

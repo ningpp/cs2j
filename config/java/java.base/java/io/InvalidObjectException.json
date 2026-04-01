@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.InvalidObjectException",
+  "canonicalName" : "java.io.InvalidObjectException",
+  "simpleName" : "InvalidObjectException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.ObjectStreamException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.InvalidObjectException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InvalidObjectException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InvalidObjectException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InvalidObjectException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

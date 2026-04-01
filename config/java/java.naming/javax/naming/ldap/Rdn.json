@@ -1,0 +1,198 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.Rdn",
+  "canonicalName" : "javax.naming.ldap.Rdn",
+  "simpleName" : "Rdn",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Comparable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.Rdn",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.Rdn(java.lang.String) throws javax.naming.InvalidNameException",
+    "parameters" : [ {
+      "name" : "rdnString",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.InvalidNameException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.Rdn",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.Rdn(java.lang.String, java.lang.Object) throws javax.naming.InvalidNameException",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.InvalidNameException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.Rdn",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.Rdn(javax.naming.directory.Attributes) throws javax.naming.InvalidNameException",
+    "parameters" : [ {
+      "name" : "attrSet",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.InvalidNameException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.Rdn",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.Rdn(javax.naming.ldap.Rdn)",
+    "parameters" : [ {
+      "name" : "rdn",
+      "type" : "javax.naming.ldap.Rdn",
+      "genericType" : "javax.naming.ldap.Rdn",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.lang.Object)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "escapeValue",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String escapeValue(java.lang.Object)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public",
+    "signature" : "public int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attributes toAttributes()",
+    "returnType" : "javax.naming.directory.Attributes",
+    "genericReturnType" : "javax.naming.directory.Attributes",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unescapeValue",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object unescapeValue(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

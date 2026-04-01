@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JToolBar$Separator",
+  "canonicalName" : "javax.swing.JToolBar.Separator",
+  "simpleName" : "Separator",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JToolBar",
+  "superClass" : "javax.swing.JSeparator",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JToolBar$Separator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JToolBar$Separator()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JToolBar$Separator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JToolBar$Separator(java.awt.Dimension)",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "java.awt.Dimension",
+      "genericType" : "java.awt.Dimension",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMaximumSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getMaximumSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getMinimumSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeparatorSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getSeparatorSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSeparatorSize",
+    "modifiers" : "public",
+    "signature" : "public void setSeparatorSize(java.awt.Dimension)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "java.awt.Dimension",
+      "genericType" : "java.awt.Dimension",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

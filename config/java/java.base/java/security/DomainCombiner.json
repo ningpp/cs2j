@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.DomainCombiner",
+  "canonicalName" : "java.security.DomainCombiner",
+  "simpleName" : "DomainCombiner",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "combine",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.ProtectionDomain[] combine(java.security.ProtectionDomain[], java.security.ProtectionDomain[])",
+    "returnType" : "java.security.ProtectionDomain[]",
+    "genericReturnType" : "java.security.ProtectionDomain[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.ProtectionDomain[]",
+      "genericType" : "java.security.ProtectionDomain[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.security.ProtectionDomain[]",
+      "genericType" : "java.security.ProtectionDomain[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

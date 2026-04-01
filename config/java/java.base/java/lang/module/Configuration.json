@@ -1,0 +1,196 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.Configuration",
+  "canonicalName" : "java.lang.module.Configuration",
+  "simpleName" : "Configuration",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "empty",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.Configuration empty()",
+    "returnType" : "java.lang.module.Configuration",
+    "genericReturnType" : "java.lang.module.Configuration",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findModule",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional findModule(java.lang.String)",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modules",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set modules()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parents",
+    "modifiers" : "public",
+    "signature" : "public java.util.List parents()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolve",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.Configuration resolve(java.lang.module.ModuleFinder, java.lang.module.ModuleFinder, java.util.Collection)",
+    "returnType" : "java.lang.module.Configuration",
+    "genericReturnType" : "java.lang.module.Configuration",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "after",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roots",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolve",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.Configuration resolve(java.lang.module.ModuleFinder, java.util.List, java.lang.module.ModuleFinder, java.util.Collection)",
+    "returnType" : "java.lang.module.Configuration",
+    "genericReturnType" : "java.lang.module.Configuration",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parents",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "after",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roots",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveAndBind",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.Configuration resolveAndBind(java.lang.module.ModuleFinder, java.lang.module.ModuleFinder, java.util.Collection)",
+    "returnType" : "java.lang.module.Configuration",
+    "genericReturnType" : "java.lang.module.Configuration",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "after",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roots",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveAndBind",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.Configuration resolveAndBind(java.lang.module.ModuleFinder, java.util.List, java.lang.module.ModuleFinder, java.util.Collection)",
+    "returnType" : "java.lang.module.Configuration",
+    "genericReturnType" : "java.lang.module.Configuration",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parents",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "after",
+      "type" : "java.lang.module.ModuleFinder",
+      "genericType" : "java.lang.module.ModuleFinder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roots",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

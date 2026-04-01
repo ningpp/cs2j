@@ -1,0 +1,78 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.RowSorter$SortKey",
+  "canonicalName" : "javax.swing.RowSorter.SortKey",
+  "simpleName" : "SortKey",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.RowSorter",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.RowSorter$SortKey",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.RowSorter$SortKey(int, javax.swing.SortOrder)",
+    "parameters" : [ {
+      "name" : "column",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sortOrder",
+      "type" : "javax.swing.SortOrder",
+      "genericType" : "javax.swing.SortOrder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumn",
+    "modifiers" : "public final",
+    "signature" : "public final int getColumn()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSortOrder",
+    "modifiers" : "public final",
+    "signature" : "public final javax.swing.SortOrder getSortOrder()",
+    "returnType" : "javax.swing.SortOrder",
+    "genericReturnType" : "javax.swing.SortOrder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

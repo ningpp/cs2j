@@ -1,0 +1,29 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.events",
+  "binaryName" : "org.w3c.dom.events.EventException",
+  "canonicalName" : "org.w3c.dom.events.EventException",
+  "simpleName" : "EventException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "org.w3c.dom.events.EventException",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.events.EventException(short, java.lang.String)",
+    "parameters" : [ {
+      "name" : "code",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

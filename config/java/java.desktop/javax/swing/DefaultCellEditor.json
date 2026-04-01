@@ -1,0 +1,238 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.DefaultCellEditor",
+  "canonicalName" : "javax.swing.DefaultCellEditor",
+  "simpleName" : "DefaultCellEditor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.AbstractCellEditor",
+  "interfaces" : [ "javax.swing.table.TableCellEditor", "javax.swing.tree.TreeCellEditor" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.DefaultCellEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.DefaultCellEditor(javax.swing.JCheckBox)",
+    "parameters" : [ {
+      "name" : "checkBox",
+      "type" : "javax.swing.JCheckBox",
+      "genericType" : "javax.swing.JCheckBox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.DefaultCellEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.DefaultCellEditor(javax.swing.JComboBox)",
+    "parameters" : [ {
+      "name" : "comboBox",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.DefaultCellEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.DefaultCellEditor(javax.swing.JTextField)",
+    "parameters" : [ {
+      "name" : "textField",
+      "type" : "javax.swing.JTextField",
+      "genericType" : "javax.swing.JTextField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "cancelCellEditing",
+    "modifiers" : "public",
+    "signature" : "public void cancelCellEditing()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCellEditorValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getCellEditorValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClickCountToStart",
+    "modifiers" : "public",
+    "signature" : "public int getClickCountToStart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getComponent()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTableCellEditorComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getTableCellEditorComponent(javax.swing.JTable, java.lang.Object, boolean, int, int)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "javax.swing.JTable",
+      "genericType" : "javax.swing.JTable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isSelected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "column",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeCellEditorComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getTreeCellEditorComponent(javax.swing.JTree, java.lang.Object, boolean, boolean, boolean, int)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "tree",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isSelected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "expanded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "leaf",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCellEditable",
+    "modifiers" : "public",
+    "signature" : "public boolean isCellEditable(java.util.EventObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "anEvent",
+      "type" : "java.util.EventObject",
+      "genericType" : "java.util.EventObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setClickCountToStart",
+    "modifiers" : "public",
+    "signature" : "public void setClickCountToStart(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shouldSelectCell",
+    "modifiers" : "public",
+    "signature" : "public boolean shouldSelectCell(java.util.EventObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "anEvent",
+      "type" : "java.util.EventObject",
+      "genericType" : "java.util.EventObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stopCellEditing",
+    "modifiers" : "public",
+    "signature" : "public boolean stopCellEditing()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

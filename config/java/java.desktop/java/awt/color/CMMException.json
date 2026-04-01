@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.color",
+  "binaryName" : "java.awt.color.CMMException",
+  "canonicalName" : "java.awt.color.CMMException",
+  "simpleName" : "CMMException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.color.CMMException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.color.CMMException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,553 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Dialog",
+  "canonicalName" : "java.awt.Dialog",
+  "simpleName" : "Dialog",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Window",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Dialog)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Dialog",
+      "genericType" : "java.awt.Dialog",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Dialog, java.lang.String)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Dialog",
+      "genericType" : "java.awt.Dialog",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Dialog, java.lang.String, boolean)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Dialog",
+      "genericType" : "java.awt.Dialog",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Dialog, java.lang.String, boolean, java.awt.GraphicsConfiguration)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Dialog",
+      "genericType" : "java.awt.Dialog",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Frame)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Frame, boolean)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Frame, java.lang.String)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Frame, java.lang.String, boolean)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Frame, java.lang.String, boolean, java.awt.GraphicsConfiguration)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Window)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Window, java.awt.Dialog$ModalityType)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modalityType",
+      "type" : "java.awt.Dialog$ModalityType",
+      "genericType" : "java.awt.Dialog$ModalityType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Window, java.lang.String)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Window, java.lang.String, java.awt.Dialog$ModalityType)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modalityType",
+      "type" : "java.awt.Dialog$ModalityType",
+      "genericType" : "java.awt.Dialog$ModalityType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Dialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog(java.awt.Window, java.lang.String, java.awt.Dialog$ModalityType, java.awt.GraphicsConfiguration)",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modalityType",
+      "type" : "java.awt.Dialog$ModalityType",
+      "genericType" : "java.awt.Dialog$ModalityType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "gc",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModalityType",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dialog$ModalityType getModalityType()",
+    "returnType" : "java.awt.Dialog$ModalityType",
+    "genericReturnType" : "java.awt.Dialog$ModalityType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTitle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getTitle()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hide",
+    "modifiers" : "public",
+    "signature" : "public void hide()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isModal",
+    "modifiers" : "public",
+    "signature" : "public boolean isModal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isResizable",
+    "modifiers" : "public",
+    "signature" : "public boolean isResizable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUndecorated",
+    "modifiers" : "public",
+    "signature" : "public boolean isUndecorated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBackground",
+    "modifiers" : "public",
+    "signature" : "public void setBackground(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bgColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModal",
+    "modifiers" : "public",
+    "signature" : "public void setModal(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "modal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModalityType",
+    "modifiers" : "public",
+    "signature" : "public void setModalityType(java.awt.Dialog$ModalityType)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.awt.Dialog$ModalityType",
+      "genericType" : "java.awt.Dialog$ModalityType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOpacity",
+    "modifiers" : "public",
+    "signature" : "public void setOpacity(float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "opacity",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResizable",
+    "modifiers" : "public",
+    "signature" : "public void setResizable(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "resizable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setShape",
+    "modifiers" : "public",
+    "signature" : "public void setShape(java.awt.Shape)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "shape",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTitle",
+    "modifiers" : "public",
+    "signature" : "public void setTitle(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUndecorated",
+    "modifiers" : "public",
+    "signature" : "public void setUndecorated(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "undecorated",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVisible",
+    "modifiers" : "public",
+    "signature" : "public void setVisible(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "show",
+    "modifiers" : "public",
+    "signature" : "public void show()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toBack",
+    "modifiers" : "public",
+    "signature" : "public void toBack()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

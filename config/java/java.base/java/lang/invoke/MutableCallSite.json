@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.MutableCallSite",
+  "canonicalName" : "java.lang.invoke.MutableCallSite",
+  "simpleName" : "MutableCallSite",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.invoke.CallSite",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.invoke.MutableCallSite",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MutableCallSite(java.lang.invoke.MethodHandle)",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.invoke.MutableCallSite",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MutableCallSite(java.lang.invoke.MethodType)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "dynamicInvoker",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodHandle dynamicInvoker()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTarget",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodHandle getTarget()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTarget",
+    "modifiers" : "public",
+    "signature" : "public void setTarget(java.lang.invoke.MethodHandle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newTarget",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "syncAll",
+    "modifiers" : "public static",
+    "signature" : "public static void syncAll(java.lang.invoke.MutableCallSite[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sites",
+      "type" : "java.lang.invoke.MutableCallSite[]",
+      "genericType" : "java.lang.invoke.MutableCallSite[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

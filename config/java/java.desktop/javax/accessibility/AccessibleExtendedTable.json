@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleExtendedTable",
+  "canonicalName" : "javax.accessibility.AccessibleExtendedTable",
+  "simpleName" : "AccessibleExtendedTable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.accessibility.AccessibleTable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleColumn",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAccessibleColumn(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAccessibleIndex(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleRow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAccessibleRow(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

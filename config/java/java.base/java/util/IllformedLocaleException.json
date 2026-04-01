@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.IllformedLocaleException",
+  "canonicalName" : "java.util.IllformedLocaleException",
+  "simpleName" : "IllformedLocaleException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.IllformedLocaleException",
+    "modifiers" : "public",
+    "signature" : "public java.util.IllformedLocaleException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.IllformedLocaleException",
+    "modifiers" : "public",
+    "signature" : "public java.util.IllformedLocaleException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.IllformedLocaleException",
+    "modifiers" : "public",
+    "signature" : "public java.util.IllformedLocaleException(java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "errorIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getErrorIndex",
+    "modifiers" : "public",
+    "signature" : "public int getErrorIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

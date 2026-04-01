@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.OceanTheme",
+  "canonicalName" : "javax.swing.plaf.metal.OceanTheme",
+  "simpleName" : "OceanTheme",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.metal.DefaultMetalTheme",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.OceanTheme",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.OceanTheme()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addCustomEntriesToTable",
+    "modifiers" : "public",
+    "signature" : "public void addCustomEntriesToTable(javax.swing.UIDefaults)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "javax.swing.UIDefaults",
+      "genericType" : "javax.swing.UIDefaults",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlTextColor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource getControlTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDesktopColor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource getDesktopColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInactiveControlTextColor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource getInactiveControlTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuDisabledForeground",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource getMenuDisabledForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

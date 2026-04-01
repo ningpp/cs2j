@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.DigestMethodParameterSpec",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.DigestMethodParameterSpec",
+  "simpleName" : "DigestMethodParameterSpec",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ]
+}

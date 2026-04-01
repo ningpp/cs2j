@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.nimbus",
+  "binaryName" : "javax.swing.plaf.nimbus.State",
+  "canonicalName" : "javax.swing.plaf.nimbus.State",
+  "simpleName" : "State",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

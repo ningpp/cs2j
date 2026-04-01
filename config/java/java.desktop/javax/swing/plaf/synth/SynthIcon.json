@@ -1,0 +1,147 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.synth",
+  "binaryName" : "javax.swing.plaf.synth.SynthIcon",
+  "canonicalName" : "javax.swing.plaf.synth.SynthIcon",
+  "simpleName" : "SynthIcon",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.swing.Icon" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getIconHeight",
+    "modifiers" : "public",
+    "signature" : "public int getIconHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getIconHeight",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getIconHeight(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIconWidth",
+    "modifiers" : "public",
+    "signature" : "public int getIconWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getIconWidth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getIconWidth(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintIcon",
+    "modifiers" : "public",
+    "signature" : "public void paintIcon(java.awt.Component, java.awt.Graphics, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "paintIcon",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void paintIcon(javax.swing.plaf.synth.SynthContext, java.awt.Graphics, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

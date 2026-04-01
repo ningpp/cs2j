@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute",
+  "simpleName" : "RuntimeVisibleTypeAnnotationsAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement", "java.lang.classfile.CodeElement", "java.lang.classfile.FieldElement", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "annotations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List annotations()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute of(java.lang.classfile.TypeAnnotation...)",
+    "returnType" : "java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute",
+    "parameters" : [ {
+      "name" : "annotations",
+      "type" : "java.lang.classfile.TypeAnnotation[]",
+      "genericType" : "java.lang.classfile.TypeAnnotation[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.RuntimeVisibleTypeAnnotationsAttribute",
+    "parameters" : [ {
+      "name" : "annotations",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

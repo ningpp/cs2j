@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.events",
+  "binaryName" : "javax.xml.stream.events.EntityReference",
+  "canonicalName" : "javax.xml.stream.events.EntityReference",
+  "simpleName" : "EntityReference",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.stream.events.XMLEvent" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDeclaration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.EntityDeclaration getDeclaration()",
+    "returnType" : "javax.xml.stream.events.EntityDeclaration",
+    "genericReturnType" : "javax.xml.stream.events.EntityDeclaration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

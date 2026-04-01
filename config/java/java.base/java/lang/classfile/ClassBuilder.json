@@ -1,0 +1,472 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassBuilder",
+  "canonicalName" : "java.lang.classfile.ClassBuilder",
+  "simpleName" : "ClassBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileBuilder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "transformField",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassBuilder transformField(java.lang.classfile.FieldModel, java.lang.classfile.FieldTransform)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.FieldModel",
+      "genericType" : "java.lang.classfile.FieldModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.FieldTransform",
+      "genericType" : "java.lang.classfile.FieldTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassBuilder transformMethod(java.lang.classfile.MethodModel, java.lang.classfile.MethodTransform)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.MethodModel",
+      "genericType" : "java.lang.classfile.MethodModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.MethodTransform",
+      "genericType" : "java.lang.classfile.MethodTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withField",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withField(java.lang.String, java.lang.constant.ClassDesc, int)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withField",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withField(java.lang.String, java.lang.constant.ClassDesc, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withField",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withField(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry, int)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withField",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassBuilder withField(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withFlags(int)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withFlags(java.lang.reflect.AccessFlag...)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "java.lang.reflect.AccessFlag[]",
+      "genericType" : "java.lang.reflect.AccessFlag[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "withInterfaceSymbols",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withInterfaceSymbols(java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "withInterfaceSymbols",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withInterfaceSymbols(java.util.List)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withInterfaces",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withInterfaces(java.lang.classfile.constantpool.ClassEntry...)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "withInterfaces",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withInterfaces(java.util.List)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withMethod",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withMethod(java.lang.String, java.lang.constant.MethodTypeDesc, int, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "methodFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassBuilder withMethod(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry, int, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withMethodBody",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withMethodBody(java.lang.String, java.lang.constant.MethodTypeDesc, int, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "methodFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withMethodBody",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withMethodBody(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry, int, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "methodFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withSuperclass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withSuperclass(java.lang.classfile.constantpool.ClassEntry)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "superclassEntry",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withSuperclass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withSuperclass(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "desc",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withVersion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassBuilder withVersion(int, int)",
+    "returnType" : "java.lang.classfile.ClassBuilder",
+    "genericReturnType" : "java.lang.classfile.ClassBuilder",
+    "parameters" : [ {
+      "name" : "major",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minor",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

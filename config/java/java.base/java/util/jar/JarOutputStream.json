@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.jar",
+  "binaryName" : "java.util.jar.JarOutputStream",
+  "canonicalName" : "java.util.jar.JarOutputStream",
+  "simpleName" : "JarOutputStream",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.zip.ZipOutputStream",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.jar.JarOutputStream",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarOutputStream(java.io.OutputStream) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarOutputStream",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarOutputStream(java.io.OutputStream, java.util.jar.Manifest) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "man",
+      "type" : "java.util.jar.Manifest",
+      "genericType" : "java.util.jar.Manifest",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "putNextEntry",
+    "modifiers" : "public",
+    "signature" : "public void putNextEntry(java.util.zip.ZipEntry) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ze",
+      "type" : "java.util.zip.ZipEntry",
+      "genericType" : "java.util.zip.ZipEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

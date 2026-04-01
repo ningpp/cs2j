@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Desktop$Action",
+  "canonicalName" : "java.awt.Desktop.Action",
+  "simpleName" : "Action",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.Desktop",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Desktop$Action valueOf(java.lang.String)",
+    "returnType" : "java.awt.Desktop$Action",
+    "genericReturnType" : "java.awt.Desktop$Action",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Desktop$Action[] values()",
+    "returnType" : "java.awt.Desktop$Action[]",
+    "genericReturnType" : "java.awt.Desktop$Action[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

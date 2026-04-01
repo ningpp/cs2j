@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.events",
+  "binaryName" : "javax.xml.stream.events.Characters",
+  "canonicalName" : "javax.xml.stream.events.Characters",
+  "simpleName" : "Characters",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.stream.events.XMLEvent" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getData()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCData()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIgnorableWhiteSpace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isIgnorableWhiteSpace()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWhiteSpace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isWhiteSpace()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

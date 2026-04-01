@@ -1,0 +1,106 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.MembershipKey",
+  "canonicalName" : "java.nio.channels.MembershipKey",
+  "simpleName" : "MembershipKey",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "block",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.MembershipKey block(java.net.InetAddress) throws java.io.IOException",
+    "returnType" : "java.nio.channels.MembershipKey",
+    "genericReturnType" : "java.nio.channels.MembershipKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "channel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.MulticastChannel channel()",
+    "returnType" : "java.nio.channels.MulticastChannel",
+    "genericReturnType" : "java.nio.channels.MulticastChannel",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "drop",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void drop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "group",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.InetAddress group()",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "networkInterface",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.NetworkInterface networkInterface()",
+    "returnType" : "java.net.NetworkInterface",
+    "genericReturnType" : "java.net.NetworkInterface",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sourceAddress",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.InetAddress sourceAddress()",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unblock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.MembershipKey unblock(java.net.InetAddress)",
+    "returnType" : "java.nio.channels.MembershipKey",
+    "genericReturnType" : "java.nio.channels.MembershipKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

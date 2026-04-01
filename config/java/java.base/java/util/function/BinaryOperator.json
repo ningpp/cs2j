@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.BinaryOperator",
+  "canonicalName" : "java.util.function.BinaryOperator",
+  "simpleName" : "BinaryOperator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.function.BiFunction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "maxBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.BinaryOperator maxBy(java.util.Comparator)",
+    "returnType" : "java.util.function.BinaryOperator",
+    "genericReturnType" : "java.util.function.BinaryOperator",
+    "parameters" : [ {
+      "name" : "comparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.BinaryOperator minBy(java.util.Comparator)",
+    "returnType" : "java.util.function.BinaryOperator",
+    "genericReturnType" : "java.util.function.BinaryOperator",
+    "parameters" : [ {
+      "name" : "comparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

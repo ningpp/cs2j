@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KeyAgreementSpi",
+  "canonicalName" : "javax.crypto.KeyAgreementSpi",
+  "simpleName" : "KeyAgreementSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.KeyAgreementSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KeyAgreementSpi()",
+    "varArgs" : false
+  } ]
+}

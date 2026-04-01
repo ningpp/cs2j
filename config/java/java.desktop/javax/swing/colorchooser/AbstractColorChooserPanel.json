@@ -1,0 +1,159 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.colorchooser",
+  "binaryName" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+  "canonicalName" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+  "simpleName" : "AbstractColorChooserPanel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.JPanel",
+  "declaredPublicMethods" : [ {
+    "name" : "getColorSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.colorchooser.ColorSelectionModel getColorSelectionModel()",
+    "returnType" : "javax.swing.colorchooser.ColorSelectionModel",
+    "genericReturnType" : "javax.swing.colorchooser.ColorSelectionModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisplayName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDisplayName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisplayedMnemonicIndex",
+    "modifiers" : "public",
+    "signature" : "public int getDisplayedMnemonicIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLargeDisplayIcon",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.Icon getLargeDisplayIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMnemonic",
+    "modifiers" : "public",
+    "signature" : "public int getMnemonic()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSmallDisplayIcon",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.Icon getSmallDisplayIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installChooserPanel",
+    "modifiers" : "public",
+    "signature" : "public void installChooserPanel(javax.swing.JColorChooser)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enclosingChooser",
+      "type" : "javax.swing.JColorChooser",
+      "genericType" : "javax.swing.JColorChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isColorTransparencySelectionEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isColorTransparencySelectionEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paint",
+    "modifiers" : "public",
+    "signature" : "public void paint(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColorTransparencySelectionEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setColorTransparencySelectionEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallChooserPanel",
+    "modifiers" : "public",
+    "signature" : "public void uninstallChooserPanel(javax.swing.JColorChooser)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enclosingChooser",
+      "type" : "javax.swing.JColorChooser",
+      "genericType" : "javax.swing.JColorChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateChooser",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void updateChooser()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.DirectoryIteratorException",
+  "canonicalName" : "java.nio.file.DirectoryIteratorException",
+  "simpleName" : "DirectoryIteratorException",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.util.ConcurrentModificationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.DirectoryIteratorException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.DirectoryIteratorException(java.io.IOException)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.io.IOException",
+      "genericType" : "java.io.IOException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.io.IOException getCause()",
+    "returnType" : "java.io.IOException",
+    "genericReturnType" : "java.io.IOException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

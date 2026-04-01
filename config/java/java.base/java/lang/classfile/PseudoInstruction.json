@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.PseudoInstruction",
+  "canonicalName" : "java.lang.classfile.PseudoInstruction",
+  "simpleName" : "PseudoInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.CodeElement" ]
+}

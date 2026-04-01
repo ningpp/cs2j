@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.SwingContainer",
+  "canonicalName" : "javax.swing.SwingContainer",
+  "simpleName" : "SwingContainer",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ],
+  "declaredPublicMethods" : [ {
+    "name" : "delegate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String delegate()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean value()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

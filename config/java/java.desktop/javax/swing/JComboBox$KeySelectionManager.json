@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JComboBox$KeySelectionManager",
+  "canonicalName" : "javax.swing.JComboBox.KeySelectionManager",
+  "simpleName" : "KeySelectionManager",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JComboBox",
+  "declaredPublicMethods" : [ {
+    "name" : "selectionForKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int selectionForKey(char, javax.swing.ComboBoxModel)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.swing.ComboBoxModel",
+      "genericType" : "javax.swing.ComboBoxModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

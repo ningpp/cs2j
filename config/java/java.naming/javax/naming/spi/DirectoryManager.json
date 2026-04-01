@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.spi",
+  "binaryName" : "javax.naming.spi.DirectoryManager",
+  "canonicalName" : "javax.naming.spi.DirectoryManager",
+  "simpleName" : "DirectoryManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.spi.NamingManager",
+  "declaredPublicMethods" : [ {
+    "name" : "getContinuationDirContext",
+    "modifiers" : "public static",
+    "signature" : "public static javax.naming.directory.DirContext getContinuationDirContext(javax.naming.CannotProceedException) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.DirContext",
+    "genericReturnType" : "javax.naming.directory.DirContext",
+    "parameters" : [ {
+      "name" : "cpe",
+      "type" : "javax.naming.CannotProceedException",
+      "genericType" : "javax.naming.CannotProceedException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjectInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object getObjectInstance(java.lang.Object, javax.naming.Name, javax.naming.Context, java.util.Hashtable, javax.naming.directory.Attributes) throws java.lang.Exception",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "refInfo",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameCtx",
+      "type" : "javax.naming.Context",
+      "genericType" : "javax.naming.Context",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStateToBind",
+    "modifiers" : "public static",
+    "signature" : "public static javax.naming.spi.DirStateFactory$Result getStateToBind(java.lang.Object, javax.naming.Name, javax.naming.Context, java.util.Hashtable, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.spi.DirStateFactory$Result",
+    "genericReturnType" : "javax.naming.spi.DirStateFactory$Result",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameCtx",
+      "type" : "javax.naming.Context",
+      "genericType" : "javax.naming.Context",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

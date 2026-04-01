@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Spliterator$OfPrimitive",
+  "canonicalName" : "java.util.Spliterator.OfPrimitive",
+  "simpleName" : "OfPrimitive",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.Spliterator",
+  "interfaces" : [ "java.util.Spliterator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "tryAdvance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean tryAdvance(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "trySplit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Spliterator$OfPrimitive trySplit()",
+    "returnType" : "java.util.Spliterator$OfPrimitive",
+    "genericReturnType" : "java.util.Spliterator$OfPrimitive",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

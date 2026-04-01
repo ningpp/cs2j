@@ -1,0 +1,382 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectInputStream",
+  "canonicalName" : "java.io.ObjectInputStream",
+  "simpleName" : "ObjectInputStream",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.InputStream",
+  "interfaces" : [ "java.io.ObjectInput", "java.io.ObjectStreamConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.ObjectInputStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.ObjectInputStream(java.io.InputStream) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "available",
+    "modifiers" : "public",
+    "signature" : "public int available() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultReadObject",
+    "modifiers" : "public",
+    "signature" : "public void defaultReadObject() throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjectInputFilter",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.ObjectInputFilter getObjectInputFilter()",
+    "returnType" : "java.io.ObjectInputFilter",
+    "genericReturnType" : "java.io.ObjectInputFilter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(byte[], int, int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "buf",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readBoolean",
+    "modifiers" : "public",
+    "signature" : "public boolean readBoolean() throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readByte",
+    "modifiers" : "public",
+    "signature" : "public byte readByte() throws java.io.IOException",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readChar",
+    "modifiers" : "public",
+    "signature" : "public char readChar() throws java.io.IOException",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readDouble",
+    "modifiers" : "public",
+    "signature" : "public double readDouble() throws java.io.IOException",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readFields",
+    "modifiers" : "public",
+    "signature" : "public java.io.ObjectInputStream$GetField readFields() throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "java.io.ObjectInputStream$GetField",
+    "genericReturnType" : "java.io.ObjectInputStream$GetField",
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readFloat",
+    "modifiers" : "public",
+    "signature" : "public float readFloat() throws java.io.IOException",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readFully",
+    "modifiers" : "public",
+    "signature" : "public void readFully(byte[]) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "buf",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readFully",
+    "modifiers" : "public",
+    "signature" : "public void readFully(byte[], int, int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "buf",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readInt",
+    "modifiers" : "public",
+    "signature" : "public int readInt() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readLine",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String readLine() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readLong",
+    "modifiers" : "public",
+    "signature" : "public long readLong() throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readObject",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object readObject() throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readShort",
+    "modifiers" : "public",
+    "signature" : "public short readShort() throws java.io.IOException",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readUTF",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String readUTF() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readUnshared",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object readUnshared() throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readUnsignedByte",
+    "modifiers" : "public",
+    "signature" : "public int readUnsignedByte() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readUnsignedShort",
+    "modifiers" : "public",
+    "signature" : "public int readUnsignedShort() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerValidation",
+    "modifiers" : "public",
+    "signature" : "public void registerValidation(java.io.ObjectInputValidation, int) throws java.io.NotActiveException, java.io.InvalidObjectException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.io.ObjectInputValidation",
+      "genericType" : "java.io.ObjectInputValidation",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prio",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.NotActiveException", "java.io.InvalidObjectException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setObjectInputFilter",
+    "modifiers" : "public final",
+    "signature" : "public final void setObjectInputFilter(java.io.ObjectInputFilter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.io.ObjectInputFilter",
+      "genericType" : "java.io.ObjectInputFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skipBytes",
+    "modifiers" : "public",
+    "signature" : "public int skipBytes(int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

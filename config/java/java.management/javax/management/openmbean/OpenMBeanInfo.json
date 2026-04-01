@@ -1,0 +1,107 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.OpenMBeanInfo",
+  "canonicalName" : "javax.management.openmbean.OpenMBeanInfo",
+  "simpleName" : "OpenMBeanInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanAttributeInfo[] getAttributes()",
+    "returnType" : "javax.management.MBeanAttributeInfo[]",
+    "genericReturnType" : "javax.management.MBeanAttributeInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConstructors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanConstructorInfo[] getConstructors()",
+    "returnType" : "javax.management.MBeanConstructorInfo[]",
+    "genericReturnType" : "javax.management.MBeanConstructorInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifications",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanNotificationInfo[] getNotifications()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOperations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanOperationInfo[] getOperations()",
+    "returnType" : "javax.management.MBeanOperationInfo[]",
+    "genericReturnType" : "javax.management.MBeanOperationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

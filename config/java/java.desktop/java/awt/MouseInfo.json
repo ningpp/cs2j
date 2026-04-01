@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.MouseInfo",
+  "canonicalName" : "java.awt.MouseInfo",
+  "simpleName" : "MouseInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getNumberOfButtons",
+    "modifiers" : "public static",
+    "signature" : "public static int getNumberOfButtons() throws java.awt.HeadlessException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPointerInfo",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.PointerInfo getPointerInfo() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.PointerInfo",
+    "genericReturnType" : "java.awt.PointerInfo",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

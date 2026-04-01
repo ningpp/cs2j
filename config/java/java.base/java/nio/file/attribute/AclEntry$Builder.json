@@ -1,0 +1,124 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.AclEntry$Builder",
+  "canonicalName" : "java.nio.file.attribute.AclEntry.Builder",
+  "simpleName" : "Builder",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.nio.file.attribute.AclEntry",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.AclEntry build()",
+    "returnType" : "java.nio.file.attribute.AclEntry",
+    "genericReturnType" : "java.nio.file.attribute.AclEntry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFlags",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.AclEntry$Builder setFlags(java.nio.file.attribute.AclEntryFlag...)",
+    "returnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "genericReturnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "java.nio.file.attribute.AclEntryFlag[]",
+      "genericType" : "java.nio.file.attribute.AclEntryFlag[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setFlags",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.AclEntry$Builder setFlags(java.util.Set)",
+    "returnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "genericReturnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPermissions",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.AclEntry$Builder setPermissions(java.nio.file.attribute.AclEntryPermission...)",
+    "returnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "genericReturnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "parameters" : [ {
+      "name" : "perms",
+      "type" : "java.nio.file.attribute.AclEntryPermission[]",
+      "genericType" : "java.nio.file.attribute.AclEntryPermission[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setPermissions",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.AclEntry$Builder setPermissions(java.util.Set)",
+    "returnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "genericReturnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "parameters" : [ {
+      "name" : "perms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrincipal",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.AclEntry$Builder setPrincipal(java.nio.file.attribute.UserPrincipal)",
+    "returnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "genericReturnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "parameters" : [ {
+      "name" : "who",
+      "type" : "java.nio.file.attribute.UserPrincipal",
+      "genericType" : "java.nio.file.attribute.UserPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setType",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.attribute.AclEntry$Builder setType(java.nio.file.attribute.AclEntryType)",
+    "returnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "genericReturnType" : "java.nio.file.attribute.AclEntry$Builder",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.nio.file.attribute.AclEntryType",
+      "genericType" : "java.nio.file.attribute.AclEntryType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

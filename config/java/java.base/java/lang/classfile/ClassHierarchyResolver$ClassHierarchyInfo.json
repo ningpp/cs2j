@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo",
+  "canonicalName" : "java.lang.classfile.ClassHierarchyResolver.ClassHierarchyInfo",
+  "simpleName" : "ClassHierarchyInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.ClassHierarchyResolver",
+  "declaredPublicMethods" : [ {
+    "name" : "ofClass",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo ofClass(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo",
+    "parameters" : [ {
+      "name" : "superClass",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInterface",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo ofInterface()",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

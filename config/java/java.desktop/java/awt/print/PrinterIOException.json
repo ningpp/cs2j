@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.print",
+  "binaryName" : "java.awt.print.PrinterIOException",
+  "canonicalName" : "java.awt.print.PrinterIOException",
+  "simpleName" : "PrinterIOException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.print.PrinterException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.print.PrinterIOException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PrinterIOException(java.io.IOException)",
+    "parameters" : [ {
+      "name" : "exception",
+      "type" : "java.io.IOException",
+      "genericType" : "java.io.IOException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIOException",
+    "modifiers" : "public",
+    "signature" : "public java.io.IOException getIOException()",
+    "returnType" : "java.io.IOException",
+    "genericReturnType" : "java.io.IOException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

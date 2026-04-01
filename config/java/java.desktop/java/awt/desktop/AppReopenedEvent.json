@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.AppReopenedEvent",
+  "canonicalName" : "java.awt.desktop.AppReopenedEvent",
+  "simpleName" : "AppReopenedEvent",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.desktop.AppEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.desktop.AppReopenedEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.desktop.AppReopenedEvent()",
+    "varArgs" : false
+  } ]
+}

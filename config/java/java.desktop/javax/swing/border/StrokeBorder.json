@@ -1,0 +1,132 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.border",
+  "binaryName" : "javax.swing.border.StrokeBorder",
+  "canonicalName" : "javax.swing.border.StrokeBorder",
+  "simpleName" : "StrokeBorder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.border.AbstractBorder",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.border.StrokeBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.StrokeBorder(java.awt.BasicStroke)",
+    "parameters" : [ {
+      "name" : "stroke",
+      "type" : "java.awt.BasicStroke",
+      "genericType" : "java.awt.BasicStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.border.StrokeBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.StrokeBorder(java.awt.BasicStroke, java.awt.Paint)",
+    "parameters" : [ {
+      "name" : "stroke",
+      "type" : "java.awt.BasicStroke",
+      "genericType" : "java.awt.BasicStroke",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paint",
+      "type" : "java.awt.Paint",
+      "genericType" : "java.awt.Paint",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBorderInsets",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getBorderInsets(java.awt.Component, java.awt.Insets)",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insets",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPaint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Paint getPaint()",
+    "returnType" : "java.awt.Paint",
+    "genericReturnType" : "java.awt.Paint",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStroke",
+    "modifiers" : "public",
+    "signature" : "public java.awt.BasicStroke getStroke()",
+    "returnType" : "java.awt.BasicStroke",
+    "genericReturnType" : "java.awt.BasicStroke",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintBorder",
+    "modifiers" : "public",
+    "signature" : "public void paintBorder(java.awt.Component, java.awt.Graphics, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

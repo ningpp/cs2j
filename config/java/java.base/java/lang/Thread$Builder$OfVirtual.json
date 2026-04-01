@@ -1,0 +1,86 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Thread$Builder$OfVirtual",
+  "canonicalName" : "java.lang.Thread.Builder.OfVirtual",
+  "simpleName" : "OfVirtual",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.Thread$Builder",
+  "interfaces" : [ "java.lang.Thread$Builder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "inheritInheritableThreadLocals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfVirtual inheritInheritableThreadLocals(boolean)",
+    "returnType" : "java.lang.Thread$Builder$OfVirtual",
+    "genericReturnType" : "java.lang.Thread$Builder$OfVirtual",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfVirtual name(java.lang.String)",
+    "returnType" : "java.lang.Thread$Builder$OfVirtual",
+    "genericReturnType" : "java.lang.Thread$Builder$OfVirtual",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfVirtual name(java.lang.String, long)",
+    "returnType" : "java.lang.Thread$Builder$OfVirtual",
+    "genericReturnType" : "java.lang.Thread$Builder$OfVirtual",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uncaughtExceptionHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfVirtual uncaughtExceptionHandler(java.lang.Thread$UncaughtExceptionHandler)",
+    "returnType" : "java.lang.Thread$Builder$OfVirtual",
+    "genericReturnType" : "java.lang.Thread$Builder$OfVirtual",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Thread$UncaughtExceptionHandler",
+      "genericType" : "java.lang.Thread$UncaughtExceptionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

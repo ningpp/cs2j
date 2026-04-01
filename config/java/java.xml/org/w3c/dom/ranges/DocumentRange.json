@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ranges",
+  "binaryName" : "org.w3c.dom.ranges.DocumentRange",
+  "canonicalName" : "org.w3c.dom.ranges.DocumentRange",
+  "simpleName" : "DocumentRange",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createRange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ranges.Range createRange()",
+    "returnType" : "org.w3c.dom.ranges.Range",
+    "genericReturnType" : "org.w3c.dom.ranges.Range",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

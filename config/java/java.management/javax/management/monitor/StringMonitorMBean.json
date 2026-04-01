@@ -1,0 +1,147 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.monitor",
+  "binaryName" : "javax.management.monitor.StringMonitorMBean",
+  "canonicalName" : "javax.management.monitor.StringMonitorMBean",
+  "simpleName" : "StringMonitorMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.monitor.MonitorMBean" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDerivedGauge()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGauge",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDerivedGauge(javax.management.ObjectName)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getDerivedGaugeTimeStamp()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedGaugeTimeStamp",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getDerivedGaugeTimeStamp(javax.management.ObjectName)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifyDiffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getNotifyDiffer()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifyMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getNotifyMatch()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringToCompare",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getStringToCompare()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNotifyDiffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNotifyDiffer(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNotifyMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNotifyMatch(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStringToCompare",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setStringToCompare(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled.spi",
+  "binaryName" : "javax.sound.sampled.spi.MixerProvider",
+  "canonicalName" : "javax.sound.sampled.spi.MixerProvider",
+  "simpleName" : "MixerProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getMixer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Mixer getMixer(javax.sound.sampled.Mixer$Info)",
+    "returnType" : "javax.sound.sampled.Mixer",
+    "genericReturnType" : "javax.sound.sampled.Mixer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Mixer$Info",
+      "genericType" : "javax.sound.sampled.Mixer$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMixerInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Mixer$Info[] getMixerInfo()",
+    "returnType" : "javax.sound.sampled.Mixer$Info[]",
+    "genericReturnType" : "javax.sound.sampled.Mixer$Info[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMixerSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isMixerSupported(javax.sound.sampled.Mixer$Info)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "info",
+      "type" : "javax.sound.sampled.Mixer$Info",
+      "genericType" : "javax.sound.sampled.Mixer$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ByteChannel",
+  "canonicalName" : "java.nio.channels.ByteChannel",
+  "simpleName" : "ByteChannel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.channels.ReadableByteChannel", "java.nio.channels.WritableByteChannel" ]
+}

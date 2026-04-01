@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.JobAttributes$DialogType",
+  "canonicalName" : "java.awt.JobAttributes.DialogType",
+  "simpleName" : "DialogType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.JobAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

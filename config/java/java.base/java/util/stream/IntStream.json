@@ -1,0 +1,741 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.IntStream",
+  "canonicalName" : "java.util.stream.IntStream",
+  "simpleName" : "IntStream",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.stream.BaseStream" ],
+  "declaredPublicMethods" : [ {
+    "name" : "allMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean allMatch(java.util.function.IntPredicate)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "anyMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean anyMatch(java.util.function.IntPredicate)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asDoubleStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream asDoubleStream()",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asLongStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.LongStream asLongStream()",
+    "returnType" : "java.util.stream.LongStream",
+    "genericReturnType" : "java.util.stream.LongStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "average",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalDouble average()",
+    "returnType" : "java.util.OptionalDouble",
+    "genericReturnType" : "java.util.OptionalDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "boxed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream boxed()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "builder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream$Builder builder()",
+    "returnType" : "java.util.stream.IntStream$Builder",
+    "genericReturnType" : "java.util.stream.IntStream$Builder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "collect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object collect(java.util.function.Supplier, java.util.function.ObjIntConsumer, java.util.function.BiConsumer)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.ObjIntConsumer",
+      "genericType" : "java.util.function.ObjIntConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "concat",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream concat(java.util.stream.IntStream, java.util.stream.IntStream)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.util.stream.IntStream",
+      "genericType" : "java.util.stream.IntStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.util.stream.IntStream",
+      "genericType" : "java.util.stream.IntStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "count",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long count()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "distinct",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream distinct()",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dropWhile",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.IntStream dropWhile(java.util.function.IntPredicate)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "empty",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream empty()",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "filter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream filter(java.util.function.IntPredicate)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findAny",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalInt findAny()",
+    "returnType" : "java.util.OptionalInt",
+    "genericReturnType" : "java.util.OptionalInt",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalInt findFirst()",
+    "returnType" : "java.util.OptionalInt",
+    "genericReturnType" : "java.util.OptionalInt",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flatMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream flatMap(java.util.function.IntFunction)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntFunction",
+      "genericType" : "java.util.function.IntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forEach",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void forEach(java.util.function.IntConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntConsumer",
+      "genericType" : "java.util.function.IntConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forEachOrdered",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void forEachOrdered(java.util.function.IntConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntConsumer",
+      "genericType" : "java.util.function.IntConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "generate",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream generate(java.util.function.IntSupplier)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.function.IntSupplier",
+      "genericType" : "java.util.function.IntSupplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterate",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream iterate(int, java.util.function.IntPredicate, java.util.function.IntUnaryOperator)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "seed",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hasNext",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "next",
+      "type" : "java.util.function.IntUnaryOperator",
+      "genericType" : "java.util.function.IntUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterate",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream iterate(int, java.util.function.IntUnaryOperator)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "seed",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "java.util.function.IntUnaryOperator",
+      "genericType" : "java.util.function.IntUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.PrimitiveIterator$OfInt iterator()",
+    "returnType" : "java.util.PrimitiveIterator$OfInt",
+    "genericReturnType" : "java.util.PrimitiveIterator$OfInt",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream limit(long)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "map",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream map(java.util.function.IntUnaryOperator)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntUnaryOperator",
+      "genericType" : "java.util.function.IntUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapMulti",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.IntStream mapMulti(java.util.stream.IntStream$IntMapMultiConsumer)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.stream.IntStream$IntMapMultiConsumer",
+      "genericType" : "java.util.stream.IntStream$IntMapMultiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "mapToDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream mapToDouble(java.util.function.IntToDoubleFunction)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntToDoubleFunction",
+      "genericType" : "java.util.function.IntToDoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapToLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.LongStream mapToLong(java.util.function.IntToLongFunction)",
+    "returnType" : "java.util.stream.LongStream",
+    "genericReturnType" : "java.util.stream.LongStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntToLongFunction",
+      "genericType" : "java.util.function.IntToLongFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapToObj",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream mapToObj(java.util.function.IntFunction)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntFunction",
+      "genericType" : "java.util.function.IntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "max",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalInt max()",
+    "returnType" : "java.util.OptionalInt",
+    "genericReturnType" : "java.util.OptionalInt",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "min",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalInt min()",
+    "returnType" : "java.util.OptionalInt",
+    "genericReturnType" : "java.util.OptionalInt",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "noneMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean noneMatch(java.util.function.IntPredicate)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream of(int)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream of(int...)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "values",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "parallel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream parallel()",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "peek",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream peek(java.util.function.IntConsumer)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntConsumer",
+      "genericType" : "java.util.function.IntConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream range(int, int)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "startInclusive",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endExclusive",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rangeClosed",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.IntStream rangeClosed(int, int)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "startInclusive",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endInclusive",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reduce",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int reduce(int, java.util.function.IntBinaryOperator)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.IntBinaryOperator",
+      "genericType" : "java.util.function.IntBinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reduce",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalInt reduce(java.util.function.IntBinaryOperator)",
+    "returnType" : "java.util.OptionalInt",
+    "genericReturnType" : "java.util.OptionalInt",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.IntBinaryOperator",
+      "genericType" : "java.util.function.IntBinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequential",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream sequential()",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skip",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream skip(long)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sorted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream sorted()",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Spliterator$OfInt spliterator()",
+    "returnType" : "java.util.Spliterator$OfInt",
+    "genericReturnType" : "java.util.Spliterator$OfInt",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sum",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int sum()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summaryStatistics",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.IntSummaryStatistics summaryStatistics()",
+    "returnType" : "java.util.IntSummaryStatistics",
+    "genericReturnType" : "java.util.IntSummaryStatistics",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "takeWhile",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.IntStream takeWhile(java.util.function.IntPredicate)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] toArray()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

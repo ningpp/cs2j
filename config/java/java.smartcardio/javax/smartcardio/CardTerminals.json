@@ -1,0 +1,86 @@
+{
+  "moduleName" : "java.smartcardio",
+  "packageName" : "javax.smartcardio",
+  "binaryName" : "javax.smartcardio.CardTerminals",
+  "canonicalName" : "javax.smartcardio.CardTerminals",
+  "simpleName" : "CardTerminals",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getTerminal",
+    "modifiers" : "public",
+    "signature" : "public javax.smartcardio.CardTerminal getTerminal(java.lang.String)",
+    "returnType" : "javax.smartcardio.CardTerminal",
+    "genericReturnType" : "javax.smartcardio.CardTerminal",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public",
+    "signature" : "public java.util.List list() throws javax.smartcardio.CardException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List list(javax.smartcardio.CardTerminals$State) throws javax.smartcardio.CardException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.smartcardio.CardTerminals$State",
+      "genericType" : "javax.smartcardio.CardTerminals$State",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "waitForChange",
+    "modifiers" : "public",
+    "signature" : "public void waitForChange() throws javax.smartcardio.CardException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "waitForChange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean waitForChange(long) throws javax.smartcardio.CardException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextChildComponentProxy",
+  "canonicalName" : "java.beans.beancontext.BeanContextChildComponentProxy",
+  "simpleName" : "BeanContextChildComponentProxy",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getComponent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Component getComponent()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

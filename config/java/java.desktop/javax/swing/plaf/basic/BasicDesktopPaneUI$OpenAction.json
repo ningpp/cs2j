@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicDesktopPaneUI$OpenAction",
+  "canonicalName" : "javax.swing.plaf.basic.BasicDesktopPaneUI.OpenAction",
+  "simpleName" : "OpenAction",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicDesktopPaneUI",
+  "superClass" : "javax.swing.AbstractAction",
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public",
+    "signature" : "public void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "evt",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

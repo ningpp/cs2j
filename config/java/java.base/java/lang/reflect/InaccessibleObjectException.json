@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.InaccessibleObjectException",
+  "canonicalName" : "java.lang.reflect.InaccessibleObjectException",
+  "simpleName" : "InaccessibleObjectException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.reflect.InaccessibleObjectException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.InaccessibleObjectException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.reflect.InaccessibleObjectException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.InaccessibleObjectException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,116 @@
+{
+  "moduleName" : "java.security.jgss",
+  "packageName" : "org.ietf.jgss",
+  "binaryName" : "org.ietf.jgss.Oid",
+  "canonicalName" : "org.ietf.jgss.Oid",
+  "simpleName" : "Oid",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "org.ietf.jgss.Oid",
+    "modifiers" : "public",
+    "signature" : "public org.ietf.jgss.Oid(byte[]) throws org.ietf.jgss.GSSException",
+    "parameters" : [ {
+      "name" : "data",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "varArgs" : false
+  }, {
+    "name" : "org.ietf.jgss.Oid",
+    "modifiers" : "public",
+    "signature" : "public org.ietf.jgss.Oid(java.io.InputStream) throws org.ietf.jgss.GSSException",
+    "parameters" : [ {
+      "name" : "derOid",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "varArgs" : false
+  }, {
+    "name" : "org.ietf.jgss.Oid",
+    "modifiers" : "public",
+    "signature" : "public org.ietf.jgss.Oid(java.lang.String) throws org.ietf.jgss.GSSException",
+    "parameters" : [ {
+      "name" : "strOid",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "containedIn",
+    "modifiers" : "public",
+    "signature" : "public boolean containedIn(org.ietf.jgss.Oid[])",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "oids",
+      "type" : "org.ietf.jgss.Oid[]",
+      "genericType" : "org.ietf.jgss.Oid[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDER",
+    "modifiers" : "public",
+    "signature" : "public byte[] getDER() throws org.ietf.jgss.GSSException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "org.ietf.jgss.GSSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

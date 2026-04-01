@@ -1,0 +1,337 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Runtime",
+  "canonicalName" : "java.lang.Runtime",
+  "simpleName" : "Runtime",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addShutdownHook",
+    "modifiers" : "public",
+    "signature" : "public void addShutdownHook(java.lang.Thread)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "hook",
+      "type" : "java.lang.Thread",
+      "genericType" : "java.lang.Thread",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "availableProcessors",
+    "modifiers" : "public native",
+    "signature" : "public native int availableProcessors()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exec",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process exec(java.lang.String) throws java.io.IOException",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exec",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process exec(java.lang.String, java.lang.String[]) throws java.io.IOException",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "envp",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exec",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process exec(java.lang.String, java.lang.String[], java.io.File) throws java.io.IOException",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "envp",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exec",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process exec(java.lang.String[]) throws java.io.IOException",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "parameters" : [ {
+      "name" : "cmdarray",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exec",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process exec(java.lang.String[], java.lang.String[]) throws java.io.IOException",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "parameters" : [ {
+      "name" : "cmdarray",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "envp",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exec",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process exec(java.lang.String[], java.lang.String[], java.io.File) throws java.io.IOException",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "parameters" : [ {
+      "name" : "cmdarray",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "envp",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exit",
+    "modifiers" : "public",
+    "signature" : "public void exit(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "status",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "freeMemory",
+    "modifiers" : "public native",
+    "signature" : "public native long freeMemory()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "gc",
+    "modifiers" : "public native",
+    "signature" : "public native void gc()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRuntime",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Runtime getRuntime()",
+    "returnType" : "java.lang.Runtime",
+    "genericReturnType" : "java.lang.Runtime",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "halt",
+    "modifiers" : "public",
+    "signature" : "public void halt(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "status",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public",
+    "signature" : "public void load(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "filename",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadLibrary",
+    "modifiers" : "public",
+    "signature" : "public void loadLibrary(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "libname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maxMemory",
+    "modifiers" : "public native",
+    "signature" : "public native long maxMemory()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeShutdownHook",
+    "modifiers" : "public",
+    "signature" : "public boolean removeShutdownHook(java.lang.Thread)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "hook",
+      "type" : "java.lang.Thread",
+      "genericType" : "java.lang.Thread",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runFinalization",
+    "modifiers" : "public",
+    "signature" : "public void runFinalization()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "totalMemory",
+    "modifiers" : "public native",
+    "signature" : "public native long totalMemory()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Runtime$Version version()",
+    "returnType" : "java.lang.Runtime$Version",
+    "genericReturnType" : "java.lang.Runtime$Version",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

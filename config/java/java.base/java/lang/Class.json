@@ -1,0 +1,1015 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Class",
+  "canonicalName" : "java.lang.Class",
+  "simpleName" : "Class",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.constant.Constable", "java.lang.invoke.TypeDescriptor$OfField", "java.lang.reflect.AnnotatedElement", "java.lang.reflect.GenericDeclaration", "java.lang.reflect.Type" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accessFlags",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set accessFlags()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "arrayType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class arrayType()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asSubclass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class asSubclass(java.lang.Class)",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "clazz",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object cast(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class componentType()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "describeConstable",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional describeConstable()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descriptorString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String descriptorString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "desiredAssertionStatus",
+    "modifiers" : "public",
+    "signature" : "public boolean desiredAssertionStatus()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Class forName(java.lang.Module, java.lang.String)",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "module",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Class forName(java.lang.String) throws java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Class forName(java.lang.String, boolean, java.lang.ClassLoader) throws java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialize",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forPrimitiveName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Class forPrimitiveName(java.lang.String)",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "primitiveName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotatedInterfaces",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.AnnotatedType[] getAnnotatedInterfaces()",
+    "returnType" : "java.lang.reflect.AnnotatedType[]",
+    "genericReturnType" : "java.lang.reflect.AnnotatedType[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotatedSuperclass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.AnnotatedType getAnnotatedSuperclass()",
+    "returnType" : "java.lang.reflect.AnnotatedType",
+    "genericReturnType" : "java.lang.reflect.AnnotatedType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotation",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation getAnnotation(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation",
+    "genericReturnType" : "java.lang.annotation.Annotation",
+    "parameters" : [ {
+      "name" : "annotationClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotations",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation[] getAnnotations()",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotationsByType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation[] getAnnotationsByType(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "parameters" : [ {
+      "name" : "annotationClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCanonicalName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCanonicalName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassLoader getClassLoader()",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClasses",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class[] getClasses()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getComponentType()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConstructor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Constructor getConstructor(java.lang.Class...) throws java.lang.NoSuchMethodException",
+    "returnType" : "java.lang.reflect.Constructor",
+    "genericReturnType" : "java.lang.reflect.Constructor",
+    "parameters" : [ {
+      "name" : "parameterTypes",
+      "type" : "java.lang.Class[]",
+      "genericType" : "java.lang.Class[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getConstructors",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Constructor[] getConstructors()",
+    "returnType" : "java.lang.reflect.Constructor[]",
+    "genericReturnType" : "java.lang.reflect.Constructor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredAnnotation",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation getDeclaredAnnotation(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation",
+    "genericReturnType" : "java.lang.annotation.Annotation",
+    "parameters" : [ {
+      "name" : "annotationClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredAnnotations",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation[] getDeclaredAnnotations()",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredAnnotationsByType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.Annotation[] getDeclaredAnnotationsByType(java.lang.Class)",
+    "returnType" : "java.lang.annotation.Annotation[]",
+    "genericReturnType" : "java.lang.annotation.Annotation[]",
+    "parameters" : [ {
+      "name" : "annotationClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredClasses",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class[] getDeclaredClasses()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredConstructor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Constructor getDeclaredConstructor(java.lang.Class...) throws java.lang.NoSuchMethodException",
+    "returnType" : "java.lang.reflect.Constructor",
+    "genericReturnType" : "java.lang.reflect.Constructor",
+    "parameters" : [ {
+      "name" : "parameterTypes",
+      "type" : "java.lang.Class[]",
+      "genericType" : "java.lang.Class[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getDeclaredConstructors",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Constructor[] getDeclaredConstructors()",
+    "returnType" : "java.lang.reflect.Constructor[]",
+    "genericReturnType" : "java.lang.reflect.Constructor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredField",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Field getDeclaredField(java.lang.String) throws java.lang.NoSuchFieldException",
+    "returnType" : "java.lang.reflect.Field",
+    "genericReturnType" : "java.lang.reflect.Field",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredFields",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Field[] getDeclaredFields()",
+    "returnType" : "java.lang.reflect.Field[]",
+    "genericReturnType" : "java.lang.reflect.Field[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaredMethod",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Method getDeclaredMethod(java.lang.String, java.lang.Class...) throws java.lang.NoSuchMethodException",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parameterTypes",
+      "type" : "java.lang.Class[]",
+      "genericType" : "java.lang.Class[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getDeclaredMethods",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Method[] getDeclaredMethods()",
+    "returnType" : "java.lang.reflect.Method[]",
+    "genericReturnType" : "java.lang.reflect.Method[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaringClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getDeclaringClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosingClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getEnclosingClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosingConstructor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Constructor getEnclosingConstructor()",
+    "returnType" : "java.lang.reflect.Constructor",
+    "genericReturnType" : "java.lang.reflect.Constructor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnclosingMethod",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Method getEnclosingMethod()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnumConstants",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] getEnumConstants()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getField",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Field getField(java.lang.String) throws java.lang.NoSuchFieldException",
+    "returnType" : "java.lang.reflect.Field",
+    "genericReturnType" : "java.lang.reflect.Field",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchFieldException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFields",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Field[] getFields()",
+    "returnType" : "java.lang.reflect.Field[]",
+    "genericReturnType" : "java.lang.reflect.Field[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGenericInterfaces",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Type[] getGenericInterfaces()",
+    "returnType" : "java.lang.reflect.Type[]",
+    "genericReturnType" : "java.lang.reflect.Type[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGenericSuperclass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Type getGenericSuperclass()",
+    "returnType" : "java.lang.reflect.Type",
+    "genericReturnType" : "java.lang.reflect.Type",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInterfaces",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class[] getInterfaces()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethod",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Method getMethod(java.lang.String, java.lang.Class...) throws java.lang.NoSuchMethodException",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parameterTypes",
+      "type" : "java.lang.Class[]",
+      "genericType" : "java.lang.Class[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NoSuchMethodException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getMethods",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Method[] getMethods()",
+    "returnType" : "java.lang.reflect.Method[]",
+    "genericReturnType" : "java.lang.reflect.Method[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModifiers",
+    "modifiers" : "public",
+    "signature" : "public int getModifiers()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModule",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Module getModule()",
+    "returnType" : "java.lang.Module",
+    "genericReturnType" : "java.lang.Module",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNestHost",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getNestHost()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNestMembers",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class[] getNestMembers()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPackage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Package getPackage()",
+    "returnType" : "java.lang.Package",
+    "genericReturnType" : "java.lang.Package",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPackageName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPackageName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPermittedSubclasses",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class[] getPermittedSubclasses()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtectionDomain",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProtectionDomain getProtectionDomain()",
+    "returnType" : "java.security.ProtectionDomain",
+    "genericReturnType" : "java.security.ProtectionDomain",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRecordComponents",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.RecordComponent[] getRecordComponents()",
+    "returnType" : "java.lang.reflect.RecordComponent[]",
+    "genericReturnType" : "java.lang.reflect.RecordComponent[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResource",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL getResource(java.lang.String)",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceAsStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream getResourceAsStream(java.lang.String)",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSigners",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] getSigners()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSimpleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSimpleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSuperclass",
+    "modifiers" : "public native",
+    "signature" : "public native java.lang.Class getSuperclass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getTypeName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeParameters",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.TypeVariable[] getTypeParameters()",
+    "returnType" : "java.lang.reflect.TypeVariable[]",
+    "genericReturnType" : "java.lang.reflect.TypeVariable[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAnnotation",
+    "modifiers" : "public",
+    "signature" : "public boolean isAnnotation()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAnnotationPresent",
+    "modifiers" : "public",
+    "signature" : "public boolean isAnnotationPresent(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "annotationClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAnonymousClass",
+    "modifiers" : "public",
+    "signature" : "public boolean isAnonymousClass()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isArray",
+    "modifiers" : "public",
+    "signature" : "public boolean isArray()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAssignableFrom",
+    "modifiers" : "public native",
+    "signature" : "public native boolean isAssignableFrom(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEnum",
+    "modifiers" : "public",
+    "signature" : "public boolean isEnum()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHidden",
+    "modifiers" : "public native",
+    "signature" : "public native boolean isHidden()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInstance",
+    "modifiers" : "public native",
+    "signature" : "public native boolean isInstance(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInterface",
+    "modifiers" : "public",
+    "signature" : "public boolean isInterface()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLocalClass",
+    "modifiers" : "public",
+    "signature" : "public boolean isLocalClass()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMemberClass",
+    "modifiers" : "public",
+    "signature" : "public boolean isMemberClass()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNestmateOf",
+    "modifiers" : "public",
+    "signature" : "public boolean isNestmateOf(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPrimitive",
+    "modifiers" : "public",
+    "signature" : "public boolean isPrimitive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRecord",
+    "modifiers" : "public",
+    "signature" : "public boolean isRecord()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSealed",
+    "modifiers" : "public",
+    "signature" : "public boolean isSealed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSynthetic",
+    "modifiers" : "public",
+    "signature" : "public boolean isSynthetic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object newInstance() throws java.lang.InstantiationException, java.lang.IllegalAccessException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.InstantiationException", "java.lang.IllegalAccessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toGenericString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toGenericString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

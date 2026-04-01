@@ -1,0 +1,126 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset",
+  "binaryName" : "java.nio.charset.CoderResult",
+  "canonicalName" : "java.nio.charset.CoderResult",
+  "simpleName" : "CoderResult",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "isError",
+    "modifiers" : "public",
+    "signature" : "public boolean isError()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMalformed",
+    "modifiers" : "public",
+    "signature" : "public boolean isMalformed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOverflow",
+    "modifiers" : "public",
+    "signature" : "public boolean isOverflow()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUnderflow",
+    "modifiers" : "public",
+    "signature" : "public boolean isUnderflow()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUnmappable",
+    "modifiers" : "public",
+    "signature" : "public boolean isUnmappable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public",
+    "signature" : "public int length()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "malformedForLength",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.charset.CoderResult malformedForLength(int)",
+    "returnType" : "java.nio.charset.CoderResult",
+    "genericReturnType" : "java.nio.charset.CoderResult",
+    "parameters" : [ {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "throwException",
+    "modifiers" : "public",
+    "signature" : "public void throwException() throws java.nio.charset.CharacterCodingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.nio.charset.CharacterCodingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmappableForLength",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.charset.CoderResult unmappableForLength(int)",
+    "returnType" : "java.nio.charset.CoderResult",
+    "genericReturnType" : "java.nio.charset.CoderResult",
+    "parameters" : [ {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

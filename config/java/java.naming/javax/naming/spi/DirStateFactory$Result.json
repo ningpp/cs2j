@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.spi",
+  "binaryName" : "javax.naming.spi.DirStateFactory$Result",
+  "canonicalName" : "javax.naming.spi.DirStateFactory.Result",
+  "simpleName" : "Result",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.naming.spi.DirStateFactory",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.spi.DirStateFactory$Result",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.spi.DirStateFactory$Result(java.lang.Object, javax.naming.directory.Attributes)",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outAttrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attributes getAttributes()",
+    "returnType" : "javax.naming.directory.Attributes",
+    "genericReturnType" : "javax.naming.directory.Attributes",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getObject()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

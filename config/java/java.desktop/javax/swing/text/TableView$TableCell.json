@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.TableView$TableCell",
+  "canonicalName" : "javax.swing.text.TableView.TableCell",
+  "simpleName" : "TableCell",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.TableView",
+  "superClass" : "javax.swing.text.BoxView",
+  "interfaces" : [ "javax.swing.text.TableView$GridCell" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.TableView$TableCell",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.TableView$TableCell(javax.swing.text.TableView, javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.TableView",
+      "genericType" : "javax.swing.text.TableView",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getColumnCount",
+    "modifiers" : "public",
+    "signature" : "public int getColumnCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGridColumn",
+    "modifiers" : "public",
+    "signature" : "public int getGridColumn()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGridRow",
+    "modifiers" : "public",
+    "signature" : "public int getGridRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowCount",
+    "modifiers" : "public",
+    "signature" : "public int getRowCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setGridLocation",
+    "modifiers" : "public",
+    "signature" : "public void setGridLocation(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "col",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

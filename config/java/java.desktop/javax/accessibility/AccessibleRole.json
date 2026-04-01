@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleRole",
+  "canonicalName" : "javax.accessibility.AccessibleRole",
+  "simpleName" : "AccessibleRole",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.accessibility.AccessibleBundle"
+}

@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.FocusManager",
+  "canonicalName" : "javax.swing.FocusManager",
+  "simpleName" : "FocusManager",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.awt.DefaultKeyboardFocusManager",
+  "declaredPublicMethods" : [ {
+    "name" : "disableSwingFocusManager",
+    "modifiers" : "public static",
+    "signature" : "public static void disableSwingFocusManager()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentManager",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.FocusManager getCurrentManager()",
+    "returnType" : "javax.swing.FocusManager",
+    "genericReturnType" : "javax.swing.FocusManager",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFocusManagerEnabled",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isFocusManagerEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrentManager",
+    "modifiers" : "public static",
+    "signature" : "public static void setCurrentManager(javax.swing.FocusManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "aFocusManager",
+      "type" : "javax.swing.FocusManager",
+      "genericType" : "javax.swing.FocusManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

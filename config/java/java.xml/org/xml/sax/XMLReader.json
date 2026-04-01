@@ -1,0 +1,238 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax",
+  "binaryName" : "org.xml.sax.XMLReader",
+  "canonicalName" : "org.xml.sax.XMLReader",
+  "simpleName" : "XMLReader",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getContentHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.ContentHandler getContentHandler()",
+    "returnType" : "org.xml.sax.ContentHandler",
+    "genericReturnType" : "org.xml.sax.ContentHandler",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDTDHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.DTDHandler getDTDHandler()",
+    "returnType" : "org.xml.sax.DTDHandler",
+    "genericReturnType" : "org.xml.sax.DTDHandler",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEntityResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.EntityResolver getEntityResolver()",
+    "returnType" : "org.xml.sax.EntityResolver",
+    "genericReturnType" : "org.xml.sax.EntityResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getErrorHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.ErrorHandler getErrorHandler()",
+    "returnType" : "org.xml.sax.ErrorHandler",
+    "genericReturnType" : "org.xml.sax.ErrorHandler",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getFeature(java.lang.String) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getProperty(java.lang.String) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void parse(java.lang.String) throws java.io.IOException, org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void parse(org.xml.sax.InputSource) throws java.io.IOException, org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContentHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setContentHandler(org.xml.sax.ContentHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.ContentHandler",
+      "genericType" : "org.xml.sax.ContentHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDTDHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDTDHandler(org.xml.sax.DTDHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.DTDHandler",
+      "genericType" : "org.xml.sax.DTDHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEntityResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEntityResolver(org.xml.sax.EntityResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.EntityResolver",
+      "genericType" : "org.xml.sax.EntityResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setErrorHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setErrorHandler(org.xml.sax.ErrorHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.ErrorHandler",
+      "genericType" : "org.xml.sax.ErrorHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFeature(java.lang.String, boolean) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setProperty(java.lang.String, java.lang.Object) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Component$FlipBufferStrategy",
+  "canonicalName" : "java.awt.Component.FlipBufferStrategy",
+  "simpleName" : "FlipBufferStrategy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.Component",
+  "superClass" : "java.awt.image.BufferStrategy",
+  "declaredPublicMethods" : [ {
+    "name" : "contentsLost",
+    "modifiers" : "public",
+    "signature" : "public boolean contentsLost()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contentsRestored",
+    "modifiers" : "public",
+    "signature" : "public boolean contentsRestored()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dispose",
+    "modifiers" : "public",
+    "signature" : "public void dispose()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCapabilities",
+    "modifiers" : "public",
+    "signature" : "public java.awt.BufferCapabilities getCapabilities()",
+    "returnType" : "java.awt.BufferCapabilities",
+    "genericReturnType" : "java.awt.BufferCapabilities",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDrawGraphics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Graphics getDrawGraphics()",
+    "returnType" : "java.awt.Graphics",
+    "genericReturnType" : "java.awt.Graphics",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "show",
+    "modifiers" : "public",
+    "signature" : "public void show()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

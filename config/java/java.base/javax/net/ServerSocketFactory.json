@@ -1,0 +1,104 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net",
+  "binaryName" : "javax.net.ServerSocketFactory",
+  "canonicalName" : "javax.net.ServerSocketFactory",
+  "simpleName" : "ServerSocketFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createServerSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.ServerSocket createServerSocket() throws java.io.IOException",
+    "returnType" : "java.net.ServerSocket",
+    "genericReturnType" : "java.net.ServerSocket",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createServerSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.ServerSocket createServerSocket(int) throws java.io.IOException",
+    "returnType" : "java.net.ServerSocket",
+    "genericReturnType" : "java.net.ServerSocket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createServerSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.ServerSocket createServerSocket(int, int) throws java.io.IOException",
+    "returnType" : "java.net.ServerSocket",
+    "genericReturnType" : "java.net.ServerSocket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createServerSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.ServerSocket createServerSocket(int, int, java.net.InetAddress) throws java.io.IOException",
+    "returnType" : "java.net.ServerSocket",
+    "genericReturnType" : "java.net.ServerSocket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ServerSocketFactory getDefault()",
+    "returnType" : "javax.net.ServerSocketFactory",
+    "genericReturnType" : "javax.net.ServerSocketFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

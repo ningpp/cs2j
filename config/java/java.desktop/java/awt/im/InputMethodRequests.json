@@ -1,0 +1,133 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.im",
+  "binaryName" : "java.awt.im.InputMethodRequests",
+  "canonicalName" : "java.awt.im.InputMethodRequests",
+  "simpleName" : "InputMethodRequests",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "cancelLatestCommittedText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.AttributedCharacterIterator cancelLatestCommittedText(java.text.AttributedCharacterIterator$Attribute[])",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCommittedText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.AttributedCharacterIterator getCommittedText(int, int, java.text.AttributedCharacterIterator$Attribute[])",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCommittedTextLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getCommittedTextLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInsertPositionOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getInsertPositionOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocationOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.font.TextHitInfo getLocationOffset(int, int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.AttributedCharacterIterator getSelectedText(java.text.AttributedCharacterIterator$Attribute[])",
+    "returnType" : "java.text.AttributedCharacterIterator",
+    "genericReturnType" : "java.text.AttributedCharacterIterator",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Rectangle getTextLocation(java.awt.font.TextHitInfo)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

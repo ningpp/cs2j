@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Stream$Builder",
+  "canonicalName" : "java.util.stream.Stream.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Stream",
+  "interfaces" : [ "java.util.function.Consumer" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream$Builder add(java.lang.Object)",
+    "returnType" : "java.util.stream.Stream$Builder",
+    "genericReturnType" : "java.util.stream.Stream$Builder",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream build()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

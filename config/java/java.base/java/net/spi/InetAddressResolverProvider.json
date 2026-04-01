@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net.spi",
+  "binaryName" : "java.net.spi.InetAddressResolverProvider",
+  "canonicalName" : "java.net.spi.InetAddressResolverProvider",
+  "simpleName" : "InetAddressResolverProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.spi.InetAddressResolver get(java.net.spi.InetAddressResolverProvider$Configuration)",
+    "returnType" : "java.net.spi.InetAddressResolver",
+    "genericReturnType" : "java.net.spi.InetAddressResolver",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.spi.InetAddressResolverProvider$Configuration",
+      "genericType" : "java.net.spi.InetAddressResolverProvider$Configuration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String name()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

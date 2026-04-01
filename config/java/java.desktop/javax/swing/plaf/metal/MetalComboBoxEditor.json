@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalComboBoxEditor",
+  "canonicalName" : "javax.swing.plaf.metal.MetalComboBoxEditor",
+  "simpleName" : "MetalComboBoxEditor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.basic.BasicComboBoxEditor",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalComboBoxEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalComboBoxEditor()",
+    "varArgs" : false
+  } ]
+}

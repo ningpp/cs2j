@@ -1,0 +1,127 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent.locks",
+  "binaryName" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+  "canonicalName" : "java.util.concurrent.locks.AbstractQueuedSynchronizer.ConditionObject",
+  "simpleName" : "ConditionObject",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.locks.AbstractQueuedSynchronizer",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.util.concurrent.locks.Condition" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject(java.util.concurrent.locks.AbstractQueuedSynchronizer)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "java.util.concurrent.locks.AbstractQueuedSynchronizer",
+      "genericType" : "java.util.concurrent.locks.AbstractQueuedSynchronizer",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "await",
+    "modifiers" : "public final",
+    "signature" : "public final void await() throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "await",
+    "modifiers" : "public final",
+    "signature" : "public final boolean await(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "time",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitNanos",
+    "modifiers" : "public final",
+    "signature" : "public final long awaitNanos(long) throws java.lang.InterruptedException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "nanosTimeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitUninterruptibly",
+    "modifiers" : "public final",
+    "signature" : "public final void awaitUninterruptibly()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitUntil",
+    "modifiers" : "public final",
+    "signature" : "public final boolean awaitUntil(java.util.Date) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "deadline",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "signal",
+    "modifiers" : "public final",
+    "signature" : "public final void signal()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "signalAll",
+    "modifiers" : "public final",
+    "signature" : "public final void signalAll()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.interfaces",
+  "binaryName" : "java.security.interfaces.EdECKey",
+  "canonicalName" : "java.security.interfaces.EdECKey",
+  "simpleName" : "EdECKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getParams",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.spec.NamedParameterSpec getParams()",
+    "returnType" : "java.security.spec.NamedParameterSpec",
+    "genericReturnType" : "java.security.spec.NamedParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

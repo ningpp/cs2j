@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.InvalidRelationIdException",
+  "canonicalName" : "javax.management.relation.InvalidRelationIdException",
+  "simpleName" : "InvalidRelationIdException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.relation.RelationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.InvalidRelationIdException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRelationIdException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.InvalidRelationIdException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRelationIdException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

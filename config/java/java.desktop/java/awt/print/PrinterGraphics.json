@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.print",
+  "binaryName" : "java.awt.print.PrinterGraphics",
+  "canonicalName" : "java.awt.print.PrinterGraphics",
+  "simpleName" : "PrinterGraphics",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getPrinterJob",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.print.PrinterJob getPrinterJob()",
+    "returnType" : "java.awt.print.PrinterJob",
+    "genericReturnType" : "java.awt.print.PrinterJob",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

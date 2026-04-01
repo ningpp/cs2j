@@ -1,0 +1,24 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.DocFlavor$INPUT_STREAM",
+  "canonicalName" : "javax.print.DocFlavor.INPUT_STREAM",
+  "simpleName" : "INPUT_STREAM",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.print.DocFlavor",
+  "superClass" : "javax.print.DocFlavor",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.DocFlavor$INPUT_STREAM",
+    "modifiers" : "public",
+    "signature" : "public javax.print.DocFlavor$INPUT_STREAM(java.lang.String)",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

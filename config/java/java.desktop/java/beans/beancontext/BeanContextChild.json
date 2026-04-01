@@ -1,0 +1,130 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextChild",
+  "canonicalName" : "java.beans.beancontext.BeanContextChild",
+  "simpleName" : "BeanContextChild",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addPropertyChangeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addPropertyChangeListener(java.lang.String, java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addVetoableChangeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addVetoableChangeListener(java.lang.String, java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.beancontext.BeanContext getBeanContext()",
+    "returnType" : "java.beans.beancontext.BeanContext",
+    "genericReturnType" : "java.beans.beancontext.BeanContext",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePropertyChangeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removePropertyChangeListener(java.lang.String, java.beans.PropertyChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.beans.PropertyChangeListener",
+      "genericType" : "java.beans.PropertyChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeVetoableChangeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeVetoableChangeListener(java.lang.String, java.beans.VetoableChangeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBeanContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setBeanContext(java.beans.beancontext.BeanContext) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.beancontext.BeanContext",
+      "genericType" : "java.beans.beancontext.BeanContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

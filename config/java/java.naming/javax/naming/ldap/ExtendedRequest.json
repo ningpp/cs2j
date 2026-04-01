@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.ExtendedRequest",
+  "canonicalName" : "javax.naming.ldap.ExtendedRequest",
+  "simpleName" : "ExtendedRequest",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "createExtendedResponse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.ldap.ExtendedResponse createExtendedResponse(java.lang.String, byte[], int, int) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.ExtendedResponse",
+    "genericReturnType" : "javax.naming.ldap.ExtendedResponse",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncodedValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getEncodedValue()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

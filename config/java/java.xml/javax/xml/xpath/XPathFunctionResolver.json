@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathFunctionResolver",
+  "canonicalName" : "javax.xml.xpath.XPathFunctionResolver",
+  "simpleName" : "XPathFunctionResolver",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "resolveFunction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.xpath.XPathFunction resolveFunction(javax.xml.namespace.QName, int)",
+    "returnType" : "javax.xml.xpath.XPathFunction",
+    "genericReturnType" : "javax.xml.xpath.XPathFunction",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

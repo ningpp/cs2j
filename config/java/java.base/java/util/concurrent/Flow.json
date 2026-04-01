@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Flow",
+  "canonicalName" : "java.util.concurrent.Flow",
+  "simpleName" : "Flow",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "defaultBufferSize",
+    "modifiers" : "public static",
+    "signature" : "public static int defaultBufferSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

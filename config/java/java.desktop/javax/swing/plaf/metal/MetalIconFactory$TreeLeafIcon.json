@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalIconFactory$TreeLeafIcon",
+  "canonicalName" : "javax.swing.plaf.metal.MetalIconFactory.TreeLeafIcon",
+  "simpleName" : "TreeLeafIcon",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalIconFactory",
+  "superClass" : "javax.swing.plaf.metal.MetalIconFactory$FileIcon16",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalIconFactory$TreeLeafIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalIconFactory$TreeLeafIcon()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAdditionalHeight",
+    "modifiers" : "public",
+    "signature" : "public int getAdditionalHeight()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getShift",
+    "modifiers" : "public",
+    "signature" : "public int getShift()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

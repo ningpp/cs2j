@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.DoubleUnaryOperator",
+  "canonicalName" : "java.util.function.DoubleUnaryOperator",
+  "simpleName" : "DoubleUnaryOperator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.DoubleUnaryOperator andThen(java.util.function.DoubleUnaryOperator)",
+    "returnType" : "java.util.function.DoubleUnaryOperator",
+    "genericReturnType" : "java.util.function.DoubleUnaryOperator",
+    "parameters" : [ {
+      "name" : "after",
+      "type" : "java.util.function.DoubleUnaryOperator",
+      "genericType" : "java.util.function.DoubleUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "applyAsDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double applyAsDouble(double)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compose",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.DoubleUnaryOperator compose(java.util.function.DoubleUnaryOperator)",
+    "returnType" : "java.util.function.DoubleUnaryOperator",
+    "genericReturnType" : "java.util.function.DoubleUnaryOperator",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.util.function.DoubleUnaryOperator",
+      "genericType" : "java.util.function.DoubleUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "identity",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.DoubleUnaryOperator identity()",
+    "returnType" : "java.util.function.DoubleUnaryOperator",
+    "genericReturnType" : "java.util.function.DoubleUnaryOperator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

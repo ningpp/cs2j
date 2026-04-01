@@ -1,0 +1,451 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.ModuleDescriptor$Builder",
+  "canonicalName" : "java.lang.module.ModuleDescriptor.Builder",
+  "simpleName" : "Builder",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.module.ModuleDescriptor",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor build()",
+    "returnType" : "java.lang.module.ModuleDescriptor",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder exports(java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder exports(java.lang.String, java.util.Set)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targets",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder exports(java.lang.module.ModuleDescriptor$Exports)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.module.ModuleDescriptor$Exports",
+      "genericType" : "java.lang.module.ModuleDescriptor$Exports",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder exports(java.util.Set, java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder exports(java.util.Set, java.lang.String, java.util.Set)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targets",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mainClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder mainClass(java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "mc",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder opens(java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder opens(java.lang.String, java.util.Set)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targets",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder opens(java.lang.module.ModuleDescriptor$Opens)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.module.ModuleDescriptor$Opens",
+      "genericType" : "java.lang.module.ModuleDescriptor$Opens",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder opens(java.util.Set, java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder opens(java.util.Set, java.lang.String, java.util.Set)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targets",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "packages",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder packages(java.util.Set)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "pns",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provides",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder provides(java.lang.String, java.util.List)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "providers",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provides",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder provides(java.lang.module.ModuleDescriptor$Provides)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.lang.module.ModuleDescriptor$Provides",
+      "genericType" : "java.lang.module.ModuleDescriptor$Provides",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requires",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder requires(java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "mn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requires",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder requires(java.lang.module.ModuleDescriptor$Requires)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "req",
+      "type" : "java.lang.module.ModuleDescriptor$Requires",
+      "genericType" : "java.lang.module.ModuleDescriptor$Requires",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requires",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder requires(java.util.Set, java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requires",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder requires(java.util.Set, java.lang.String, java.lang.module.ModuleDescriptor$Version)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "ms",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "compiledVersion",
+      "type" : "java.lang.module.ModuleDescriptor$Version",
+      "genericType" : "java.lang.module.ModuleDescriptor$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uses",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder uses(java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder version(java.lang.String)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "vs",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public",
+    "signature" : "public java.lang.module.ModuleDescriptor$Builder version(java.lang.module.ModuleDescriptor$Version)",
+    "returnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "genericReturnType" : "java.lang.module.ModuleDescriptor$Builder",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "java.lang.module.ModuleDescriptor$Version",
+      "genericType" : "java.lang.module.ModuleDescriptor$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

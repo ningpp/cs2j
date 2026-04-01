@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.XMLStreamConstants",
+  "canonicalName" : "javax.xml.stream.XMLStreamConstants",
+  "simpleName" : "XMLStreamConstants",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

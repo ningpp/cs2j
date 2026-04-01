@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.PosixFileAttributes",
+  "canonicalName" : "java.nio.file.attribute.PosixFileAttributes",
+  "simpleName" : "PosixFileAttributes",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.file.attribute.BasicFileAttributes" ],
+  "declaredPublicMethods" : [ {
+    "name" : "group",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.GroupPrincipal group()",
+    "returnType" : "java.nio.file.attribute.GroupPrincipal",
+    "genericReturnType" : "java.nio.file.attribute.GroupPrincipal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "owner",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.attribute.UserPrincipal owner()",
+    "returnType" : "java.nio.file.attribute.UserPrincipal",
+    "genericReturnType" : "java.nio.file.attribute.UserPrincipal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "permissions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set permissions()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,92 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.TagElement",
+  "canonicalName" : "javax.swing.text.html.parser.TagElement",
+  "simpleName" : "TagElement",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.parser.TagElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.TagElement(javax.swing.text.html.parser.Element)",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.html.parser.Element",
+      "genericType" : "javax.swing.text.html.parser.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.parser.TagElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.TagElement(javax.swing.text.html.parser.Element, boolean)",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.html.parser.Element",
+      "genericType" : "javax.swing.text.html.parser.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fictional",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "breaksFlow",
+    "modifiers" : "public",
+    "signature" : "public boolean breaksFlow()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fictional",
+    "modifiers" : "public",
+    "signature" : "public boolean fictional()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Element getElement()",
+    "returnType" : "javax.swing.text.html.parser.Element",
+    "genericReturnType" : "javax.swing.text.html.parser.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHTMLTag",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTML$Tag getHTMLTag()",
+    "returnType" : "javax.swing.text.html.HTML$Tag",
+    "genericReturnType" : "javax.swing.text.html.HTML$Tag",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPreformatted",
+    "modifiers" : "public",
+    "signature" : "public boolean isPreformatted()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.FunctionalInterface",
+  "canonicalName" : "java.lang.FunctionalInterface",
+  "simpleName" : "FunctionalInterface",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ]
+}

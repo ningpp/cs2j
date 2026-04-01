@@ -1,0 +1,678 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.chrono",
+  "binaryName" : "java.time.chrono.Chronology",
+  "canonicalName" : "java.time.chrono.Chronology",
+  "simpleName" : "Chronology",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "compareTo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int compareTo(java.time.chrono.Chronology)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.chrono.Chronology",
+      "genericType" : "java.time.chrono.Chronology",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "date",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoLocalDate date(int, int, int)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "date",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDate date(java.time.chrono.Era, int, int, int)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "era",
+      "type" : "java.time.chrono.Era",
+      "genericType" : "java.time.chrono.Era",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "yearOfEra",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "date",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoLocalDate date(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateEpochDay",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoLocalDate dateEpochDay(long)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateNow",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDate dateNow()",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dateNow",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDate dateNow(java.time.Clock)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "clock",
+      "type" : "java.time.Clock",
+      "genericType" : "java.time.Clock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dateNow",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDate dateNow(java.time.ZoneId)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dateYearDay",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoLocalDate dateYearDay(int, int)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateYearDay",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDate dateYearDay(java.time.chrono.Era, int, int)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "era",
+      "type" : "java.time.chrono.Era",
+      "genericType" : "java.time.chrono.Era",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "yearOfEra",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "epochSecond",
+    "modifiers" : "public",
+    "signature" : "public long epochSecond(int, int, int, int, int, int, java.time.ZoneOffset)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "prolepticYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hour",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zoneOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "epochSecond",
+    "modifiers" : "public",
+    "signature" : "public long epochSecond(java.time.chrono.Era, int, int, int, int, int, int, java.time.ZoneOffset)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "era",
+      "type" : "java.time.chrono.Era",
+      "genericType" : "java.time.chrono.Era",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "yearOfEra",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hour",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zoneOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eraOf",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.Era eraOf(int)",
+    "returnType" : "java.time.chrono.Era",
+    "genericReturnType" : "java.time.chrono.Era",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eras",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List eras()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.Chronology from(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.Chronology",
+    "genericReturnType" : "java.time.chrono.Chronology",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableChronologies",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set getAvailableChronologies()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCalendarType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getCalendarType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisplayName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDisplayName(java.time.format.TextStyle, java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "java.time.format.TextStyle",
+      "genericType" : "java.time.format.TextStyle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIsoBased",
+    "modifiers" : "public",
+    "signature" : "public boolean isIsoBased()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isLeapYear",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isLeapYear(long)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDateTime localDateTime(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.ChronoLocalDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDateTime",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.Chronology of(java.lang.String)",
+    "returnType" : "java.time.chrono.Chronology",
+    "genericReturnType" : "java.time.chrono.Chronology",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocale",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.Chronology ofLocale(java.util.Locale)",
+    "returnType" : "java.time.chrono.Chronology",
+    "genericReturnType" : "java.time.chrono.Chronology",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "period",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoPeriod period(int, int, int)",
+    "returnType" : "java.time.chrono.ChronoPeriod",
+    "genericReturnType" : "java.time.chrono.ChronoPeriod",
+    "parameters" : [ {
+      "name" : "years",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "months",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "days",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "prolepticYear",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int prolepticYear(java.time.chrono.Era, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.chrono.Era",
+      "genericType" : "java.time.chrono.Era",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.temporal.ValueRange range(java.time.temporal.ChronoField)",
+    "returnType" : "java.time.temporal.ValueRange",
+    "genericReturnType" : "java.time.temporal.ValueRange",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.ChronoField",
+      "genericType" : "java.time.temporal.ChronoField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveDate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoLocalDate resolveDate(java.util.Map, java.time.format.ResolverStyle)",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.time.format.ResolverStyle",
+      "genericType" : "java.time.format.ResolverStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "zonedDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime zonedDateTime(java.time.Instant, java.time.ZoneId)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "zonedDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime zonedDateTime(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

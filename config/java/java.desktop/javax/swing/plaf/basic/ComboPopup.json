@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.ComboPopup",
+  "canonicalName" : "javax.swing.plaf.basic.ComboPopup",
+  "simpleName" : "ComboPopup",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getKeyListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.event.KeyListener getKeyListener()",
+    "returnType" : "java.awt.event.KeyListener",
+    "genericReturnType" : "java.awt.event.KeyListener",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getList",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.JList getList()",
+    "returnType" : "javax.swing.JList",
+    "genericReturnType" : "javax.swing.JList",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMouseListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.event.MouseListener getMouseListener()",
+    "returnType" : "java.awt.event.MouseListener",
+    "genericReturnType" : "java.awt.event.MouseListener",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMouseMotionListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.event.MouseMotionListener getMouseMotionListener()",
+    "returnType" : "java.awt.event.MouseMotionListener",
+    "genericReturnType" : "java.awt.event.MouseMotionListener",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hide",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void hide()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isVisible()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "show",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void show()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallingUI",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void uninstallingUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

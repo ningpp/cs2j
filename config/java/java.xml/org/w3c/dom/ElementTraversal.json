@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.ElementTraversal",
+  "canonicalName" : "org.w3c.dom.ElementTraversal",
+  "simpleName" : "ElementTraversal",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getChildElementCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getChildElementCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirstElementChild",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element getFirstElementChild()",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastElementChild",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element getLastElementChild()",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextElementSibling",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element getNextElementSibling()",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreviousElementSibling",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Element getPreviousElementSibling()",
+    "returnType" : "org.w3c.dom.Element",
+    "genericReturnType" : "org.w3c.dom.Element",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

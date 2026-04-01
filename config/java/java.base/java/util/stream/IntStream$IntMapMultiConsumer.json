@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.IntStream$IntMapMultiConsumer",
+  "canonicalName" : "java.util.stream.IntStream.IntMapMultiConsumer",
+  "simpleName" : "IntMapMultiConsumer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.IntStream",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(int, java.util.function.IntConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.IntConsumer",
+      "genericType" : "java.util.function.IntConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

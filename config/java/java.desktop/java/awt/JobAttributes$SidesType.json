@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.JobAttributes$SidesType",
+  "canonicalName" : "java.awt.JobAttributes.SidesType",
+  "simpleName" : "SidesType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.JobAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

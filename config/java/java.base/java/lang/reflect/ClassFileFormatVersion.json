@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.ClassFileFormatVersion",
+  "canonicalName" : "java.lang.reflect.ClassFileFormatVersion",
+  "simpleName" : "ClassFileFormatVersion",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "fromMajor",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.reflect.ClassFileFormatVersion fromMajor(int)",
+    "returnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "genericReturnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "parameters" : [ {
+      "name" : "major",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "latest",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.reflect.ClassFileFormatVersion latest()",
+    "returnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "genericReturnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "major",
+    "modifiers" : "public",
+    "signature" : "public int major()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeVersion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Runtime$Version runtimeVersion()",
+    "returnType" : "java.lang.Runtime$Version",
+    "genericReturnType" : "java.lang.Runtime$Version",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.reflect.ClassFileFormatVersion valueOf(java.lang.Runtime$Version)",
+    "returnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "genericReturnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "parameters" : [ {
+      "name" : "rv",
+      "type" : "java.lang.Runtime$Version",
+      "genericType" : "java.lang.Runtime$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.reflect.ClassFileFormatVersion valueOf(java.lang.String)",
+    "returnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "genericReturnType" : "java.lang.reflect.ClassFileFormatVersion",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.reflect.ClassFileFormatVersion[] values()",
+    "returnType" : "java.lang.reflect.ClassFileFormatVersion[]",
+    "genericReturnType" : "java.lang.reflect.ClassFileFormatVersion[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

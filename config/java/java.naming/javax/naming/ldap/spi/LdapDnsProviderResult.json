@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap.spi",
+  "binaryName" : "javax.naming.ldap.spi.LdapDnsProviderResult",
+  "canonicalName" : "javax.naming.ldap.spi.LdapDnsProviderResult",
+  "simpleName" : "LdapDnsProviderResult",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.spi.LdapDnsProviderResult",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.spi.LdapDnsProviderResult(java.lang.String, java.util.List)",
+    "parameters" : [ {
+      "name" : "domainName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endpoints",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDomainName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDomainName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndpoints",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getEndpoints()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

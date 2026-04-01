@@ -1,0 +1,69 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "javax.rmi.ssl",
+  "binaryName" : "javax.rmi.ssl.SslRMIClientSocketFactory",
+  "canonicalName" : "javax.rmi.ssl.SslRMIClientSocketFactory",
+  "simpleName" : "SslRMIClientSocketFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.rmi.server.RMIClientSocketFactory" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.rmi.ssl.SslRMIClientSocketFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.rmi.ssl.SslRMIClientSocketFactory()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.Socket createSocket(java.lang.String, int) throws java.io.IOException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "host",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

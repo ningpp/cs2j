@@ -1,0 +1,280 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.PrintService",
+  "canonicalName" : "javax.print.PrintService",
+  "simpleName" : "PrintService",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addPrintServiceAttributeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addPrintServiceAttributeListener(javax.print.event.PrintServiceAttributeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintServiceAttributeListener",
+      "genericType" : "javax.print.event.PrintServiceAttributeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createPrintJob",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.DocPrintJob createPrintJob()",
+    "returnType" : "javax.print.DocPrintJob",
+    "genericReturnType" : "javax.print.DocPrintJob",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.attribute.PrintServiceAttribute getAttribute(java.lang.Class)",
+    "returnType" : "javax.print.attribute.PrintServiceAttribute",
+    "genericReturnType" : "javax.print.attribute.PrintServiceAttribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.attribute.PrintServiceAttributeSet getAttributes()",
+    "returnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultAttributeValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getDefaultAttributeValue(java.lang.Class)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServiceUIFactory",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.ServiceUIFactory getServiceUIFactory()",
+    "returnType" : "javax.print.ServiceUIFactory",
+    "genericReturnType" : "javax.print.ServiceUIFactory",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedAttributeCategories",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class[] getSupportedAttributeCategories()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedAttributeValues",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getSupportedAttributeValues(java.lang.Class, javax.print.DocFlavor, javax.print.attribute.AttributeSet)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedDocFlavors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.DocFlavor[] getSupportedDocFlavors()",
+    "returnType" : "javax.print.DocFlavor[]",
+    "genericReturnType" : "javax.print.DocFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnsupportedAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.attribute.AttributeSet getUnsupportedAttributes(javax.print.DocFlavor, javax.print.attribute.AttributeSet)",
+    "returnType" : "javax.print.attribute.AttributeSet",
+    "genericReturnType" : "javax.print.attribute.AttributeSet",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAttributeCategorySupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isAttributeCategorySupported(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAttributeValueSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isAttributeValueSupported(javax.print.attribute.Attribute, javax.print.DocFlavor, javax.print.attribute.AttributeSet)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.attribute.Attribute",
+      "genericType" : "javax.print.attribute.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDocFlavorSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDocFlavorSupported(javax.print.DocFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePrintServiceAttributeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removePrintServiceAttributeListener(javax.print.event.PrintServiceAttributeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintServiceAttributeListener",
+      "genericType" : "javax.print.event.PrintServiceAttributeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

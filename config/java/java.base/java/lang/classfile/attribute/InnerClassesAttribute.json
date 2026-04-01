@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.InnerClassesAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.InnerClassesAttribute",
+  "simpleName" : "InnerClassesAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "classes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List classes()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.InnerClassesAttribute of(java.lang.classfile.attribute.InnerClassInfo...)",
+    "returnType" : "java.lang.classfile.attribute.InnerClassesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.InnerClassesAttribute",
+    "parameters" : [ {
+      "name" : "innerClasses",
+      "type" : "java.lang.classfile.attribute.InnerClassInfo[]",
+      "genericType" : "java.lang.classfile.attribute.InnerClassInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.InnerClassesAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.InnerClassesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.InnerClassesAttribute",
+    "parameters" : [ {
+      "name" : "innerClasses",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

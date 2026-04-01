@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Base64$Encoder",
+  "canonicalName" : "java.util.Base64.Encoder",
+  "simpleName" : "Encoder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.util.Base64",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "encode",
+    "modifiers" : "public",
+    "signature" : "public byte[] encode(byte[])",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encode",
+    "modifiers" : "public",
+    "signature" : "public int encode(byte[], byte[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encode",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer encode(java.nio.ByteBuffer)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "buffer",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encodeToString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String encodeToString(byte[])",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutPadding",
+    "modifiers" : "public",
+    "signature" : "public java.util.Base64$Encoder withoutPadding()",
+    "returnType" : "java.util.Base64$Encoder",
+    "genericReturnType" : "java.util.Base64$Encoder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public",
+    "signature" : "public java.io.OutputStream wrap(java.io.OutputStream)",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

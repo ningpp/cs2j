@@ -1,0 +1,423 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.Element",
+  "canonicalName" : "org.w3c.dom.Element",
+  "simpleName" : "Element",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.Node" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getAttribute(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getAttributeNS(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributeNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Attr getAttributeNode(java.lang.String)",
+    "returnType" : "org.w3c.dom.Attr",
+    "genericReturnType" : "org.w3c.dom.Attr",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributeNodeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Attr getAttributeNodeNS(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Attr",
+    "genericReturnType" : "org.w3c.dom.Attr",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsByTagName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.NodeList getElementsByTagName(java.lang.String)",
+    "returnType" : "org.w3c.dom.NodeList",
+    "genericReturnType" : "org.w3c.dom.NodeList",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsByTagNameNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.NodeList getElementsByTagNameNS(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.NodeList",
+    "genericReturnType" : "org.w3c.dom.NodeList",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchemaTypeInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.TypeInfo getSchemaTypeInfo()",
+    "returnType" : "org.w3c.dom.TypeInfo",
+    "genericReturnType" : "org.w3c.dom.TypeInfo",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTagName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getTagName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasAttribute(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasAttributeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasAttributeNS(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeAttribute(java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeAttributeNS(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributeNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Attr removeAttributeNode(org.w3c.dom.Attr) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Attr",
+    "genericReturnType" : "org.w3c.dom.Attr",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Attr",
+      "genericType" : "org.w3c.dom.Attr",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAttribute(java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAttributeNS(java.lang.String, java.lang.String, java.lang.String) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributeNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Attr setAttributeNode(org.w3c.dom.Attr) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Attr",
+    "genericReturnType" : "org.w3c.dom.Attr",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Attr",
+      "genericType" : "org.w3c.dom.Attr",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributeNodeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Attr setAttributeNodeNS(org.w3c.dom.Attr) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Attr",
+    "genericReturnType" : "org.w3c.dom.Attr",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Attr",
+      "genericType" : "org.w3c.dom.Attr",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIdAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setIdAttribute(java.lang.String, boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIdAttributeNS",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setIdAttributeNS(java.lang.String, java.lang.String, boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIdAttributeNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setIdAttributeNode(org.w3c.dom.Attr, boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Attr",
+      "genericType" : "org.w3c.dom.Attr",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.CodeTransform",
+  "canonicalName" : "java.lang.classfile.CodeTransform",
+  "simpleName" : "CodeTransform",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileTransform" ],
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.CodeTransform andThen(java.lang.classfile.CodeTransform)",
+    "returnType" : "java.lang.classfile.CodeTransform",
+    "genericReturnType" : "java.lang.classfile.CodeTransform",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "java.lang.classfile.CodeTransform",
+      "genericType" : "java.lang.classfile.CodeTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "endHandler",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.CodeTransform endHandler(java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeTransform",
+    "genericReturnType" : "java.lang.classfile.CodeTransform",
+    "parameters" : [ {
+      "name" : "finisher",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofStateful",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.CodeTransform ofStateful(java.util.function.Supplier)",
+    "returnType" : "java.lang.classfile.CodeTransform",
+    "genericReturnType" : "java.lang.classfile.CodeTransform",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

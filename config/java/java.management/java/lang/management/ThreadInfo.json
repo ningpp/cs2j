@@ -1,0 +1,218 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.ThreadInfo",
+  "canonicalName" : "java.lang.management.ThreadInfo",
+  "simpleName" : "ThreadInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.ThreadInfo from(javax.management.openmbean.CompositeData)",
+    "returnType" : "java.lang.management.ThreadInfo",
+    "genericReturnType" : "java.lang.management.ThreadInfo",
+    "parameters" : [ {
+      "name" : "cd",
+      "type" : "javax.management.openmbean.CompositeData",
+      "genericType" : "javax.management.openmbean.CompositeData",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBlockedCount",
+    "modifiers" : "public",
+    "signature" : "public long getBlockedCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBlockedTime",
+    "modifiers" : "public",
+    "signature" : "public long getBlockedTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockInfo",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.LockInfo getLockInfo()",
+    "returnType" : "java.lang.management.LockInfo",
+    "genericReturnType" : "java.lang.management.LockInfo",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getLockName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockOwnerId",
+    "modifiers" : "public",
+    "signature" : "public long getLockOwnerId()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockOwnerName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getLockOwnerName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockedMonitors",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.MonitorInfo[] getLockedMonitors()",
+    "returnType" : "java.lang.management.MonitorInfo[]",
+    "genericReturnType" : "java.lang.management.MonitorInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLockedSynchronizers",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.LockInfo[] getLockedSynchronizers()",
+    "returnType" : "java.lang.management.LockInfo[]",
+    "genericReturnType" : "java.lang.management.LockInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPriority",
+    "modifiers" : "public",
+    "signature" : "public int getPriority()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStackTrace",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StackTraceElement[] getStackTrace()",
+    "returnType" : "java.lang.StackTraceElement[]",
+    "genericReturnType" : "java.lang.StackTraceElement[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadId",
+    "modifiers" : "public",
+    "signature" : "public long getThreadId()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getThreadName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadState",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread$State getThreadState()",
+    "returnType" : "java.lang.Thread$State",
+    "genericReturnType" : "java.lang.Thread$State",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWaitedCount",
+    "modifiers" : "public",
+    "signature" : "public long getWaitedCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWaitedTime",
+    "modifiers" : "public",
+    "signature" : "public long getWaitedTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDaemon",
+    "modifiers" : "public",
+    "signature" : "public boolean isDaemon()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInNative",
+    "modifiers" : "public",
+    "signature" : "public boolean isInNative()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSuspended",
+    "modifiers" : "public",
+    "signature" : "public boolean isSuspended()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.SequencedCollection",
+  "canonicalName" : "java.util.SequencedCollection",
+  "simpleName" : "SequencedCollection",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.Collection" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addFirst",
+    "modifiers" : "public",
+    "signature" : "public void addFirst(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "addLast",
+    "modifiers" : "public",
+    "signature" : "public void addLast(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getFirst()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getLast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getLast()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "removeFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object removeFirst()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "removeLast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object removeLast()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "reversed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SequencedCollection reversed()",
+    "returnType" : "java.util.SequencedCollection",
+    "genericReturnType" : "java.util.SequencedCollection",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

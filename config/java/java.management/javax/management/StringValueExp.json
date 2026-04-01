@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.StringValueExp",
+  "canonicalName" : "javax.management.StringValueExp",
+  "simpleName" : "StringValueExp",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.management.ValueExp" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.StringValueExp",
+    "modifiers" : "public",
+    "signature" : "public javax.management.StringValueExp()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.StringValueExp",
+    "modifiers" : "public",
+    "signature" : "public javax.management.StringValueExp(java.lang.String)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "apply",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ValueExp apply(javax.management.ObjectName) throws javax.management.BadStringOperationException, javax.management.BadBinaryOpValueExpException, javax.management.BadAttributeValueExpException, javax.management.InvalidApplicationException",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.BadStringOperationException", "javax.management.BadBinaryOpValueExpException", "javax.management.BadAttributeValueExpException", "javax.management.InvalidApplicationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getValue()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServer",
+    "modifiers" : "public",
+    "signature" : "public void setMBeanServer(javax.management.MBeanServer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

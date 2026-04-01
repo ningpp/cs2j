@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ThreadDeath",
+  "canonicalName" : "java.lang.ThreadDeath",
+  "simpleName" : "ThreadDeath",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ThreadDeath",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ThreadDeath()",
+    "varArgs" : false
+  } ]
+}

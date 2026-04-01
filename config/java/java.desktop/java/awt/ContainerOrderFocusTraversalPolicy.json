@@ -1,0 +1,142 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.ContainerOrderFocusTraversalPolicy",
+  "canonicalName" : "java.awt.ContainerOrderFocusTraversalPolicy",
+  "simpleName" : "ContainerOrderFocusTraversalPolicy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.FocusTraversalPolicy",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.ContainerOrderFocusTraversalPolicy",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ContainerOrderFocusTraversalPolicy()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getComponentAfter",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getComponentAfter(java.awt.Container, java.awt.Component)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "aContainer",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aComponent",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponentBefore",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getComponentBefore(java.awt.Container, java.awt.Component)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "aContainer",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aComponent",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getDefaultComponent(java.awt.Container)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "aContainer",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirstComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getFirstComponent(java.awt.Container)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "aContainer",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImplicitDownCycleTraversal",
+    "modifiers" : "public",
+    "signature" : "public boolean getImplicitDownCycleTraversal()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getLastComponent(java.awt.Container)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "aContainer",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setImplicitDownCycleTraversal",
+    "modifiers" : "public",
+    "signature" : "public void setImplicitDownCycleTraversal(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "implicitDownCycleTraversal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

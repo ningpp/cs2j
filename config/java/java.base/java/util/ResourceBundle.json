@@ -1,0 +1,360 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.ResourceBundle",
+  "canonicalName" : "java.util.ResourceBundle",
+  "simpleName" : "ResourceBundle",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.ResourceBundle",
+    "modifiers" : "public",
+    "signature" : "public java.util.ResourceBundle()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clearCache",
+    "modifiers" : "public static final",
+    "signature" : "public static final void clearCache()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clearCache",
+    "modifiers" : "public static final",
+    "signature" : "public static final void clearCache(java.lang.ClassLoader)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "containsKey",
+    "modifiers" : "public",
+    "signature" : "public boolean containsKey(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaseBundleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getBaseBundleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.ResourceBundle getBundle(java.lang.String)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ResourceBundle getBundle(java.lang.String, java.lang.Module)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "module",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.ResourceBundle getBundle(java.lang.String, java.util.Locale)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ResourceBundle getBundle(java.lang.String, java.util.Locale, java.lang.ClassLoader)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ResourceBundle getBundle(java.lang.String, java.util.Locale, java.lang.ClassLoader, java.util.ResourceBundle$Control)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targetLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "control",
+      "type" : "java.util.ResourceBundle$Control",
+      "genericType" : "java.util.ResourceBundle$Control",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ResourceBundle getBundle(java.lang.String, java.util.Locale, java.lang.Module)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targetLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "module",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.ResourceBundle getBundle(java.lang.String, java.util.Locale, java.util.ResourceBundle$Control)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targetLocale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "control",
+      "type" : "java.util.ResourceBundle$Control",
+      "genericType" : "java.util.ResourceBundle$Control",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBundle",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.ResourceBundle getBundle(java.lang.String, java.util.ResourceBundle$Control)",
+    "returnType" : "java.util.ResourceBundle",
+    "genericReturnType" : "java.util.ResourceBundle",
+    "parameters" : [ {
+      "name" : "baseName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "control",
+      "type" : "java.util.ResourceBundle$Control",
+      "genericType" : "java.util.ResourceBundle$Control",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeys",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Enumeration getKeys()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object getObject(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getString(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringArray",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String[] getStringArray(java.lang.String)",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set keySet()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

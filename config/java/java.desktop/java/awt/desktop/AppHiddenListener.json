@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.AppHiddenListener",
+  "canonicalName" : "java.awt.desktop.AppHiddenListener",
+  "simpleName" : "AppHiddenListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.desktop.SystemEventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "appHidden",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void appHidden(java.awt.desktop.AppHiddenEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.AppHiddenEvent",
+      "genericType" : "java.awt.desktop.AppHiddenEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appUnhidden",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void appUnhidden(java.awt.desktop.AppHiddenEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.AppHiddenEvent",
+      "genericType" : "java.awt.desktop.AppHiddenEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

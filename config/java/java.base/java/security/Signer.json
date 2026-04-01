@@ -1,0 +1,81 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.Signer",
+  "canonicalName" : "java.security.Signer",
+  "simpleName" : "Signer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.security.Identity",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.Signer",
+    "modifiers" : "public",
+    "signature" : "public java.security.Signer(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.Signer",
+    "modifiers" : "public",
+    "signature" : "public java.security.Signer(java.lang.String, java.security.IdentityScope) throws java.security.KeyManagementException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scope",
+      "type" : "java.security.IdentityScope",
+      "genericType" : "java.security.IdentityScope",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.KeyManagementException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPrivateKey",
+    "modifiers" : "public",
+    "signature" : "public java.security.PrivateKey getPrivateKey()",
+    "returnType" : "java.security.PrivateKey",
+    "genericReturnType" : "java.security.PrivateKey",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setKeyPair",
+    "modifiers" : "public final",
+    "signature" : "public final void setKeyPair(java.security.KeyPair) throws java.security.InvalidParameterException, java.security.KeyException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pair",
+      "type" : "java.security.KeyPair",
+      "genericType" : "java.security.KeyPair",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidParameterException", "java.security.KeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

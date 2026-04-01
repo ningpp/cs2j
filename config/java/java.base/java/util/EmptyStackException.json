@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.EmptyStackException",
+  "canonicalName" : "java.util.EmptyStackException",
+  "simpleName" : "EmptyStackException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.EmptyStackException",
+    "modifiers" : "public",
+    "signature" : "public java.util.EmptyStackException()",
+    "varArgs" : false
+  } ]
+}

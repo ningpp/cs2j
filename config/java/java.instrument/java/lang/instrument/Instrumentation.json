@@ -1,0 +1,315 @@
+{
+  "moduleName" : "java.instrument",
+  "packageName" : "java.lang.instrument",
+  "binaryName" : "java.lang.instrument.Instrumentation",
+  "canonicalName" : "java.lang.instrument.Instrumentation",
+  "simpleName" : "Instrumentation",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addTransformer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addTransformer(java.lang.instrument.ClassFileTransformer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.instrument.ClassFileTransformer",
+      "genericType" : "java.lang.instrument.ClassFileTransformer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addTransformer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addTransformer(java.lang.instrument.ClassFileTransformer, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.instrument.ClassFileTransformer",
+      "genericType" : "java.lang.instrument.ClassFileTransformer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appendToBootstrapClassLoaderSearch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void appendToBootstrapClassLoaderSearch(java.util.jar.JarFile)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.jar.JarFile",
+      "genericType" : "java.util.jar.JarFile",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appendToSystemClassLoaderSearch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void appendToSystemClassLoaderSearch(java.util.jar.JarFile)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.jar.JarFile",
+      "genericType" : "java.util.jar.JarFile",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllLoadedClasses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class[] getAllLoadedClasses()",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInitiatedClasses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class[] getInitiatedClasses(java.lang.ClassLoader)",
+    "returnType" : "java.lang.Class[]",
+    "genericReturnType" : "java.lang.Class[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjectSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getObjectSize(java.lang.Object)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isModifiableClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isModifiableClass(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isModifiableModule",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isModifiableModule(java.lang.Module)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNativeMethodPrefixSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isNativeMethodPrefixSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRedefineClassesSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isRedefineClassesSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRetransformClassesSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isRetransformClassesSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redefineClasses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void redefineClasses(java.lang.instrument.ClassDefinition...) throws java.lang.ClassNotFoundException, java.lang.instrument.UnmodifiableClassException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.instrument.ClassDefinition[]",
+      "genericType" : "java.lang.instrument.ClassDefinition[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException", "java.lang.instrument.UnmodifiableClassException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "redefineModule",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void redefineModule(java.lang.Module, java.util.Set, java.util.Map, java.util.Map, java.util.Set, java.util.Map)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTransformer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean removeTransformer(java.lang.instrument.ClassFileTransformer)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.instrument.ClassFileTransformer",
+      "genericType" : "java.lang.instrument.ClassFileTransformer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "retransformClasses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void retransformClasses(java.lang.Class...) throws java.lang.instrument.UnmodifiableClassException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class[]",
+      "genericType" : "java.lang.Class[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.instrument.UnmodifiableClassException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setNativeMethodPrefix",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNativeMethodPrefix(java.lang.instrument.ClassFileTransformer, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.instrument.ClassFileTransformer",
+      "genericType" : "java.lang.instrument.ClassFileTransformer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

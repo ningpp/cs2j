@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio",
+  "binaryName" : "java.nio.InvalidMarkException",
+  "canonicalName" : "java.nio.InvalidMarkException",
+  "simpleName" : "InvalidMarkException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.InvalidMarkException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.InvalidMarkException()",
+    "varArgs" : false
+  } ]
+}

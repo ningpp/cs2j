@@ -1,0 +1,170 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.jpeg",
+  "binaryName" : "javax.imageio.plugins.jpeg.JPEGImageWriteParam",
+  "canonicalName" : "javax.imageio.plugins.jpeg.JPEGImageWriteParam",
+  "simpleName" : "JPEGImageWriteParam",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.imageio.ImageWriteParam",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.jpeg.JPEGImageWriteParam",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.jpeg.JPEGImageWriteParam(java.util.Locale)",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "areTablesSet",
+    "modifiers" : "public",
+    "signature" : "public boolean areTablesSet()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getACHuffmanTables",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.jpeg.JPEGHuffmanTable[] getACHuffmanTables()",
+    "returnType" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+    "genericReturnType" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompressionQualityDescriptions",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getCompressionQualityDescriptions()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCompressionQualityValues",
+    "modifiers" : "public",
+    "signature" : "public float[] getCompressionQualityValues()",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDCHuffmanTables",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.jpeg.JPEGHuffmanTable[] getDCHuffmanTables()",
+    "returnType" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+    "genericReturnType" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOptimizeHuffmanTables",
+    "modifiers" : "public",
+    "signature" : "public boolean getOptimizeHuffmanTables()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQTables",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.jpeg.JPEGQTable[] getQTables()",
+    "returnType" : "javax.imageio.plugins.jpeg.JPEGQTable[]",
+    "genericReturnType" : "javax.imageio.plugins.jpeg.JPEGQTable[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCompressionLossless",
+    "modifiers" : "public",
+    "signature" : "public boolean isCompressionLossless()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEncodeTables",
+    "modifiers" : "public",
+    "signature" : "public void setEncodeTables(javax.imageio.plugins.jpeg.JPEGQTable[], javax.imageio.plugins.jpeg.JPEGHuffmanTable[], javax.imageio.plugins.jpeg.JPEGHuffmanTable[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "qTables",
+      "type" : "javax.imageio.plugins.jpeg.JPEGQTable[]",
+      "genericType" : "javax.imageio.plugins.jpeg.JPEGQTable[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "DCHuffmanTables",
+      "type" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+      "genericType" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ACHuffmanTables",
+      "type" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+      "genericType" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOptimizeHuffmanTables",
+    "modifiers" : "public",
+    "signature" : "public void setOptimizeHuffmanTables(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "optimize",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unsetCompression",
+    "modifiers" : "public",
+    "signature" : "public void unsetCompression()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unsetEncodeTables",
+    "modifiers" : "public",
+    "signature" : "public void unsetEncodeTables()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

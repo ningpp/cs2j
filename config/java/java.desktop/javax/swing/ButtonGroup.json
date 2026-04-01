@@ -1,0 +1,132 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ButtonGroup",
+  "canonicalName" : "javax.swing.ButtonGroup",
+  "simpleName" : "ButtonGroup",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.ButtonGroup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ButtonGroup()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public void add(javax.swing.AbstractButton)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "javax.swing.AbstractButton",
+      "genericType" : "javax.swing.AbstractButton",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clearSelection",
+    "modifiers" : "public",
+    "signature" : "public void clearSelection()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getButtonCount",
+    "modifiers" : "public",
+    "signature" : "public int getButtonCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElements",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration getElements()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelection",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ButtonModel getSelection()",
+    "returnType" : "javax.swing.ButtonModel",
+    "genericReturnType" : "javax.swing.ButtonModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isSelected(javax.swing.ButtonModel)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "javax.swing.ButtonModel",
+      "genericType" : "javax.swing.ButtonModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(javax.swing.AbstractButton)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "javax.swing.AbstractButton",
+      "genericType" : "javax.swing.AbstractButton",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelected",
+    "modifiers" : "public",
+    "signature" : "public void setSelected(javax.swing.ButtonModel, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "javax.swing.ButtonModel",
+      "genericType" : "javax.swing.ButtonModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.DoubleStream$DoubleMapMultiConsumer",
+  "canonicalName" : "java.util.stream.DoubleStream.DoubleMapMultiConsumer",
+  "simpleName" : "DoubleMapMultiConsumer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.DoubleStream",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(double, java.util.function.DoubleConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,333 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.TypeKindVisitor6",
+  "canonicalName" : "javax.lang.model.util.TypeKindVisitor6",
+  "simpleName" : "TypeKindVisitor6",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.util.SimpleTypeVisitor6",
+  "declaredPublicMethods" : [ {
+    "name" : "visitNoType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitNoType(javax.lang.model.type.NoType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.NoType",
+      "genericType" : "javax.lang.model.type.NoType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitNoTypeAsModule",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitNoTypeAsModule(javax.lang.model.type.NoType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.NoType",
+      "genericType" : "javax.lang.model.type.NoType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitNoTypeAsNone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitNoTypeAsNone(javax.lang.model.type.NoType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.NoType",
+      "genericType" : "javax.lang.model.type.NoType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitNoTypeAsPackage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitNoTypeAsPackage(javax.lang.model.type.NoType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.NoType",
+      "genericType" : "javax.lang.model.type.NoType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitNoTypeAsVoid",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitNoTypeAsVoid(javax.lang.model.type.NoType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.NoType",
+      "genericType" : "javax.lang.model.type.NoType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitive",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitive(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsBoolean",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsBoolean(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsByte",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsByte(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsChar",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsChar(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsDouble",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsDouble(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsFloat",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsFloat(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsInt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsInt(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsLong",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsLong(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitPrimitiveAsShort",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitPrimitiveAsShort(javax.lang.model.type.PrimitiveType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.PrimitiveType",
+      "genericType" : "javax.lang.model.type.PrimitiveType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

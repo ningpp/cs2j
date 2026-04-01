@@ -1,0 +1,170 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.IdentityScope",
+  "canonicalName" : "java.security.IdentityScope",
+  "simpleName" : "IdentityScope",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.security.Identity",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.IdentityScope",
+    "modifiers" : "public",
+    "signature" : "public java.security.IdentityScope(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.IdentityScope",
+    "modifiers" : "public",
+    "signature" : "public java.security.IdentityScope(java.lang.String, java.security.IdentityScope) throws java.security.KeyManagementException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scope",
+      "type" : "java.security.IdentityScope",
+      "genericType" : "java.security.IdentityScope",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.KeyManagementException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addIdentity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addIdentity(java.security.Identity) throws java.security.KeyManagementException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.Identity",
+      "genericType" : "java.security.Identity",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.KeyManagementException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIdentity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Identity getIdentity(java.lang.String)",
+    "returnType" : "java.security.Identity",
+    "genericReturnType" : "java.security.Identity",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIdentity",
+    "modifiers" : "public",
+    "signature" : "public java.security.Identity getIdentity(java.security.Principal)",
+    "returnType" : "java.security.Identity",
+    "genericReturnType" : "java.security.Identity",
+    "parameters" : [ {
+      "name" : "principal",
+      "type" : "java.security.Principal",
+      "genericType" : "java.security.Principal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIdentity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Identity getIdentity(java.security.PublicKey)",
+    "returnType" : "java.security.Identity",
+    "genericReturnType" : "java.security.Identity",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemScope",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.IdentityScope getSystemScope()",
+    "returnType" : "java.security.IdentityScope",
+    "genericReturnType" : "java.security.IdentityScope",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "identities",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Enumeration identities()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeIdentity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeIdentity(java.security.Identity) throws java.security.KeyManagementException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.Identity",
+      "genericType" : "java.security.Identity",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.KeyManagementException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

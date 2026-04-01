@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.TreeNode",
+  "canonicalName" : "javax.swing.tree.TreeNode",
+  "simpleName" : "TreeNode",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "children",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Enumeration children()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllowsChildren",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getAllowsChildren()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChildAt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.tree.TreeNode getChildAt(int)",
+    "returnType" : "javax.swing.tree.TreeNode",
+    "genericReturnType" : "javax.swing.tree.TreeNode",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChildCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getChildCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getIndex(javax.swing.tree.TreeNode)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.tree.TreeNode",
+      "genericType" : "javax.swing.tree.TreeNode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.tree.TreeNode getParent()",
+    "returnType" : "javax.swing.tree.TreeNode",
+    "genericReturnType" : "javax.swing.tree.TreeNode",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLeaf",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isLeaf()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

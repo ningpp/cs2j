@@ -1,0 +1,112 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RMIClassLoaderSpi",
+  "canonicalName" : "java.rmi.server.RMIClassLoaderSpi",
+  "simpleName" : "RMIClassLoaderSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.server.RMIClassLoaderSpi",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.RMIClassLoaderSpi()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getClassAnnotation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getClassAnnotation(java.lang.Class)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassLoader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.ClassLoader getClassLoader(java.lang.String) throws java.net.MalformedURLException",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class loadClass(java.lang.String, java.lang.String, java.lang.ClassLoader) throws java.net.MalformedURLException, java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadProxyClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class loadProxyClass(java.lang.String, java.lang.String[], java.lang.ClassLoader) throws java.net.MalformedURLException, java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.EncodedKeySpec",
+  "canonicalName" : "java.security.spec.EncodedKeySpec",
+  "simpleName" : "EncodedKeySpec",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.KeySpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.EncodedKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.EncodedKeySpec(byte[])",
+    "parameters" : [ {
+      "name" : "encodedKey",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoded",
+    "modifiers" : "public",
+    "signature" : "public byte[] getEncoded()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getFormat()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

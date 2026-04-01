@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.NotCompliantMBeanException",
+  "canonicalName" : "javax.management.NotCompliantMBeanException",
+  "simpleName" : "NotCompliantMBeanException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.OperationsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.NotCompliantMBeanException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.NotCompliantMBeanException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.NotCompliantMBeanException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.NotCompliantMBeanException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

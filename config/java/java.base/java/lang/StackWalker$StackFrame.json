@@ -1,0 +1,111 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.StackWalker$StackFrame",
+  "canonicalName" : "java.lang.StackWalker.StackFrame",
+  "simpleName" : "StackFrame",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.StackWalker",
+  "declaredPublicMethods" : [ {
+    "name" : "getByteCodeIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getByteCodeIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaringClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class getDeclaringClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescriptor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getFileName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getFileName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineNumber",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLineNumber()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethodName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getMethodName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethodType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.MethodType getMethodType()",
+    "returnType" : "java.lang.invoke.MethodType",
+    "genericReturnType" : "java.lang.invoke.MethodType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isNativeMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isNativeMethod()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toStackTraceElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.StackTraceElement toStackTraceElement()",
+    "returnType" : "java.lang.StackTraceElement",
+    "genericReturnType" : "java.lang.StackTraceElement",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

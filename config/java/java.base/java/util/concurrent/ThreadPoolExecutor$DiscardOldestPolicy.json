@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ThreadPoolExecutor$DiscardOldestPolicy",
+  "canonicalName" : "java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy",
+  "simpleName" : "DiscardOldestPolicy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.ThreadPoolExecutor",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.concurrent.RejectedExecutionHandler" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.ThreadPoolExecutor$DiscardOldestPolicy",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ThreadPoolExecutor$DiscardOldestPolicy()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "rejectedExecution",
+    "modifiers" : "public",
+    "signature" : "public void rejectedExecution(java.lang.Runnable, java.util.concurrent.ThreadPoolExecutor)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "java.util.concurrent.ThreadPoolExecutor",
+      "genericType" : "java.util.concurrent.ThreadPoolExecutor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

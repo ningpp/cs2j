@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net.spi",
+  "binaryName" : "java.net.spi.InetAddressResolver$LookupPolicy",
+  "canonicalName" : "java.net.spi.InetAddressResolver.LookupPolicy",
+  "simpleName" : "LookupPolicy",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.net.spi.InetAddressResolver",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "characteristics",
+    "modifiers" : "public",
+    "signature" : "public int characteristics()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.spi.InetAddressResolver$LookupPolicy of(int)",
+    "returnType" : "java.net.spi.InetAddressResolver$LookupPolicy",
+    "genericReturnType" : "java.net.spi.InetAddressResolver$LookupPolicy",
+    "parameters" : [ {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

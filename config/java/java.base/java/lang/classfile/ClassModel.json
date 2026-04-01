@@ -1,0 +1,111 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassModel",
+  "canonicalName" : "java.lang.classfile.ClassModel",
+  "simpleName" : "ClassModel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.AttributedElement", "java.lang.classfile.CompoundElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constantPool",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ConstantPool constantPool()",
+    "returnType" : "java.lang.classfile.constantpool.ConstantPool",
+    "genericReturnType" : "java.lang.classfile.constantpool.ConstantPool",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fields",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List fields()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flags",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.AccessFlags flags()",
+    "returnType" : "java.lang.classfile.AccessFlags",
+    "genericReturnType" : "java.lang.classfile.AccessFlags",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interfaces",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List interfaces()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isModuleInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isModuleInfo()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "majorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int majorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methods",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List methods()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int minorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superclass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional superclass()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thisClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ClassEntry thisClass()",
+    "returnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

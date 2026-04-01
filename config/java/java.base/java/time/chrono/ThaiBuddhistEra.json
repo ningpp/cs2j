@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.chrono",
+  "binaryName" : "java.time.chrono.ThaiBuddhistEra",
+  "canonicalName" : "java.time.chrono.ThaiBuddhistEra",
+  "simpleName" : "ThaiBuddhistEra",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "interfaces" : [ "java.time.chrono.Era" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDisplayName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDisplayName(java.time.format.TextStyle, java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "java.time.format.TextStyle",
+      "genericType" : "java.time.format.TextStyle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public int getValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.ThaiBuddhistEra of(int)",
+    "returnType" : "java.time.chrono.ThaiBuddhistEra",
+    "genericReturnType" : "java.time.chrono.ThaiBuddhistEra",
+    "parameters" : [ {
+      "name" : "thaiBuddhistEra",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.ThaiBuddhistEra valueOf(java.lang.String)",
+    "returnType" : "java.time.chrono.ThaiBuddhistEra",
+    "genericReturnType" : "java.time.chrono.ThaiBuddhistEra",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.ThaiBuddhistEra[] values()",
+    "returnType" : "java.time.chrono.ThaiBuddhistEra[]",
+    "genericReturnType" : "java.time.chrono.ThaiBuddhistEra[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

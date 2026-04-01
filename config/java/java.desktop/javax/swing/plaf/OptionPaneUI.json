@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.OptionPaneUI",
+  "canonicalName" : "javax.swing.plaf.OptionPaneUI",
+  "simpleName" : "OptionPaneUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI",
+  "declaredPublicMethods" : [ {
+    "name" : "containsCustomComponents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean containsCustomComponents(javax.swing.JOptionPane)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JOptionPane",
+      "genericType" : "javax.swing.JOptionPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectInitialValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void selectInitialValue(javax.swing.JOptionPane)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JOptionPane",
+      "genericType" : "javax.swing.JOptionPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

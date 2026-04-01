@@ -1,0 +1,132 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.MemoryHandler",
+  "canonicalName" : "java.util.logging.MemoryHandler",
+  "simpleName" : "MemoryHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.logging.Handler",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.logging.MemoryHandler",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.MemoryHandler()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.logging.MemoryHandler",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.MemoryHandler(java.util.logging.Handler, int, java.util.logging.Level)",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.util.logging.Handler",
+      "genericType" : "java.util.logging.Handler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pushLevel",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flush",
+    "modifiers" : "public",
+    "signature" : "public void flush()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPushLevel",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.Level getPushLevel()",
+    "returnType" : "java.util.logging.Level",
+    "genericReturnType" : "java.util.logging.Level",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLoggable",
+    "modifiers" : "public",
+    "signature" : "public boolean isLoggable(java.util.logging.LogRecord)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "record",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "publish",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void publish(java.util.logging.LogRecord)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "record",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "push",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void push()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPushLevel",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setPushLevel(java.util.logging.Level)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newLevel",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

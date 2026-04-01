@@ -1,0 +1,59 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.DefaultStyledDocument$AttributeUndoableEdit",
+  "canonicalName" : "javax.swing.text.DefaultStyledDocument.AttributeUndoableEdit",
+  "simpleName" : "AttributeUndoableEdit",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.DefaultStyledDocument",
+  "superClass" : "javax.swing.undo.AbstractUndoableEdit",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.DefaultStyledDocument$AttributeUndoableEdit",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultStyledDocument$AttributeUndoableEdit(javax.swing.text.Element, javax.swing.text.AttributeSet, boolean)",
+    "parameters" : [ {
+      "name" : "element",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newAttributes",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isReplacing",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "redo",
+    "modifiers" : "public",
+    "signature" : "public void redo() throws javax.swing.undo.CannotRedoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotRedoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undo",
+    "modifiers" : "public",
+    "signature" : "public void undo() throws javax.swing.undo.CannotUndoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotUndoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

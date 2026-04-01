@@ -1,0 +1,75 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.AbstractAnnotationValueVisitor6",
+  "canonicalName" : "javax.lang.model.util.AbstractAnnotationValueVisitor6",
+  "simpleName" : "AbstractAnnotationValueVisitor6",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.lang.model.element.AnnotationValueVisitor" ],
+  "declaredPublicMethods" : [ {
+    "name" : "visit",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object visit(javax.lang.model.element.AnnotationValue)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "av",
+      "type" : "javax.lang.model.element.AnnotationValue",
+      "genericType" : "javax.lang.model.element.AnnotationValue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visit",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object visit(javax.lang.model.element.AnnotationValue, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "av",
+      "type" : "javax.lang.model.element.AnnotationValue",
+      "genericType" : "javax.lang.model.element.AnnotationValue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitUnknown",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitUnknown(javax.lang.model.element.AnnotationValue, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "av",
+      "type" : "javax.lang.model.element.AnnotationValue",
+      "genericType" : "javax.lang.model.element.AnnotationValue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

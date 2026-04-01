@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.spi",
+  "binaryName" : "java.util.spi.CurrencyNameProvider",
+  "canonicalName" : "java.util.spi.CurrencyNameProvider",
+  "simpleName" : "CurrencyNameProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.spi.LocaleServiceProvider",
+  "declaredPublicMethods" : [ {
+    "name" : "getDisplayName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDisplayName(java.lang.String, java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "currencyCode",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSymbol",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSymbol(java.lang.String, java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.BadBinaryOpValueExpException",
+  "canonicalName" : "javax.management.BadBinaryOpValueExpException",
+  "simpleName" : "BadBinaryOpValueExpException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.BadBinaryOpValueExpException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.BadBinaryOpValueExpException(javax.management.ValueExp)",
+    "parameters" : [ {
+      "name" : "exp",
+      "type" : "javax.management.ValueExp",
+      "genericType" : "javax.management.ValueExp",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getExp",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ValueExp getExp()",
+    "returnType" : "javax.management.ValueExp",
+    "genericReturnType" : "javax.management.ValueExp",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

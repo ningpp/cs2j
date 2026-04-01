@@ -1,0 +1,135 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.border",
+  "binaryName" : "javax.swing.border.CompoundBorder",
+  "canonicalName" : "javax.swing.border.CompoundBorder",
+  "simpleName" : "CompoundBorder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.border.AbstractBorder",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.border.CompoundBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.CompoundBorder()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.border.CompoundBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.CompoundBorder(javax.swing.border.Border, javax.swing.border.Border)",
+    "parameters" : [ {
+      "name" : "outsideBorder",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insideBorder",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBorderInsets",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getBorderInsets(java.awt.Component, java.awt.Insets)",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insets",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInsideBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.Border getInsideBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutsideBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.Border getOutsideBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBorderOpaque",
+    "modifiers" : "public",
+    "signature" : "public boolean isBorderOpaque()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintBorder",
+    "modifiers" : "public",
+    "signature" : "public void paintBorder(java.awt.Component, java.awt.Graphics, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

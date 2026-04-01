@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.LayoutQueue",
+  "canonicalName" : "javax.swing.text.LayoutQueue",
+  "simpleName" : "LayoutQueue",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.LayoutQueue",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.LayoutQueue()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addTask",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addTask(java.lang.Runnable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultQueue",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.LayoutQueue getDefaultQueue()",
+    "returnType" : "javax.swing.text.LayoutQueue",
+    "genericReturnType" : "javax.swing.text.LayoutQueue",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultQueue",
+    "modifiers" : "public static",
+    "signature" : "public static void setDefaultQueue(javax.swing.text.LayoutQueue)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "q",
+      "type" : "javax.swing.text.LayoutQueue",
+      "genericType" : "javax.swing.text.LayoutQueue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

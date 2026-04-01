@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.ColorUIResource",
+  "canonicalName" : "javax.swing.plaf.ColorUIResource",
+  "simpleName" : "ColorUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Color",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.ColorUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource(float, float, float)",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.ColorUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource(int)",
+    "parameters" : [ {
+      "name" : "rgb",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.ColorUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource(int, int, int)",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.ColorUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorUIResource(java.awt.Color)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

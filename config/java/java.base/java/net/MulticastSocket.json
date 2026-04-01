@@ -1,0 +1,297 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.MulticastSocket",
+  "canonicalName" : "java.net.MulticastSocket",
+  "simpleName" : "MulticastSocket",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.net.DatagramSocket",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.MulticastSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.MulticastSocket() throws java.io.IOException",
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.MulticastSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.MulticastSocket(int) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.MulticastSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.MulticastSocket(java.net.SocketAddress) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "bindaddr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getInterface",
+    "modifiers" : "public",
+    "signature" : "public java.net.InetAddress getInterface() throws java.net.SocketException",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoopbackMode",
+    "modifiers" : "public",
+    "signature" : "public boolean getLoopbackMode() throws java.net.SocketException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNetworkInterface",
+    "modifiers" : "public",
+    "signature" : "public java.net.NetworkInterface getNetworkInterface() throws java.net.SocketException",
+    "returnType" : "java.net.NetworkInterface",
+    "genericReturnType" : "java.net.NetworkInterface",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTTL",
+    "modifiers" : "public",
+    "signature" : "public byte getTTL() throws java.io.IOException",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeToLive",
+    "modifiers" : "public",
+    "signature" : "public int getTimeToLive() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "joinGroup",
+    "modifiers" : "public",
+    "signature" : "public void joinGroup(java.net.InetAddress) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mcastaddr",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "joinGroup",
+    "modifiers" : "public",
+    "signature" : "public void joinGroup(java.net.SocketAddress, java.net.NetworkInterface) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mcastaddr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "netIf",
+      "type" : "java.net.NetworkInterface",
+      "genericType" : "java.net.NetworkInterface",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "leaveGroup",
+    "modifiers" : "public",
+    "signature" : "public void leaveGroup(java.net.InetAddress) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mcastaddr",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "leaveGroup",
+    "modifiers" : "public",
+    "signature" : "public void leaveGroup(java.net.SocketAddress, java.net.NetworkInterface) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mcastaddr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "netIf",
+      "type" : "java.net.NetworkInterface",
+      "genericType" : "java.net.NetworkInterface",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "send",
+    "modifiers" : "public",
+    "signature" : "public void send(java.net.DatagramPacket, byte) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.net.DatagramPacket",
+      "genericType" : "java.net.DatagramPacket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ttl",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInterface",
+    "modifiers" : "public",
+    "signature" : "public void setInterface(java.net.InetAddress) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inf",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoopbackMode",
+    "modifiers" : "public",
+    "signature" : "public void setLoopbackMode(boolean) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "disable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNetworkInterface",
+    "modifiers" : "public",
+    "signature" : "public void setNetworkInterface(java.net.NetworkInterface) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "netIf",
+      "type" : "java.net.NetworkInterface",
+      "genericType" : "java.net.NetworkInterface",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTTL",
+    "modifiers" : "public",
+    "signature" : "public void setTTL(byte) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ttl",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTimeToLive",
+    "modifiers" : "public",
+    "signature" : "public void setTimeToLive(int) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ttl",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

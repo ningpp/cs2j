@@ -1,0 +1,154 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.SQLRecoverableException",
+  "canonicalName" : "java.sql.SQLRecoverableException",
+  "simpleName" : "SQLRecoverableException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.sql.SQLException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException(java.lang.String, java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException(java.lang.String, java.lang.String, int, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException(java.lang.String, java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLRecoverableException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLRecoverableException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

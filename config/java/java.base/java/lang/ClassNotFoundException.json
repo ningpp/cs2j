@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ClassNotFoundException",
+  "canonicalName" : "java.lang.ClassNotFoundException",
+  "simpleName" : "ClassNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ReflectiveOperationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ClassNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ClassNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ClassNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassNotFoundException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ex",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getException()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

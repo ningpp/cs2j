@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset",
+  "binaryName" : "java.nio.charset.UnsupportedCharsetException",
+  "canonicalName" : "java.nio.charset.UnsupportedCharsetException",
+  "simpleName" : "UnsupportedCharsetException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.charset.UnsupportedCharsetException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.charset.UnsupportedCharsetException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "charsetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCharsetName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCharsetName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

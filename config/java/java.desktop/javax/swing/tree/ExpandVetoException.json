@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.ExpandVetoException",
+  "canonicalName" : "javax.swing.tree.ExpandVetoException",
+  "simpleName" : "ExpandVetoException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.tree.ExpandVetoException",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.ExpandVetoException(javax.swing.event.TreeExpansionEvent)",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "javax.swing.event.TreeExpansionEvent",
+      "genericType" : "javax.swing.event.TreeExpansionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.tree.ExpandVetoException",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.ExpandVetoException(javax.swing.event.TreeExpansionEvent, java.lang.String)",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "javax.swing.event.TreeExpansionEvent",
+      "genericType" : "javax.swing.event.TreeExpansionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

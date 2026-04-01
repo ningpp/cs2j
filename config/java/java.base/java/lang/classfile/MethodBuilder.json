@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.MethodBuilder",
+  "canonicalName" : "java.lang.classfile.MethodBuilder",
+  "simpleName" : "MethodBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileBuilder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "transformCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.MethodBuilder transformCode(java.lang.classfile.CodeModel, java.lang.classfile.CodeTransform)",
+    "returnType" : "java.lang.classfile.MethodBuilder",
+    "genericReturnType" : "java.lang.classfile.MethodBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.CodeModel",
+      "genericType" : "java.lang.classfile.CodeModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.CodeTransform",
+      "genericType" : "java.lang.classfile.CodeTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.MethodBuilder withCode(java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.MethodBuilder",
+    "genericReturnType" : "java.lang.classfile.MethodBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.MethodBuilder withFlags(int)",
+    "returnType" : "java.lang.classfile.MethodBuilder",
+    "genericReturnType" : "java.lang.classfile.MethodBuilder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "withFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.MethodBuilder withFlags(java.lang.reflect.AccessFlag...)",
+    "returnType" : "java.lang.classfile.MethodBuilder",
+    "genericReturnType" : "java.lang.classfile.MethodBuilder",
+    "parameters" : [ {
+      "name" : "flags",
+      "type" : "java.lang.reflect.AccessFlag[]",
+      "genericType" : "java.lang.reflect.AccessFlag[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  } ]
+}

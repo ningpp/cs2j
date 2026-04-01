@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.TypeDescriptor",
+  "canonicalName" : "java.lang.invoke.TypeDescriptor",
+  "simpleName" : "TypeDescriptor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "descriptorString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String descriptorString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

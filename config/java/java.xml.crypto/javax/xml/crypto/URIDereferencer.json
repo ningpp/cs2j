@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.URIDereferencer",
+  "canonicalName" : "javax.xml.crypto.URIDereferencer",
+  "simpleName" : "URIDereferencer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "dereference",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.Data dereference(javax.xml.crypto.URIReference, javax.xml.crypto.XMLCryptoContext) throws javax.xml.crypto.URIReferenceException",
+    "returnType" : "javax.xml.crypto.Data",
+    "genericReturnType" : "javax.xml.crypto.Data",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.URIReference",
+      "genericType" : "javax.xml.crypto.URIReference",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.crypto.XMLCryptoContext",
+      "genericType" : "javax.xml.crypto.XMLCryptoContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.URIReferenceException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

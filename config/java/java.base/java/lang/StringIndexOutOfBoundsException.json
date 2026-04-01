@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.StringIndexOutOfBoundsException",
+  "canonicalName" : "java.lang.StringIndexOutOfBoundsException",
+  "simpleName" : "StringIndexOutOfBoundsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IndexOutOfBoundsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.StringIndexOutOfBoundsException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringIndexOutOfBoundsException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.StringIndexOutOfBoundsException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringIndexOutOfBoundsException(int)",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.StringIndexOutOfBoundsException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StringIndexOutOfBoundsException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

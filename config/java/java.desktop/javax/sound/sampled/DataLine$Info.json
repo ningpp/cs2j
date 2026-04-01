@@ -1,0 +1,159 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.DataLine$Info",
+  "canonicalName" : "javax.sound.sampled.DataLine.Info",
+  "simpleName" : "Info",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.sound.sampled.DataLine",
+  "superClass" : "javax.sound.sampled.Line$Info",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.sampled.DataLine$Info",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.DataLine$Info(java.lang.Class, javax.sound.sampled.AudioFormat)",
+    "parameters" : [ {
+      "name" : "lineClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.sampled.DataLine$Info",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.DataLine$Info(java.lang.Class, javax.sound.sampled.AudioFormat, int)",
+    "parameters" : [ {
+      "name" : "lineClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bufferSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.sampled.DataLine$Info",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.DataLine$Info(java.lang.Class, javax.sound.sampled.AudioFormat[], int, int)",
+    "parameters" : [ {
+      "name" : "lineClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formats",
+      "type" : "javax.sound.sampled.AudioFormat[]",
+      "genericType" : "javax.sound.sampled.AudioFormat[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minBufferSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxBufferSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFormats",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFormat[] getFormats()",
+    "returnType" : "javax.sound.sampled.AudioFormat[]",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxBufferSize",
+    "modifiers" : "public",
+    "signature" : "public int getMaxBufferSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinBufferSize",
+    "modifiers" : "public",
+    "signature" : "public int getMinBufferSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFormatSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isFormatSupported(javax.sound.sampled.AudioFormat)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matches",
+    "modifiers" : "public",
+    "signature" : "public boolean matches(javax.sound.sampled.Line$Info)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "info",
+      "type" : "javax.sound.sampled.Line$Info",
+      "genericType" : "javax.sound.sampled.Line$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

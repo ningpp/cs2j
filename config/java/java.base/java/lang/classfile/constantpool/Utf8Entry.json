@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.Utf8Entry",
+  "canonicalName" : "java.lang.classfile.constantpool.Utf8Entry",
+  "simpleName" : "Utf8Entry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.CharSequence", "java.lang.classfile.constantpool.AnnotationConstantValueEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "equalsString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equalsString(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFieldType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isFieldType(java.lang.constant.ClassDesc)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMethodType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isMethodType(java.lang.constant.MethodTypeDesc)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stringValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String stringValue()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.type",
+  "binaryName" : "javax.lang.model.type.ErrorType",
+  "canonicalName" : "javax.lang.model.type.ErrorType",
+  "simpleName" : "ErrorType",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.type.DeclaredType" ]
+}

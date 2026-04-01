@@ -1,0 +1,143 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.InitialLdapContext",
+  "canonicalName" : "javax.naming.ldap.InitialLdapContext",
+  "simpleName" : "InitialLdapContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.directory.InitialDirContext",
+  "interfaces" : [ "javax.naming.ldap.LdapContext" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.InitialLdapContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.InitialLdapContext() throws javax.naming.NamingException",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.InitialLdapContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.InitialLdapContext(java.util.Hashtable, javax.naming.ldap.Control[]) throws javax.naming.NamingException",
+    "parameters" : [ {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "connCtls",
+      "type" : "javax.naming.ldap.Control[]",
+      "genericType" : "javax.naming.ldap.Control[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "extendedOperation",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.ExtendedResponse extendedOperation(javax.naming.ldap.ExtendedRequest) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.ExtendedResponse",
+    "genericReturnType" : "javax.naming.ldap.ExtendedResponse",
+    "parameters" : [ {
+      "name" : "request",
+      "type" : "javax.naming.ldap.ExtendedRequest",
+      "genericType" : "javax.naming.ldap.ExtendedRequest",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnectControls",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.Control[] getConnectControls() throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.Control[]",
+    "genericReturnType" : "javax.naming.ldap.Control[]",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRequestControls",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.Control[] getRequestControls() throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.Control[]",
+    "genericReturnType" : "javax.naming.ldap.Control[]",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResponseControls",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.Control[] getResponseControls() throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.Control[]",
+    "genericReturnType" : "javax.naming.ldap.Control[]",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.LdapContext newInstance(javax.naming.ldap.Control[]) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.LdapContext",
+    "genericReturnType" : "javax.naming.ldap.LdapContext",
+    "parameters" : [ {
+      "name" : "reqCtls",
+      "type" : "javax.naming.ldap.Control[]",
+      "genericType" : "javax.naming.ldap.Control[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reconnect",
+    "modifiers" : "public",
+    "signature" : "public void reconnect(javax.naming.ldap.Control[]) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "connCtls",
+      "type" : "javax.naming.ldap.Control[]",
+      "genericType" : "javax.naming.ldap.Control[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRequestControls",
+    "modifiers" : "public",
+    "signature" : "public void setRequestControls(javax.naming.ldap.Control[]) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "requestControls",
+      "type" : "javax.naming.ldap.Control[]",
+      "genericType" : "javax.naming.ldap.Control[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

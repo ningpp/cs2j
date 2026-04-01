@@ -1,0 +1,313 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Comparator",
+  "canonicalName" : "java.util.Comparator",
+  "simpleName" : "Comparator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "compare",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int compare(java.lang.Object, java.lang.Object)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparing",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparing(java.util.function.Function)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparing",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparing(java.util.function.Function, java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyComparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparingDouble",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparingDouble(java.util.function.ToDoubleFunction)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.ToDoubleFunction",
+      "genericType" : "java.util.function.ToDoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparingInt",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparingInt(java.util.function.ToIntFunction)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.ToIntFunction",
+      "genericType" : "java.util.function.ToIntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "comparingLong",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator comparingLong(java.util.function.ToLongFunction)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.ToLongFunction",
+      "genericType" : "java.util.function.ToLongFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "naturalOrder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator naturalOrder()",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nullsFirst",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator nullsFirst(java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "comparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nullsLast",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator nullsLast(java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "comparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reverseOrder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator reverseOrder()",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reversed",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator reversed()",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "thenComparing",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator thenComparing(java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "thenComparing",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator thenComparing(java.util.function.Function)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "thenComparing",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator thenComparing(java.util.function.Function, java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyComparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "thenComparingDouble",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator thenComparingDouble(java.util.function.ToDoubleFunction)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.ToDoubleFunction",
+      "genericType" : "java.util.function.ToDoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "thenComparingInt",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator thenComparingInt(java.util.function.ToIntFunction)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.ToIntFunction",
+      "genericType" : "java.util.function.ToIntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "thenComparingLong",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator thenComparingLong(java.util.function.ToLongFunction)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "keyExtractor",
+      "type" : "java.util.function.ToLongFunction",
+      "genericType" : "java.util.function.ToLongFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,174 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIConnectorServer",
+  "canonicalName" : "javax.management.remote.rmi.RMIConnectorServer",
+  "simpleName" : "RMIConnectorServer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.remote.JMXConnectorServer",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.rmi.RMIConnectorServer",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnectorServer(javax.management.remote.JMXServiceURL, java.util.Map) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "javax.management.remote.JMXServiceURL",
+      "genericType" : "javax.management.remote.JMXServiceURL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.remote.rmi.RMIConnectorServer",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnectorServer(javax.management.remote.JMXServiceURL, java.util.Map, javax.management.MBeanServer) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "javax.management.remote.JMXServiceURL",
+      "genericType" : "javax.management.remote.JMXServiceURL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanServer",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.remote.rmi.RMIConnectorServer",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnectorServer(javax.management.remote.JMXServiceURL, java.util.Map, javax.management.remote.rmi.RMIServerImpl, javax.management.MBeanServer) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "javax.management.remote.JMXServiceURL",
+      "genericType" : "javax.management.remote.JMXServiceURL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rmiServerImpl",
+      "type" : "javax.management.remote.rmi.RMIServerImpl",
+      "genericType" : "javax.management.remote.rmi.RMIServerImpl",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeanServer",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAddress",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.JMXServiceURL getAddress()",
+    "returnType" : "javax.management.remote.JMXServiceURL",
+    "genericReturnType" : "javax.management.remote.JMXServiceURL",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getAttributes()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isActive",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isActive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServerForwarder",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setMBeanServerForwarder(javax.management.remote.MBeanServerForwarder)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mbsf",
+      "type" : "javax.management.remote.MBeanServerForwarder",
+      "genericType" : "javax.management.remote.MBeanServerForwarder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void start() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public",
+    "signature" : "public void stop() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toJMXConnector",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.JMXConnector toJMXConnector(java.util.Map) throws java.io.IOException",
+    "returnType" : "javax.management.remote.JMXConnector",
+    "genericReturnType" : "javax.management.remote.JMXConnector",
+    "parameters" : [ {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

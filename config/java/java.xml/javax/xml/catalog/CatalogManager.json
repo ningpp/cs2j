@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.catalog",
+  "binaryName" : "javax.xml.catalog.CatalogManager",
+  "canonicalName" : "javax.xml.catalog.CatalogManager",
+  "simpleName" : "CatalogManager",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "catalog",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.Catalog catalog(javax.xml.catalog.CatalogFeatures, java.net.URI...)",
+    "returnType" : "javax.xml.catalog.Catalog",
+    "genericReturnType" : "javax.xml.catalog.Catalog",
+    "parameters" : [ {
+      "name" : "features",
+      "type" : "javax.xml.catalog.CatalogFeatures",
+      "genericType" : "javax.xml.catalog.CatalogFeatures",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "uris",
+      "type" : "java.net.URI[]",
+      "genericType" : "java.net.URI[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "catalogResolver",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogResolver catalogResolver(javax.xml.catalog.Catalog)",
+    "returnType" : "javax.xml.catalog.CatalogResolver",
+    "genericReturnType" : "javax.xml.catalog.CatalogResolver",
+    "parameters" : [ {
+      "name" : "catalog",
+      "type" : "javax.xml.catalog.Catalog",
+      "genericType" : "javax.xml.catalog.Catalog",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "catalogResolver",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogResolver catalogResolver(javax.xml.catalog.Catalog, javax.xml.catalog.CatalogResolver$NotFoundAction)",
+    "returnType" : "javax.xml.catalog.CatalogResolver",
+    "genericReturnType" : "javax.xml.catalog.CatalogResolver",
+    "parameters" : [ {
+      "name" : "catalog",
+      "type" : "javax.xml.catalog.Catalog",
+      "genericType" : "javax.xml.catalog.Catalog",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "javax.xml.catalog.CatalogResolver$NotFoundAction",
+      "genericType" : "javax.xml.catalog.CatalogResolver$NotFoundAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "catalogResolver",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogResolver catalogResolver(javax.xml.catalog.CatalogFeatures, java.net.URI...)",
+    "returnType" : "javax.xml.catalog.CatalogResolver",
+    "genericReturnType" : "javax.xml.catalog.CatalogResolver",
+    "parameters" : [ {
+      "name" : "features",
+      "type" : "javax.xml.catalog.CatalogFeatures",
+      "genericType" : "javax.xml.catalog.CatalogFeatures",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "uris",
+      "type" : "java.net.URI[]",
+      "genericType" : "java.net.URI[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

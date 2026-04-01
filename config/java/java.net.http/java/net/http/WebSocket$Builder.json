@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.WebSocket$Builder",
+  "canonicalName" : "java.net.http.WebSocket.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.WebSocket",
+  "declaredPublicMethods" : [ {
+    "name" : "buildAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletableFuture buildAsync(java.net.URI, java.net.http.WebSocket$Listener)",
+    "returnType" : "java.util.concurrent.CompletableFuture",
+    "genericReturnType" : "java.util.concurrent.CompletableFuture",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.http.WebSocket$Listener",
+      "genericType" : "java.net.http.WebSocket$Listener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connectTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.WebSocket$Builder connectTimeout(java.time.Duration)",
+    "returnType" : "java.net.http.WebSocket$Builder",
+    "genericReturnType" : "java.net.http.WebSocket$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "header",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.WebSocket$Builder header(java.lang.String, java.lang.String)",
+    "returnType" : "java.net.http.WebSocket$Builder",
+    "genericReturnType" : "java.net.http.WebSocket$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subprotocols",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.WebSocket$Builder subprotocols(java.lang.String, java.lang.String...)",
+    "returnType" : "java.net.http.WebSocket$Builder",
+    "genericReturnType" : "java.net.http.WebSocket$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

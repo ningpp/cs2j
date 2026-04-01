@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ClosedSelectorException",
+  "canonicalName" : "java.nio.channels.ClosedSelectorException",
+  "simpleName" : "ClosedSelectorException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.ClosedSelectorException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.ClosedSelectorException()",
+    "varArgs" : false
+  } ]
+}

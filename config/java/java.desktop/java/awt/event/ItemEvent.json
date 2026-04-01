@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.ItemEvent",
+  "canonicalName" : "java.awt.event.ItemEvent",
+  "simpleName" : "ItemEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.AWTEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.event.ItemEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.ItemEvent(java.awt.ItemSelectable, int, java.lang.Object, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.ItemSelectable",
+      "genericType" : "java.awt.ItemSelectable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stateChange",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getItem",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getItem()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getItemSelectable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.ItemSelectable getItemSelectable()",
+    "returnType" : "java.awt.ItemSelectable",
+    "genericReturnType" : "java.awt.ItemSelectable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStateChange",
+    "modifiers" : "public",
+    "signature" : "public int getStateChange()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

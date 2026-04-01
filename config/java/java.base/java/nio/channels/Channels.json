@@ -1,0 +1,263 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.Channels",
+  "canonicalName" : "java.nio.channels.Channels",
+  "simpleName" : "Channels",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "newChannel",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.ReadableByteChannel newChannel(java.io.InputStream)",
+    "returnType" : "java.nio.channels.ReadableByteChannel",
+    "genericReturnType" : "java.nio.channels.ReadableByteChannel",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newChannel",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.WritableByteChannel newChannel(java.io.OutputStream)",
+    "returnType" : "java.nio.channels.WritableByteChannel",
+    "genericReturnType" : "java.nio.channels.WritableByteChannel",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.InputStream newInputStream(java.nio.channels.AsynchronousByteChannel)",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.AsynchronousByteChannel",
+      "genericType" : "java.nio.channels.AsynchronousByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.InputStream newInputStream(java.nio.channels.ReadableByteChannel)",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newOutputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.OutputStream newOutputStream(java.nio.channels.AsynchronousByteChannel)",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.AsynchronousByteChannel",
+      "genericType" : "java.nio.channels.AsynchronousByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newOutputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.OutputStream newOutputStream(java.nio.channels.WritableByteChannel)",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.WritableByteChannel",
+      "genericType" : "java.nio.channels.WritableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newReader",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.Reader newReader(java.nio.channels.ReadableByteChannel, java.lang.String)",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newReader",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.Reader newReader(java.nio.channels.ReadableByteChannel, java.nio.charset.Charset)",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newReader",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.Reader newReader(java.nio.channels.ReadableByteChannel, java.nio.charset.CharsetDecoder, int)",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.ReadableByteChannel",
+      "genericType" : "java.nio.channels.ReadableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dec",
+      "type" : "java.nio.charset.CharsetDecoder",
+      "genericType" : "java.nio.charset.CharsetDecoder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minBufferCap",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newWriter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.Writer newWriter(java.nio.channels.WritableByteChannel, java.lang.String)",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.WritableByteChannel",
+      "genericType" : "java.nio.channels.WritableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newWriter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.Writer newWriter(java.nio.channels.WritableByteChannel, java.nio.charset.Charset)",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.WritableByteChannel",
+      "genericType" : "java.nio.channels.WritableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newWriter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.Writer newWriter(java.nio.channels.WritableByteChannel, java.nio.charset.CharsetEncoder, int)",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "java.nio.channels.WritableByteChannel",
+      "genericType" : "java.nio.channels.WritableByteChannel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "enc",
+      "type" : "java.nio.charset.CharsetEncoder",
+      "genericType" : "java.nio.charset.CharsetEncoder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minBufferCap",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

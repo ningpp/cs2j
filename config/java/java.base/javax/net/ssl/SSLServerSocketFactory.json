@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLServerSocketFactory",
+  "canonicalName" : "javax.net.ssl.SSLServerSocketFactory",
+  "simpleName" : "SSLServerSocketFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.net.ServerSocketFactory",
+  "declaredPublicMethods" : [ {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ServerSocketFactory getDefault()",
+    "returnType" : "javax.net.ServerSocketFactory",
+    "genericReturnType" : "javax.net.ServerSocketFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getDefaultCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getSupportedCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

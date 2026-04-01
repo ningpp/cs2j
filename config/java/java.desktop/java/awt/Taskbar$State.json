@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Taskbar$State",
+  "canonicalName" : "java.awt.Taskbar.State",
+  "simpleName" : "State",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.Taskbar",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Taskbar$State valueOf(java.lang.String)",
+    "returnType" : "java.awt.Taskbar$State",
+    "genericReturnType" : "java.awt.Taskbar$State",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Taskbar$State[] values()",
+    "returnType" : "java.awt.Taskbar$State[]",
+    "genericReturnType" : "java.awt.Taskbar$State[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

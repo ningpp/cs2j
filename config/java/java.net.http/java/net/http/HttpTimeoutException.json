@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpTimeoutException",
+  "canonicalName" : "java.net.http.HttpTimeoutException",
+  "simpleName" : "HttpTimeoutException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.http.HttpTimeoutException",
+    "modifiers" : "public",
+    "signature" : "public java.net.http.HttpTimeoutException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

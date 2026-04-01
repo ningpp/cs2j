@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JSpinner$DateEditor",
+  "canonicalName" : "javax.swing.JSpinner.DateEditor",
+  "simpleName" : "DateEditor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JSpinner",
+  "superClass" : "javax.swing.JSpinner$DefaultEditor",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JSpinner$DateEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JSpinner$DateEditor(javax.swing.JSpinner)",
+    "parameters" : [ {
+      "name" : "spinner",
+      "type" : "javax.swing.JSpinner",
+      "genericType" : "javax.swing.JSpinner",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JSpinner$DateEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JSpinner$DateEditor(javax.swing.JSpinner, java.lang.String)",
+    "parameters" : [ {
+      "name" : "spinner",
+      "type" : "javax.swing.JSpinner",
+      "genericType" : "javax.swing.JSpinner",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dateFormatPattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFormat",
+    "modifiers" : "public",
+    "signature" : "public java.text.SimpleDateFormat getFormat()",
+    "returnType" : "java.text.SimpleDateFormat",
+    "genericReturnType" : "java.text.SimpleDateFormat",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpinnerDateModel getModel()",
+    "returnType" : "javax.swing.SpinnerDateModel",
+    "genericReturnType" : "javax.swing.SpinnerDateModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

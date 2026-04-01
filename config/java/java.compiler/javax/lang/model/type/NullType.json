@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.type",
+  "binaryName" : "javax.lang.model.type.NullType",
+  "canonicalName" : "javax.lang.model.type.NullType",
+  "simpleName" : "NullType",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.type.ReferenceType" ]
+}

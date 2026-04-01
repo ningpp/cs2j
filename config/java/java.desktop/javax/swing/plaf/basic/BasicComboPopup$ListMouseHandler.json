@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicComboPopup$ListMouseHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicComboPopup.ListMouseHandler",
+  "simpleName" : "ListMouseHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicComboPopup",
+  "superClass" : "java.awt.event.MouseAdapter",
+  "declaredPublicMethods" : [ {
+    "name" : "mousePressed",
+    "modifiers" : "public",
+    "signature" : "public void mousePressed(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseReleased",
+    "modifiers" : "public",
+    "signature" : "public void mouseReleased(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "anEvent",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

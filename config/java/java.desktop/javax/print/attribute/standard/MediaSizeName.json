@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute.standard",
+  "binaryName" : "javax.print.attribute.standard.MediaSizeName",
+  "canonicalName" : "javax.print.attribute.standard.MediaSizeName",
+  "simpleName" : "MediaSizeName",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.attribute.standard.Media"
+}

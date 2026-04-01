@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.DirectoryStream",
+  "canonicalName" : "java.nio.file.DirectoryStream",
+  "simpleName" : "DirectoryStream",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Closeable", "java.lang.Iterable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

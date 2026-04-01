@@ -1,0 +1,17 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.InputMapUIResource",
+  "canonicalName" : "javax.swing.plaf.InputMapUIResource",
+  "simpleName" : "InputMapUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.InputMap",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.InputMapUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.InputMapUIResource()",
+    "varArgs" : false
+  } ]
+}

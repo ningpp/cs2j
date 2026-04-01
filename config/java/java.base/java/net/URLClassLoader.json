@@ -1,0 +1,234 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.URLClassLoader",
+  "canonicalName" : "java.net.URLClassLoader",
+  "simpleName" : "URLClassLoader",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.SecureClassLoader",
+  "interfaces" : [ "java.io.Closeable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.URLClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLClassLoader(java.lang.String, java.net.URL[], java.lang.ClassLoader)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "urls",
+      "type" : "java.net.URL[]",
+      "genericType" : "java.net.URL[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URLClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLClassLoader(java.lang.String, java.net.URL[], java.lang.ClassLoader, java.net.URLStreamHandlerFactory)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "urls",
+      "type" : "java.net.URL[]",
+      "genericType" : "java.net.URL[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factory",
+      "type" : "java.net.URLStreamHandlerFactory",
+      "genericType" : "java.net.URLStreamHandlerFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URLClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLClassLoader(java.net.URL[])",
+    "parameters" : [ {
+      "name" : "urls",
+      "type" : "java.net.URL[]",
+      "genericType" : "java.net.URL[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URLClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLClassLoader(java.net.URL[], java.lang.ClassLoader)",
+    "parameters" : [ {
+      "name" : "urls",
+      "type" : "java.net.URL[]",
+      "genericType" : "java.net.URL[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URLClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLClassLoader(java.net.URL[], java.lang.ClassLoader, java.net.URLStreamHandlerFactory)",
+    "parameters" : [ {
+      "name" : "urls",
+      "type" : "java.net.URL[]",
+      "genericType" : "java.net.URL[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factory",
+      "type" : "java.net.URLStreamHandlerFactory",
+      "genericType" : "java.net.URLStreamHandlerFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findResource",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL findResource(java.lang.String)",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findResources",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration findResources(java.lang.String) throws java.io.IOException",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceAsStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream getResourceAsStream(java.lang.String)",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURLs",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL[] getURLs()",
+    "returnType" : "java.net.URL[]",
+    "genericReturnType" : "java.net.URL[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.URLClassLoader newInstance(java.net.URL[])",
+    "returnType" : "java.net.URLClassLoader",
+    "genericReturnType" : "java.net.URLClassLoader",
+    "parameters" : [ {
+      "name" : "urls",
+      "type" : "java.net.URL[]",
+      "genericType" : "java.net.URL[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.URLClassLoader newInstance(java.net.URL[], java.lang.ClassLoader)",
+    "returnType" : "java.net.URLClassLoader",
+    "genericReturnType" : "java.net.URLClassLoader",
+    "parameters" : [ {
+      "name" : "urls",
+      "type" : "java.net.URL[]",
+      "genericType" : "java.net.URL[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

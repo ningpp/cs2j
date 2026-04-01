@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.ChangedCharSetException",
+  "canonicalName" : "javax.swing.text.ChangedCharSetException",
+  "simpleName" : "ChangedCharSetException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.ChangedCharSetException",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.ChangedCharSetException(java.lang.String, boolean)",
+    "parameters" : [ {
+      "name" : "charSetSpec",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charSetKey",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCharSetSpec",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCharSetSpec()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyEqualsCharSet",
+    "modifiers" : "public",
+    "signature" : "public boolean keyEqualsCharSet()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

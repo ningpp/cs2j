@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathFunctionException",
+  "canonicalName" : "javax.xml.xpath.XPathFunctionException",
+  "simpleName" : "XPathFunctionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.xml.xpath.XPathExpressionException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.xpath.XPathFunctionException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathFunctionException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.xpath.XPathFunctionException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathFunctionException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

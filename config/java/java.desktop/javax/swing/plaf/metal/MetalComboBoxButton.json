@@ -1,0 +1,213 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalComboBoxButton",
+  "canonicalName" : "javax.swing.plaf.metal.MetalComboBoxButton",
+  "simpleName" : "MetalComboBoxButton",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JButton",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalComboBoxButton",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalComboBoxButton(javax.swing.JComboBox, javax.swing.Icon, boolean, javax.swing.CellRendererPane, javax.swing.JList)",
+    "parameters" : [ {
+      "name" : "cb",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "onlyIcon",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pane",
+      "type" : "javax.swing.CellRendererPane",
+      "genericType" : "javax.swing.CellRendererPane",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "list",
+      "type" : "javax.swing.JList",
+      "genericType" : "javax.swing.JList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.metal.MetalComboBoxButton",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalComboBoxButton(javax.swing.JComboBox, javax.swing.Icon, javax.swing.CellRendererPane, javax.swing.JList)",
+    "parameters" : [ {
+      "name" : "cb",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pane",
+      "type" : "javax.swing.CellRendererPane",
+      "genericType" : "javax.swing.CellRendererPane",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "list",
+      "type" : "javax.swing.JList",
+      "genericType" : "javax.swing.JList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getComboBox",
+    "modifiers" : "public final",
+    "signature" : "public final javax.swing.JComboBox getComboBox()",
+    "returnType" : "javax.swing.JComboBox",
+    "genericReturnType" : "javax.swing.JComboBox",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComboIcon",
+    "modifiers" : "public final",
+    "signature" : "public final javax.swing.Icon getComboIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getMinimumSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFocusTraversable",
+    "modifiers" : "public",
+    "signature" : "public boolean isFocusTraversable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIconOnly",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isIconOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintComponent",
+    "modifiers" : "public",
+    "signature" : "public void paintComponent(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setComboBox",
+    "modifiers" : "public final",
+    "signature" : "public final void setComboBox(javax.swing.JComboBox)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cb",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setComboIcon",
+    "modifiers" : "public final",
+    "signature" : "public final void setComboIcon(javax.swing.Icon)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enabled",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIconOnly",
+    "modifiers" : "public final",
+    "signature" : "public final void setIconOnly(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "isIconOnly",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

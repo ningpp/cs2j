@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.MethodTypeEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.MethodTypeEntry",
+  "simpleName" : "MethodTypeEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.LoadableConstantEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asSymbol",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.MethodTypeDesc asSymbol()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constantValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ConstantDesc constantValue()",
+    "returnType" : "java.lang.constant.ConstantDesc",
+    "genericReturnType" : "java.lang.constant.ConstantDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "descriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry descriptor()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matches",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean matches(java.lang.constant.MethodTypeDesc)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

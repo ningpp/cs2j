@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.NotificationBroadcaster",
+  "canonicalName" : "javax.management.NotificationBroadcaster",
+  "simpleName" : "NotificationBroadcaster",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addNotificationListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.NotificationFilter",
+      "genericType" : "javax.management.NotificationFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanNotificationInfo[] getNotificationInfo()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeNotificationListener(javax.management.NotificationListener) throws javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

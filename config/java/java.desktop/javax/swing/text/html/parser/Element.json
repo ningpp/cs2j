@@ -1,0 +1,153 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.Element",
+  "canonicalName" : "javax.swing.text.html.parser.Element",
+  "simpleName" : "Element",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.swing.text.html.parser.DTDConstants" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttribute",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.AttributeList getAttribute(java.lang.String)",
+    "returnType" : "javax.swing.text.html.parser.AttributeList",
+    "genericReturnType" : "javax.swing.text.html.parser.AttributeList",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributeByValue",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.AttributeList getAttributeByValue(java.lang.String)",
+    "returnType" : "javax.swing.text.html.parser.AttributeList",
+    "genericReturnType" : "javax.swing.text.html.parser.AttributeList",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.AttributeList getAttributes()",
+    "returnType" : "javax.swing.text.html.parser.AttributeList",
+    "genericReturnType" : "javax.swing.text.html.parser.AttributeList",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.ContentModel getContent()",
+    "returnType" : "javax.swing.text.html.parser.ContentModel",
+    "genericReturnType" : "javax.swing.text.html.parser.ContentModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndex",
+    "modifiers" : "public",
+    "signature" : "public int getIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name2type",
+    "modifiers" : "public static",
+    "signature" : "public static int name2type(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "omitEnd",
+    "modifiers" : "public",
+    "signature" : "public boolean omitEnd()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "omitStart",
+    "modifiers" : "public",
+    "signature" : "public boolean omitStart()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

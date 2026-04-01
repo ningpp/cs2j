@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.JTextComponent$KeyBinding",
+  "canonicalName" : "javax.swing.text.JTextComponent.KeyBinding",
+  "simpleName" : "KeyBinding",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.JTextComponent",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.JTextComponent$KeyBinding",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.JTextComponent$KeyBinding(javax.swing.KeyStroke, java.lang.String)",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actionName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

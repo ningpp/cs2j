@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.StructuredTaskScope$Subtask",
+  "canonicalName" : "java.util.concurrent.StructuredTaskScope.Subtask",
+  "simpleName" : "Subtask",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.StructuredTaskScope",
+  "interfaces" : [ "java.util.function.Supplier" ],
+  "declaredPublicMethods" : [ {
+    "name" : "exception",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Throwable exception()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object get()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "state",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.StructuredTaskScope$Subtask$State state()",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Subtask$State",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Subtask$State",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

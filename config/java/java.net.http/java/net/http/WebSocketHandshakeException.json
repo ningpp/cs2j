@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.WebSocketHandshakeException",
+  "canonicalName" : "java.net.http.WebSocketHandshakeException",
+  "simpleName" : "WebSocketHandshakeException",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.http.WebSocketHandshakeException",
+    "modifiers" : "public",
+    "signature" : "public java.net.http.WebSocketHandshakeException(java.net.http.HttpResponse)",
+    "parameters" : [ {
+      "name" : "response",
+      "type" : "java.net.http.HttpResponse",
+      "genericType" : "java.net.http.HttpResponse",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getResponse",
+    "modifiers" : "public",
+    "signature" : "public java.net.http.HttpResponse getResponse()",
+    "returnType" : "java.net.http.HttpResponse",
+    "genericReturnType" : "java.net.http.HttpResponse",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initCause",
+    "modifiers" : "public",
+    "signature" : "public java.net.http.WebSocketHandshakeException initCause(java.lang.Throwable)",
+    "returnType" : "java.net.http.WebSocketHandshakeException",
+    "genericReturnType" : "java.net.http.WebSocketHandshakeException",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

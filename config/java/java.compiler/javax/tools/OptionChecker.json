@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.OptionChecker",
+  "canonicalName" : "javax.tools.OptionChecker",
+  "simpleName" : "OptionChecker",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "isSupportedOption",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int isSupportedOption(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

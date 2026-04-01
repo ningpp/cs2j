@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.SourceDebugExtensionAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.SourceDebugExtensionAttribute",
+  "simpleName" : "SourceDebugExtensionAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "contents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] contents()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.SourceDebugExtensionAttribute of(byte[])",
+    "returnType" : "java.lang.classfile.attribute.SourceDebugExtensionAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.SourceDebugExtensionAttribute",
+    "parameters" : [ {
+      "name" : "contents",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

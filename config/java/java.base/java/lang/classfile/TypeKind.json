@@ -1,0 +1,129 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeKind",
+  "canonicalName" : "java.lang.classfile.TypeKind",
+  "simpleName" : "TypeKind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "asLoadable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.TypeKind asLoadable()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeKind from(java.lang.invoke.TypeDescriptor$OfField)",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "parameters" : [ {
+      "name" : "descriptor",
+      "type" : "java.lang.invoke.TypeDescriptor$OfField",
+      "genericType" : "java.lang.invoke.TypeDescriptor$OfField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromDescriptor",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeKind fromDescriptor(java.lang.CharSequence)",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromNewarrayCode",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeKind fromNewarrayCode(int)",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "parameters" : [ {
+      "name" : "newarrayCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newarrayCode",
+    "modifiers" : "public",
+    "signature" : "public int newarrayCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slotSize",
+    "modifiers" : "public",
+    "signature" : "public int slotSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "upperBound",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ClassDesc upperBound()",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeKind valueOf(java.lang.String)",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeKind[] values()",
+    "returnType" : "java.lang.classfile.TypeKind[]",
+    "genericReturnType" : "java.lang.classfile.TypeKind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

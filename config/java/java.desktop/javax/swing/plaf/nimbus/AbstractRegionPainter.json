@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.nimbus",
+  "binaryName" : "javax.swing.plaf.nimbus.AbstractRegionPainter",
+  "canonicalName" : "javax.swing.plaf.nimbus.AbstractRegionPainter",
+  "simpleName" : "AbstractRegionPainter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.Painter" ],
+  "declaredPublicMethods" : [ {
+    "name" : "paint",
+    "modifiers" : "public final",
+    "signature" : "public final void paint(java.awt.Graphics2D, javax.swing.JComponent, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics2D",
+      "genericType" : "java.awt.Graphics2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

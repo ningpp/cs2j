@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.TrustManager",
+  "canonicalName" : "javax.net.ssl.TrustManager",
+  "simpleName" : "TrustManager",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

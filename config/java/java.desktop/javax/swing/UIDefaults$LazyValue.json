@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.UIDefaults$LazyValue",
+  "canonicalName" : "javax.swing.UIDefaults.LazyValue",
+  "simpleName" : "LazyValue",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.UIDefaults",
+  "declaredPublicMethods" : [ {
+    "name" : "createValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object createValue(javax.swing.UIDefaults)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.UIDefaults",
+      "genericType" : "javax.swing.UIDefaults",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

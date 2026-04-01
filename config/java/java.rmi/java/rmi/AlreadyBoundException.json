@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.AlreadyBoundException",
+  "canonicalName" : "java.rmi.AlreadyBoundException",
+  "simpleName" : "AlreadyBoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.AlreadyBoundException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.AlreadyBoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.rmi.AlreadyBoundException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.AlreadyBoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

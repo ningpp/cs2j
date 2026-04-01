@@ -1,0 +1,1345 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Collections",
+  "canonicalName" : "java.util.Collections",
+  "simpleName" : "Collections",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addAll",
+    "modifiers" : "public static",
+    "signature" : "public static boolean addAll(java.util.Collection, java.lang.Object...)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "asLifoQueue",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Queue asLifoQueue(java.util.Deque)",
+    "returnType" : "java.util.Queue",
+    "genericReturnType" : "java.util.Queue",
+    "parameters" : [ {
+      "name" : "deque",
+      "type" : "java.util.Deque",
+      "genericType" : "java.util.Deque",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "binarySearch",
+    "modifiers" : "public static",
+    "signature" : "public static int binarySearch(java.util.List, java.lang.Object)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "binarySearch",
+    "modifiers" : "public static",
+    "signature" : "public static int binarySearch(java.util.List, java.lang.Object, java.util.Comparator)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedCollection",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Collection checkedCollection(java.util.Collection, java.lang.Class)",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedList",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List checkedList(java.util.List, java.lang.Class)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Map checkedMap(java.util.Map, java.lang.Class, java.lang.Class)",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedNavigableMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableMap checkedNavigableMap(java.util.NavigableMap, java.lang.Class, java.lang.Class)",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.NavigableMap",
+      "genericType" : "java.util.NavigableMap",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedNavigableSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableSet checkedNavigableSet(java.util.NavigableSet, java.lang.Class)",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.NavigableSet",
+      "genericType" : "java.util.NavigableSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedQueue",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Queue checkedQueue(java.util.Queue, java.lang.Class)",
+    "returnType" : "java.util.Queue",
+    "genericReturnType" : "java.util.Queue",
+    "parameters" : [ {
+      "name" : "queue",
+      "type" : "java.util.Queue",
+      "genericType" : "java.util.Queue",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set checkedSet(java.util.Set, java.lang.Class)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedSortedMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedMap checkedSortedMap(java.util.SortedMap, java.lang.Class, java.lang.Class)",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.SortedMap",
+      "genericType" : "java.util.SortedMap",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkedSortedSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedSet checkedSortedSet(java.util.SortedSet, java.lang.Class)",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.SortedSet",
+      "genericType" : "java.util.SortedSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static void copy(java.util.List, java.util.List)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dest",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "disjoint",
+    "modifiers" : "public static",
+    "signature" : "public static boolean disjoint(java.util.Collection, java.util.Collection)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c1",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c2",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyEnumeration",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Enumeration emptyEnumeration()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyIterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator emptyIterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyList",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.List emptyList()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyListIterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ListIterator emptyListIterator()",
+    "returnType" : "java.util.ListIterator",
+    "genericReturnType" : "java.util.ListIterator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyMap",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.Map emptyMap()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyNavigableMap",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.NavigableMap emptyNavigableMap()",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyNavigableSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableSet emptyNavigableSet()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptySet",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.Set emptySet()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptySortedMap",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.util.SortedMap emptySortedMap()",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptySortedSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedSet emptySortedSet()",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enumeration",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Enumeration enumeration(java.util.Collection)",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fill",
+    "modifiers" : "public static",
+    "signature" : "public static void fill(java.util.List, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "frequency",
+    "modifiers" : "public static",
+    "signature" : "public static int frequency(java.util.Collection, java.lang.Object)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "indexOfSubList",
+    "modifiers" : "public static",
+    "signature" : "public static int indexOfSubList(java.util.List, java.util.List)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastIndexOfSubList",
+    "modifiers" : "public static",
+    "signature" : "public static int lastIndexOfSubList(java.util.List, java.util.List)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.ArrayList list(java.util.Enumeration)",
+    "returnType" : "java.util.ArrayList",
+    "genericReturnType" : "java.util.ArrayList",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.util.Enumeration",
+      "genericType" : "java.util.Enumeration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "max",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object max(java.util.Collection)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "coll",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "max",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object max(java.util.Collection, java.util.Comparator)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "coll",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comp",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "min",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object min(java.util.Collection)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "coll",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "min",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object min(java.util.Collection, java.util.Comparator)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "coll",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comp",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nCopies",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List nCopies(int, java.lang.Object)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSequencedSetFromMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SequencedSet newSequencedSetFromMap(java.util.SequencedMap)",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "java.util.SequencedMap",
+      "genericType" : "java.util.SequencedMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSetFromMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set newSetFromMap(java.util.Map)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceAll",
+    "modifiers" : "public static",
+    "signature" : "public static boolean replaceAll(java.util.List, java.lang.Object, java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldVal",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newVal",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reverse",
+    "modifiers" : "public static",
+    "signature" : "public static void reverse(java.util.List)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reverseOrder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator reverseOrder()",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reverseOrder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator reverseOrder(java.util.Comparator)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "cmp",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rotate",
+    "modifiers" : "public static",
+    "signature" : "public static void rotate(java.util.List, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "distance",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shuffle",
+    "modifiers" : "public static",
+    "signature" : "public static void shuffle(java.util.List)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shuffle",
+    "modifiers" : "public static",
+    "signature" : "public static void shuffle(java.util.List, java.util.Random)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rnd",
+      "type" : "java.util.Random",
+      "genericType" : "java.util.Random",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shuffle",
+    "modifiers" : "public static",
+    "signature" : "public static void shuffle(java.util.List, java.util.random.RandomGenerator)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rnd",
+      "type" : "java.util.random.RandomGenerator",
+      "genericType" : "java.util.random.RandomGenerator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "singleton",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set singleton(java.lang.Object)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "singletonList",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List singletonList(java.lang.Object)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "singletonMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Map singletonMap(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sort",
+    "modifiers" : "public static",
+    "signature" : "public static void sort(java.util.List)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sort",
+    "modifiers" : "public static",
+    "signature" : "public static void sort(java.util.List, java.util.Comparator)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "swap",
+    "modifiers" : "public static",
+    "signature" : "public static void swap(java.util.List, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "j",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedCollection",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Collection synchronizedCollection(java.util.Collection)",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedList",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List synchronizedList(java.util.List)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Map synchronizedMap(java.util.Map)",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedNavigableMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableMap synchronizedNavigableMap(java.util.NavigableMap)",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.NavigableMap",
+      "genericType" : "java.util.NavigableMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedNavigableSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableSet synchronizedNavigableSet(java.util.NavigableSet)",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.NavigableSet",
+      "genericType" : "java.util.NavigableSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set synchronizedSet(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedSortedMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedMap synchronizedSortedMap(java.util.SortedMap)",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.SortedMap",
+      "genericType" : "java.util.SortedMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronizedSortedSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedSet synchronizedSortedSet(java.util.SortedSet)",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.SortedSet",
+      "genericType" : "java.util.SortedSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableCollection",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Collection unmodifiableCollection(java.util.Collection)",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableList",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List unmodifiableList(java.util.List)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "list",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Map unmodifiableMap(java.util.Map)",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableNavigableMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableMap unmodifiableNavigableMap(java.util.NavigableMap)",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.NavigableMap",
+      "genericType" : "java.util.NavigableMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableNavigableSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableSet unmodifiableNavigableSet(java.util.NavigableSet)",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.NavigableSet",
+      "genericType" : "java.util.NavigableSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableSequencedCollection",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SequencedCollection unmodifiableSequencedCollection(java.util.SequencedCollection)",
+    "returnType" : "java.util.SequencedCollection",
+    "genericReturnType" : "java.util.SequencedCollection",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.SequencedCollection",
+      "genericType" : "java.util.SequencedCollection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableSequencedMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SequencedMap unmodifiableSequencedMap(java.util.SequencedMap)",
+    "returnType" : "java.util.SequencedMap",
+    "genericReturnType" : "java.util.SequencedMap",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.SequencedMap",
+      "genericType" : "java.util.SequencedMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableSequencedSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SequencedSet unmodifiableSequencedSet(java.util.SequencedSet)",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.SequencedSet",
+      "genericType" : "java.util.SequencedSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set unmodifiableSet(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableSortedMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedMap unmodifiableSortedMap(java.util.SortedMap)",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.util.SortedMap",
+      "genericType" : "java.util.SortedMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmodifiableSortedSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.SortedSet unmodifiableSortedSet(java.util.SortedSet)",
+    "returnType" : "java.util.SortedSet",
+    "genericReturnType" : "java.util.SortedSet",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.SortedSet",
+      "genericType" : "java.util.SortedSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

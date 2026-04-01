@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.StructureViolationException",
+  "canonicalName" : "java.util.concurrent.StructureViolationException",
+  "simpleName" : "StructureViolationException",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.StructureViolationException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.StructureViolationException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.StructureViolationException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.StructureViolationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

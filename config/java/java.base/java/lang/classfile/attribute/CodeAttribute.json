@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.CodeAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.CodeAttribute",
+  "simpleName" : "CodeAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.CodeModel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "codeArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] codeArray()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "codeLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int codeLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "labelToBci",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int labelToBci(java.lang.classfile.Label)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maxLocals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int maxLocals()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maxStack",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int maxStack()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

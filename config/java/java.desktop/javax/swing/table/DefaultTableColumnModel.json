@@ -1,0 +1,352 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.table",
+  "binaryName" : "javax.swing.table.DefaultTableColumnModel",
+  "canonicalName" : "javax.swing.table.DefaultTableColumnModel",
+  "simpleName" : "DefaultTableColumnModel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.beans.PropertyChangeListener", "java.io.Serializable", "javax.swing.event.ListSelectionListener", "javax.swing.table.TableColumnModel" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.table.DefaultTableColumnModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.DefaultTableColumnModel()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addColumn",
+    "modifiers" : "public",
+    "signature" : "public void addColumn(javax.swing.table.TableColumn)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "aColumn",
+      "type" : "javax.swing.table.TableColumn",
+      "genericType" : "javax.swing.table.TableColumn",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addColumnModelListener",
+    "modifiers" : "public",
+    "signature" : "public void addColumnModelListener(javax.swing.event.TableColumnModelListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "javax.swing.event.TableColumnModelListener",
+      "genericType" : "javax.swing.event.TableColumnModelListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumn",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumn getColumn(int)",
+    "returnType" : "javax.swing.table.TableColumn",
+    "genericReturnType" : "javax.swing.table.TableColumn",
+    "parameters" : [ {
+      "name" : "columnIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnCount",
+    "modifiers" : "public",
+    "signature" : "public int getColumnCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnIndex",
+    "modifiers" : "public",
+    "signature" : "public int getColumnIndex(java.lang.Object)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "identifier",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnIndexAtX",
+    "modifiers" : "public",
+    "signature" : "public int getColumnIndexAtX(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnMargin",
+    "modifiers" : "public",
+    "signature" : "public int getColumnMargin()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnModelListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TableColumnModelListener[] getColumnModelListeners()",
+    "returnType" : "javax.swing.event.TableColumnModelListener[]",
+    "genericReturnType" : "javax.swing.event.TableColumnModelListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnSelectionAllowed",
+    "modifiers" : "public",
+    "signature" : "public boolean getColumnSelectionAllowed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumns",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration getColumns()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListeners",
+    "modifiers" : "public",
+    "signature" : "public java.util.EventListener[] getListeners(java.lang.Class)",
+    "returnType" : "java.util.EventListener[]",
+    "genericReturnType" : "java.util.EventListener[]",
+    "parameters" : [ {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedColumnCount",
+    "modifiers" : "public",
+    "signature" : "public int getSelectedColumnCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedColumns",
+    "modifiers" : "public",
+    "signature" : "public int[] getSelectedColumns()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.ListSelectionModel getSelectionModel()",
+    "returnType" : "javax.swing.ListSelectionModel",
+    "genericReturnType" : "javax.swing.ListSelectionModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTotalColumnWidth",
+    "modifiers" : "public",
+    "signature" : "public int getTotalColumnWidth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moveColumn",
+    "modifiers" : "public",
+    "signature" : "public void moveColumn(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "columnIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "propertyChange",
+    "modifiers" : "public",
+    "signature" : "public void propertyChange(java.beans.PropertyChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "evt",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeColumn",
+    "modifiers" : "public",
+    "signature" : "public void removeColumn(javax.swing.table.TableColumn)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "column",
+      "type" : "javax.swing.table.TableColumn",
+      "genericType" : "javax.swing.table.TableColumn",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeColumnModelListener",
+    "modifiers" : "public",
+    "signature" : "public void removeColumnModelListener(javax.swing.event.TableColumnModelListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "javax.swing.event.TableColumnModelListener",
+      "genericType" : "javax.swing.event.TableColumnModelListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumnMargin",
+    "modifiers" : "public",
+    "signature" : "public void setColumnMargin(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newMargin",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumnSelectionAllowed",
+    "modifiers" : "public",
+    "signature" : "public void setColumnSelectionAllowed(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "flag",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionModel(javax.swing.ListSelectionModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newModel",
+      "type" : "javax.swing.ListSelectionModel",
+      "genericType" : "javax.swing.ListSelectionModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueChanged",
+    "modifiers" : "public",
+    "signature" : "public void valueChanged(javax.swing.event.ListSelectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListSelectionEvent",
+      "genericType" : "javax.swing.event.ListSelectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

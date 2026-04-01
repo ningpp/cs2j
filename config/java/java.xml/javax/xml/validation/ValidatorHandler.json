@@ -1,0 +1,187 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.validation",
+  "binaryName" : "javax.xml.validation.ValidatorHandler",
+  "canonicalName" : "javax.xml.validation.ValidatorHandler",
+  "simpleName" : "ValidatorHandler",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "org.xml.sax.ContentHandler" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getContentHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.ContentHandler getContentHandler()",
+    "returnType" : "org.xml.sax.ContentHandler",
+    "genericReturnType" : "org.xml.sax.ContentHandler",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getErrorHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.ErrorHandler getErrorHandler()",
+    "returnType" : "org.xml.sax.ErrorHandler",
+    "genericReturnType" : "org.xml.sax.ErrorHandler",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFeature",
+    "modifiers" : "public",
+    "signature" : "public boolean getFeature(java.lang.String) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSResourceResolver getResourceResolver()",
+    "returnType" : "org.w3c.dom.ls.LSResourceResolver",
+    "genericReturnType" : "org.w3c.dom.ls.LSResourceResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeInfoProvider",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.validation.TypeInfoProvider getTypeInfoProvider()",
+    "returnType" : "javax.xml.validation.TypeInfoProvider",
+    "genericReturnType" : "javax.xml.validation.TypeInfoProvider",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContentHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setContentHandler(org.xml.sax.ContentHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.ContentHandler",
+      "genericType" : "org.xml.sax.ContentHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setErrorHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setErrorHandler(org.xml.sax.ErrorHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.ErrorHandler",
+      "genericType" : "org.xml.sax.ErrorHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFeature",
+    "modifiers" : "public",
+    "signature" : "public void setFeature(java.lang.String, boolean) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProperty",
+    "modifiers" : "public",
+    "signature" : "public void setProperty(java.lang.String, java.lang.Object) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResourceResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setResourceResolver(org.w3c.dom.ls.LSResourceResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.ls.LSResourceResolver",
+      "genericType" : "org.w3c.dom.ls.LSResourceResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

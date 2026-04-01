@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.PersistentMBean",
+  "canonicalName" : "javax.management.PersistentMBean",
+  "simpleName" : "PersistentMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "load",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void load() throws javax.management.MBeanException, javax.management.RuntimeOperationsException, javax.management.InstanceNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException", "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "store",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void store() throws javax.management.MBeanException, javax.management.RuntimeOperationsException, javax.management.InstanceNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException", "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

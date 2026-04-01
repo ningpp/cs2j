@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.MalformedLinkException",
+  "canonicalName" : "javax.naming.MalformedLinkException",
+  "simpleName" : "MalformedLinkException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.LinkException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.MalformedLinkException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.MalformedLinkException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.MalformedLinkException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.MalformedLinkException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

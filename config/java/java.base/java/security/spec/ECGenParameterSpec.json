@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.ECGenParameterSpec",
+  "canonicalName" : "java.security.spec.ECGenParameterSpec",
+  "simpleName" : "ECGenParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.spec.NamedParameterSpec",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.ECGenParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.ECGenParameterSpec(java.lang.String)",
+    "parameters" : [ {
+      "name" : "stdName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

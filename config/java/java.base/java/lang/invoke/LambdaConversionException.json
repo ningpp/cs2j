@@ -1,0 +1,88 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.LambdaConversionException",
+  "canonicalName" : "java.lang.invoke.LambdaConversionException",
+  "simpleName" : "LambdaConversionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.invoke.LambdaConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.LambdaConversionException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.invoke.LambdaConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.LambdaConversionException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.invoke.LambdaConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.LambdaConversionException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.invoke.LambdaConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.LambdaConversionException(java.lang.String, java.lang.Throwable, boolean, boolean)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "enableSuppression",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "writableStackTrace",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.invoke.LambdaConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.LambdaConversionException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

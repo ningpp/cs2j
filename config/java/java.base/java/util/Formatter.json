@@ -1,0 +1,428 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Formatter",
+  "canonicalName" : "java.util.Formatter",
+  "simpleName" : "Formatter",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Closeable", "java.io.Flushable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.File) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.File, java.lang.String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException", "java.io.UnsupportedEncodingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.File, java.lang.String, java.util.Locale) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException", "java.io.UnsupportedEncodingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.File, java.nio.charset.Charset, java.util.Locale) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.OutputStream)",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.OutputStream, java.lang.String) throws java.io.UnsupportedEncodingException",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.UnsupportedEncodingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.OutputStream, java.lang.String, java.util.Locale) throws java.io.UnsupportedEncodingException",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.UnsupportedEncodingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.OutputStream, java.nio.charset.Charset, java.util.Locale)",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.io.PrintStream)",
+    "parameters" : [ {
+      "name" : "ps",
+      "type" : "java.io.PrintStream",
+      "genericType" : "java.io.PrintStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.lang.Appendable)",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.lang.Appendable",
+      "genericType" : "java.lang.Appendable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.lang.Appendable, java.util.Locale)",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.lang.Appendable",
+      "genericType" : "java.lang.Appendable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.lang.String) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.lang.String, java.lang.String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException",
+    "parameters" : [ {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException", "java.io.UnsupportedEncodingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.lang.String, java.lang.String, java.util.Locale) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException",
+    "parameters" : [ {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException", "java.io.UnsupportedEncodingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.lang.String, java.nio.charset.Charset, java.util.Locale) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Formatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter(java.util.Locale)",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flush",
+    "modifiers" : "public",
+    "signature" : "public void flush()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter format(java.lang.String, java.lang.Object...)",
+    "returnType" : "java.util.Formatter",
+    "genericReturnType" : "java.util.Formatter",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "args",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.util.Formatter format(java.util.Locale, java.lang.String, java.lang.Object...)",
+    "returnType" : "java.util.Formatter",
+    "genericReturnType" : "java.util.Formatter",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "args",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ioException",
+    "modifiers" : "public",
+    "signature" : "public java.io.IOException ioException()",
+    "returnType" : "java.io.IOException",
+    "genericReturnType" : "java.io.IOException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "locale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Locale locale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "out",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Appendable out()",
+    "returnType" : "java.lang.Appendable",
+    "genericReturnType" : "java.lang.Appendable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

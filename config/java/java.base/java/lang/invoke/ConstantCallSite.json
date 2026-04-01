@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.ConstantCallSite",
+  "canonicalName" : "java.lang.invoke.ConstantCallSite",
+  "simpleName" : "ConstantCallSite",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.invoke.CallSite",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.invoke.ConstantCallSite",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.ConstantCallSite(java.lang.invoke.MethodHandle)",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "dynamicInvoker",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodHandle dynamicInvoker()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTarget",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.invoke.MethodHandle getTarget()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTarget",
+    "modifiers" : "public final",
+    "signature" : "public final void setTarget(java.lang.invoke.MethodHandle)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ignore",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

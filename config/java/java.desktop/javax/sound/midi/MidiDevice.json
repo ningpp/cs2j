@@ -1,0 +1,124 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.MidiDevice",
+  "canonicalName" : "javax.sound.midi.MidiDevice",
+  "simpleName" : "MidiDevice",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.AutoCloseable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeviceInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.MidiDevice$Info getDeviceInfo()",
+    "returnType" : "javax.sound.midi.MidiDevice$Info",
+    "genericReturnType" : "javax.sound.midi.MidiDevice$Info",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxReceivers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxReceivers()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxTransmitters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxTransmitters()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMicrosecondPosition",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getMicrosecondPosition()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReceiver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Receiver getReceiver() throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.Receiver",
+    "genericReturnType" : "javax.sound.midi.Receiver",
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReceivers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getReceivers()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransmitter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Transmitter getTransmitter() throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.Transmitter",
+    "genericReturnType" : "javax.sound.midi.Transmitter",
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransmitters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getTransmitters()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpen",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isOpen()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void open() throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

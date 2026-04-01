@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MalformedObjectNameException",
+  "canonicalName" : "javax.management.MalformedObjectNameException",
+  "simpleName" : "MalformedObjectNameException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.OperationsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.MalformedObjectNameException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MalformedObjectNameException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.MalformedObjectNameException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MalformedObjectNameException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

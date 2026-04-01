@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.CodeBuilder$BlockCodeBuilder",
+  "canonicalName" : "java.lang.classfile.CodeBuilder.BlockCodeBuilder",
+  "simpleName" : "BlockCodeBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.CodeBuilder",
+  "interfaces" : [ "java.lang.classfile.CodeBuilder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "breakLabel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label breakLabel()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.cert",
+  "binaryName" : "javax.security.cert.CertificateExpiredException",
+  "canonicalName" : "javax.security.cert.CertificateExpiredException",
+  "simpleName" : "CertificateExpiredException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.security.cert.CertificateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.cert.CertificateExpiredException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.CertificateExpiredException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.cert.CertificateExpiredException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.CertificateExpiredException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

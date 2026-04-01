@@ -1,0 +1,115 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicComboPopup",
+  "canonicalName" : "javax.swing.plaf.basic.BasicComboPopup",
+  "simpleName" : "BasicComboPopup",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JPopupMenu",
+  "interfaces" : [ "javax.swing.plaf.basic.ComboPopup" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicComboPopup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicComboPopup(javax.swing.JComboBox)",
+    "parameters" : [ {
+      "name" : "combo",
+      "type" : "javax.swing.JComboBox",
+      "genericType" : "javax.swing.JComboBox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyListener",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.KeyListener getKeyListener()",
+    "returnType" : "java.awt.event.KeyListener",
+    "genericReturnType" : "java.awt.event.KeyListener",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getList",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JList getList()",
+    "returnType" : "javax.swing.JList",
+    "genericReturnType" : "javax.swing.JList",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMouseListener",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.MouseListener getMouseListener()",
+    "returnType" : "java.awt.event.MouseListener",
+    "genericReturnType" : "java.awt.event.MouseListener",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMouseMotionListener",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.MouseMotionListener getMouseMotionListener()",
+    "returnType" : "java.awt.event.MouseMotionListener",
+    "genericReturnType" : "java.awt.event.MouseMotionListener",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hide",
+    "modifiers" : "public",
+    "signature" : "public void hide()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFocusTraversable",
+    "modifiers" : "public",
+    "signature" : "public boolean isFocusTraversable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "show",
+    "modifiers" : "public",
+    "signature" : "public void show()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallingUI",
+    "modifiers" : "public",
+    "signature" : "public void uninstallingUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

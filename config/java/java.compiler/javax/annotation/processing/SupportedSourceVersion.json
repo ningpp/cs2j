@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.annotation.processing",
+  "binaryName" : "javax.annotation.processing.SupportedSourceVersion",
+  "canonicalName" : "javax.annotation.processing.SupportedSourceVersion",
+  "simpleName" : "SupportedSourceVersion",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ],
+  "declaredPublicMethods" : [ {
+    "name" : "value",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.SourceVersion value()",
+    "returnType" : "javax.lang.model.SourceVersion",
+    "genericReturnType" : "javax.lang.model.SourceVersion",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

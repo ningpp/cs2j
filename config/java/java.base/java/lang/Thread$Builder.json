@@ -1,0 +1,129 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Thread$Builder",
+  "canonicalName" : "java.lang.Thread.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.Thread",
+  "declaredPublicMethods" : [ {
+    "name" : "factory",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ThreadFactory factory()",
+    "returnType" : "java.util.concurrent.ThreadFactory",
+    "genericReturnType" : "java.util.concurrent.ThreadFactory",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inheritInheritableThreadLocals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder inheritInheritableThreadLocals(boolean)",
+    "returnType" : "java.lang.Thread$Builder",
+    "genericReturnType" : "java.lang.Thread$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder name(java.lang.String)",
+    "returnType" : "java.lang.Thread$Builder",
+    "genericReturnType" : "java.lang.Thread$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder name(java.lang.String, long)",
+    "returnType" : "java.lang.Thread$Builder",
+    "genericReturnType" : "java.lang.Thread$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread start(java.lang.Runnable)",
+    "returnType" : "java.lang.Thread",
+    "genericReturnType" : "java.lang.Thread",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uncaughtExceptionHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder uncaughtExceptionHandler(java.lang.Thread$UncaughtExceptionHandler)",
+    "returnType" : "java.lang.Thread$Builder",
+    "genericReturnType" : "java.lang.Thread$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Thread$UncaughtExceptionHandler",
+      "genericType" : "java.lang.Thread$UncaughtExceptionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unstarted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread unstarted(java.lang.Runnable)",
+    "returnType" : "java.lang.Thread",
+    "genericReturnType" : "java.lang.Thread",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

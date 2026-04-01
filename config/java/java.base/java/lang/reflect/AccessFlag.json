@@ -1,0 +1,137 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.AccessFlag",
+  "canonicalName" : "java.lang.reflect.AccessFlag",
+  "simpleName" : "AccessFlag",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "locations",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set locations()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "locations",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set locations(java.lang.reflect.ClassFileFormatVersion)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "cffv",
+      "type" : "java.lang.reflect.ClassFileFormatVersion",
+      "genericType" : "java.lang.reflect.ClassFileFormatVersion",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mask",
+    "modifiers" : "public",
+    "signature" : "public int mask()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maskToAccessFlags",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set maskToAccessFlags(int, java.lang.reflect.AccessFlag$Location)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "mask",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "location",
+      "type" : "java.lang.reflect.AccessFlag$Location",
+      "genericType" : "java.lang.reflect.AccessFlag$Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maskToAccessFlags",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set maskToAccessFlags(int, java.lang.reflect.AccessFlag$Location, java.lang.reflect.ClassFileFormatVersion)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "mask",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "location",
+      "type" : "java.lang.reflect.AccessFlag$Location",
+      "genericType" : "java.lang.reflect.AccessFlag$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cffv",
+      "type" : "java.lang.reflect.ClassFileFormatVersion",
+      "genericType" : "java.lang.reflect.ClassFileFormatVersion",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sourceModifier",
+    "modifiers" : "public",
+    "signature" : "public boolean sourceModifier()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.reflect.AccessFlag valueOf(java.lang.String)",
+    "returnType" : "java.lang.reflect.AccessFlag",
+    "genericReturnType" : "java.lang.reflect.AccessFlag",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.reflect.AccessFlag[] values()",
+    "returnType" : "java.lang.reflect.AccessFlag[]",
+    "genericReturnType" : "java.lang.reflect.AccessFlag[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

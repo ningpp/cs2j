@@ -1,0 +1,428 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JColorChooser",
+  "canonicalName" : "javax.swing.JColorChooser",
+  "simpleName" : "JColorChooser",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JColorChooser",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JColorChooser()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JColorChooser",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JColorChooser(java.awt.Color)",
+    "parameters" : [ {
+      "name" : "initialColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.JColorChooser",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JColorChooser(javax.swing.colorchooser.ColorSelectionModel)",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "javax.swing.colorchooser.ColorSelectionModel",
+      "genericType" : "javax.swing.colorchooser.ColorSelectionModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addChooserPanel",
+    "modifiers" : "public",
+    "signature" : "public void addChooserPanel(javax.swing.colorchooser.AbstractColorChooserPanel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "panel",
+      "type" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+      "genericType" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDialog",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.JDialog createDialog(java.awt.Component, java.lang.String, boolean, javax.swing.JColorChooser, java.awt.event.ActionListener, java.awt.event.ActionListener) throws java.awt.HeadlessException",
+    "returnType" : "javax.swing.JDialog",
+    "genericReturnType" : "javax.swing.JDialog",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "chooserPane",
+      "type" : "javax.swing.JColorChooser",
+      "genericType" : "javax.swing.JColorChooser",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "okListener",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cancelListener",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChooserPanels",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.colorchooser.AbstractColorChooserPanel[] getChooserPanels()",
+    "returnType" : "javax.swing.colorchooser.AbstractColorChooserPanel[]",
+    "genericReturnType" : "javax.swing.colorchooser.AbstractColorChooserPanel[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getColor()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDragEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean getDragEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreviewPanel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JComponent getPreviewPanel()",
+    "returnType" : "javax.swing.JComponent",
+    "genericReturnType" : "javax.swing.JComponent",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.colorchooser.ColorSelectionModel getSelectionModel()",
+    "returnType" : "javax.swing.colorchooser.ColorSelectionModel",
+    "genericReturnType" : "javax.swing.colorchooser.ColorSelectionModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ColorChooserUI getUI()",
+    "returnType" : "javax.swing.plaf.ColorChooserUI",
+    "genericReturnType" : "javax.swing.plaf.ColorChooserUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeChooserPanel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.colorchooser.AbstractColorChooserPanel removeChooserPanel(javax.swing.colorchooser.AbstractColorChooserPanel)",
+    "returnType" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+    "genericReturnType" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+    "parameters" : [ {
+      "name" : "panel",
+      "type" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+      "genericType" : "javax.swing.colorchooser.AbstractColorChooserPanel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setChooserPanels",
+    "modifiers" : "public",
+    "signature" : "public void setChooserPanels(javax.swing.colorchooser.AbstractColorChooserPanel[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "panels",
+      "type" : "javax.swing.colorchooser.AbstractColorChooserPanel[]",
+      "genericType" : "javax.swing.colorchooser.AbstractColorChooserPanel[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColor",
+    "modifiers" : "public",
+    "signature" : "public void setColor(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColor",
+    "modifiers" : "public",
+    "signature" : "public void setColor(int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "g",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColor",
+    "modifiers" : "public",
+    "signature" : "public void setColor(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDragEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setDragEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPreviewPanel",
+    "modifiers" : "public",
+    "signature" : "public void setPreviewPanel(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "preview",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionModel",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionModel(javax.swing.colorchooser.ColorSelectionModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newModel",
+      "type" : "javax.swing.colorchooser.ColorSelectionModel",
+      "genericType" : "javax.swing.colorchooser.ColorSelectionModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.ColorChooserUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.ColorChooserUI",
+      "genericType" : "javax.swing.plaf.ColorChooserUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "showDialog",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Color showDialog(java.awt.Component, java.lang.String, java.awt.Color) throws java.awt.HeadlessException",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "showDialog",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Color showDialog(java.awt.Component, java.lang.String, java.awt.Color, boolean) throws java.awt.HeadlessException",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "colorTransparencySelectionEnabled",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,120 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute.standard",
+  "binaryName" : "javax.print.attribute.standard.PrinterStateReasons",
+  "canonicalName" : "javax.print.attribute.standard.PrinterStateReasons",
+  "simpleName" : "PrinterStateReasons",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.util.HashMap",
+  "interfaces" : [ "javax.print.attribute.PrintServiceAttribute" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.standard.PrinterStateReasons",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.PrinterStateReasons()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.standard.PrinterStateReasons",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.PrinterStateReasons(int)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.standard.PrinterStateReasons",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.PrinterStateReasons(int, float)",
+    "parameters" : [ {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loadFactor",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.standard.PrinterStateReasons",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.PrinterStateReasons(java.util.Map)",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCategory",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Class getCategory()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printerStateReasonSet",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set printerStateReasonSet(javax.print.attribute.standard.Severity)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "severity",
+      "type" : "javax.print.attribute.standard.Severity",
+      "genericType" : "javax.print.attribute.standard.Severity",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.standard.Severity put(javax.print.attribute.standard.PrinterStateReason, javax.print.attribute.standard.Severity)",
+    "returnType" : "javax.print.attribute.standard.Severity",
+    "genericReturnType" : "javax.print.attribute.standard.Severity",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "javax.print.attribute.standard.PrinterStateReason",
+      "genericType" : "javax.print.attribute.standard.PrinterStateReason",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "severity",
+      "type" : "javax.print.attribute.standard.Severity",
+      "genericType" : "javax.print.attribute.standard.Severity",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

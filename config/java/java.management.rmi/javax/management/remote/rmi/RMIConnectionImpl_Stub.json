@@ -1,0 +1,809 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIConnectionImpl_Stub",
+  "canonicalName" : "javax.management.remote.rmi.RMIConnectionImpl_Stub",
+  "simpleName" : "RMIConnectionImpl_Stub",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.rmi.server.RemoteStub",
+  "interfaces" : [ "javax.management.remote.rmi.RMIConnection" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.rmi.RMIConnectionImpl_Stub",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIConnectionImpl_Stub(java.rmi.server.RemoteRef)",
+    "parameters" : [ {
+      "name" : "ref",
+      "type" : "java.rmi.server.RemoteRef",
+      "genericType" : "java.rmi.server.RemoteRef",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void addNotificationListener(javax.management.ObjectName, javax.management.ObjectName, java.rmi.MarshalledObject, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_2",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_3",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_4",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_5",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotificationListeners",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Integer[] addNotificationListeners(javax.management.ObjectName[], java.rmi.MarshalledObject[], javax.security.auth.Subject[]) throws java.io.IOException, javax.management.InstanceNotFoundException",
+    "returnType" : "java.lang.Integer[]",
+    "genericReturnType" : "java.lang.Integer[]",
+    "parameters" : [ {
+      "name" : "$param_arrayOf_ObjectName_1",
+      "type" : "javax.management.ObjectName[]",
+      "genericType" : "javax.management.ObjectName[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_arrayOf_MarshalledObject_2",
+      "type" : "java.rmi.MarshalledObject[]",
+      "genericType" : "java.rmi.MarshalledObject[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_arrayOf_Subject_3",
+      "type" : "javax.security.auth.Subject[]",
+      "genericType" : "javax.security.auth.Subject[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, java.rmi.MarshalledObject, java.lang.String[], javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceAlreadyExistsException, javax.management.MBeanException, javax.management.MBeanRegistrationException, javax.management.NotCompliantMBeanException, javax.management.ReflectionException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "$param_String_1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_2",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_3",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_arrayOf_String_4",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_5",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceAlreadyExistsException", "javax.management.MBeanException", "javax.management.MBeanRegistrationException", "javax.management.NotCompliantMBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, javax.management.ObjectName, java.rmi.MarshalledObject, java.lang.String[], javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceAlreadyExistsException, javax.management.InstanceNotFoundException, javax.management.MBeanException, javax.management.MBeanRegistrationException, javax.management.NotCompliantMBeanException, javax.management.ReflectionException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "$param_String_1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_2",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_3",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_4",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_arrayOf_String_5",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_6",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceAlreadyExistsException", "javax.management.InstanceNotFoundException", "javax.management.MBeanException", "javax.management.MBeanRegistrationException", "javax.management.NotCompliantMBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceAlreadyExistsException, javax.management.InstanceNotFoundException, javax.management.MBeanException, javax.management.MBeanRegistrationException, javax.management.NotCompliantMBeanException, javax.management.ReflectionException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "$param_String_1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_2",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_3",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_4",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceAlreadyExistsException", "javax.management.InstanceNotFoundException", "javax.management.MBeanException", "javax.management.MBeanRegistrationException", "javax.management.NotCompliantMBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBean",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance createMBean(java.lang.String, javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceAlreadyExistsException, javax.management.MBeanException, javax.management.MBeanRegistrationException, javax.management.NotCompliantMBeanException, javax.management.ReflectionException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "$param_String_1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_2",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceAlreadyExistsException", "javax.management.MBeanException", "javax.management.MBeanRegistrationException", "javax.management.NotCompliantMBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fetchNotifications",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.NotificationResult fetchNotifications(long, int, long) throws java.io.IOException",
+    "returnType" : "javax.management.remote.NotificationResult",
+    "genericReturnType" : "javax.management.remote.NotificationResult",
+    "parameters" : [ {
+      "name" : "$param_long_1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_int_2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_long_3",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getAttribute(javax.management.ObjectName, java.lang.String, javax.security.auth.Subject) throws java.io.IOException, javax.management.AttributeNotFoundException, javax.management.InstanceNotFoundException, javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_String_2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.AttributeNotFoundException", "javax.management.InstanceNotFoundException", "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeList getAttributes(javax.management.ObjectName, java.lang.String[], javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.ReflectionException",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_arrayOf_String_2",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnectionId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getConnectionId() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultDomain",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDefaultDomain(javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "$param_Subject_1",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDomains",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getDomains(javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "parameters" : [ {
+      "name" : "$param_Subject_1",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanCount",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Integer getMBeanCount(javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "$param_Subject_1",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanInfo getMBeanInfo(javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.IntrospectionException, javax.management.ReflectionException",
+    "returnType" : "javax.management.MBeanInfo",
+    "genericReturnType" : "javax.management.MBeanInfo",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_2",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.IntrospectionException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjectInstance",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ObjectInstance getObjectInstance(javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException",
+    "returnType" : "javax.management.ObjectInstance",
+    "genericReturnType" : "javax.management.ObjectInstance",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_2",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invoke(javax.management.ObjectName, java.lang.String, java.rmi.MarshalledObject, java.lang.String[], javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_String_2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_3",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_arrayOf_String_4",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_5",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInstanceOf",
+    "modifiers" : "public",
+    "signature" : "public boolean isInstanceOf(javax.management.ObjectName, java.lang.String, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_String_2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRegistered",
+    "modifiers" : "public",
+    "signature" : "public boolean isRegistered(javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_2",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "queryMBeans",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set queryMBeans(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_2",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "queryNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set queryNames(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_2",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListener(javax.management.ObjectName, javax.management.ObjectName, java.rmi.MarshalledObject, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_2",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_3",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_4",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_5",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListener(javax.management.ObjectName, javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_ObjectName_2",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotificationListeners",
+    "modifiers" : "public",
+    "signature" : "public void removeNotificationListeners(javax.management.ObjectName, java.lang.Integer[], javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_arrayOf_Integer_2",
+      "type" : "java.lang.Integer[]",
+      "genericType" : "java.lang.Integer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public",
+    "signature" : "public void setAttribute(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException, javax.management.AttributeNotFoundException, javax.management.InstanceNotFoundException, javax.management.InvalidAttributeValueException, javax.management.MBeanException, javax.management.ReflectionException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_2",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.AttributeNotFoundException", "javax.management.InstanceNotFoundException", "javax.management.InvalidAttributeValueException", "javax.management.MBeanException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.management.AttributeList setAttributes(javax.management.ObjectName, java.rmi.MarshalledObject, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.ReflectionException",
+    "returnType" : "javax.management.AttributeList",
+    "genericReturnType" : "javax.management.AttributeList",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_MarshalledObject_2",
+      "type" : "java.rmi.MarshalledObject",
+      "genericType" : "java.rmi.MarshalledObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_3",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.ReflectionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unregisterMBean",
+    "modifiers" : "public",
+    "signature" : "public void unregisterMBean(javax.management.ObjectName, javax.security.auth.Subject) throws java.io.IOException, javax.management.InstanceNotFoundException, javax.management.MBeanRegistrationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "$param_ObjectName_1",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "$param_Subject_2",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "javax.management.InstanceNotFoundException", "javax.management.MBeanRegistrationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

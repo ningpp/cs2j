@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.LookupSwitchInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.LookupSwitchInstruction",
+  "simpleName" : "LookupSwitchInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "cases",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List cases()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultTarget",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label defaultTarget()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.LookupSwitchInstruction of(java.lang.classfile.Label, java.util.List)",
+    "returnType" : "java.lang.classfile.instruction.LookupSwitchInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.LookupSwitchInstruction",
+    "parameters" : [ {
+      "name" : "defaultTarget",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cases",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,191 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent.locks",
+  "binaryName" : "java.util.concurrent.locks.ReentrantReadWriteLock",
+  "canonicalName" : "java.util.concurrent.locks.ReentrantReadWriteLock",
+  "simpleName" : "ReentrantReadWriteLock",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.util.concurrent.locks.ReadWriteLock" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.locks.ReentrantReadWriteLock",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.locks.ReentrantReadWriteLock()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.locks.ReentrantReadWriteLock",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.locks.ReentrantReadWriteLock(boolean)",
+    "parameters" : [ {
+      "name" : "fair",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getQueueLength",
+    "modifiers" : "public final",
+    "signature" : "public final int getQueueLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReadHoldCount",
+    "modifiers" : "public",
+    "signature" : "public int getReadHoldCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReadLockCount",
+    "modifiers" : "public",
+    "signature" : "public int getReadLockCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWaitQueueLength",
+    "modifiers" : "public",
+    "signature" : "public int getWaitQueueLength(java.util.concurrent.locks.Condition)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "condition",
+      "type" : "java.util.concurrent.locks.Condition",
+      "genericType" : "java.util.concurrent.locks.Condition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWriteHoldCount",
+    "modifiers" : "public",
+    "signature" : "public int getWriteHoldCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasQueuedThread",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasQueuedThread(java.lang.Thread)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "thread",
+      "type" : "java.lang.Thread",
+      "genericType" : "java.lang.Thread",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasQueuedThreads",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasQueuedThreads()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasWaiters",
+    "modifiers" : "public",
+    "signature" : "public boolean hasWaiters(java.util.concurrent.locks.Condition)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "condition",
+      "type" : "java.util.concurrent.locks.Condition",
+      "genericType" : "java.util.concurrent.locks.Condition",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFair",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isFair()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWriteLocked",
+    "modifiers" : "public",
+    "signature" : "public boolean isWriteLocked()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWriteLockedByCurrentThread",
+    "modifiers" : "public",
+    "signature" : "public boolean isWriteLockedByCurrentThread()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readLock",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.locks.ReentrantReadWriteLock$ReadLock readLock()",
+    "returnType" : "java.util.concurrent.locks.ReentrantReadWriteLock$ReadLock",
+    "genericReturnType" : "java.util.concurrent.locks.ReentrantReadWriteLock$ReadLock",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeLock",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock writeLock()",
+    "returnType" : "java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock",
+    "genericReturnType" : "java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

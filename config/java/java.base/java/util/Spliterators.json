@@ -1,0 +1,582 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Spliterators",
+  "canonicalName" : "java.util.Spliterators",
+  "simpleName" : "Spliterators",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "emptyDoubleSpliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfDouble emptyDoubleSpliterator()",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyIntSpliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfInt emptyIntSpliterator()",
+    "returnType" : "java.util.Spliterator$OfInt",
+    "genericReturnType" : "java.util.Spliterator$OfInt",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptyLongSpliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfLong emptyLongSpliterator()",
+    "returnType" : "java.util.Spliterator$OfLong",
+    "genericReturnType" : "java.util.Spliterator$OfLong",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "emptySpliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator emptySpliterator()",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Iterator iterator(java.util.Spliterator)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator",
+      "genericType" : "java.util.Spliterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.PrimitiveIterator$OfDouble iterator(java.util.Spliterator$OfDouble)",
+    "returnType" : "java.util.PrimitiveIterator$OfDouble",
+    "genericReturnType" : "java.util.PrimitiveIterator$OfDouble",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator$OfDouble",
+      "genericType" : "java.util.Spliterator$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.PrimitiveIterator$OfInt iterator(java.util.Spliterator$OfInt)",
+    "returnType" : "java.util.PrimitiveIterator$OfInt",
+    "genericReturnType" : "java.util.PrimitiveIterator$OfInt",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator$OfInt",
+      "genericType" : "java.util.Spliterator$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.PrimitiveIterator$OfLong iterator(java.util.Spliterator$OfLong)",
+    "returnType" : "java.util.PrimitiveIterator$OfLong",
+    "genericReturnType" : "java.util.PrimitiveIterator$OfLong",
+    "parameters" : [ {
+      "name" : "spliterator",
+      "type" : "java.util.Spliterator$OfLong",
+      "genericType" : "java.util.Spliterator$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfDouble spliterator(double[], int)",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "double[]",
+      "genericType" : "double[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfDouble spliterator(double[], int, int, int)",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "double[]",
+      "genericType" : "double[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fromIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfInt spliterator(int[], int)",
+    "returnType" : "java.util.Spliterator$OfInt",
+    "genericReturnType" : "java.util.Spliterator$OfInt",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfInt spliterator(int[], int, int, int)",
+    "returnType" : "java.util.Spliterator$OfInt",
+    "genericReturnType" : "java.util.Spliterator$OfInt",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fromIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator spliterator(java.lang.Object[], int)",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator spliterator(java.lang.Object[], int, int, int)",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fromIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator spliterator(java.util.Collection, int)",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator spliterator(java.util.Iterator, long, int)",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfDouble spliterator(java.util.PrimitiveIterator$OfDouble, long, int)",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.PrimitiveIterator$OfDouble",
+      "genericType" : "java.util.PrimitiveIterator$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfInt spliterator(java.util.PrimitiveIterator$OfInt, long, int)",
+    "returnType" : "java.util.Spliterator$OfInt",
+    "genericReturnType" : "java.util.Spliterator$OfInt",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.PrimitiveIterator$OfInt",
+      "genericType" : "java.util.PrimitiveIterator$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfLong spliterator(java.util.PrimitiveIterator$OfLong, long, int)",
+    "returnType" : "java.util.Spliterator$OfLong",
+    "genericReturnType" : "java.util.Spliterator$OfLong",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.PrimitiveIterator$OfLong",
+      "genericType" : "java.util.PrimitiveIterator$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfLong spliterator(long[], int)",
+    "returnType" : "java.util.Spliterator$OfLong",
+    "genericReturnType" : "java.util.Spliterator$OfLong",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfLong spliterator(long[], int, int, int)",
+    "returnType" : "java.util.Spliterator$OfLong",
+    "genericReturnType" : "java.util.Spliterator$OfLong",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fromIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "additionalCharacteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliteratorUnknownSize",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator spliteratorUnknownSize(java.util.Iterator, int)",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliteratorUnknownSize",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfDouble spliteratorUnknownSize(java.util.PrimitiveIterator$OfDouble, int)",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.PrimitiveIterator$OfDouble",
+      "genericType" : "java.util.PrimitiveIterator$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliteratorUnknownSize",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfInt spliteratorUnknownSize(java.util.PrimitiveIterator$OfInt, int)",
+    "returnType" : "java.util.Spliterator$OfInt",
+    "genericReturnType" : "java.util.Spliterator$OfInt",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.PrimitiveIterator$OfInt",
+      "genericType" : "java.util.PrimitiveIterator$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliteratorUnknownSize",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Spliterator$OfLong spliteratorUnknownSize(java.util.PrimitiveIterator$OfLong, int)",
+    "returnType" : "java.util.Spliterator$OfLong",
+    "genericReturnType" : "java.util.Spliterator$OfLong",
+    "parameters" : [ {
+      "name" : "iterator",
+      "type" : "java.util.PrimitiveIterator$OfLong",
+      "genericType" : "java.util.PrimitiveIterator$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characteristics",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

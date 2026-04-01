@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.constant",
+  "binaryName" : "java.lang.constant.DirectMethodHandleDesc",
+  "canonicalName" : "java.lang.constant.DirectMethodHandleDesc",
+  "simpleName" : "DirectMethodHandleDesc",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.constant.MethodHandleDesc" ],
+  "declaredPublicMethods" : [ {
+    "name" : "isOwnerInterface",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isOwnerInterface()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "kind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.DirectMethodHandleDesc$Kind kind()",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String lookupDescriptor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "methodName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String methodName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "owner",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.ClassDesc owner()",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "refKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int refKind()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.Filter",
+  "canonicalName" : "java.util.logging.Filter",
+  "simpleName" : "Filter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "isLoggable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isLoggable(java.util.logging.LogRecord)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

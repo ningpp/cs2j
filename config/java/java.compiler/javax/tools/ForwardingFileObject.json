@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.ForwardingFileObject",
+  "canonicalName" : "javax.tools.ForwardingFileObject",
+  "simpleName" : "ForwardingFileObject",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.tools.FileObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "delete",
+    "modifiers" : "public",
+    "signature" : "public boolean delete()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharContent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.CharSequence getCharContent(boolean) throws java.io.IOException",
+    "returnType" : "java.lang.CharSequence",
+    "genericReturnType" : "java.lang.CharSequence",
+    "parameters" : [ {
+      "name" : "ignoreEncodingErrors",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastModified",
+    "modifiers" : "public",
+    "signature" : "public long getLastModified()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openInputStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream openInputStream() throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openOutputStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.OutputStream openOutputStream() throws java.io.IOException",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.Reader openReader(boolean) throws java.io.IOException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "parameters" : [ {
+      "name" : "ignoreEncodingErrors",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openWriter",
+    "modifiers" : "public",
+    "signature" : "public java.io.Writer openWriter() throws java.io.IOException",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toUri",
+    "modifiers" : "public",
+    "signature" : "public java.net.URI toUri()",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,173 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RemoteRef",
+  "canonicalName" : "java.rmi.server.RemoteRef",
+  "simpleName" : "RemoteRef",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Externalizable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "done",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void done(java.rmi.server.RemoteCall) throws java.rmi.RemoteException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.server.RemoteCall",
+      "genericType" : "java.rmi.server.RemoteCall",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRefClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getRefClass(java.io.ObjectOutput)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.ObjectOutput",
+      "genericType" : "java.io.ObjectOutput",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object invoke(java.rmi.Remote, java.lang.reflect.Method, java.lang.Object[], long) throws java.lang.Exception",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void invoke(java.rmi.server.RemoteCall) throws java.lang.Exception",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.server.RemoteCall",
+      "genericType" : "java.rmi.server.RemoteCall",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newCall",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.rmi.server.RemoteCall newCall(java.rmi.server.RemoteObject, java.rmi.server.Operation[], int, long) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.server.RemoteCall",
+    "genericReturnType" : "java.rmi.server.RemoteCall",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.server.RemoteObject",
+      "genericType" : "java.rmi.server.RemoteObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.rmi.server.Operation[]",
+      "genericType" : "java.rmi.server.Operation[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remoteEquals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean remoteEquals(java.rmi.server.RemoteRef)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.server.RemoteRef",
+      "genericType" : "java.rmi.server.RemoteRef",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remoteHashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int remoteHashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remoteToString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String remoteToString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

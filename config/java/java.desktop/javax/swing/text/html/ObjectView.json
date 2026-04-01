@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.ObjectView",
+  "canonicalName" : "javax.swing.text.html.ObjectView",
+  "simpleName" : "ObjectView",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.ComponentView",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.ObjectView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.ObjectView(javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

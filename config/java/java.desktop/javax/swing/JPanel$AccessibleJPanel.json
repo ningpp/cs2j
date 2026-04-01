@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JPanel$AccessibleJPanel",
+  "canonicalName" : "javax.swing.JPanel.AccessibleJPanel",
+  "simpleName" : "AccessibleJPanel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JPanel",
+  "superClass" : "javax.swing.JComponent$AccessibleJComponent",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

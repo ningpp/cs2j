@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.ViewFactory",
+  "canonicalName" : "javax.swing.text.ViewFactory",
+  "simpleName" : "ViewFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "create",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.View create(javax.swing.text.Element)",
+    "returnType" : "javax.swing.text.View",
+    "genericReturnType" : "javax.swing.text.View",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

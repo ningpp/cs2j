@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.KeySelectorResult",
+  "canonicalName" : "javax.xml.crypto.KeySelectorResult",
+  "simpleName" : "KeySelectorResult",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Key getKey()",
+    "returnType" : "java.security.Key",
+    "genericReturnType" : "java.security.Key",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

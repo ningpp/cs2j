@@ -1,0 +1,335 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPath",
+  "canonicalName" : "javax.xml.xpath.XPath",
+  "simpleName" : "XPath",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "compile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.xpath.XPathExpression compile(java.lang.String) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "javax.xml.xpath.XPathExpression",
+    "genericReturnType" : "javax.xml.xpath.XPathExpression",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String evaluate(java.lang.String, java.lang.Object) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object evaluate(java.lang.String, java.lang.Object, javax.xml.namespace.QName) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String evaluate(java.lang.String, org.xml.sax.InputSource) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object evaluate(java.lang.String, org.xml.sax.InputSource, javax.xml.namespace.QName) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathEvaluationResult evaluateExpression(java.lang.String, java.lang.Object) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "genericReturnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "parameters" : [ {
+      "name" : "expression",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object evaluateExpression(java.lang.String, java.lang.Object, java.lang.Class) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "expression",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathEvaluationResult evaluateExpression(java.lang.String, org.xml.sax.InputSource) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "genericReturnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "parameters" : [ {
+      "name" : "expression",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "source",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object evaluateExpression(java.lang.String, org.xml.sax.InputSource, java.lang.Class) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "expression",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "source",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getNamespaceContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.namespace.NamespaceContext getNamespaceContext()",
+    "returnType" : "javax.xml.namespace.NamespaceContext",
+    "genericReturnType" : "javax.xml.namespace.NamespaceContext",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXPathFunctionResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.xpath.XPathFunctionResolver getXPathFunctionResolver()",
+    "returnType" : "javax.xml.xpath.XPathFunctionResolver",
+    "genericReturnType" : "javax.xml.xpath.XPathFunctionResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXPathVariableResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.xpath.XPathVariableResolver getXPathVariableResolver()",
+    "returnType" : "javax.xml.xpath.XPathVariableResolver",
+    "genericReturnType" : "javax.xml.xpath.XPathVariableResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void reset()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNamespaceContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNamespaceContext(javax.xml.namespace.NamespaceContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.namespace.NamespaceContext",
+      "genericType" : "javax.xml.namespace.NamespaceContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXPathFunctionResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setXPathFunctionResolver(javax.xml.xpath.XPathFunctionResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.xpath.XPathFunctionResolver",
+      "genericType" : "javax.xml.xpath.XPathFunctionResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXPathVariableResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setXPathVariableResolver(javax.xml.xpath.XPathVariableResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.xpath.XPathVariableResolver",
+      "genericType" : "javax.xml.xpath.XPathVariableResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

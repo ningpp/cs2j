@@ -1,0 +1,292 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.FileDialog",
+  "canonicalName" : "java.awt.FileDialog",
+  "simpleName" : "FileDialog",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Dialog",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.FileDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FileDialog(java.awt.Dialog)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Dialog",
+      "genericType" : "java.awt.Dialog",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.FileDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FileDialog(java.awt.Dialog, java.lang.String)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Dialog",
+      "genericType" : "java.awt.Dialog",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.FileDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FileDialog(java.awt.Dialog, java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Dialog",
+      "genericType" : "java.awt.Dialog",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.FileDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FileDialog(java.awt.Frame)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.FileDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FileDialog(java.awt.Frame, java.lang.String)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.FileDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.FileDialog(java.awt.Frame, java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Frame",
+      "genericType" : "java.awt.Frame",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDirectory",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDirectory()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFile",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFile()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFilenameFilter",
+    "modifiers" : "public",
+    "signature" : "public java.io.FilenameFilter getFilenameFilter()",
+    "returnType" : "java.io.FilenameFilter",
+    "genericReturnType" : "java.io.FilenameFilter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFiles",
+    "modifiers" : "public",
+    "signature" : "public java.io.File[] getFiles()",
+    "returnType" : "java.io.File[]",
+    "genericReturnType" : "java.io.File[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMode",
+    "modifiers" : "public",
+    "signature" : "public int getMode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMultipleMode",
+    "modifiers" : "public",
+    "signature" : "public boolean isMultipleMode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDirectory",
+    "modifiers" : "public",
+    "signature" : "public void setDirectory(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFile",
+    "modifiers" : "public",
+    "signature" : "public void setFile(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFilenameFilter",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setFilenameFilter(java.io.FilenameFilter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.io.FilenameFilter",
+      "genericType" : "java.io.FilenameFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMode",
+    "modifiers" : "public",
+    "signature" : "public void setMode(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMultipleMode",
+    "modifiers" : "public",
+    "signature" : "public void setMultipleMode(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enable",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTitle",
+    "modifiers" : "public",
+    "signature" : "public void setTitle(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "title",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

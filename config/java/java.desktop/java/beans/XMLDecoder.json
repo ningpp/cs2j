@@ -1,0 +1,212 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.XMLDecoder",
+  "canonicalName" : "java.beans.XMLDecoder",
+  "simpleName" : "XMLDecoder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.AutoCloseable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.XMLDecoder",
+    "modifiers" : "public",
+    "signature" : "public java.beans.XMLDecoder(java.io.InputStream)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.XMLDecoder",
+    "modifiers" : "public",
+    "signature" : "public java.beans.XMLDecoder(java.io.InputStream, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.XMLDecoder",
+    "modifiers" : "public",
+    "signature" : "public java.beans.XMLDecoder(java.io.InputStream, java.lang.Object, java.beans.ExceptionListener)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exceptionListener",
+      "type" : "java.beans.ExceptionListener",
+      "genericType" : "java.beans.ExceptionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.XMLDecoder",
+    "modifiers" : "public",
+    "signature" : "public java.beans.XMLDecoder(java.io.InputStream, java.lang.Object, java.beans.ExceptionListener, java.lang.ClassLoader)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exceptionListener",
+      "type" : "java.beans.ExceptionListener",
+      "genericType" : "java.beans.ExceptionListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cl",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.XMLDecoder",
+    "modifiers" : "public",
+    "signature" : "public java.beans.XMLDecoder(org.xml.sax.InputSource)",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createHandler",
+    "modifiers" : "public static",
+    "signature" : "public static org.xml.sax.helpers.DefaultHandler createHandler(java.lang.Object, java.beans.ExceptionListener, java.lang.ClassLoader)",
+    "returnType" : "org.xml.sax.helpers.DefaultHandler",
+    "genericReturnType" : "org.xml.sax.helpers.DefaultHandler",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "el",
+      "type" : "java.beans.ExceptionListener",
+      "genericType" : "java.beans.ExceptionListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cl",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExceptionListener",
+    "modifiers" : "public",
+    "signature" : "public java.beans.ExceptionListener getExceptionListener()",
+    "returnType" : "java.beans.ExceptionListener",
+    "genericReturnType" : "java.beans.ExceptionListener",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOwner",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getOwner()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object readObject()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExceptionListener",
+    "modifiers" : "public",
+    "signature" : "public void setExceptionListener(java.beans.ExceptionListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "exceptionListener",
+      "type" : "java.beans.ExceptionListener",
+      "genericType" : "java.beans.ExceptionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOwner",
+    "modifiers" : "public",
+    "signature" : "public void setOwner(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

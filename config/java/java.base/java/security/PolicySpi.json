@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.PolicySpi",
+  "canonicalName" : "java.security.PolicySpi",
+  "simpleName" : "PolicySpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.PolicySpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.PolicySpi()",
+    "varArgs" : false
+  } ]
+}

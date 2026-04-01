@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicFormattedTextFieldUI",
+  "canonicalName" : "javax.swing.plaf.basic.BasicFormattedTextFieldUI",
+  "simpleName" : "BasicFormattedTextFieldUI",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.basic.BasicTextFieldUI",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicFormattedTextFieldUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicFormattedTextFieldUI()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createUI",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ComponentUI createUI(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.ComponentUI",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

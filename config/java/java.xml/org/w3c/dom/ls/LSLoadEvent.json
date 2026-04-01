@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ls",
+  "binaryName" : "org.w3c.dom.ls.LSLoadEvent",
+  "canonicalName" : "org.w3c.dom.ls.LSLoadEvent",
+  "simpleName" : "LSLoadEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.events.Event" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getInput",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSInput getInput()",
+    "returnType" : "org.w3c.dom.ls.LSInput",
+    "genericReturnType" : "org.w3c.dom.ls.LSInput",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNewDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Document getNewDocument()",
+    "returnType" : "org.w3c.dom.Document",
+    "genericReturnType" : "org.w3c.dom.Document",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

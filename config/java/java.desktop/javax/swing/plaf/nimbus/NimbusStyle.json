@@ -1,0 +1,159 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.nimbus",
+  "binaryName" : "javax.swing.plaf.nimbus.NimbusStyle",
+  "canonicalName" : "javax.swing.plaf.nimbus.NimbusStyle",
+  "simpleName" : "NimbusStyle",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.swing.plaf.synth.SynthStyle",
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(javax.swing.plaf.synth.SynthContext, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBackgroundPainter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Painter getBackgroundPainter(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "javax.swing.Painter",
+    "genericReturnType" : "javax.swing.Painter",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBorderPainter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Painter getBorderPainter(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "javax.swing.Painter",
+    "genericReturnType" : "javax.swing.Painter",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getForegroundPainter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Painter getForegroundPainter(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "javax.swing.Painter",
+    "genericReturnType" : "javax.swing.Painter",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInsets",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getInsets(javax.swing.plaf.synth.SynthContext, java.awt.Insets)",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "in",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPainter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.SynthPainter getPainter(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "javax.swing.plaf.synth.SynthPainter",
+    "genericReturnType" : "javax.swing.plaf.synth.SynthPainter",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installDefaults",
+    "modifiers" : "public",
+    "signature" : "public void installDefaults(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpaque",
+    "modifiers" : "public",
+    "signature" : "public boolean isOpaque(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

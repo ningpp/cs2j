@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.format",
+  "binaryName" : "java.time.format.FormatStyle",
+  "canonicalName" : "java.time.format.FormatStyle",
+  "simpleName" : "FormatStyle",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.FormatStyle valueOf(java.lang.String)",
+    "returnType" : "java.time.format.FormatStyle",
+    "genericReturnType" : "java.time.format.FormatStyle",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.FormatStyle[] values()",
+    "returnType" : "java.time.format.FormatStyle[]",
+    "genericReturnType" : "java.time.format.FormatStyle[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

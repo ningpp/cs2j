@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.EmptyTarget",
+  "simpleName" : "EmptyTarget",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "interfaces" : [ "java.lang.classfile.TypeAnnotation$TargetInfo" ]
+}

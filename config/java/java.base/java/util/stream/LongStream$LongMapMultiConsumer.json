@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.LongStream$LongMapMultiConsumer",
+  "canonicalName" : "java.util.stream.LongStream.LongMapMultiConsumer",
+  "simpleName" : "LongMapMultiConsumer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.LongStream",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(long, java.util.function.LongConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.LongConsumer",
+      "genericType" : "java.util.function.LongConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.print",
+  "binaryName" : "java.awt.print.PrinterAbortException",
+  "canonicalName" : "java.awt.print.PrinterAbortException",
+  "simpleName" : "PrinterAbortException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.print.PrinterException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.print.PrinterAbortException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PrinterAbortException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.print.PrinterAbortException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PrinterAbortException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

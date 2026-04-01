@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.jpeg",
+  "binaryName" : "javax.imageio.plugins.jpeg.JPEGQTable",
+  "canonicalName" : "javax.imageio.plugins.jpeg.JPEGQTable",
+  "simpleName" : "JPEGQTable",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.jpeg.JPEGQTable",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.jpeg.JPEGQTable(int[])",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getScaledInstance",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.jpeg.JPEGQTable getScaledInstance(float, boolean)",
+    "returnType" : "javax.imageio.plugins.jpeg.JPEGQTable",
+    "genericReturnType" : "javax.imageio.plugins.jpeg.JPEGQTable",
+    "parameters" : [ {
+      "name" : "scaleFactor",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "forceBaseline",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTable",
+    "modifiers" : "public",
+    "signature" : "public int[] getTable()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

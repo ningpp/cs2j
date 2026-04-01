@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectInputFilter",
+  "canonicalName" : "java.io.ObjectInputFilter",
+  "simpleName" : "ObjectInputFilter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "allowFilter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter allowFilter(java.util.function.Predicate, java.io.ObjectInputFilter$Status)",
+    "returnType" : "java.io.ObjectInputFilter",
+    "genericReturnType" : "java.io.ObjectInputFilter",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "otherStatus",
+      "type" : "java.io.ObjectInputFilter$Status",
+      "genericType" : "java.io.ObjectInputFilter$Status",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkInput",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.ObjectInputFilter$Status checkInput(java.io.ObjectInputFilter$FilterInfo)",
+    "returnType" : "java.io.ObjectInputFilter$Status",
+    "genericReturnType" : "java.io.ObjectInputFilter$Status",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.ObjectInputFilter$FilterInfo",
+      "genericType" : "java.io.ObjectInputFilter$FilterInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "merge",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter merge(java.io.ObjectInputFilter, java.io.ObjectInputFilter)",
+    "returnType" : "java.io.ObjectInputFilter",
+    "genericReturnType" : "java.io.ObjectInputFilter",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.io.ObjectInputFilter",
+      "genericType" : "java.io.ObjectInputFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "anotherFilter",
+      "type" : "java.io.ObjectInputFilter",
+      "genericType" : "java.io.ObjectInputFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rejectFilter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter rejectFilter(java.util.function.Predicate, java.io.ObjectInputFilter$Status)",
+    "returnType" : "java.io.ObjectInputFilter",
+    "genericReturnType" : "java.io.ObjectInputFilter",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "otherStatus",
+      "type" : "java.io.ObjectInputFilter$Status",
+      "genericType" : "java.io.ObjectInputFilter$Status",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rejectUndecidedClass",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter rejectUndecidedClass(java.io.ObjectInputFilter)",
+    "returnType" : "java.io.ObjectInputFilter",
+    "genericReturnType" : "java.io.ObjectInputFilter",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.io.ObjectInputFilter",
+      "genericType" : "java.io.ObjectInputFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

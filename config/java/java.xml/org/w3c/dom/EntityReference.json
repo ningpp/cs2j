@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.EntityReference",
+  "canonicalName" : "org.w3c.dom.EntityReference",
+  "simpleName" : "EntityReference",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.Node" ]
+}

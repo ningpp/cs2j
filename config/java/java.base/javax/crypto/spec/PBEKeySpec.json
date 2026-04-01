@@ -1,0 +1,129 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.PBEKeySpec",
+  "canonicalName" : "javax.crypto.spec.PBEKeySpec",
+  "simpleName" : "PBEKeySpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.KeySpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.spec.PBEKeySpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.PBEKeySpec(char[])",
+    "parameters" : [ {
+      "name" : "password",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.spec.PBEKeySpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.PBEKeySpec(char[], byte[], int)",
+    "parameters" : [ {
+      "name" : "password",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "salt",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iterationCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.spec.PBEKeySpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.PBEKeySpec(char[], byte[], int, int)",
+    "parameters" : [ {
+      "name" : "password",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "salt",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "iterationCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clearPassword",
+    "modifiers" : "public final synchronized",
+    "signature" : "public final synchronized void clearPassword()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIterationCount",
+    "modifiers" : "public final",
+    "signature" : "public final int getIterationCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyLength",
+    "modifiers" : "public final",
+    "signature" : "public final int getKeyLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPassword",
+    "modifiers" : "public final synchronized",
+    "signature" : "public final synchronized char[] getPassword()",
+    "returnType" : "char[]",
+    "genericReturnType" : "char[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSalt",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] getSalt()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

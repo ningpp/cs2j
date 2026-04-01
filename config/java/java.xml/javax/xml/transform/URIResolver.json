@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform",
+  "binaryName" : "javax.xml.transform.URIResolver",
+  "canonicalName" : "javax.xml.transform.URIResolver",
+  "simpleName" : "URIResolver",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "resolve",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Source resolve(java.lang.String, java.lang.String) throws javax.xml.transform.TransformerException",
+    "returnType" : "javax.xml.transform.Source",
+    "genericReturnType" : "javax.xml.transform.Source",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,448 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.URL",
+  "canonicalName" : "java.net.URL",
+  "simpleName" : "URL",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.URL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL(java.lang.String) throws java.net.MalformedURLException",
+    "parameters" : [ {
+      "name" : "spec",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL(java.lang.String, java.lang.String, int, java.lang.String) throws java.net.MalformedURLException",
+    "parameters" : [ {
+      "name" : "protocol",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "host",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL(java.lang.String, java.lang.String, int, java.lang.String, java.net.URLStreamHandler) throws java.net.MalformedURLException",
+    "parameters" : [ {
+      "name" : "protocol",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "host",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.net.URLStreamHandler",
+      "genericType" : "java.net.URLStreamHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL(java.lang.String, java.lang.String, java.lang.String) throws java.net.MalformedURLException",
+    "parameters" : [ {
+      "name" : "protocol",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "host",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL(java.net.URL, java.lang.String) throws java.net.MalformedURLException",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spec",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.URL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL(java.net.URL, java.lang.String, java.net.URLStreamHandler) throws java.net.MalformedURLException",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spec",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.net.URLStreamHandler",
+      "genericType" : "java.net.URLStreamHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAuthority",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAuthority()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContent",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object getContent() throws java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContent",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object getContent(java.lang.Class[]) throws java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "classes",
+      "type" : "java.lang.Class[]",
+      "genericType" : "java.lang.Class[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultPort",
+    "modifiers" : "public",
+    "signature" : "public int getDefaultPort()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFile",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFile()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHost",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getHost()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPath",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPath()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPort",
+    "modifiers" : "public",
+    "signature" : "public int getPort()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtocol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getProtocol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQuery",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getQuery()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRef",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getRef()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserInfo",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUserInfo()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.URL of(java.net.URI, java.net.URLStreamHandler) throws java.net.MalformedURLException",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.net.URLStreamHandler",
+      "genericType" : "java.net.URLStreamHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.MalformedURLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openConnection",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLConnection openConnection() throws java.io.IOException",
+    "returnType" : "java.net.URLConnection",
+    "genericReturnType" : "java.net.URLConnection",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openConnection",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLConnection openConnection(java.net.Proxy) throws java.io.IOException",
+    "returnType" : "java.net.URLConnection",
+    "genericReturnType" : "java.net.URLConnection",
+    "parameters" : [ {
+      "name" : "proxy",
+      "type" : "java.net.Proxy",
+      "genericType" : "java.net.Proxy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openStream",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.InputStream openStream() throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sameFile",
+    "modifiers" : "public",
+    "signature" : "public boolean sameFile(java.net.URL)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setURLStreamHandlerFactory",
+    "modifiers" : "public static",
+    "signature" : "public static void setURLStreamHandlerFactory(java.net.URLStreamHandlerFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fac",
+      "type" : "java.net.URLStreamHandlerFactory",
+      "genericType" : "java.net.URLStreamHandlerFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toExternalForm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toExternalForm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toURI",
+    "modifiers" : "public",
+    "signature" : "public java.net.URI toURI() throws java.net.URISyntaxException",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "exceptions" : [ "java.net.URISyntaxException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

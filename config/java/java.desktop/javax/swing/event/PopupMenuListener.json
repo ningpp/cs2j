@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.PopupMenuListener",
+  "canonicalName" : "javax.swing.event.PopupMenuListener",
+  "simpleName" : "PopupMenuListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "popupMenuCanceled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void popupMenuCanceled(javax.swing.event.PopupMenuEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.PopupMenuEvent",
+      "genericType" : "javax.swing.event.PopupMenuEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "popupMenuWillBecomeInvisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.PopupMenuEvent",
+      "genericType" : "javax.swing.event.PopupMenuEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "popupMenuWillBecomeVisible",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.PopupMenuEvent",
+      "genericType" : "javax.swing.event.PopupMenuEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

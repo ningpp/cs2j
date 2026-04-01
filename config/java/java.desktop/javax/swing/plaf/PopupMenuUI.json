@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.PopupMenuUI",
+  "canonicalName" : "javax.swing.plaf.PopupMenuUI",
+  "simpleName" : "PopupMenuUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI",
+  "declaredPublicMethods" : [ {
+    "name" : "getPopup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Popup getPopup(javax.swing.JPopupMenu, int, int)",
+    "returnType" : "javax.swing.Popup",
+    "genericReturnType" : "javax.swing.Popup",
+    "parameters" : [ {
+      "name" : "popup",
+      "type" : "javax.swing.JPopupMenu",
+      "genericType" : "javax.swing.JPopupMenu",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPopupTrigger",
+    "modifiers" : "public",
+    "signature" : "public boolean isPopupTrigger(java.awt.event.MouseEvent)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

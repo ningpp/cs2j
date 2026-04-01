@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.SyntheticAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.SyntheticAttribute",
+  "simpleName" : "SyntheticAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement", "java.lang.classfile.FieldElement", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.SyntheticAttribute of()",
+    "returnType" : "java.lang.classfile.attribute.SyntheticAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.SyntheticAttribute",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

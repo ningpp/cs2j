@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.Remote",
+  "canonicalName" : "java.rmi.Remote",
+  "simpleName" : "Remote",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

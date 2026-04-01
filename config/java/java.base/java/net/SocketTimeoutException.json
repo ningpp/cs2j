@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.SocketTimeoutException",
+  "canonicalName" : "java.net.SocketTimeoutException",
+  "simpleName" : "SocketTimeoutException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.InterruptedIOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.SocketTimeoutException",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketTimeoutException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.SocketTimeoutException",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketTimeoutException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

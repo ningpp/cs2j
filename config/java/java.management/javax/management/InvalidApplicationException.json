@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.InvalidApplicationException",
+  "canonicalName" : "javax.management.InvalidApplicationException",
+  "simpleName" : "InvalidApplicationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.InvalidApplicationException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.InvalidApplicationException(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

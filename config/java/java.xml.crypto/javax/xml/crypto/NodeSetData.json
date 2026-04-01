@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.NodeSetData",
+  "canonicalName" : "javax.xml.crypto.NodeSetData",
+  "simpleName" : "NodeSetData",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.Iterable", "javax.xml.crypto.Data" ],
+  "declaredPublicMethods" : [ {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

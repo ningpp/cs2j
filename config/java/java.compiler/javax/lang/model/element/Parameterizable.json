@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.Parameterizable",
+  "canonicalName" : "javax.lang.model.element.Parameterizable",
+  "simpleName" : "Parameterizable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.element.Element" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getTypeParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getTypeParameters()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.NoSuchElementException",
+  "canonicalName" : "java.util.NoSuchElementException",
+  "simpleName" : "NoSuchElementException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.NoSuchElementException",
+    "modifiers" : "public",
+    "signature" : "public java.util.NoSuchElementException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.NoSuchElementException",
+    "modifiers" : "public",
+    "signature" : "public java.util.NoSuchElementException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.NoSuchElementException",
+    "modifiers" : "public",
+    "signature" : "public java.util.NoSuchElementException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.NoSuchElementException",
+    "modifiers" : "public",
+    "signature" : "public java.util.NoSuchElementException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.serial",
+  "binaryName" : "javax.sql.rowset.serial.SerialException",
+  "canonicalName" : "javax.sql.rowset.serial.SerialException",
+  "simpleName" : "SerialException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.sql.SQLException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.rowset.serial.SerialException",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.serial.SerialException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.sql.rowset.serial.SerialException",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.serial.SerialException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

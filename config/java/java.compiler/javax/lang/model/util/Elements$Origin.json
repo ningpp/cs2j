@@ -1,0 +1,49 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.Elements$Origin",
+  "canonicalName" : "javax.lang.model.util.Elements.Origin",
+  "simpleName" : "Origin",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.lang.model.util.Elements",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "isDeclared",
+    "modifiers" : "public",
+    "signature" : "public boolean isDeclared()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.util.Elements$Origin valueOf(java.lang.String)",
+    "returnType" : "javax.lang.model.util.Elements$Origin",
+    "genericReturnType" : "javax.lang.model.util.Elements$Origin",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.util.Elements$Origin[] values()",
+    "returnType" : "javax.lang.model.util.Elements$Origin[]",
+    "genericReturnType" : "javax.lang.model.util.Elements$Origin[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

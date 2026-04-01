@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicInternalFrameTitlePane",
+  "canonicalName" : "javax.swing.plaf.basic.BasicInternalFrameTitlePane",
+  "simpleName" : "BasicInternalFrameTitlePane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicInternalFrameTitlePane",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicInternalFrameTitlePane(javax.swing.JInternalFrame)",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "paintComponent",
+    "modifiers" : "public",
+    "signature" : "public void paintComponent(java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.NotificationEmitter",
+  "canonicalName" : "javax.management.NotificationEmitter",
+  "simpleName" : "NotificationEmitter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.NotificationBroadcaster" ],
+  "declaredPublicMethods" : [ {
+    "name" : "removeNotificationListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object) throws javax.management.ListenerNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.NotificationListener",
+      "genericType" : "javax.management.NotificationListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.NotificationFilter",
+      "genericType" : "javax.management.NotificationFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.ListenerNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,79 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.BasicControl",
+  "canonicalName" : "javax.naming.ldap.BasicControl",
+  "simpleName" : "BasicControl",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.naming.ldap.Control" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.BasicControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.BasicControl(java.lang.String)",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.BasicControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.BasicControl(java.lang.String, boolean, byte[])",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getEncodedValue",
+    "modifiers" : "public",
+    "signature" : "public byte[] getEncodedValue()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCritical",
+    "modifiers" : "public",
+    "signature" : "public boolean isCritical()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

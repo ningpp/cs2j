@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.util",
+  "binaryName" : "javax.xml.stream.util.XMLEventAllocator",
+  "canonicalName" : "javax.xml.stream.util.XMLEventAllocator",
+  "simpleName" : "XMLEventAllocator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "allocate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.XMLEvent allocate(javax.xml.stream.XMLStreamReader) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.events.XMLEvent",
+    "genericReturnType" : "javax.xml.stream.events.XMLEvent",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.stream.XMLStreamReader",
+      "genericType" : "javax.xml.stream.XMLStreamReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "allocate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void allocate(javax.xml.stream.XMLStreamReader, javax.xml.stream.util.XMLEventConsumer) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.stream.XMLStreamReader",
+      "genericType" : "javax.xml.stream.XMLStreamReader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.stream.util.XMLEventConsumer",
+      "genericType" : "javax.xml.stream.util.XMLEventConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.util.XMLEventAllocator newInstance()",
+    "returnType" : "javax.xml.stream.util.XMLEventAllocator",
+    "genericReturnType" : "javax.xml.stream.util.XMLEventAllocator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.AlgorithmParameterSpec",
+  "canonicalName" : "java.security.spec.AlgorithmParameterSpec",
+  "simpleName" : "AlgorithmParameterSpec",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

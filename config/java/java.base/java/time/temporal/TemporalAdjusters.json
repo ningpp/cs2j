@@ -1,0 +1,213 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.TemporalAdjusters",
+  "canonicalName" : "java.time.temporal.TemporalAdjusters",
+  "simpleName" : "TemporalAdjusters",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "dayOfWeekInMonth",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster dayOfWeekInMonth(int, java.time.DayOfWeek)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "ordinal",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstDayOfMonth",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster firstDayOfMonth()",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstDayOfNextMonth",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster firstDayOfNextMonth()",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstDayOfNextYear",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster firstDayOfNextYear()",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstDayOfYear",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster firstDayOfYear()",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstInMonth",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster firstInMonth(java.time.DayOfWeek)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastDayOfMonth",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster lastDayOfMonth()",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastDayOfYear",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster lastDayOfYear()",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastInMonth",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster lastInMonth(java.time.DayOfWeek)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster next(java.time.DayOfWeek)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextOrSame",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster nextOrSame(java.time.DayOfWeek)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDateAdjuster",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster ofDateAdjuster(java.util.function.UnaryOperator)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "dateBasedAdjuster",
+      "type" : "java.util.function.UnaryOperator",
+      "genericType" : "java.util.function.UnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previous",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster previous(java.time.DayOfWeek)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousOrSame",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalAdjuster previousOrSame(java.time.DayOfWeek)",
+    "returnType" : "java.time.temporal.TemporalAdjuster",
+    "genericReturnType" : "java.time.temporal.TemporalAdjuster",
+    "parameters" : [ {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

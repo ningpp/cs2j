@@ -1,0 +1,194 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.HyperlinkEvent",
+  "canonicalName" : "javax.swing.event.HyperlinkEvent",
+  "simpleName" : "HyperlinkEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.HyperlinkEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.HyperlinkEvent(java.lang.Object, javax.swing.event.HyperlinkEvent$EventType, java.net.URL)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.event.HyperlinkEvent$EventType",
+      "genericType" : "javax.swing.event.HyperlinkEvent$EventType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "u",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.HyperlinkEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.HyperlinkEvent(java.lang.Object, javax.swing.event.HyperlinkEvent$EventType, java.net.URL, java.lang.String)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.event.HyperlinkEvent$EventType",
+      "genericType" : "javax.swing.event.HyperlinkEvent$EventType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "u",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "desc",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.HyperlinkEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.HyperlinkEvent(java.lang.Object, javax.swing.event.HyperlinkEvent$EventType, java.net.URL, java.lang.String, javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.event.HyperlinkEvent$EventType",
+      "genericType" : "javax.swing.event.HyperlinkEvent$EventType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "u",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "desc",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceElement",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.HyperlinkEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.HyperlinkEvent(java.lang.Object, javax.swing.event.HyperlinkEvent$EventType, java.net.URL, java.lang.String, javax.swing.text.Element, java.awt.event.InputEvent)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.event.HyperlinkEvent$EventType",
+      "genericType" : "javax.swing.event.HyperlinkEvent$EventType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "u",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "desc",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceElement",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputEvent",
+      "type" : "java.awt.event.InputEvent",
+      "genericType" : "java.awt.event.InputEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEventType",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.HyperlinkEvent$EventType getEventType()",
+    "returnType" : "javax.swing.event.HyperlinkEvent$EventType",
+    "genericReturnType" : "javax.swing.event.HyperlinkEvent$EventType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InputEvent getInputEvent()",
+    "returnType" : "java.awt.event.InputEvent",
+    "genericReturnType" : "java.awt.event.InputEvent",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getSourceElement()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL getURL()",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

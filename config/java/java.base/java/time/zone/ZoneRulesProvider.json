@@ -1,0 +1,88 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.zone",
+  "binaryName" : "java.time.zone.ZoneRulesProvider",
+  "canonicalName" : "java.time.zone.ZoneRulesProvider",
+  "simpleName" : "ZoneRulesProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAvailableZoneIds",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set getAvailableZoneIds()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRules",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.zone.ZoneRules getRules(java.lang.String, boolean)",
+    "returnType" : "java.time.zone.ZoneRules",
+    "genericReturnType" : "java.time.zone.ZoneRules",
+    "parameters" : [ {
+      "name" : "zoneId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "forCaching",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersions",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.NavigableMap getVersions(java.lang.String)",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "parameters" : [ {
+      "name" : "zoneId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "refresh",
+    "modifiers" : "public static",
+    "signature" : "public static boolean refresh()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerProvider",
+    "modifiers" : "public static",
+    "signature" : "public static void registerProvider(java.time.zone.ZoneRulesProvider)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "provider",
+      "type" : "java.time.zone.ZoneRulesProvider",
+      "genericType" : "java.time.zone.ZoneRulesProvider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

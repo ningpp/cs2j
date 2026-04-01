@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.HeadlessException",
+  "canonicalName" : "java.awt.HeadlessException",
+  "simpleName" : "HeadlessException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.UnsupportedOperationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.HeadlessException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.HeadlessException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.HeadlessException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.HeadlessException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

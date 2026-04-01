@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.ref",
+  "binaryName" : "java.lang.ref.Cleaner",
+  "canonicalName" : "java.lang.ref.Cleaner",
+  "simpleName" : "Cleaner",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "create",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ref.Cleaner create()",
+    "returnType" : "java.lang.ref.Cleaner",
+    "genericReturnType" : "java.lang.ref.Cleaner",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "create",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ref.Cleaner create(java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.lang.ref.Cleaner",
+    "genericReturnType" : "java.lang.ref.Cleaner",
+    "parameters" : [ {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "register",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ref.Cleaner$Cleanable register(java.lang.Object, java.lang.Runnable)",
+    "returnType" : "java.lang.ref.Cleaner$Cleanable",
+    "genericReturnType" : "java.lang.ref.Cleaner$Cleanable",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

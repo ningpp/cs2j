@@ -1,0 +1,59 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.VetoableChangeListenerProxy",
+  "canonicalName" : "java.beans.VetoableChangeListenerProxy",
+  "simpleName" : "VetoableChangeListenerProxy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventListenerProxy",
+  "interfaces" : [ "java.beans.VetoableChangeListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.VetoableChangeListenerProxy",
+    "modifiers" : "public",
+    "signature" : "public java.beans.VetoableChangeListenerProxy(java.lang.String, java.beans.VetoableChangeListener)",
+    "parameters" : [ {
+      "name" : "propertyName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listener",
+      "type" : "java.beans.VetoableChangeListener",
+      "genericType" : "java.beans.VetoableChangeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPropertyName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPropertyName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "vetoableChange",
+    "modifiers" : "public",
+    "signature" : "public void vetoableChange(java.beans.PropertyChangeEvent) throws java.beans.PropertyVetoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.PropertyVetoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

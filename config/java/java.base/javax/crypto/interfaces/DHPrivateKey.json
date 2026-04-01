@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.interfaces",
+  "binaryName" : "javax.crypto.interfaces.DHPrivateKey",
+  "canonicalName" : "javax.crypto.interfaces.DHPrivateKey",
+  "simpleName" : "DHPrivateKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.PrivateKey", "javax.crypto.interfaces.DHKey" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParams",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.DHParameterSpec getParams()",
+    "returnType" : "javax.crypto.spec.DHParameterSpec",
+    "genericReturnType" : "javax.crypto.spec.DHParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getX",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getX()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

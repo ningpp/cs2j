@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.HMACParameterSpec",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.HMACParameterSpec",
+  "simpleName" : "HMACParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.crypto.dsig.spec.SignatureMethodParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.spec.HMACParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.HMACParameterSpec(int)",
+    "parameters" : [ {
+      "name" : "outputLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getOutputLength",
+    "modifiers" : "public",
+    "signature" : "public int getOutputLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

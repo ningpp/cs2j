@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.DoublePredicate",
+  "canonicalName" : "java.util.function.DoublePredicate",
+  "simpleName" : "DoublePredicate",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "and",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.DoublePredicate and(java.util.function.DoublePredicate)",
+    "returnType" : "java.util.function.DoublePredicate",
+    "genericReturnType" : "java.util.function.DoublePredicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "negate",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.DoublePredicate negate()",
+    "returnType" : "java.util.function.DoublePredicate",
+    "genericReturnType" : "java.util.function.DoublePredicate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "or",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.DoublePredicate or(java.util.function.DoublePredicate)",
+    "returnType" : "java.util.function.DoublePredicate",
+    "genericReturnType" : "java.util.function.DoublePredicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "test",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean test(double)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

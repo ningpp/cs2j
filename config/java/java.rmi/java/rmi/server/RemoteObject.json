@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RemoteObject",
+  "canonicalName" : "java.rmi.server.RemoteObject",
+  "simpleName" : "RemoteObject",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.rmi.Remote" ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRef",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.RemoteRef getRef()",
+    "returnType" : "java.rmi.server.RemoteRef",
+    "genericReturnType" : "java.rmi.server.RemoteRef",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toStub",
+    "modifiers" : "public static",
+    "signature" : "public static java.rmi.Remote toStub(java.rmi.Remote) throws java.rmi.NoSuchObjectException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.NoSuchObjectException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

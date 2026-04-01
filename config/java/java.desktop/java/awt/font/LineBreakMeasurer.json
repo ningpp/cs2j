@@ -1,0 +1,219 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.LineBreakMeasurer",
+  "canonicalName" : "java.awt.font.LineBreakMeasurer",
+  "simpleName" : "LineBreakMeasurer",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.font.LineBreakMeasurer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.LineBreakMeasurer(java.text.AttributedCharacterIterator, java.awt.font.FontRenderContext)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.font.LineBreakMeasurer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.LineBreakMeasurer(java.text.AttributedCharacterIterator, java.text.BreakIterator, java.awt.font.FontRenderContext)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "breakIter",
+      "type" : "java.text.BreakIterator",
+      "genericType" : "java.text.BreakIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "deleteChar",
+    "modifiers" : "public",
+    "signature" : "public void deleteChar(java.text.AttributedCharacterIterator, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newParagraph",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "deletePos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPosition",
+    "modifiers" : "public",
+    "signature" : "public int getPosition()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertChar",
+    "modifiers" : "public",
+    "signature" : "public void insertChar(java.text.AttributedCharacterIterator, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newParagraph",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insertPos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextLayout nextLayout(float)",
+    "returnType" : "java.awt.font.TextLayout",
+    "genericReturnType" : "java.awt.font.TextLayout",
+    "parameters" : [ {
+      "name" : "wrappingWidth",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextLayout nextLayout(float, int, boolean)",
+    "returnType" : "java.awt.font.TextLayout",
+    "genericReturnType" : "java.awt.font.TextLayout",
+    "parameters" : [ {
+      "name" : "wrappingWidth",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsetLimit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requireNextWord",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextOffset",
+    "modifiers" : "public",
+    "signature" : "public int nextOffset(float)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "wrappingWidth",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextOffset",
+    "modifiers" : "public",
+    "signature" : "public int nextOffset(float, int, boolean)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "wrappingWidth",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsetLimit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requireNextWord",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPosition",
+    "modifiers" : "public",
+    "signature" : "public void setPosition(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newPosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

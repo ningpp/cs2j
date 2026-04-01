@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.spi",
+  "binaryName" : "javax.sql.rowset.spi.XmlWriter",
+  "canonicalName" : "javax.sql.rowset.spi.XmlWriter",
+  "simpleName" : "XmlWriter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.RowSetWriter" ],
+  "declaredPublicMethods" : [ {
+    "name" : "writeXML",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeXML(javax.sql.rowset.WebRowSet, java.io.Writer) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.rowset.WebRowSet",
+      "genericType" : "javax.sql.rowset.WebRowSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

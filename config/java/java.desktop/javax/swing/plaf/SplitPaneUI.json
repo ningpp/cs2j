@@ -1,0 +1,125 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.SplitPaneUI",
+  "canonicalName" : "javax.swing.plaf.SplitPaneUI",
+  "simpleName" : "SplitPaneUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI",
+  "declaredPublicMethods" : [ {
+    "name" : "finishedPaintingChildren",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void finishedPaintingChildren(javax.swing.JSplitPane, java.awt.Graphics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JSplitPane",
+      "genericType" : "javax.swing.JSplitPane",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDividerLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDividerLocation(javax.swing.JSplitPane)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JSplitPane",
+      "genericType" : "javax.swing.JSplitPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumDividerLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaximumDividerLocation(javax.swing.JSplitPane)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JSplitPane",
+      "genericType" : "javax.swing.JSplitPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumDividerLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMinimumDividerLocation(javax.swing.JSplitPane)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JSplitPane",
+      "genericType" : "javax.swing.JSplitPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resetToPreferredSizes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void resetToPreferredSizes(javax.swing.JSplitPane)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JSplitPane",
+      "genericType" : "javax.swing.JSplitPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDividerLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDividerLocation(javax.swing.JSplitPane, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JSplitPane",
+      "genericType" : "javax.swing.JSplitPane",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

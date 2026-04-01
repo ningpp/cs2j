@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.UnsupportedClassVersionError",
+  "canonicalName" : "java.lang.UnsupportedClassVersionError",
+  "simpleName" : "UnsupportedClassVersionError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ClassFormatError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.UnsupportedClassVersionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsupportedClassVersionError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.UnsupportedClassVersionError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsupportedClassVersionError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

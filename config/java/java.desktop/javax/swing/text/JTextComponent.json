@@ -1,0 +1,1209 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.JTextComponent",
+  "canonicalName" : "javax.swing.text.JTextComponent",
+  "simpleName" : "JTextComponent",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.swing.Scrollable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.JTextComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.JTextComponent()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addCaretListener",
+    "modifiers" : "public",
+    "signature" : "public void addCaretListener(javax.swing.event.CaretListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.swing.event.CaretListener",
+      "genericType" : "javax.swing.event.CaretListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addInputMethodListener",
+    "modifiers" : "public",
+    "signature" : "public void addInputMethodListener(java.awt.event.InputMethodListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.InputMethodListener",
+      "genericType" : "java.awt.event.InputMethodListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addKeymap",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.Keymap addKeymap(java.lang.String, javax.swing.text.Keymap)",
+    "returnType" : "javax.swing.text.Keymap",
+    "genericReturnType" : "javax.swing.text.Keymap",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "javax.swing.text.Keymap",
+      "genericType" : "javax.swing.text.Keymap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public",
+    "signature" : "public void copy()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cut",
+    "modifiers" : "public",
+    "signature" : "public void cut()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getActions",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action[] getActions()",
+    "returnType" : "javax.swing.Action[]",
+    "genericReturnType" : "javax.swing.Action[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaret",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Caret getCaret()",
+    "returnType" : "javax.swing.text.Caret",
+    "genericReturnType" : "javax.swing.text.Caret",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getCaretColor()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.CaretListener[] getCaretListeners()",
+    "returnType" : "javax.swing.event.CaretListener[]",
+    "genericReturnType" : "javax.swing.event.CaretListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretPosition",
+    "modifiers" : "public",
+    "signature" : "public int getCaretPosition()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisabledTextColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getDisabledTextColor()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Document getDocument()",
+    "returnType" : "javax.swing.text.Document",
+    "genericReturnType" : "javax.swing.text.Document",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDragEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean getDragEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDropLocation",
+    "modifiers" : "public final",
+    "signature" : "public final javax.swing.text.JTextComponent$DropLocation getDropLocation()",
+    "returnType" : "javax.swing.text.JTextComponent$DropLocation",
+    "genericReturnType" : "javax.swing.text.JTextComponent$DropLocation",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDropMode",
+    "modifiers" : "public final",
+    "signature" : "public final javax.swing.DropMode getDropMode()",
+    "returnType" : "javax.swing.DropMode",
+    "genericReturnType" : "javax.swing.DropMode",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFocusAccelerator",
+    "modifiers" : "public",
+    "signature" : "public char getFocusAccelerator()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHighlighter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Highlighter getHighlighter()",
+    "returnType" : "javax.swing.text.Highlighter",
+    "genericReturnType" : "javax.swing.text.Highlighter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputMethodRequests",
+    "modifiers" : "public",
+    "signature" : "public java.awt.im.InputMethodRequests getInputMethodRequests()",
+    "returnType" : "java.awt.im.InputMethodRequests",
+    "genericReturnType" : "java.awt.im.InputMethodRequests",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeymap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Keymap getKeymap()",
+    "returnType" : "javax.swing.text.Keymap",
+    "genericReturnType" : "javax.swing.text.Keymap",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeymap",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.Keymap getKeymap(java.lang.String)",
+    "returnType" : "javax.swing.text.Keymap",
+    "genericReturnType" : "javax.swing.text.Keymap",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMargin",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getMargin()",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNavigationFilter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.NavigationFilter getNavigationFilter()",
+    "returnType" : "javax.swing.text.NavigationFilter",
+    "genericReturnType" : "javax.swing.text.NavigationFilter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredScrollableViewportSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredScrollableViewportSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.Printable getPrintable(java.text.MessageFormat, java.text.MessageFormat)",
+    "returnType" : "java.awt.print.Printable",
+    "genericReturnType" : "java.awt.print.Printable",
+    "parameters" : [ {
+      "name" : "headerFormat",
+      "type" : "java.text.MessageFormat",
+      "genericType" : "java.text.MessageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "footerFormat",
+      "type" : "java.text.MessageFormat",
+      "genericType" : "java.text.MessageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollableBlockIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getScrollableBlockIncrement(java.awt.Rectangle, int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "visibleRect",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "orientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "direction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollableTracksViewportHeight",
+    "modifiers" : "public",
+    "signature" : "public boolean getScrollableTracksViewportHeight()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollableTracksViewportWidth",
+    "modifiers" : "public",
+    "signature" : "public boolean getScrollableTracksViewportWidth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScrollableUnitIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getScrollableUnitIncrement(java.awt.Rectangle, int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "visibleRect",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "orientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "direction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSelectedText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedTextColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getSelectedTextColor()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getSelectionColor()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionEnd",
+    "modifiers" : "public",
+    "signature" : "public int getSelectionEnd()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectionStart",
+    "modifiers" : "public",
+    "signature" : "public int getSelectionStart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getText()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getText(int, int) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToolTipText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getToolTipText(java.awt.event.MouseEvent)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.TextUI getUI()",
+    "returnType" : "javax.swing.plaf.TextUI",
+    "genericReturnType" : "javax.swing.plaf.TextUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEditable",
+    "modifiers" : "public",
+    "signature" : "public boolean isEditable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadKeymap",
+    "modifiers" : "public static",
+    "signature" : "public static void loadKeymap(javax.swing.text.Keymap, javax.swing.text.JTextComponent$KeyBinding[], javax.swing.Action[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "javax.swing.text.Keymap",
+      "genericType" : "javax.swing.text.Keymap",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bindings",
+      "type" : "javax.swing.text.JTextComponent$KeyBinding[]",
+      "genericType" : "javax.swing.text.JTextComponent$KeyBinding[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "javax.swing.Action[]",
+      "genericType" : "javax.swing.Action[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modelToView",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle modelToView(int) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modelToView2D",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D modelToView2D(int) throws javax.swing.text.BadLocationException",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moveCaretPosition",
+    "modifiers" : "public",
+    "signature" : "public void moveCaretPosition(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paste",
+    "modifiers" : "public",
+    "signature" : "public void paste()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "print",
+    "modifiers" : "public",
+    "signature" : "public boolean print() throws java.awt.print.PrinterException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.awt.print.PrinterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "print",
+    "modifiers" : "public",
+    "signature" : "public boolean print(java.text.MessageFormat, java.text.MessageFormat) throws java.awt.print.PrinterException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "headerFormat",
+      "type" : "java.text.MessageFormat",
+      "genericType" : "java.text.MessageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "footerFormat",
+      "type" : "java.text.MessageFormat",
+      "genericType" : "java.text.MessageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.print.PrinterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "print",
+    "modifiers" : "public",
+    "signature" : "public boolean print(java.text.MessageFormat, java.text.MessageFormat, boolean, javax.print.PrintService, javax.print.attribute.PrintRequestAttributeSet, boolean) throws java.awt.print.PrinterException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "headerFormat",
+      "type" : "java.text.MessageFormat",
+      "genericType" : "java.text.MessageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "footerFormat",
+      "type" : "java.text.MessageFormat",
+      "genericType" : "java.text.MessageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "showPrintDialog",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "service",
+      "type" : "javax.print.PrintService",
+      "genericType" : "javax.print.PrintService",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interactive",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.print.PrinterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public void read(java.io.Reader, java.lang.Object) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "desc",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeCaretListener",
+    "modifiers" : "public",
+    "signature" : "public void removeCaretListener(javax.swing.event.CaretListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.swing.event.CaretListener",
+      "genericType" : "javax.swing.event.CaretListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeKeymap",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.Keymap removeKeymap(java.lang.String)",
+    "returnType" : "javax.swing.text.Keymap",
+    "genericReturnType" : "javax.swing.text.Keymap",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public",
+    "signature" : "public void removeNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceSelection",
+    "modifiers" : "public",
+    "signature" : "public void replaceSelection(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "content",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "select",
+    "modifiers" : "public",
+    "signature" : "public void select(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selectionStart",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "selectionEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectAll",
+    "modifiers" : "public",
+    "signature" : "public void selectAll()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCaret",
+    "modifiers" : "public",
+    "signature" : "public void setCaret(javax.swing.text.Caret)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.Caret",
+      "genericType" : "javax.swing.text.Caret",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCaretColor",
+    "modifiers" : "public",
+    "signature" : "public void setCaretColor(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCaretPosition",
+    "modifiers" : "public",
+    "signature" : "public void setCaretPosition(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "position",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setComponentOrientation",
+    "modifiers" : "public",
+    "signature" : "public void setComponentOrientation(java.awt.ComponentOrientation)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.awt.ComponentOrientation",
+      "genericType" : "java.awt.ComponentOrientation",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDisabledTextColor",
+    "modifiers" : "public",
+    "signature" : "public void setDisabledTextColor(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDocument",
+    "modifiers" : "public",
+    "signature" : "public void setDocument(javax.swing.text.Document)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "doc",
+      "type" : "javax.swing.text.Document",
+      "genericType" : "javax.swing.text.Document",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDragEnabled",
+    "modifiers" : "public",
+    "signature" : "public void setDragEnabled(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDropMode",
+    "modifiers" : "public final",
+    "signature" : "public final void setDropMode(javax.swing.DropMode)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dropMode",
+      "type" : "javax.swing.DropMode",
+      "genericType" : "javax.swing.DropMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEditable",
+    "modifiers" : "public",
+    "signature" : "public void setEditable(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFocusAccelerator",
+    "modifiers" : "public",
+    "signature" : "public void setFocusAccelerator(char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "aKey",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHighlighter",
+    "modifiers" : "public",
+    "signature" : "public void setHighlighter(javax.swing.text.Highlighter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "h",
+      "type" : "javax.swing.text.Highlighter",
+      "genericType" : "javax.swing.text.Highlighter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setKeymap",
+    "modifiers" : "public",
+    "signature" : "public void setKeymap(javax.swing.text.Keymap)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "javax.swing.text.Keymap",
+      "genericType" : "javax.swing.text.Keymap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMargin",
+    "modifiers" : "public",
+    "signature" : "public void setMargin(java.awt.Insets)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNavigationFilter",
+    "modifiers" : "public",
+    "signature" : "public void setNavigationFilter(javax.swing.text.NavigationFilter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "javax.swing.text.NavigationFilter",
+      "genericType" : "javax.swing.text.NavigationFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectedTextColor",
+    "modifiers" : "public",
+    "signature" : "public void setSelectedTextColor(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionColor",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionColor(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionEnd",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionEnd(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selectionEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectionStart",
+    "modifiers" : "public",
+    "signature" : "public void setSelectionStart(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selectionStart",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setText",
+    "modifiers" : "public",
+    "signature" : "public void setText(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.TextUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.TextUI",
+      "genericType" : "javax.swing.plaf.TextUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "viewToModel",
+    "modifiers" : "public",
+    "signature" : "public int viewToModel(java.awt.Point)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "pt",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "viewToModel2D",
+    "modifiers" : "public",
+    "signature" : "public int viewToModel2D(java.awt.geom.Point2D)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "pt",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public",
+    "signature" : "public void write(java.io.Writer) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

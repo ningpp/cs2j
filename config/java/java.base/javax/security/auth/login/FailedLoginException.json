@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.login",
+  "binaryName" : "javax.security.auth.login.FailedLoginException",
+  "canonicalName" : "javax.security.auth.login.FailedLoginException",
+  "simpleName" : "FailedLoginException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.security.auth.login.LoginException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.login.FailedLoginException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.FailedLoginException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.login.FailedLoginException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.FailedLoginException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

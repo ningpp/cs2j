@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.PrimitiveIterator$OfLong",
+  "canonicalName" : "java.util.PrimitiveIterator.OfLong",
+  "simpleName" : "OfLong",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.PrimitiveIterator",
+  "interfaces" : [ "java.util.PrimitiveIterator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.Consumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.LongConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.LongConsumer",
+      "genericType" : "java.util.function.LongConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Long next()",
+    "returnType" : "java.lang.Long",
+    "genericReturnType" : "java.lang.Long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "nextLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long nextLong()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

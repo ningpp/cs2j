@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.ModelMBean",
+  "canonicalName" : "javax.management.modelmbean.ModelMBean",
+  "simpleName" : "ModelMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.DynamicMBean", "javax.management.PersistentMBean", "javax.management.modelmbean.ModelMBeanNotificationBroadcaster" ],
+  "declaredPublicMethods" : [ {
+    "name" : "setManagedResource",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setManagedResource(java.lang.Object, java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException, javax.management.InstanceNotFoundException, javax.management.modelmbean.InvalidTargetObjectTypeException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException", "javax.management.InstanceNotFoundException", "javax.management.modelmbean.InvalidTargetObjectTypeException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModelMBeanInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setModelMBeanInfo(javax.management.modelmbean.ModelMBeanInfo) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.modelmbean.ModelMBeanInfo",
+      "genericType" : "javax.management.modelmbean.ModelMBeanInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.RunnableScheduledFuture",
+  "canonicalName" : "java.util.concurrent.RunnableScheduledFuture",
+  "simpleName" : "RunnableScheduledFuture",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.concurrent.RunnableFuture", "java.util.concurrent.ScheduledFuture" ],
+  "declaredPublicMethods" : [ {
+    "name" : "isPeriodic",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isPeriodic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

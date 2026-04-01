@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.InvalidClassException",
+  "canonicalName" : "java.io.InvalidClassException",
+  "simpleName" : "InvalidClassException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.ObjectStreamException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.InvalidClassException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InvalidClassException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InvalidClassException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InvalidClassException(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "cname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InvalidClassException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InvalidClassException(java.lang.String, java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InvalidClassException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InvalidClassException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

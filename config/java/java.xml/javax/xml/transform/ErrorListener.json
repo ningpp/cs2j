@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform",
+  "binaryName" : "javax.xml.transform.ErrorListener",
+  "canonicalName" : "javax.xml.transform.ErrorListener",
+  "simpleName" : "ErrorListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "error",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void error(javax.xml.transform.TransformerException) throws javax.xml.transform.TransformerException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.TransformerException",
+      "genericType" : "javax.xml.transform.TransformerException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fatalError",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void fatalError(javax.xml.transform.TransformerException) throws javax.xml.transform.TransformerException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.TransformerException",
+      "genericType" : "javax.xml.transform.TransformerException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "warning",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void warning(javax.xml.transform.TransformerException) throws javax.xml.transform.TransformerException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.TransformerException",
+      "genericType" : "javax.xml.transform.TransformerException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

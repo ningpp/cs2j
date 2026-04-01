@@ -1,0 +1,620 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.StyleSheet",
+  "canonicalName" : "javax.swing.text.html.StyleSheet",
+  "simpleName" : "StyleSheet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.StyleContext",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.StyleSheet",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.StyleSheet()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAttribute",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet addAttribute(javax.swing.text.AttributeSet, java.lang.Object, java.lang.Object)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "old",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet addAttributes(javax.swing.text.AttributeSet, javax.swing.text.AttributeSet)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "old",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attr",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addCSSAttribute",
+    "modifiers" : "public",
+    "signature" : "public void addCSSAttribute(javax.swing.text.MutableAttributeSet, javax.swing.text.html.CSS$Attribute, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "javax.swing.text.MutableAttributeSet",
+      "genericType" : "javax.swing.text.MutableAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "javax.swing.text.html.CSS$Attribute",
+      "genericType" : "javax.swing.text.html.CSS$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addCSSAttributeFromHTML",
+    "modifiers" : "public",
+    "signature" : "public boolean addCSSAttributeFromHTML(javax.swing.text.MutableAttributeSet, javax.swing.text.html.CSS$Attribute, java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "javax.swing.text.MutableAttributeSet",
+      "genericType" : "javax.swing.text.MutableAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "javax.swing.text.html.CSS$Attribute",
+      "genericType" : "javax.swing.text.html.CSS$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addRule",
+    "modifiers" : "public",
+    "signature" : "public void addRule(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "rule",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addStyleSheet",
+    "modifiers" : "public",
+    "signature" : "public void addStyleSheet(javax.swing.text.html.StyleSheet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ss",
+      "type" : "javax.swing.text.html.StyleSheet",
+      "genericType" : "javax.swing.text.html.StyleSheet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBackground",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getBackground(javax.swing.text.AttributeSet)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBase",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL getBase()",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBoxPainter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.StyleSheet$BoxPainter getBoxPainter(javax.swing.text.AttributeSet)",
+    "returnType" : "javax.swing.text.html.StyleSheet$BoxPainter",
+    "genericReturnType" : "javax.swing.text.html.StyleSheet$BoxPainter",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeclaration",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet getDeclaration(java.lang.String)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "decl",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font getFont(javax.swing.text.AttributeSet)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getForeground",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getForeground(javax.swing.text.AttributeSet)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIndexOfSize",
+    "modifiers" : "public static",
+    "signature" : "public static int getIndexOfSize(float)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "pt",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListPainter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.StyleSheet$ListPainter getListPainter(javax.swing.text.AttributeSet)",
+    "returnType" : "javax.swing.text.html.StyleSheet$ListPainter",
+    "genericReturnType" : "javax.swing.text.html.StyleSheet$ListPainter",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPointSize",
+    "modifiers" : "public",
+    "signature" : "public float getPointSize(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPointSize",
+    "modifiers" : "public",
+    "signature" : "public float getPointSize(java.lang.String)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRule",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Style getRule(java.lang.String)",
+    "returnType" : "javax.swing.text.Style",
+    "genericReturnType" : "javax.swing.text.Style",
+    "parameters" : [ {
+      "name" : "selector",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRule",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Style getRule(javax.swing.text.html.HTML$Tag, javax.swing.text.Element)",
+    "returnType" : "javax.swing.text.Style",
+    "genericReturnType" : "javax.swing.text.Style",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyleSheets",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.StyleSheet[] getStyleSheets()",
+    "returnType" : "javax.swing.text.html.StyleSheet[]",
+    "genericReturnType" : "javax.swing.text.html.StyleSheet[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet getViewAttributes(javax.swing.text.View)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "v",
+      "type" : "javax.swing.text.View",
+      "genericType" : "javax.swing.text.View",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "importStyleSheet",
+    "modifiers" : "public",
+    "signature" : "public void importStyleSheet(java.net.URL)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadRules",
+    "modifiers" : "public",
+    "signature" : "public void loadRules(java.io.Reader, java.net.URL) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ref",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttribute",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet removeAttribute(javax.swing.text.AttributeSet, java.lang.Object)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "old",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet removeAttributes(javax.swing.text.AttributeSet, java.util.Enumeration)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "old",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "names",
+      "type" : "java.util.Enumeration",
+      "genericType" : "java.util.Enumeration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet removeAttributes(javax.swing.text.AttributeSet, javax.swing.text.AttributeSet)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "old",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeStyle",
+    "modifiers" : "public",
+    "signature" : "public void removeStyle(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeStyleSheet",
+    "modifiers" : "public",
+    "signature" : "public void removeStyleSheet(javax.swing.text.html.StyleSheet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ss",
+      "type" : "javax.swing.text.html.StyleSheet",
+      "genericType" : "javax.swing.text.html.StyleSheet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBase",
+    "modifiers" : "public",
+    "signature" : "public void setBase(java.net.URL)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "base",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBaseFontSize",
+    "modifiers" : "public",
+    "signature" : "public void setBaseFontSize(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "sz",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBaseFontSize",
+    "modifiers" : "public",
+    "signature" : "public void setBaseFontSize(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stringToColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color stringToColor(java.lang.String)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "string",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "translateHTMLToCSS",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet translateHTMLToCSS(javax.swing.text.AttributeSet)",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "parameters" : [ {
+      "name" : "htmlAttrSet",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

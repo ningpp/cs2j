@@ -1,0 +1,127 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.callback",
+  "binaryName" : "javax.security.auth.callback.ChoiceCallback",
+  "canonicalName" : "javax.security.auth.callback.ChoiceCallback",
+  "simpleName" : "ChoiceCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.security.auth.callback.Callback" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.callback.ChoiceCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.callback.ChoiceCallback(java.lang.String, java.lang.String[], int, boolean)",
+    "parameters" : [ {
+      "name" : "prompt",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "choices",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultChoice",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "multipleSelectionsAllowed",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "allowMultipleSelections",
+    "modifiers" : "public",
+    "signature" : "public boolean allowMultipleSelections()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChoices",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getChoices()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultChoice",
+    "modifiers" : "public",
+    "signature" : "public int getDefaultChoice()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrompt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPrompt()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedIndexes",
+    "modifiers" : "public",
+    "signature" : "public int[] getSelectedIndexes()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectedIndex",
+    "modifiers" : "public",
+    "signature" : "public void setSelectedIndex(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selection",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectedIndexes",
+    "modifiers" : "public",
+    "signature" : "public void setSelectedIndexes(int[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selections",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

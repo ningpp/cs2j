@@ -1,0 +1,299 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ModuleExportInfo",
+  "canonicalName" : "java.lang.classfile.attribute.ModuleExportInfo",
+  "simpleName" : "ModuleExportInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "exportedPackage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.PackageEntry exportedPackage()",
+    "returnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.PackageEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportsFlags",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set exportsFlags()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exportsFlagsMask",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int exportsFlagsMask()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportsTo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List exportsTo()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "has",
+    "modifiers" : "public",
+    "signature" : "public boolean has(java.lang.reflect.AccessFlag)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "flag",
+      "type" : "java.lang.reflect.AccessFlag",
+      "genericType" : "java.lang.reflect.AccessFlag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.classfile.constantpool.PackageEntry, int, java.lang.classfile.constantpool.ModuleEntry...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.classfile.constantpool.PackageEntry, int, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.classfile.constantpool.PackageEntry, java.util.Collection, java.lang.classfile.constantpool.ModuleEntry...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ModuleEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.classfile.constantpool.PackageEntry, java.util.Collection, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.classfile.constantpool.PackageEntry",
+      "genericType" : "java.lang.classfile.constantpool.PackageEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.constant.PackageDesc, int, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.constant.PackageDesc, int, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.constant.PackageDesc, java.util.Collection, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleExportInfo of(java.lang.constant.PackageDesc, java.util.Collection, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleExportInfo",
+    "parameters" : [ {
+      "name" : "exports",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsTo",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.NotYetBoundException",
+  "canonicalName" : "java.nio.channels.NotYetBoundException",
+  "simpleName" : "NotYetBoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.NotYetBoundException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.NotYetBoundException()",
+    "varArgs" : false
+  } ]
+}

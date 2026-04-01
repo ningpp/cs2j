@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.IllegalComponentStateException",
+  "canonicalName" : "java.awt.IllegalComponentStateException",
+  "simpleName" : "IllegalComponentStateException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.IllegalComponentStateException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.IllegalComponentStateException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.IllegalComponentStateException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.IllegalComponentStateException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

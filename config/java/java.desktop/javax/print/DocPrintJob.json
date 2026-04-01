@@ -1,0 +1,128 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.DocPrintJob",
+  "canonicalName" : "javax.print.DocPrintJob",
+  "simpleName" : "DocPrintJob",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addPrintJobAttributeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addPrintJobAttributeListener(javax.print.event.PrintJobAttributeListener, javax.print.attribute.PrintJobAttributeSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobAttributeListener",
+      "genericType" : "javax.print.event.PrintJobAttributeListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.attribute.PrintJobAttributeSet",
+      "genericType" : "javax.print.attribute.PrintJobAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPrintJobListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addPrintJobListener(javax.print.event.PrintJobListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobListener",
+      "genericType" : "javax.print.event.PrintJobListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.attribute.PrintJobAttributeSet getAttributes()",
+    "returnType" : "javax.print.attribute.PrintJobAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintJobAttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintService",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.PrintService getPrintService()",
+    "returnType" : "javax.print.PrintService",
+    "genericReturnType" : "javax.print.PrintService",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "print",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void print(javax.print.Doc, javax.print.attribute.PrintRequestAttributeSet) throws javax.print.PrintException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.Doc",
+      "genericType" : "javax.print.Doc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.print.PrintException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePrintJobAttributeListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removePrintJobAttributeListener(javax.print.event.PrintJobAttributeListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobAttributeListener",
+      "genericType" : "javax.print.event.PrintJobAttributeListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removePrintJobListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removePrintJobListener(javax.print.event.PrintJobListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.event.PrintJobListener",
+      "genericType" : "javax.print.event.PrintJobListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

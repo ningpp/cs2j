@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.ScrollBarUI",
+  "canonicalName" : "javax.swing.plaf.ScrollBarUI",
+  "simpleName" : "ScrollBarUI",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.plaf.ComponentUI"
+}

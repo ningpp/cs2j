@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.FormatterClosedException",
+  "canonicalName" : "java.util.FormatterClosedException",
+  "simpleName" : "FormatterClosedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.FormatterClosedException",
+    "modifiers" : "public",
+    "signature" : "public java.util.FormatterClosedException()",
+    "varArgs" : false
+  } ]
+}

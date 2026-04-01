@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Menu$AccessibleAWTMenu",
+  "canonicalName" : "java.awt.Menu.AccessibleAWTMenu",
+  "simpleName" : "AccessibleAWTMenu",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.Menu",
+  "superClass" : "java.awt.MenuItem$AccessibleAWTMenuItem",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

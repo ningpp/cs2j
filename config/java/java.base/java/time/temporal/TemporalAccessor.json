@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.TemporalAccessor",
+  "canonicalName" : "java.time.temporal.TemporalAccessor",
+  "simpleName" : "TemporalAccessor",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public int get(java.time.temporal.TemporalField)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getLong(java.time.temporal.TemporalField)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSupported(java.time.temporal.TemporalField)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "query",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object query(java.time.temporal.TemporalQuery)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "query",
+      "type" : "java.time.temporal.TemporalQuery",
+      "genericType" : "java.time.temporal.TemporalQuery",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.ValueRange range(java.time.temporal.TemporalField)",
+    "returnType" : "java.time.temporal.ValueRange",
+    "genericReturnType" : "java.time.temporal.ValueRange",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

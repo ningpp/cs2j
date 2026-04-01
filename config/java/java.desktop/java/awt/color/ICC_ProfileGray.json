@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.color",
+  "binaryName" : "java.awt.color.ICC_ProfileGray",
+  "canonicalName" : "java.awt.color.ICC_ProfileGray",
+  "simpleName" : "ICC_ProfileGray",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.color.ICC_Profile",
+  "declaredPublicMethods" : [ {
+    "name" : "getGamma",
+    "modifiers" : "public",
+    "signature" : "public float getGamma()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMediaWhitePoint",
+    "modifiers" : "public",
+    "signature" : "public float[] getMediaWhitePoint()",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTRC",
+    "modifiers" : "public",
+    "signature" : "public short[] getTRC()",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.KeyFactorySpi",
+  "canonicalName" : "java.security.KeyFactorySpi",
+  "simpleName" : "KeyFactorySpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.KeyFactorySpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyFactorySpi()",
+    "varArgs" : false
+  } ]
+}

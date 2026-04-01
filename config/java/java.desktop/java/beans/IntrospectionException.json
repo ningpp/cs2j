@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.IntrospectionException",
+  "canonicalName" : "java.beans.IntrospectionException",
+  "simpleName" : "IntrospectionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.IntrospectionException",
+    "modifiers" : "public",
+    "signature" : "public java.beans.IntrospectionException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "mess",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

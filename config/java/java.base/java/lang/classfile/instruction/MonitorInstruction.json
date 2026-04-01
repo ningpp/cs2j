@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.MonitorInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.MonitorInstruction",
+  "simpleName" : "MonitorInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.MonitorInstruction of(java.lang.classfile.Opcode)",
+    "returnType" : "java.lang.classfile.instruction.MonitorInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.MonitorInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

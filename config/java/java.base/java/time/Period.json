@@ -1,0 +1,558 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time",
+  "binaryName" : "java.time.Period",
+  "canonicalName" : "java.time.Period",
+  "simpleName" : "Period",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.time.chrono.ChronoPeriod" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addTo",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal addTo(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "between",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period between(java.time.LocalDate, java.time.LocalDate)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "startDateInclusive",
+      "type" : "java.time.LocalDate",
+      "genericType" : "java.time.LocalDate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endDateExclusive",
+      "type" : "java.time.LocalDate",
+      "genericType" : "java.time.LocalDate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period from(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "amount",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public long get(java.time.temporal.TemporalUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChronology",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.IsoChronology getChronology()",
+    "returnType" : "java.time.chrono.IsoChronology",
+    "genericReturnType" : "java.time.chrono.IsoChronology",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDays",
+    "modifiers" : "public",
+    "signature" : "public int getDays()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMonths",
+    "modifiers" : "public",
+    "signature" : "public int getMonths()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnits",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getUnits()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getYears",
+    "modifiers" : "public",
+    "signature" : "public int getYears()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNegative",
+    "modifiers" : "public",
+    "signature" : "public boolean isNegative()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isZero",
+    "modifiers" : "public",
+    "signature" : "public boolean isZero()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period minus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusDays",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period minusDays(long)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "daysToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusMonths",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period minusMonths(long)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "monthsToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusYears",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period minusYears(long)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "yearsToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "multipliedBy",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period multipliedBy(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "scalar",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negated",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period negated()",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "normalized",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period normalized()",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period of(int, int, int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "years",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "months",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "days",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDays",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period ofDays(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "days",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMonths",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period ofMonths(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "months",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofWeeks",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period ofWeeks(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "weeks",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofYears",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period ofYears(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "years",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.Period parse(java.lang.CharSequence)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period plus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "amountToAdd",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusDays",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period plusDays(long)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "daysToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusMonths",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period plusMonths(long)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "monthsToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusYears",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period plusYears(long)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "yearsToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subtractFrom",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal subtractFrom(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toTotalMonths",
+    "modifiers" : "public",
+    "signature" : "public long toTotalMonths()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withDays",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period withDays(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "days",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withMonths",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period withMonths(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "months",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withYears",
+    "modifiers" : "public",
+    "signature" : "public java.time.Period withYears(int)",
+    "returnType" : "java.time.Period",
+    "genericReturnType" : "java.time.Period",
+    "parameters" : [ {
+      "name" : "years",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

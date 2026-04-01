@@ -1,0 +1,201 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.constant",
+  "binaryName" : "java.lang.constant.MethodHandleDesc",
+  "canonicalName" : "java.lang.constant.MethodHandleDesc",
+  "simpleName" : "MethodHandleDesc",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.constant.ConstantDesc" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodHandleDesc asType(java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.constant.MethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.MethodHandleDesc",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invocationType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.MethodTypeDesc invocationType()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DirectMethodHandleDesc of(java.lang.constant.DirectMethodHandleDesc$Kind, java.lang.constant.ClassDesc, java.lang.String, java.lang.String)",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "parameters" : [ {
+      "name" : "kind",
+      "type" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lookupDescriptor",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofConstructor",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DirectMethodHandleDesc ofConstructor(java.lang.constant.ClassDesc, java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paramTypes",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofField",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DirectMethodHandleDesc ofField(java.lang.constant.DirectMethodHandleDesc$Kind, java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "parameters" : [ {
+      "name" : "kind",
+      "type" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fieldType",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethod",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DirectMethodHandleDesc ofMethod(java.lang.constant.DirectMethodHandleDesc$Kind, java.lang.constant.ClassDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "parameters" : [ {
+      "name" : "kind",
+      "type" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lookupMethodType",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveConstantDesc",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle resolveConstantDesc(java.lang.invoke.MethodHandles$Lookup) throws java.lang.ReflectiveOperationException",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ReflectiveOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

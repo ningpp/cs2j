@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextServiceRevokedListener",
+  "canonicalName" : "java.beans.beancontext.BeanContextServiceRevokedListener",
+  "simpleName" : "BeanContextServiceRevokedListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "serviceRevoked",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void serviceRevoked(java.beans.beancontext.BeanContextServiceRevokedEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "genericType" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

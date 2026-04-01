@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.HasControls",
+  "canonicalName" : "javax.naming.ldap.HasControls",
+  "simpleName" : "HasControls",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getControls",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.ldap.Control[] getControls() throws javax.naming.NamingException",
+    "returnType" : "javax.naming.ldap.Control[]",
+    "genericReturnType" : "javax.naming.ldap.Control[]",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

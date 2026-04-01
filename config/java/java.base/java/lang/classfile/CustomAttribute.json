@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.CustomAttribute",
+  "canonicalName" : "java.lang.classfile.CustomAttribute",
+  "simpleName" : "CustomAttribute",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement", "java.lang.classfile.CodeElement", "java.lang.classfile.FieldElement", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "attributeMapper",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.classfile.AttributeMapper attributeMapper()",
+    "returnType" : "java.lang.classfile.AttributeMapper",
+    "genericReturnType" : "java.lang.classfile.AttributeMapper",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "attributeName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry attributeName()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

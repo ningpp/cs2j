@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.callback",
+  "binaryName" : "javax.security.auth.callback.TextOutputCallback",
+  "canonicalName" : "javax.security.auth.callback.TextOutputCallback",
+  "simpleName" : "TextOutputCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.security.auth.callback.Callback" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.callback.TextOutputCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.callback.TextOutputCallback(int, java.lang.String)",
+    "parameters" : [ {
+      "name" : "messageType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessageType",
+    "modifiers" : "public",
+    "signature" : "public int getMessageType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicScrollPaneUI$VSBChangeListener",
+  "canonicalName" : "javax.swing.plaf.basic.BasicScrollPaneUI.VSBChangeListener",
+  "simpleName" : "VSBChangeListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicScrollPaneUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.event.ChangeListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicScrollPaneUI$VSBChangeListener",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicScrollPaneUI$VSBChangeListener(javax.swing.plaf.basic.BasicScrollPaneUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicScrollPaneUI",
+      "genericType" : "javax.swing.plaf.basic.BasicScrollPaneUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "stateChanged",
+    "modifiers" : "public",
+    "signature" : "public void stateChanged(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

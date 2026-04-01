@@ -1,0 +1,526 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.ForwardingJavaFileManager",
+  "canonicalName" : "javax.tools.ForwardingJavaFileManager",
+  "simpleName" : "ForwardingJavaFileManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.tools.JavaFileManager" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(javax.tools.JavaFileManager$Location, javax.tools.FileObject) throws java.io.IOException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fo",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flush",
+    "modifiers" : "public",
+    "signature" : "public void flush() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassLoader getClassLoader(javax.tools.JavaFileManager$Location)",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileForInput",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.FileObject getFileForInput(javax.tools.JavaFileManager$Location, java.lang.String, java.lang.String) throws java.io.IOException",
+    "returnType" : "javax.tools.FileObject",
+    "genericReturnType" : "javax.tools.FileObject",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "packageName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "relativeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileForOutput",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.FileObject getFileForOutput(javax.tools.JavaFileManager$Location, java.lang.String, java.lang.String, javax.tools.FileObject) throws java.io.IOException",
+    "returnType" : "javax.tools.FileObject",
+    "genericReturnType" : "javax.tools.FileObject",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "packageName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "relativeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sibling",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileForOutputForOriginatingFiles",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.FileObject getFileForOutputForOriginatingFiles(javax.tools.JavaFileManager$Location, java.lang.String, java.lang.String, javax.tools.FileObject...) throws java.io.IOException",
+    "returnType" : "javax.tools.FileObject",
+    "genericReturnType" : "javax.tools.FileObject",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "packageName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "relativeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "originatingFiles",
+      "type" : "javax.tools.FileObject[]",
+      "genericType" : "javax.tools.FileObject[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getJavaFileForInput",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileObject getJavaFileForInput(javax.tools.JavaFileManager$Location, java.lang.String, javax.tools.JavaFileObject$Kind) throws java.io.IOException",
+    "returnType" : "javax.tools.JavaFileObject",
+    "genericReturnType" : "javax.tools.JavaFileObject",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kind",
+      "type" : "javax.tools.JavaFileObject$Kind",
+      "genericType" : "javax.tools.JavaFileObject$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJavaFileForOutput",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileObject getJavaFileForOutput(javax.tools.JavaFileManager$Location, java.lang.String, javax.tools.JavaFileObject$Kind, javax.tools.FileObject) throws java.io.IOException",
+    "returnType" : "javax.tools.JavaFileObject",
+    "genericReturnType" : "javax.tools.JavaFileObject",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kind",
+      "type" : "javax.tools.JavaFileObject$Kind",
+      "genericType" : "javax.tools.JavaFileObject$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sibling",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJavaFileForOutputForOriginatingFiles",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileObject getJavaFileForOutputForOriginatingFiles(javax.tools.JavaFileManager$Location, java.lang.String, javax.tools.JavaFileObject$Kind, javax.tools.FileObject...) throws java.io.IOException",
+    "returnType" : "javax.tools.JavaFileObject",
+    "genericReturnType" : "javax.tools.JavaFileObject",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kind",
+      "type" : "javax.tools.JavaFileObject$Kind",
+      "genericType" : "javax.tools.JavaFileObject$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "originatingFiles",
+      "type" : "javax.tools.FileObject[]",
+      "genericType" : "javax.tools.FileObject[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getLocationForModule",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileManager$Location getLocationForModule(javax.tools.JavaFileManager$Location, java.lang.String) throws java.io.IOException",
+    "returnType" : "javax.tools.JavaFileManager$Location",
+    "genericReturnType" : "javax.tools.JavaFileManager$Location",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "moduleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocationForModule",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileManager$Location getLocationForModule(javax.tools.JavaFileManager$Location, javax.tools.JavaFileObject) throws java.io.IOException",
+    "returnType" : "javax.tools.JavaFileManager$Location",
+    "genericReturnType" : "javax.tools.JavaFileManager$Location",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fo",
+      "type" : "javax.tools.JavaFileObject",
+      "genericType" : "javax.tools.JavaFileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServiceLoader",
+    "modifiers" : "public",
+    "signature" : "public java.util.ServiceLoader getServiceLoader(javax.tools.JavaFileManager$Location, java.lang.Class) throws java.io.IOException",
+    "returnType" : "java.util.ServiceLoader",
+    "genericReturnType" : "java.util.ServiceLoader",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "service",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleOption",
+    "modifiers" : "public",
+    "signature" : "public boolean handleOption(java.lang.String, java.util.Iterator)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "current",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "remaining",
+      "type" : "java.util.Iterator",
+      "genericType" : "java.util.Iterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasLocation",
+    "modifiers" : "public",
+    "signature" : "public boolean hasLocation(javax.tools.JavaFileManager$Location)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inferBinaryName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String inferBinaryName(javax.tools.JavaFileManager$Location, javax.tools.JavaFileObject)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "file",
+      "type" : "javax.tools.JavaFileObject",
+      "genericType" : "javax.tools.JavaFileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inferModuleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String inferModuleName(javax.tools.JavaFileManager$Location) throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSameFile",
+    "modifiers" : "public",
+    "signature" : "public boolean isSameFile(javax.tools.FileObject, javax.tools.FileObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupportedOption",
+    "modifiers" : "public",
+    "signature" : "public int isSupportedOption(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "option",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "list",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Iterable list(javax.tools.JavaFileManager$Location, java.lang.String, java.util.Set, boolean) throws java.io.IOException",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "packageName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kinds",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "recurse",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "listLocationsForModules",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Iterable listLocationsForModules(javax.tools.JavaFileManager$Location) throws java.io.IOException",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

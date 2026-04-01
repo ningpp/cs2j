@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JList$DropLocation",
+  "canonicalName" : "javax.swing.JList.DropLocation",
+  "simpleName" : "DropLocation",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.JList",
+  "superClass" : "javax.swing.TransferHandler$DropLocation",
+  "declaredPublicMethods" : [ {
+    "name" : "getIndex",
+    "modifiers" : "public",
+    "signature" : "public int getIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInsert",
+    "modifiers" : "public",
+    "signature" : "public boolean isInsert()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

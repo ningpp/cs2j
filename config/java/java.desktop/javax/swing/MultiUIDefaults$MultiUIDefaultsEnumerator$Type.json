@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator$Type",
+  "canonicalName" : "javax.swing.MultiUIDefaults.MultiUIDefaultsEnumerator.Type",
+  "simpleName" : "Type",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator$Type valueOf(java.lang.String)",
+    "returnType" : "javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator$Type",
+    "genericReturnType" : "javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator$Type",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator$Type[] values()",
+    "returnType" : "javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator$Type[]",
+    "genericReturnType" : "javax.swing.MultiUIDefaults$MultiUIDefaultsEnumerator$Type[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

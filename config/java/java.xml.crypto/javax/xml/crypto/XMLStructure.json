@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.XMLStructure",
+  "canonicalName" : "javax.xml.crypto.XMLStructure",
+  "simpleName" : "XMLStructure",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "isFeatureSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isFeatureSupported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

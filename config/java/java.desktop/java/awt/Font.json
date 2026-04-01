@@ -1,0 +1,1143 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Font",
+  "canonicalName" : "java.awt.Font",
+  "simpleName" : "Font",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.Font",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font(java.lang.String, int, int)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.Font",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font(java.util.Map)",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "canDisplay",
+    "modifiers" : "public",
+    "signature" : "public boolean canDisplay(char)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canDisplay",
+    "modifiers" : "public",
+    "signature" : "public boolean canDisplay(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "codePoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canDisplayUpTo",
+    "modifiers" : "public",
+    "signature" : "public int canDisplayUpTo(char[], int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canDisplayUpTo",
+    "modifiers" : "public",
+    "signature" : "public int canDisplayUpTo(java.lang.String)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "canDisplayUpTo",
+    "modifiers" : "public",
+    "signature" : "public int canDisplayUpTo(java.text.CharacterIterator, int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "iter",
+      "type" : "java.text.CharacterIterator",
+      "genericType" : "java.text.CharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFont",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font createFont(int, java.io.File) throws java.awt.FontFormatException, java.io.IOException",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "fontFormat",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fontFile",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.FontFormatException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFont",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font createFont(int, java.io.InputStream) throws java.awt.FontFormatException, java.io.IOException",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "fontFormat",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fontStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.FontFormatException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFonts",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font[] createFonts(java.io.File) throws java.awt.FontFormatException, java.io.IOException",
+    "returnType" : "java.awt.Font[]",
+    "genericReturnType" : "java.awt.Font[]",
+    "parameters" : [ {
+      "name" : "fontFile",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.FontFormatException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFonts",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font[] createFonts(java.io.InputStream) throws java.awt.FontFormatException, java.io.IOException",
+    "returnType" : "java.awt.Font[]",
+    "genericReturnType" : "java.awt.Font[]",
+    "parameters" : [ {
+      "name" : "fontStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.FontFormatException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGlyphVector",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.GlyphVector createGlyphVector(java.awt.font.FontRenderContext, char[])",
+    "returnType" : "java.awt.font.GlyphVector",
+    "genericReturnType" : "java.awt.font.GlyphVector",
+    "parameters" : [ {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "chars",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGlyphVector",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.GlyphVector createGlyphVector(java.awt.font.FontRenderContext, int[])",
+    "returnType" : "java.awt.font.GlyphVector",
+    "genericReturnType" : "java.awt.font.GlyphVector",
+    "parameters" : [ {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "glyphCodes",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGlyphVector",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.GlyphVector createGlyphVector(java.awt.font.FontRenderContext, java.lang.String)",
+    "returnType" : "java.awt.font.GlyphVector",
+    "genericReturnType" : "java.awt.font.GlyphVector",
+    "parameters" : [ {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGlyphVector",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.GlyphVector createGlyphVector(java.awt.font.FontRenderContext, java.text.CharacterIterator)",
+    "returnType" : "java.awt.font.GlyphVector",
+    "genericReturnType" : "java.awt.font.GlyphVector",
+    "parameters" : [ {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ci",
+      "type" : "java.text.CharacterIterator",
+      "genericType" : "java.text.CharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decode",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font decode(java.lang.String)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deriveFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font deriveFont(float)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deriveFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font deriveFont(int)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deriveFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font deriveFont(int, float)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "size",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deriveFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font deriveFont(int, java.awt.geom.AffineTransform)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "style",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "trans",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deriveFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font deriveFont(java.awt.geom.AffineTransform)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "trans",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deriveFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font deriveFont(java.util.Map)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getAttributes()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.text.AttributedCharacterIterator$Attribute[] getAvailableAttributes()",
+    "returnType" : "java.text.AttributedCharacterIterator$Attribute[]",
+    "genericReturnType" : "java.text.AttributedCharacterIterator$Attribute[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaselineFor",
+    "modifiers" : "public",
+    "signature" : "public byte getBaselineFor(char)",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFamily",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFamily()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFamily",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFamily(java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font getFont(java.lang.String)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font getFont(java.lang.String, java.awt.Font)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "font",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Font getFont(java.util.Map)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFontName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFontName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFontName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFontName(java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getItalicAngle",
+    "modifiers" : "public",
+    "signature" : "public float getItalicAngle()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineMetrics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.LineMetrics getLineMetrics(char[], int, int, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.font.LineMetrics",
+    "genericReturnType" : "java.awt.font.LineMetrics",
+    "parameters" : [ {
+      "name" : "chars",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineMetrics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.LineMetrics getLineMetrics(java.lang.String, int, int, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.font.LineMetrics",
+    "genericReturnType" : "java.awt.font.LineMetrics",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineMetrics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.LineMetrics getLineMetrics(java.lang.String, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.font.LineMetrics",
+    "genericReturnType" : "java.awt.font.LineMetrics",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineMetrics",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.LineMetrics getLineMetrics(java.text.CharacterIterator, int, int, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.font.LineMetrics",
+    "genericReturnType" : "java.awt.font.LineMetrics",
+    "parameters" : [ {
+      "name" : "ci",
+      "type" : "java.text.CharacterIterator",
+      "genericType" : "java.text.CharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxCharBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D getMaxCharBounds(java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMissingGlyphCode",
+    "modifiers" : "public",
+    "signature" : "public int getMissingGlyphCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumGlyphs",
+    "modifiers" : "public",
+    "signature" : "public int getNumGlyphs()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPSName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPSName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSize",
+    "modifiers" : "public",
+    "signature" : "public int getSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSize2D",
+    "modifiers" : "public",
+    "signature" : "public float getSize2D()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D getStringBounds(char[], int, int, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "chars",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D getStringBounds(java.lang.String, int, int, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D getStringBounds(java.lang.String, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D getStringBounds(java.text.CharacterIterator, int, int, java.awt.font.FontRenderContext)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "ci",
+      "type" : "java.text.CharacterIterator",
+      "genericType" : "java.text.CharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "beginIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyle",
+    "modifiers" : "public",
+    "signature" : "public int getStyle()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransform",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.AffineTransform getTransform()",
+    "returnType" : "java.awt.geom.AffineTransform",
+    "genericReturnType" : "java.awt.geom.AffineTransform",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasLayoutAttributes",
+    "modifiers" : "public",
+    "signature" : "public boolean hasLayoutAttributes()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasUniformLineMetrics",
+    "modifiers" : "public",
+    "signature" : "public boolean hasUniformLineMetrics()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBold",
+    "modifiers" : "public",
+    "signature" : "public boolean isBold()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isItalic",
+    "modifiers" : "public",
+    "signature" : "public boolean isItalic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPlain",
+    "modifiers" : "public",
+    "signature" : "public boolean isPlain()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTransformed",
+    "modifiers" : "public",
+    "signature" : "public boolean isTransformed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "layoutGlyphVector",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.GlyphVector layoutGlyphVector(java.awt.font.FontRenderContext, char[], int, int, int)",
+    "returnType" : "java.awt.font.GlyphVector",
+    "genericReturnType" : "java.awt.font.GlyphVector",
+    "parameters" : [ {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "text",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "textRequiresLayout",
+    "modifiers" : "public static",
+    "signature" : "public static boolean textRequiresLayout(char[], int, int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "chars",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

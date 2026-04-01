@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JSplitPane$AccessibleJSplitPane",
+  "canonicalName" : "javax.swing.JSplitPane.AccessibleJSplitPane",
+  "simpleName" : "AccessibleJSplitPane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JSplitPane",
+  "superClass" : "javax.swing.JComponent$AccessibleJComponent",
+  "interfaces" : [ "javax.accessibility.AccessibleValue" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleValue",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleValue getAccessibleValue()",
+    "returnType" : "javax.accessibility.AccessibleValue",
+    "genericReturnType" : "javax.accessibility.AccessibleValue",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentAccessibleValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Number getCurrentAccessibleValue()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumAccessibleValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Number getMaximumAccessibleValue()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumAccessibleValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Number getMinimumAccessibleValue()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrentAccessibleValue",
+    "modifiers" : "public",
+    "signature" : "public boolean setCurrentAccessibleValue(java.lang.Number)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

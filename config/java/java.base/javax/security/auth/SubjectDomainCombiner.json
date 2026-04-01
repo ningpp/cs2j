@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth",
+  "binaryName" : "javax.security.auth.SubjectDomainCombiner",
+  "canonicalName" : "javax.security.auth.SubjectDomainCombiner",
+  "simpleName" : "SubjectDomainCombiner",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.DomainCombiner" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.SubjectDomainCombiner",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.SubjectDomainCombiner(javax.security.auth.Subject)",
+    "parameters" : [ {
+      "name" : "subject",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "combine",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProtectionDomain[] combine(java.security.ProtectionDomain[], java.security.ProtectionDomain[])",
+    "returnType" : "java.security.ProtectionDomain[]",
+    "genericReturnType" : "java.security.ProtectionDomain[]",
+    "parameters" : [ {
+      "name" : "currentDomains",
+      "type" : "java.security.ProtectionDomain[]",
+      "genericType" : "java.security.ProtectionDomain[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "assignedDomains",
+      "type" : "java.security.ProtectionDomain[]",
+      "genericType" : "java.security.ProtectionDomain[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubject",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.Subject getSubject()",
+    "returnType" : "javax.security.auth.Subject",
+    "genericReturnType" : "javax.security.auth.Subject",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

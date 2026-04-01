@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.NotificationResult",
+  "canonicalName" : "javax.management.remote.NotificationResult",
+  "simpleName" : "NotificationResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.NotificationResult",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.NotificationResult(long, long, javax.management.remote.TargetedNotification[])",
+    "parameters" : [ {
+      "name" : "earliestSequenceNumber",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nextSequenceNumber",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targetedNotifications",
+      "type" : "javax.management.remote.TargetedNotification[]",
+      "genericType" : "javax.management.remote.TargetedNotification[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getEarliestSequenceNumber",
+    "modifiers" : "public",
+    "signature" : "public long getEarliestSequenceNumber()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextSequenceNumber",
+    "modifiers" : "public",
+    "signature" : "public long getNextSequenceNumber()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetedNotifications",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.TargetedNotification[] getTargetedNotifications()",
+    "returnType" : "javax.management.remote.TargetedNotification[]",
+    "genericReturnType" : "javax.management.remote.TargetedNotification[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

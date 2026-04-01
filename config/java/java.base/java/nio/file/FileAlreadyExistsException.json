@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.FileAlreadyExistsException",
+  "canonicalName" : "java.nio.file.FileAlreadyExistsException",
+  "simpleName" : "FileAlreadyExistsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.nio.file.FileSystemException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.FileAlreadyExistsException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileAlreadyExistsException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.nio.file.FileAlreadyExistsException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileAlreadyExistsException(java.lang.String, java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "other",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

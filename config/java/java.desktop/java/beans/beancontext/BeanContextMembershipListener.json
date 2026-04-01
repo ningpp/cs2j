@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextMembershipListener",
+  "canonicalName" : "java.beans.beancontext.BeanContextMembershipListener",
+  "simpleName" : "BeanContextMembershipListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "childrenAdded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void childrenAdded(java.beans.beancontext.BeanContextMembershipEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.beancontext.BeanContextMembershipEvent",
+      "genericType" : "java.beans.beancontext.BeanContextMembershipEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "childrenRemoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void childrenRemoved(java.beans.beancontext.BeanContextMembershipEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.beancontext.BeanContextMembershipEvent",
+      "genericType" : "java.beans.beancontext.BeanContextMembershipEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Thread$UncaughtExceptionHandler",
+  "canonicalName" : "java.lang.Thread.UncaughtExceptionHandler",
+  "simpleName" : "UncaughtExceptionHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.Thread",
+  "declaredPublicMethods" : [ {
+    "name" : "uncaughtException",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void uncaughtException(java.lang.Thread, java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Thread",
+      "genericType" : "java.lang.Thread",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

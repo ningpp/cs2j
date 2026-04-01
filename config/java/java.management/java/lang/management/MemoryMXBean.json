@@ -1,0 +1,78 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.MemoryMXBean",
+  "canonicalName" : "java.lang.management.MemoryMXBean",
+  "simpleName" : "MemoryMXBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.management.PlatformManagedObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "gc",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void gc()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeapMemoryUsage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.MemoryUsage getHeapMemoryUsage()",
+    "returnType" : "java.lang.management.MemoryUsage",
+    "genericReturnType" : "java.lang.management.MemoryUsage",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNonHeapMemoryUsage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.MemoryUsage getNonHeapMemoryUsage()",
+    "returnType" : "java.lang.management.MemoryUsage",
+    "genericReturnType" : "java.lang.management.MemoryUsage",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjectPendingFinalizationCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getObjectPendingFinalizationCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVerbose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isVerbose()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setVerbose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setVerbose(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

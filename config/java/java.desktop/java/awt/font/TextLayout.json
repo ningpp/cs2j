@@ -1,0 +1,840 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.TextLayout",
+  "canonicalName" : "java.awt.font.TextLayout",
+  "simpleName" : "TextLayout",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.font.TextLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextLayout(java.lang.String, java.awt.Font, java.awt.font.FontRenderContext)",
+    "parameters" : [ {
+      "name" : "string",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "font",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.font.TextLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextLayout(java.lang.String, java.util.Map, java.awt.font.FontRenderContext)",
+    "parameters" : [ {
+      "name" : "string",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.font.TextLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextLayout(java.text.AttributedCharacterIterator, java.awt.font.FontRenderContext)",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.text.AttributedCharacterIterator",
+      "genericType" : "java.text.AttributedCharacterIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "draw",
+    "modifiers" : "public",
+    "signature" : "public void draw(java.awt.Graphics2D, float, float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "g2",
+      "type" : "java.awt.Graphics2D",
+      "genericType" : "java.awt.Graphics2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.awt.font.TextLayout)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "rhs",
+      "type" : "java.awt.font.TextLayout",
+      "genericType" : "java.awt.font.TextLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAdvance",
+    "modifiers" : "public",
+    "signature" : "public float getAdvance()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAscent",
+    "modifiers" : "public",
+    "signature" : "public float getAscent()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaseline",
+    "modifiers" : "public",
+    "signature" : "public byte getBaseline()",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaselineOffsets",
+    "modifiers" : "public",
+    "signature" : "public float[] getBaselineOffsets()",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBlackBoxBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getBlackBoxBounds(int, int)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "firstEndpoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondEndpoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Rectangle2D getBounds()",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretInfo",
+    "modifiers" : "public",
+    "signature" : "public float[] getCaretInfo(java.awt.font.TextHitInfo)",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretInfo",
+    "modifiers" : "public",
+    "signature" : "public float[] getCaretInfo(java.awt.font.TextHitInfo, java.awt.geom.Rectangle2D)",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretShape",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getCaretShape(java.awt.font.TextHitInfo)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretShape",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getCaretShape(java.awt.font.TextHitInfo, java.awt.geom.Rectangle2D)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretShapes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape[] getCaretShapes(int)",
+    "returnType" : "java.awt.Shape[]",
+    "genericReturnType" : "java.awt.Shape[]",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretShapes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape[] getCaretShapes(int, java.awt.geom.Rectangle2D)",
+    "returnType" : "java.awt.Shape[]",
+    "genericReturnType" : "java.awt.Shape[]",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCaretShapes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape[] getCaretShapes(int, java.awt.geom.Rectangle2D, java.awt.font.TextLayout$CaretPolicy)",
+    "returnType" : "java.awt.Shape[]",
+    "genericReturnType" : "java.awt.Shape[]",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "policy",
+      "type" : "java.awt.font.TextLayout$CaretPolicy",
+      "genericType" : "java.awt.font.TextLayout$CaretPolicy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterCount",
+    "modifiers" : "public",
+    "signature" : "public int getCharacterCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterLevel",
+    "modifiers" : "public",
+    "signature" : "public byte getCharacterLevel(int)",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescent",
+    "modifiers" : "public",
+    "signature" : "public float getDescent()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJustifiedLayout",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextLayout getJustifiedLayout(float)",
+    "returnType" : "java.awt.font.TextLayout",
+    "genericReturnType" : "java.awt.font.TextLayout",
+    "parameters" : [ {
+      "name" : "justificationWidth",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayoutPath",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.LayoutPath getLayoutPath()",
+    "returnType" : "java.awt.font.LayoutPath",
+    "genericReturnType" : "java.awt.font.LayoutPath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLeading",
+    "modifiers" : "public",
+    "signature" : "public float getLeading()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogicalHighlightShape",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getLogicalHighlightShape(int, int)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "firstEndpoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondEndpoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogicalHighlightShape",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getLogicalHighlightShape(int, int, java.awt.geom.Rectangle2D)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "firstEndpoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondEndpoint",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogicalRangesForVisualSelection",
+    "modifiers" : "public",
+    "signature" : "public int[] getLogicalRangesForVisualSelection(java.awt.font.TextHitInfo, java.awt.font.TextHitInfo)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "firstEndpoint",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondEndpoint",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextLeftHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getNextLeftHit(int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextLeftHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getNextLeftHit(int, java.awt.font.TextLayout$CaretPolicy)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "policy",
+      "type" : "java.awt.font.TextLayout$CaretPolicy",
+      "genericType" : "java.awt.font.TextLayout$CaretPolicy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextLeftHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getNextLeftHit(java.awt.font.TextHitInfo)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextRightHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getNextRightHit(int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextRightHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getNextRightHit(int, java.awt.font.TextLayout$CaretPolicy)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "policy",
+      "type" : "java.awt.font.TextLayout$CaretPolicy",
+      "genericType" : "java.awt.font.TextLayout$CaretPolicy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextRightHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getNextRightHit(java.awt.font.TextHitInfo)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutline",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getOutline(java.awt.geom.AffineTransform)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "tx",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPixelBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getPixelBounds(java.awt.font.FontRenderContext, float, float)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "frc",
+      "type" : "java.awt.font.FontRenderContext",
+      "genericType" : "java.awt.font.FontRenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisibleAdvance",
+    "modifiers" : "public",
+    "signature" : "public float getVisibleAdvance()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisualHighlightShape",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getVisualHighlightShape(java.awt.font.TextHitInfo, java.awt.font.TextHitInfo)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "firstEndpoint",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondEndpoint",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisualHighlightShape",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Shape getVisualHighlightShape(java.awt.font.TextHitInfo, java.awt.font.TextHitInfo, java.awt.geom.Rectangle2D)",
+    "returnType" : "java.awt.Shape",
+    "genericReturnType" : "java.awt.Shape",
+    "parameters" : [ {
+      "name" : "firstEndpoint",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secondEndpoint",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVisualOtherHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getVisualOtherHit(java.awt.font.TextHitInfo)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hitTestChar",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo hitTestChar(float, float)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hitTestChar",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo hitTestChar(float, float, java.awt.geom.Rectangle2D)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hitToPoint",
+    "modifiers" : "public",
+    "signature" : "public void hitToPoint(java.awt.font.TextHitInfo, java.awt.geom.Point2D)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "hit",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "point",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLeftToRight",
+    "modifiers" : "public",
+    "signature" : "public boolean isLeftToRight()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVertical",
+    "modifiers" : "public",
+    "signature" : "public boolean isVertical()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

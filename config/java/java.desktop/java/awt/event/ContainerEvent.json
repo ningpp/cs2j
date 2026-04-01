@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.ContainerEvent",
+  "canonicalName" : "java.awt.event.ContainerEvent",
+  "simpleName" : "ContainerEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.event.ComponentEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.event.ContainerEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.ContainerEvent(java.awt.Component, int, java.awt.Component)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "child",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getChild",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getChild()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContainer",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Container getContainer()",
+    "returnType" : "java.awt.Container",
+    "genericReturnType" : "java.awt.Container",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paramString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String paramString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

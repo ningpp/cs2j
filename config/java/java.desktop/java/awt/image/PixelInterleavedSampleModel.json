@@ -1,0 +1,104 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.PixelInterleavedSampleModel",
+  "canonicalName" : "java.awt.image.PixelInterleavedSampleModel",
+  "simpleName" : "PixelInterleavedSampleModel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.image.ComponentSampleModel",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.PixelInterleavedSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.PixelInterleavedSampleModel(int, int, int, int, int, int[])",
+    "parameters" : [ {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pixelStride",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scanlineStride",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bandOffsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createCompatibleSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.SampleModel createCompatibleSampleModel(int, int)",
+    "returnType" : "java.awt.image.SampleModel",
+    "genericReturnType" : "java.awt.image.SampleModel",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSubsetSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.SampleModel createSubsetSampleModel(int[])",
+    "returnType" : "java.awt.image.SampleModel",
+    "genericReturnType" : "java.awt.image.SampleModel",
+    "parameters" : [ {
+      "name" : "bands",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

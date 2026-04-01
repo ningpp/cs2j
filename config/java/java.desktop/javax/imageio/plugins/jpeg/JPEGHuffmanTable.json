@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.jpeg",
+  "binaryName" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable",
+  "canonicalName" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable",
+  "simpleName" : "JPEGHuffmanTable",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.jpeg.JPEGHuffmanTable",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.jpeg.JPEGHuffmanTable(short[], short[])",
+    "parameters" : [ {
+      "name" : "lengths",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "values",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLengths",
+    "modifiers" : "public",
+    "signature" : "public short[] getLengths()",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValues",
+    "modifiers" : "public",
+    "signature" : "public short[] getValues()",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

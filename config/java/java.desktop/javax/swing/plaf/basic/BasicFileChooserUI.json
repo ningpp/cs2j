@@ -1,0 +1,456 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicFileChooserUI",
+  "canonicalName" : "javax.swing.plaf.basic.BasicFileChooserUI",
+  "simpleName" : "BasicFileChooserUI",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.FileChooserUI",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicFileChooserUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicFileChooserUI(javax.swing.JFileChooser)",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clearIconCache",
+    "modifiers" : "public",
+    "signature" : "public void clearIconCache()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createListSelectionListener",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.ListSelectionListener createListSelectionListener(javax.swing.JFileChooser)",
+    "returnType" : "javax.swing.event.ListSelectionListener",
+    "genericReturnType" : "javax.swing.event.ListSelectionListener",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createPropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyChangeListener createPropertyChangeListener(javax.swing.JFileChooser)",
+    "returnType" : "java.beans.PropertyChangeListener",
+    "genericReturnType" : "java.beans.PropertyChangeListener",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createUI",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ComponentUI createUI(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.ComponentUI",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ensureFileIsVisible",
+    "modifiers" : "public",
+    "signature" : "public void ensureFileIsVisible(javax.swing.JFileChooser, java.io.File)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAcceptAllFileFilter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.filechooser.FileFilter getAcceptAllFileFilter(javax.swing.JFileChooser)",
+    "returnType" : "javax.swing.filechooser.FileFilter",
+    "genericReturnType" : "javax.swing.filechooser.FileFilter",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessoryPanel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JPanel getAccessoryPanel()",
+    "returnType" : "javax.swing.JPanel",
+    "genericReturnType" : "javax.swing.JPanel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApproveButtonMnemonic",
+    "modifiers" : "public",
+    "signature" : "public int getApproveButtonMnemonic(javax.swing.JFileChooser)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApproveButtonText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getApproveButtonText(javax.swing.JFileChooser)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApproveButtonToolTipText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getApproveButtonToolTipText(javax.swing.JFileChooser)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApproveSelectionAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action getApproveSelectionAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCancelSelectionAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action getCancelSelectionAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChangeToParentDirectoryAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action getChangeToParentDirectoryAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultButton",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JButton getDefaultButton(javax.swing.JFileChooser)",
+    "returnType" : "javax.swing.JButton",
+    "genericReturnType" : "javax.swing.JButton",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDialogTitle",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDialogTitle(javax.swing.JFileChooser)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDirectoryName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDirectoryName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileChooser",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JFileChooser getFileChooser()",
+    "returnType" : "javax.swing.JFileChooser",
+    "genericReturnType" : "javax.swing.JFileChooser",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFileName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.filechooser.FileView getFileView(javax.swing.JFileChooser)",
+    "returnType" : "javax.swing.filechooser.FileView",
+    "genericReturnType" : "javax.swing.filechooser.FileView",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGoHomeAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action getGoHomeAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicDirectoryModel getModel()",
+    "returnType" : "javax.swing.plaf.basic.BasicDirectoryModel",
+    "genericReturnType" : "javax.swing.plaf.basic.BasicDirectoryModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNewFolderAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action getNewFolderAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUpdateAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action getUpdateAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installComponents",
+    "modifiers" : "public",
+    "signature" : "public void installComponents(javax.swing.JFileChooser)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installUI",
+    "modifiers" : "public",
+    "signature" : "public void installUI(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rescanCurrentDirectory",
+    "modifiers" : "public",
+    "signature" : "public void rescanCurrentDirectory(javax.swing.JFileChooser)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDirectoryName",
+    "modifiers" : "public",
+    "signature" : "public void setDirectoryName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dirname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFileName",
+    "modifiers" : "public",
+    "signature" : "public void setFileName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "filename",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallComponents",
+    "modifiers" : "public",
+    "signature" : "public void uninstallComponents(javax.swing.JFileChooser)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fc",
+      "type" : "javax.swing.JFileChooser",
+      "genericType" : "javax.swing.JFileChooser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallUI",
+    "modifiers" : "public",
+    "signature" : "public void uninstallUI(javax.swing.JComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

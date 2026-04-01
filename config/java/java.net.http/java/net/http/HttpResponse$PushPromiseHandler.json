@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpResponse$PushPromiseHandler",
+  "canonicalName" : "java.net.http.HttpResponse.PushPromiseHandler",
+  "simpleName" : "PushPromiseHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpResponse",
+  "declaredPublicMethods" : [ {
+    "name" : "applyPushPromise",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void applyPushPromise(java.net.http.HttpRequest, java.net.http.HttpRequest, java.util.function.Function)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpRequest",
+      "genericType" : "java.net.http.HttpRequest",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.http.HttpRequest",
+      "genericType" : "java.net.http.HttpRequest",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$PushPromiseHandler of(java.util.function.Function, java.util.concurrent.ConcurrentMap)",
+    "returnType" : "java.net.http.HttpResponse$PushPromiseHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$PushPromiseHandler",
+    "parameters" : [ {
+      "name" : "pushPromiseHandler",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pushPromisesMap",
+      "type" : "java.util.concurrent.ConcurrentMap",
+      "genericType" : "java.util.concurrent.ConcurrentMap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

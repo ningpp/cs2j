@@ -1,0 +1,69 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicCheckBoxMenuItemUI",
+  "canonicalName" : "javax.swing.plaf.basic.BasicCheckBoxMenuItemUI",
+  "simpleName" : "BasicCheckBoxMenuItemUI",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.basic.BasicMenuItemUI",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicCheckBoxMenuItemUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicCheckBoxMenuItemUI()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createUI",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ComponentUI createUI(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.ComponentUI",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processMouseEvent",
+    "modifiers" : "public",
+    "signature" : "public void processMouseEvent(javax.swing.JMenuItem, java.awt.event.MouseEvent, javax.swing.MenuElement[], javax.swing.MenuSelectionManager)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "item",
+      "type" : "javax.swing.JMenuItem",
+      "genericType" : "javax.swing.JMenuItem",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path",
+      "type" : "javax.swing.MenuElement[]",
+      "genericType" : "javax.swing.MenuElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "manager",
+      "type" : "javax.swing.MenuSelectionManager",
+      "genericType" : "javax.swing.MenuSelectionManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

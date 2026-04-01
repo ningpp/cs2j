@@ -1,0 +1,205 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio",
+  "binaryName" : "javax.imageio.IIOImage",
+  "canonicalName" : "javax.imageio.IIOImage",
+  "simpleName" : "IIOImage",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.IIOImage",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.IIOImage(java.awt.image.Raster, java.util.List, javax.imageio.metadata.IIOMetadata)",
+    "parameters" : [ {
+      "name" : "raster",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thumbnails",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.IIOImage",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.IIOImage(java.awt.image.RenderedImage, java.util.List, javax.imageio.metadata.IIOMetadata)",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thumbnails",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "metadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMetadata",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.metadata.IIOMetadata getMetadata()",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumThumbnails",
+    "modifiers" : "public",
+    "signature" : "public int getNumThumbnails()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRaster",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.Raster getRaster()",
+    "returnType" : "java.awt.image.Raster",
+    "genericReturnType" : "java.awt.image.Raster",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRenderedImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.RenderedImage getRenderedImage()",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThumbnail",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage getThumbnail(int)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThumbnails",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getThumbnails()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasRaster",
+    "modifiers" : "public",
+    "signature" : "public boolean hasRaster()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMetadata",
+    "modifiers" : "public",
+    "signature" : "public void setMetadata(javax.imageio.metadata.IIOMetadata)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "metadata",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRaster",
+    "modifiers" : "public",
+    "signature" : "public void setRaster(java.awt.image.Raster)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "raster",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRenderedImage",
+    "modifiers" : "public",
+    "signature" : "public void setRenderedImage(java.awt.image.RenderedImage)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setThumbnails",
+    "modifiers" : "public",
+    "signature" : "public void setThumbnails(java.util.List)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "thumbnails",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,18 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.table",
+  "binaryName" : "javax.swing.table.DefaultTableCellRenderer$UIResource",
+  "canonicalName" : "javax.swing.table.DefaultTableCellRenderer.UIResource",
+  "simpleName" : "UIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.table.DefaultTableCellRenderer",
+  "superClass" : "javax.swing.table.DefaultTableCellRenderer",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.table.DefaultTableCellRenderer$UIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.DefaultTableCellRenderer$UIResource()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.HashPrintRequestAttributeSet",
+  "canonicalName" : "javax.print.attribute.HashPrintRequestAttributeSet",
+  "simpleName" : "HashPrintRequestAttributeSet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.attribute.HashAttributeSet",
+  "interfaces" : [ "java.io.Serializable", "javax.print.attribute.PrintRequestAttributeSet" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.HashPrintRequestAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintRequestAttributeSet()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashPrintRequestAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintRequestAttributeSet(javax.print.attribute.PrintRequestAttribute)",
+    "parameters" : [ {
+      "name" : "attribute",
+      "type" : "javax.print.attribute.PrintRequestAttribute",
+      "genericType" : "javax.print.attribute.PrintRequestAttribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashPrintRequestAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintRequestAttributeSet(javax.print.attribute.PrintRequestAttributeSet)",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashPrintRequestAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintRequestAttributeSet(javax.print.attribute.PrintRequestAttribute[])",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttribute[]",
+      "genericType" : "javax.print.attribute.PrintRequestAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

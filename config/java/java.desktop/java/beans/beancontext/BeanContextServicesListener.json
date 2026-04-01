@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextServicesListener",
+  "canonicalName" : "java.beans.beancontext.BeanContextServicesListener",
+  "simpleName" : "BeanContextServicesListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.beans.beancontext.BeanContextServiceRevokedListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "serviceAvailable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void serviceAvailable(java.beans.beancontext.BeanContextServiceAvailableEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+      "genericType" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

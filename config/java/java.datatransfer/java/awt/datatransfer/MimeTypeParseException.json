@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.MimeTypeParseException",
+  "canonicalName" : "java.awt.datatransfer.MimeTypeParseException",
+  "simpleName" : "MimeTypeParseException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.datatransfer.MimeTypeParseException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.MimeTypeParseException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.datatransfer.MimeTypeParseException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.MimeTypeParseException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

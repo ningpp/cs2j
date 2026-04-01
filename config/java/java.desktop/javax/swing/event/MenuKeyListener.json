@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.MenuKeyListener",
+  "canonicalName" : "javax.swing.event.MenuKeyListener",
+  "simpleName" : "MenuKeyListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "menuKeyPressed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuKeyPressed(javax.swing.event.MenuKeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuKeyEvent",
+      "genericType" : "javax.swing.event.MenuKeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuKeyReleased",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuKeyReleased(javax.swing.event.MenuKeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuKeyEvent",
+      "genericType" : "javax.swing.event.MenuKeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuKeyTyped",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuKeyTyped(javax.swing.event.MenuKeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuKeyEvent",
+      "genericType" : "javax.swing.event.MenuKeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

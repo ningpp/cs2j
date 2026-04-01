@@ -1,0 +1,152 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.AsynchronousChannelGroup",
+  "canonicalName" : "java.nio.channels.AsynchronousChannelGroup",
+  "simpleName" : "AsynchronousChannelGroup",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "awaitTermination",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean awaitTermination(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isShutdown",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isShutdown()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTerminated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isTerminated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.spi.AsynchronousChannelProvider provider()",
+    "returnType" : "java.nio.channels.spi.AsynchronousChannelProvider",
+    "genericReturnType" : "java.nio.channels.spi.AsynchronousChannelProvider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdown",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void shutdown()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdownNow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void shutdownNow() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withCachedThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.AsynchronousChannelGroup withCachedThreadPool(java.util.concurrent.ExecutorService, int) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "genericReturnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.ExecutorService",
+      "genericType" : "java.util.concurrent.ExecutorService",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withFixedThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.AsynchronousChannelGroup withFixedThreadPool(int, java.util.concurrent.ThreadFactory) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "genericReturnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "parameters" : [ {
+      "name" : "nThreads",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.AsynchronousChannelGroup withThreadPool(java.util.concurrent.ExecutorService) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "genericReturnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.ExecutorService",
+      "genericType" : "java.util.concurrent.ExecutorService",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

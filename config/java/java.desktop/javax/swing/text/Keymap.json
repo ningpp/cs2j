@@ -1,0 +1,195 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.Keymap",
+  "canonicalName" : "javax.swing.text.Keymap",
+  "simpleName" : "Keymap",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addActionForKeyStroke",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addActionForKeyStroke(javax.swing.KeyStroke, javax.swing.Action)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.swing.Action",
+      "genericType" : "javax.swing.Action",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.Action getAction(javax.swing.KeyStroke)",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBoundActions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.Action[] getBoundActions()",
+    "returnType" : "javax.swing.Action[]",
+    "genericReturnType" : "javax.swing.Action[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBoundKeyStrokes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.KeyStroke[] getBoundKeyStrokes()",
+    "returnType" : "javax.swing.KeyStroke[]",
+    "genericReturnType" : "javax.swing.KeyStroke[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultAction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.Action getDefaultAction()",
+    "returnType" : "javax.swing.Action",
+    "genericReturnType" : "javax.swing.Action",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyStrokesForAction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.KeyStroke[] getKeyStrokesForAction(javax.swing.Action)",
+    "returnType" : "javax.swing.KeyStroke[]",
+    "genericReturnType" : "javax.swing.KeyStroke[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.Action",
+      "genericType" : "javax.swing.Action",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolveParent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.Keymap getResolveParent()",
+    "returnType" : "javax.swing.text.Keymap",
+    "genericReturnType" : "javax.swing.text.Keymap",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLocallyDefined",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isLocallyDefined(javax.swing.KeyStroke)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeBindings",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeBindings()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeKeyStrokeBinding",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeKeyStrokeBinding(javax.swing.KeyStroke)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.KeyStroke",
+      "genericType" : "javax.swing.KeyStroke",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultAction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDefaultAction(javax.swing.Action)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.Action",
+      "genericType" : "javax.swing.Action",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResolveParent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setResolveParent(javax.swing.text.Keymap)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.text.Keymap",
+      "genericType" : "javax.swing.text.Keymap",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

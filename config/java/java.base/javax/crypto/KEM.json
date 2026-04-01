@@ -1,0 +1,201 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KEM",
+  "canonicalName" : "javax.crypto.KEM",
+  "simpleName" : "KEM",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KEM getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.KEM",
+    "genericReturnType" : "javax.crypto.KEM",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KEM getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException",
+    "returnType" : "javax.crypto.KEM",
+    "genericReturnType" : "javax.crypto.KEM",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.KEM getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.crypto.KEM",
+    "genericReturnType" : "javax.crypto.KEM",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDecapsulator",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Decapsulator newDecapsulator(java.security.PrivateKey) throws java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.KEM$Decapsulator",
+    "genericReturnType" : "javax.crypto.KEM$Decapsulator",
+    "parameters" : [ {
+      "name" : "privateKey",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDecapsulator",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Decapsulator newDecapsulator(java.security.PrivateKey, java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidAlgorithmParameterException, java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.KEM$Decapsulator",
+    "genericReturnType" : "javax.crypto.KEM$Decapsulator",
+    "parameters" : [ {
+      "name" : "privateKey",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spec",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newEncapsulator",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Encapsulator newEncapsulator(java.security.PublicKey) throws java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.KEM$Encapsulator",
+    "genericReturnType" : "javax.crypto.KEM$Encapsulator",
+    "parameters" : [ {
+      "name" : "publicKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newEncapsulator",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Encapsulator newEncapsulator(java.security.PublicKey, java.security.SecureRandom) throws java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.KEM$Encapsulator",
+    "genericReturnType" : "javax.crypto.KEM$Encapsulator",
+    "parameters" : [ {
+      "name" : "publicKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secureRandom",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newEncapsulator",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Encapsulator newEncapsulator(java.security.PublicKey, java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom) throws java.security.InvalidAlgorithmParameterException, java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.KEM$Encapsulator",
+    "genericReturnType" : "javax.crypto.KEM$Encapsulator",
+    "parameters" : [ {
+      "name" : "publicKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "spec",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "secureRandom",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MBeanRegistrationException",
+  "canonicalName" : "javax.management.MBeanRegistrationException",
+  "simpleName" : "MBeanRegistrationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.MBeanException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.MBeanRegistrationException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanRegistrationException(java.lang.Exception)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.MBeanRegistrationException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanRegistrationException(java.lang.Exception, java.lang.String)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

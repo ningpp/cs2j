@@ -1,0 +1,110 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ProcessBuilder$Redirect",
+  "canonicalName" : "java.lang.ProcessBuilder.Redirect",
+  "simpleName" : "Redirect",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "java.lang.ProcessBuilder",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "appendTo",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ProcessBuilder$Redirect appendTo(java.io.File)",
+    "returnType" : "java.lang.ProcessBuilder$Redirect",
+    "genericReturnType" : "java.lang.ProcessBuilder$Redirect",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "file",
+    "modifiers" : "public",
+    "signature" : "public java.io.File file()",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ProcessBuilder$Redirect from(java.io.File)",
+    "returnType" : "java.lang.ProcessBuilder$Redirect",
+    "genericReturnType" : "java.lang.ProcessBuilder$Redirect",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "to",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ProcessBuilder$Redirect to(java.io.File)",
+    "returnType" : "java.lang.ProcessBuilder$Redirect",
+    "genericReturnType" : "java.lang.ProcessBuilder$Redirect",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "type",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.ProcessBuilder$Redirect$Type type()",
+    "returnType" : "java.lang.ProcessBuilder$Redirect$Type",
+    "genericReturnType" : "java.lang.ProcessBuilder$Redirect$Type",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

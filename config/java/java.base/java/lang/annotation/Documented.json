@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.annotation",
+  "binaryName" : "java.lang.annotation.Documented",
+  "canonicalName" : "java.lang.annotation.Documented",
+  "simpleName" : "Documented",
+  "kind" : "annotation",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.annotation.Annotation" ]
+}

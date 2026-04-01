@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AnnotationValue$OfShort",
+  "canonicalName" : "java.lang.classfile.AnnotationValue.OfShort",
+  "simpleName" : "OfShort",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.AnnotationValue",
+  "interfaces" : [ "java.lang.classfile.AnnotationValue$OfConstant" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.IntegerEntry constant()",
+    "returnType" : "java.lang.classfile.constantpool.IntegerEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.IntegerEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolvedValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Short resolvedValue()",
+    "returnType" : "java.lang.Short",
+    "genericReturnType" : "java.lang.Short",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "shortValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short shortValue()",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

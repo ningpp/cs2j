@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JColorChooser$AccessibleJColorChooser",
+  "canonicalName" : "javax.swing.JColorChooser.AccessibleJColorChooser",
+  "simpleName" : "AccessibleJColorChooser",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JColorChooser",
+  "superClass" : "javax.swing.JComponent$AccessibleJComponent",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

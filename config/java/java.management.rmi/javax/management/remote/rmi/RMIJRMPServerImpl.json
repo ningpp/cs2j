@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.management.rmi",
+  "packageName" : "javax.management.remote.rmi",
+  "binaryName" : "javax.management.remote.rmi.RMIJRMPServerImpl",
+  "canonicalName" : "javax.management.remote.rmi.RMIJRMPServerImpl",
+  "simpleName" : "RMIJRMPServerImpl",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.remote.rmi.RMIServerImpl",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.rmi.RMIJRMPServerImpl",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.rmi.RMIJRMPServerImpl(int, java.rmi.server.RMIClientSocketFactory, java.rmi.server.RMIServerSocketFactory, java.util.Map) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csf",
+      "type" : "java.rmi.server.RMIClientSocketFactory",
+      "genericType" : "java.rmi.server.RMIClientSocketFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ssf",
+      "type" : "java.rmi.server.RMIServerSocketFactory",
+      "genericType" : "java.rmi.server.RMIServerSocketFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "toStub",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.Remote toStub() throws java.io.IOException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.NegativeArraySizeException",
+  "canonicalName" : "java.lang.NegativeArraySizeException",
+  "simpleName" : "NegativeArraySizeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.NegativeArraySizeException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NegativeArraySizeException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.NegativeArraySizeException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NegativeArraySizeException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

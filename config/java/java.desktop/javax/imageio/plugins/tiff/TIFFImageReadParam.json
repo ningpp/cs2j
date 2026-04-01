@@ -1,0 +1,88 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.tiff",
+  "binaryName" : "javax.imageio.plugins.tiff.TIFFImageReadParam",
+  "canonicalName" : "javax.imageio.plugins.tiff.TIFFImageReadParam",
+  "simpleName" : "TIFFImageReadParam",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.imageio.ImageReadParam",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.tiff.TIFFImageReadParam",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.tiff.TIFFImageReadParam()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addAllowedTagSet",
+    "modifiers" : "public",
+    "signature" : "public void addAllowedTagSet(javax.imageio.plugins.tiff.TIFFTagSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tagSet",
+      "type" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllowedTagSets",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getAllowedTagSets()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReadUnknownTags",
+    "modifiers" : "public",
+    "signature" : "public boolean getReadUnknownTags()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeAllowedTagSet",
+    "modifiers" : "public",
+    "signature" : "public void removeAllowedTagSet(javax.imageio.plugins.tiff.TIFFTagSet)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tagSet",
+      "type" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "genericType" : "javax.imageio.plugins.tiff.TIFFTagSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setReadUnknownTags",
+    "modifiers" : "public",
+    "signature" : "public void setReadUnknownTags(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "readUnknownTags",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

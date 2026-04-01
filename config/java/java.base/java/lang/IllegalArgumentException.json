@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.IllegalArgumentException",
+  "canonicalName" : "java.lang.IllegalArgumentException",
+  "simpleName" : "IllegalArgumentException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.IllegalArgumentException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalArgumentException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.IllegalArgumentException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalArgumentException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.IllegalArgumentException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalArgumentException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.IllegalArgumentException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.IllegalArgumentException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

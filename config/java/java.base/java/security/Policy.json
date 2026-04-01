@@ -1,0 +1,225 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.Policy",
+  "canonicalName" : "java.security.Policy",
+  "simpleName" : "Policy",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.Policy",
+    "modifiers" : "public",
+    "signature" : "public java.security.Policy()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.Policy getInstance(java.lang.String, java.security.Policy$Parameters) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.Policy",
+    "genericReturnType" : "java.security.Policy",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.Policy$Parameters",
+      "genericType" : "java.security.Policy$Parameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.Policy getInstance(java.lang.String, java.security.Policy$Parameters, java.lang.String) throws java.security.NoSuchProviderException, java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.Policy",
+    "genericReturnType" : "java.security.Policy",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.Policy$Parameters",
+      "genericType" : "java.security.Policy$Parameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchProviderException", "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.Policy getInstance(java.lang.String, java.security.Policy$Parameters, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.Policy",
+    "genericReturnType" : "java.security.Policy",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.Policy$Parameters",
+      "genericType" : "java.security.Policy$Parameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameters",
+    "modifiers" : "public",
+    "signature" : "public java.security.Policy$Parameters getParameters()",
+    "returnType" : "java.security.Policy$Parameters",
+    "genericReturnType" : "java.security.Policy$Parameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPermissions",
+    "modifiers" : "public",
+    "signature" : "public java.security.PermissionCollection getPermissions(java.security.CodeSource)",
+    "returnType" : "java.security.PermissionCollection",
+    "genericReturnType" : "java.security.PermissionCollection",
+    "parameters" : [ {
+      "name" : "codesource",
+      "type" : "java.security.CodeSource",
+      "genericType" : "java.security.CodeSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPermissions",
+    "modifiers" : "public",
+    "signature" : "public java.security.PermissionCollection getPermissions(java.security.ProtectionDomain)",
+    "returnType" : "java.security.PermissionCollection",
+    "genericReturnType" : "java.security.PermissionCollection",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.security.ProtectionDomain",
+      "genericType" : "java.security.ProtectionDomain",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPolicy",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.Policy getPolicy()",
+    "returnType" : "java.security.Policy",
+    "genericReturnType" : "java.security.Policy",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public",
+    "signature" : "public java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "implies",
+    "modifiers" : "public",
+    "signature" : "public boolean implies(java.security.ProtectionDomain, java.security.Permission)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.security.ProtectionDomain",
+      "genericType" : "java.security.ProtectionDomain",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "permission",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "refresh",
+    "modifiers" : "public",
+    "signature" : "public void refresh()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPolicy",
+    "modifiers" : "public static",
+    "signature" : "public static void setPolicy(java.security.Policy)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.security.Policy",
+      "genericType" : "java.security.Policy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

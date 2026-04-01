@@ -1,0 +1,248 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.ColorConvertOp",
+  "canonicalName" : "java.awt.image.ColorConvertOp",
+  "simpleName" : "ColorConvertOp",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.image.BufferedImageOp", "java.awt.image.RasterOp" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.ColorConvertOp",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ColorConvertOp(java.awt.RenderingHints)",
+    "parameters" : [ {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.ColorConvertOp",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ColorConvertOp(java.awt.color.ColorSpace, java.awt.RenderingHints)",
+    "parameters" : [ {
+      "name" : "cspace",
+      "type" : "java.awt.color.ColorSpace",
+      "genericType" : "java.awt.color.ColorSpace",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.ColorConvertOp",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ColorConvertOp(java.awt.color.ColorSpace, java.awt.color.ColorSpace, java.awt.RenderingHints)",
+    "parameters" : [ {
+      "name" : "srcCspace",
+      "type" : "java.awt.color.ColorSpace",
+      "genericType" : "java.awt.color.ColorSpace",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstCspace",
+      "type" : "java.awt.color.ColorSpace",
+      "genericType" : "java.awt.color.ColorSpace",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.ColorConvertOp",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ColorConvertOp(java.awt.color.ICC_Profile[], java.awt.RenderingHints)",
+    "parameters" : [ {
+      "name" : "profiles",
+      "type" : "java.awt.color.ICC_Profile[]",
+      "genericType" : "java.awt.color.ICC_Profile[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createCompatibleDestImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage createCompatibleDestImage(java.awt.image.BufferedImage, java.awt.image.ColorModel)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "destCM",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createCompatibleDestRaster",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.WritableRaster createCompatibleDestRaster(java.awt.image.Raster)",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "filter",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.image.BufferedImage filter(java.awt.image.BufferedImage, java.awt.image.BufferedImage)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dest",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "filter",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.image.WritableRaster filter(java.awt.image.Raster, java.awt.image.WritableRaster)",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dest",
+      "type" : "java.awt.image.WritableRaster",
+      "genericType" : "java.awt.image.WritableRaster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds2D",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.geom.Rectangle2D getBounds2D(java.awt.image.BufferedImage)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds2D",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.geom.Rectangle2D getBounds2D(java.awt.image.Raster)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getICC_Profiles",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.color.ICC_Profile[] getICC_Profiles()",
+    "returnType" : "java.awt.color.ICC_Profile[]",
+    "genericReturnType" : "java.awt.color.ICC_Profile[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoint2D",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.geom.Point2D getPoint2D(java.awt.geom.Point2D, java.awt.geom.Point2D)",
+    "returnType" : "java.awt.geom.Point2D",
+    "genericReturnType" : "java.awt.geom.Point2D",
+    "parameters" : [ {
+      "name" : "srcPt",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstPt",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRenderingHints",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.RenderingHints getRenderingHints()",
+    "returnType" : "java.awt.RenderingHints",
+    "genericReturnType" : "java.awt.RenderingHints",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

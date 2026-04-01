@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.DiagnosticCollector",
+  "canonicalName" : "javax.tools.DiagnosticCollector",
+  "simpleName" : "DiagnosticCollector",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.tools.DiagnosticListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.tools.DiagnosticCollector",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.DiagnosticCollector()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDiagnostics",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getDiagnostics()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "report",
+    "modifiers" : "public",
+    "signature" : "public void report(javax.tools.Diagnostic)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "diagnostic",
+      "type" : "javax.tools.Diagnostic",
+      "genericType" : "javax.tools.Diagnostic",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

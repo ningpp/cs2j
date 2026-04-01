@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.CompletableFuture$AsynchronousCompletionTask",
+  "canonicalName" : "java.util.concurrent.CompletableFuture.AsynchronousCompletionTask",
+  "simpleName" : "AsynchronousCompletionTask",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.CompletableFuture"
+}

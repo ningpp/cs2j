@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.MalformedURLException",
+  "canonicalName" : "java.net.MalformedURLException",
+  "simpleName" : "MalformedURLException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.MalformedURLException",
+    "modifiers" : "public",
+    "signature" : "public java.net.MalformedURLException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.MalformedURLException",
+    "modifiers" : "public",
+    "signature" : "public java.net.MalformedURLException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

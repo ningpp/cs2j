@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.LinkageError",
+  "canonicalName" : "java.lang.LinkageError",
+  "simpleName" : "LinkageError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.LinkageError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.LinkageError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.LinkageError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.LinkageError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.LinkageError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.LinkageError(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

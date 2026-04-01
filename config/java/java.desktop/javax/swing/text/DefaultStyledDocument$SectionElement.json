@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.DefaultStyledDocument$SectionElement",
+  "canonicalName" : "javax.swing.text.DefaultStyledDocument.SectionElement",
+  "simpleName" : "SectionElement",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.DefaultStyledDocument",
+  "superClass" : "javax.swing.text.AbstractDocument$BranchElement",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.DefaultStyledDocument$SectionElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultStyledDocument$SectionElement(javax.swing.text.DefaultStyledDocument)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.DefaultStyledDocument",
+      "genericType" : "javax.swing.text.DefaultStyledDocument",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

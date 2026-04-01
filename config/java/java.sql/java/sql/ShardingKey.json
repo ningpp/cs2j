@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.ShardingKey",
+  "canonicalName" : "java.sql.ShardingKey",
+  "simpleName" : "ShardingKey",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

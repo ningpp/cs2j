@@ -1,0 +1,166 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.PKIXRevocationChecker",
+  "canonicalName" : "java.security.cert.PKIXRevocationChecker",
+  "simpleName" : "PKIXRevocationChecker",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.security.cert.PKIXCertPathChecker",
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.PKIXRevocationChecker clone()",
+    "returnType" : "java.security.cert.PKIXRevocationChecker",
+    "genericReturnType" : "java.security.cert.PKIXRevocationChecker",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOcspExtensions",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getOcspExtensions()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOcspResponder",
+    "modifiers" : "public",
+    "signature" : "public java.net.URI getOcspResponder()",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOcspResponderCert",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.X509Certificate getOcspResponderCert()",
+    "returnType" : "java.security.cert.X509Certificate",
+    "genericReturnType" : "java.security.cert.X509Certificate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOcspResponses",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getOcspResponses()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOptions",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getOptions()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSoftFailExceptions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getSoftFailExceptions()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOcspExtensions",
+    "modifiers" : "public",
+    "signature" : "public void setOcspExtensions(java.util.List)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "extensions",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOcspResponder",
+    "modifiers" : "public",
+    "signature" : "public void setOcspResponder(java.net.URI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOcspResponderCert",
+    "modifiers" : "public",
+    "signature" : "public void setOcspResponderCert(java.security.cert.X509Certificate)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cert",
+      "type" : "java.security.cert.X509Certificate",
+      "genericType" : "java.security.cert.X509Certificate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOcspResponses",
+    "modifiers" : "public",
+    "signature" : "public void setOcspResponses(java.util.Map)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "responses",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOptions",
+    "modifiers" : "public",
+    "signature" : "public void setOptions(java.util.Set)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "options",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

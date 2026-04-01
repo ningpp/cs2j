@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.timer",
+  "binaryName" : "javax.management.timer.TimerNotification",
+  "canonicalName" : "javax.management.timer.TimerNotification",
+  "simpleName" : "TimerNotification",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.Notification",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.timer.TimerNotification",
+    "modifiers" : "public",
+    "signature" : "public javax.management.timer.TimerNotification(java.lang.String, java.lang.Object, long, long, java.lang.String, java.lang.Integer)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sequenceNumber",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeStamp",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNotificationID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Integer getNotificationID()",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ExceptionsAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.ExceptionsAttribute",
+  "simpleName" : "ExceptionsAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "exceptions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List exceptions()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ExceptionsAttribute of(java.lang.classfile.constantpool.ClassEntry...)",
+    "returnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "parameters" : [ {
+      "name" : "exceptions",
+      "type" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ExceptionsAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "parameters" : [ {
+      "name" : "exceptions",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ExceptionsAttribute ofSymbols(java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "parameters" : [ {
+      "name" : "exceptions",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ExceptionsAttribute ofSymbols(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ExceptionsAttribute",
+    "parameters" : [ {
+      "name" : "exceptions",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

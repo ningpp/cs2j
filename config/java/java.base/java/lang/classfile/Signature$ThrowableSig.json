@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Signature$ThrowableSig",
+  "canonicalName" : "java.lang.classfile.Signature.ThrowableSig",
+  "simpleName" : "ThrowableSig",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.Signature",
+  "interfaces" : [ "java.lang.classfile.Signature" ]
+}

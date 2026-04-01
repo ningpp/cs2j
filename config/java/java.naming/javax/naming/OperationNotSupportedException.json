@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.OperationNotSupportedException",
+  "canonicalName" : "javax.naming.OperationNotSupportedException",
+  "simpleName" : "OperationNotSupportedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.OperationNotSupportedException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.OperationNotSupportedException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.OperationNotSupportedException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.OperationNotSupportedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

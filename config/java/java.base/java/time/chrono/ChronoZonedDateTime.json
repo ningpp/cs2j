@@ -1,0 +1,516 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.chrono",
+  "binaryName" : "java.time.chrono.ChronoZonedDateTime",
+  "canonicalName" : "java.time.chrono.ChronoZonedDateTime",
+  "simpleName" : "ChronoZonedDateTime",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.Comparable", "java.time.temporal.Temporal" ],
+  "declaredPublicMethods" : [ {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.time.chrono.ChronoZonedDateTime)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.time.chrono.ChronoZonedDateTime",
+      "genericType" : "java.time.chrono.ChronoZonedDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String format(java.time.format.DateTimeFormatter)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "formatter",
+      "type" : "java.time.format.DateTimeFormatter",
+      "genericType" : "java.time.format.DateTimeFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.ChronoZonedDateTime from(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public int get(java.time.temporal.TemporalField)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getChronology",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.Chronology getChronology()",
+    "returnType" : "java.time.chrono.Chronology",
+    "genericReturnType" : "java.time.chrono.Chronology",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getLong",
+    "modifiers" : "public",
+    "signature" : "public long getLong(java.time.temporal.TemporalField)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.ZoneOffset getOffset()",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getZone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.ZoneId getZone()",
+    "returnType" : "java.time.ZoneId",
+    "genericReturnType" : "java.time.ZoneId",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAfter",
+    "modifiers" : "public",
+    "signature" : "public boolean isAfter(java.time.chrono.ChronoZonedDateTime)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.time.chrono.ChronoZonedDateTime",
+      "genericType" : "java.time.chrono.ChronoZonedDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isBefore",
+    "modifiers" : "public",
+    "signature" : "public boolean isBefore(java.time.chrono.ChronoZonedDateTime)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.time.chrono.ChronoZonedDateTime",
+      "genericType" : "java.time.chrono.ChronoZonedDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isEqual",
+    "modifiers" : "public",
+    "signature" : "public boolean isEqual(java.time.chrono.ChronoZonedDateTime)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.time.chrono.ChronoZonedDateTime",
+      "genericType" : "java.time.chrono.ChronoZonedDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSupported(java.time.temporal.TemporalField)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.time.temporal.TemporalUnit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime minus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "amount",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime minus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime plus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "amount",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoZonedDateTime plus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "query",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object query(java.time.temporal.TemporalQuery)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "query",
+      "type" : "java.time.temporal.TemporalQuery",
+      "genericType" : "java.time.temporal.TemporalQuery",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.ValueRange range(java.time.temporal.TemporalField)",
+    "returnType" : "java.time.temporal.ValueRange",
+    "genericReturnType" : "java.time.temporal.ValueRange",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "timeLineOrder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Comparator timeLineOrder()",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toEpochSecond",
+    "modifiers" : "public",
+    "signature" : "public long toEpochSecond()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "toInstant",
+    "modifiers" : "public",
+    "signature" : "public java.time.Instant toInstant()",
+    "returnType" : "java.time.Instant",
+    "genericReturnType" : "java.time.Instant",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalDate",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDate toLocalDate()",
+    "returnType" : "java.time.chrono.ChronoLocalDate",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalDateTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoLocalDateTime toLocalDateTime()",
+    "returnType" : "java.time.chrono.ChronoLocalDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalTime toLocalTime()",
+    "returnType" : "java.time.LocalTime",
+    "genericReturnType" : "java.time.LocalTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime with(java.time.temporal.TemporalAdjuster)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "adjuster",
+      "type" : "java.time.temporal.TemporalAdjuster",
+      "genericType" : "java.time.temporal.TemporalAdjuster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoZonedDateTime with(java.time.temporal.TemporalField, long)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withEarlierOffsetAtOverlap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoZonedDateTime withEarlierOffsetAtOverlap()",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withLaterOffsetAtOverlap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoZonedDateTime withLaterOffsetAtOverlap()",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZoneSameInstant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoZonedDateTime withZoneSameInstant(java.time.ZoneId)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZoneSameLocal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoZonedDateTime withZoneSameLocal(java.time.ZoneId)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

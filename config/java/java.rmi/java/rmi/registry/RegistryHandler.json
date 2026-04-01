@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.registry",
+  "binaryName" : "java.rmi.registry.RegistryHandler",
+  "canonicalName" : "java.rmi.registry.RegistryHandler",
+  "simpleName" : "RegistryHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "registryImpl",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.rmi.registry.Registry registryImpl(int) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.registry.Registry",
+    "genericReturnType" : "java.rmi.registry.Registry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registryStub",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.rmi.registry.Registry registryStub(java.lang.String, int) throws java.rmi.RemoteException, java.rmi.UnknownHostException",
+    "returnType" : "java.rmi.registry.Registry",
+    "genericReturnType" : "java.rmi.registry.Registry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException", "java.rmi.UnknownHostException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

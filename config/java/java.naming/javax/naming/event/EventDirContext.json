@@ -1,0 +1,167 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.event",
+  "binaryName" : "javax.naming.event.EventDirContext",
+  "canonicalName" : "javax.naming.event.EventDirContext",
+  "simpleName" : "EventDirContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.naming.directory.DirContext", "javax.naming.event.EventContext" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addNamingListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addNamingListener(java.lang.String, java.lang.String, java.lang.Object[], javax.naming.directory.SearchControls, javax.naming.event.NamingListener) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNamingListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addNamingListener(java.lang.String, java.lang.String, javax.naming.directory.SearchControls, javax.naming.event.NamingListener) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNamingListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addNamingListener(javax.naming.Name, java.lang.String, java.lang.Object[], javax.naming.directory.SearchControls, javax.naming.event.NamingListener) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNamingListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addNamingListener(javax.naming.Name, java.lang.String, javax.naming.directory.SearchControls, javax.naming.event.NamingListener) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,1463 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.AWTEventMulticaster",
+  "canonicalName" : "java.awt.AWTEventMulticaster",
+  "simpleName" : "AWTEventMulticaster",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.ActionListener", "java.awt.event.AdjustmentListener", "java.awt.event.ComponentListener", "java.awt.event.ContainerListener", "java.awt.event.FocusListener", "java.awt.event.HierarchyBoundsListener", "java.awt.event.HierarchyListener", "java.awt.event.InputMethodListener", "java.awt.event.ItemListener", "java.awt.event.KeyListener", "java.awt.event.MouseListener", "java.awt.event.MouseMotionListener", "java.awt.event.MouseWheelListener", "java.awt.event.TextListener", "java.awt.event.WindowFocusListener", "java.awt.event.WindowListener", "java.awt.event.WindowStateListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public",
+    "signature" : "public void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ActionListener add(java.awt.event.ActionListener, java.awt.event.ActionListener)",
+    "returnType" : "java.awt.event.ActionListener",
+    "genericReturnType" : "java.awt.event.ActionListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.AdjustmentListener add(java.awt.event.AdjustmentListener, java.awt.event.AdjustmentListener)",
+    "returnType" : "java.awt.event.AdjustmentListener",
+    "genericReturnType" : "java.awt.event.AdjustmentListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.AdjustmentListener",
+      "genericType" : "java.awt.event.AdjustmentListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.AdjustmentListener",
+      "genericType" : "java.awt.event.AdjustmentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ComponentListener add(java.awt.event.ComponentListener, java.awt.event.ComponentListener)",
+    "returnType" : "java.awt.event.ComponentListener",
+    "genericReturnType" : "java.awt.event.ComponentListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.ComponentListener",
+      "genericType" : "java.awt.event.ComponentListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.ComponentListener",
+      "genericType" : "java.awt.event.ComponentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ContainerListener add(java.awt.event.ContainerListener, java.awt.event.ContainerListener)",
+    "returnType" : "java.awt.event.ContainerListener",
+    "genericReturnType" : "java.awt.event.ContainerListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.ContainerListener",
+      "genericType" : "java.awt.event.ContainerListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.ContainerListener",
+      "genericType" : "java.awt.event.ContainerListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.FocusListener add(java.awt.event.FocusListener, java.awt.event.FocusListener)",
+    "returnType" : "java.awt.event.FocusListener",
+    "genericReturnType" : "java.awt.event.FocusListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.FocusListener",
+      "genericType" : "java.awt.event.FocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.FocusListener",
+      "genericType" : "java.awt.event.FocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.HierarchyBoundsListener add(java.awt.event.HierarchyBoundsListener, java.awt.event.HierarchyBoundsListener)",
+    "returnType" : "java.awt.event.HierarchyBoundsListener",
+    "genericReturnType" : "java.awt.event.HierarchyBoundsListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.HierarchyBoundsListener",
+      "genericType" : "java.awt.event.HierarchyBoundsListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.HierarchyBoundsListener",
+      "genericType" : "java.awt.event.HierarchyBoundsListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.HierarchyListener add(java.awt.event.HierarchyListener, java.awt.event.HierarchyListener)",
+    "returnType" : "java.awt.event.HierarchyListener",
+    "genericReturnType" : "java.awt.event.HierarchyListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.HierarchyListener",
+      "genericType" : "java.awt.event.HierarchyListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.HierarchyListener",
+      "genericType" : "java.awt.event.HierarchyListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.InputMethodListener add(java.awt.event.InputMethodListener, java.awt.event.InputMethodListener)",
+    "returnType" : "java.awt.event.InputMethodListener",
+    "genericReturnType" : "java.awt.event.InputMethodListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.InputMethodListener",
+      "genericType" : "java.awt.event.InputMethodListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.InputMethodListener",
+      "genericType" : "java.awt.event.InputMethodListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ItemListener add(java.awt.event.ItemListener, java.awt.event.ItemListener)",
+    "returnType" : "java.awt.event.ItemListener",
+    "genericReturnType" : "java.awt.event.ItemListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.ItemListener",
+      "genericType" : "java.awt.event.ItemListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.ItemListener",
+      "genericType" : "java.awt.event.ItemListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.KeyListener add(java.awt.event.KeyListener, java.awt.event.KeyListener)",
+    "returnType" : "java.awt.event.KeyListener",
+    "genericReturnType" : "java.awt.event.KeyListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.KeyListener",
+      "genericType" : "java.awt.event.KeyListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.KeyListener",
+      "genericType" : "java.awt.event.KeyListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.MouseListener add(java.awt.event.MouseListener, java.awt.event.MouseListener)",
+    "returnType" : "java.awt.event.MouseListener",
+    "genericReturnType" : "java.awt.event.MouseListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.MouseListener",
+      "genericType" : "java.awt.event.MouseListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.MouseListener",
+      "genericType" : "java.awt.event.MouseListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.MouseMotionListener add(java.awt.event.MouseMotionListener, java.awt.event.MouseMotionListener)",
+    "returnType" : "java.awt.event.MouseMotionListener",
+    "genericReturnType" : "java.awt.event.MouseMotionListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.MouseMotionListener",
+      "genericType" : "java.awt.event.MouseMotionListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.MouseMotionListener",
+      "genericType" : "java.awt.event.MouseMotionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.MouseWheelListener add(java.awt.event.MouseWheelListener, java.awt.event.MouseWheelListener)",
+    "returnType" : "java.awt.event.MouseWheelListener",
+    "genericReturnType" : "java.awt.event.MouseWheelListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.MouseWheelListener",
+      "genericType" : "java.awt.event.MouseWheelListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.MouseWheelListener",
+      "genericType" : "java.awt.event.MouseWheelListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.TextListener add(java.awt.event.TextListener, java.awt.event.TextListener)",
+    "returnType" : "java.awt.event.TextListener",
+    "genericReturnType" : "java.awt.event.TextListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.TextListener",
+      "genericType" : "java.awt.event.TextListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.TextListener",
+      "genericType" : "java.awt.event.TextListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.WindowFocusListener add(java.awt.event.WindowFocusListener, java.awt.event.WindowFocusListener)",
+    "returnType" : "java.awt.event.WindowFocusListener",
+    "genericReturnType" : "java.awt.event.WindowFocusListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.WindowFocusListener",
+      "genericType" : "java.awt.event.WindowFocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.WindowFocusListener",
+      "genericType" : "java.awt.event.WindowFocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.WindowListener add(java.awt.event.WindowListener, java.awt.event.WindowListener)",
+    "returnType" : "java.awt.event.WindowListener",
+    "genericReturnType" : "java.awt.event.WindowListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.WindowListener",
+      "genericType" : "java.awt.event.WindowListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.WindowListener",
+      "genericType" : "java.awt.event.WindowListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.WindowStateListener add(java.awt.event.WindowStateListener, java.awt.event.WindowStateListener)",
+    "returnType" : "java.awt.event.WindowStateListener",
+    "genericReturnType" : "java.awt.event.WindowStateListener",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.awt.event.WindowStateListener",
+      "genericType" : "java.awt.event.WindowStateListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.awt.event.WindowStateListener",
+      "genericType" : "java.awt.event.WindowStateListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "adjustmentValueChanged",
+    "modifiers" : "public",
+    "signature" : "public void adjustmentValueChanged(java.awt.event.AdjustmentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.AdjustmentEvent",
+      "genericType" : "java.awt.event.AdjustmentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ancestorMoved",
+    "modifiers" : "public",
+    "signature" : "public void ancestorMoved(java.awt.event.HierarchyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.HierarchyEvent",
+      "genericType" : "java.awt.event.HierarchyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ancestorResized",
+    "modifiers" : "public",
+    "signature" : "public void ancestorResized(java.awt.event.HierarchyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.HierarchyEvent",
+      "genericType" : "java.awt.event.HierarchyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "caretPositionChanged",
+    "modifiers" : "public",
+    "signature" : "public void caretPositionChanged(java.awt.event.InputMethodEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.InputMethodEvent",
+      "genericType" : "java.awt.event.InputMethodEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentAdded",
+    "modifiers" : "public",
+    "signature" : "public void componentAdded(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentHidden",
+    "modifiers" : "public",
+    "signature" : "public void componentHidden(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentMoved",
+    "modifiers" : "public",
+    "signature" : "public void componentMoved(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentRemoved",
+    "modifiers" : "public",
+    "signature" : "public void componentRemoved(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentResized",
+    "modifiers" : "public",
+    "signature" : "public void componentResized(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentShown",
+    "modifiers" : "public",
+    "signature" : "public void componentShown(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "focusGained",
+    "modifiers" : "public",
+    "signature" : "public void focusGained(java.awt.event.FocusEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.FocusEvent",
+      "genericType" : "java.awt.event.FocusEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "focusLost",
+    "modifiers" : "public",
+    "signature" : "public void focusLost(java.awt.event.FocusEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.FocusEvent",
+      "genericType" : "java.awt.event.FocusEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListeners",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.EventListener[] getListeners(java.util.EventListener, java.lang.Class)",
+    "returnType" : "java.util.EventListener[]",
+    "genericReturnType" : "java.util.EventListener[]",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.util.EventListener",
+      "genericType" : "java.util.EventListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hierarchyChanged",
+    "modifiers" : "public",
+    "signature" : "public void hierarchyChanged(java.awt.event.HierarchyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.HierarchyEvent",
+      "genericType" : "java.awt.event.HierarchyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inputMethodTextChanged",
+    "modifiers" : "public",
+    "signature" : "public void inputMethodTextChanged(java.awt.event.InputMethodEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.InputMethodEvent",
+      "genericType" : "java.awt.event.InputMethodEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "itemStateChanged",
+    "modifiers" : "public",
+    "signature" : "public void itemStateChanged(java.awt.event.ItemEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ItemEvent",
+      "genericType" : "java.awt.event.ItemEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyPressed",
+    "modifiers" : "public",
+    "signature" : "public void keyPressed(java.awt.event.KeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyReleased",
+    "modifiers" : "public",
+    "signature" : "public void keyReleased(java.awt.event.KeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyTyped",
+    "modifiers" : "public",
+    "signature" : "public void keyTyped(java.awt.event.KeyEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseClicked",
+    "modifiers" : "public",
+    "signature" : "public void mouseClicked(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseDragged",
+    "modifiers" : "public",
+    "signature" : "public void mouseDragged(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseEntered",
+    "modifiers" : "public",
+    "signature" : "public void mouseEntered(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseExited",
+    "modifiers" : "public",
+    "signature" : "public void mouseExited(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseMoved",
+    "modifiers" : "public",
+    "signature" : "public void mouseMoved(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mousePressed",
+    "modifiers" : "public",
+    "signature" : "public void mousePressed(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseReleased",
+    "modifiers" : "public",
+    "signature" : "public void mouseReleased(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseWheelMoved",
+    "modifiers" : "public",
+    "signature" : "public void mouseWheelMoved(java.awt.event.MouseWheelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseWheelEvent",
+      "genericType" : "java.awt.event.MouseWheelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ActionListener remove(java.awt.event.ActionListener, java.awt.event.ActionListener)",
+    "returnType" : "java.awt.event.ActionListener",
+    "genericReturnType" : "java.awt.event.ActionListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.ActionListener",
+      "genericType" : "java.awt.event.ActionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.AdjustmentListener remove(java.awt.event.AdjustmentListener, java.awt.event.AdjustmentListener)",
+    "returnType" : "java.awt.event.AdjustmentListener",
+    "genericReturnType" : "java.awt.event.AdjustmentListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.AdjustmentListener",
+      "genericType" : "java.awt.event.AdjustmentListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.AdjustmentListener",
+      "genericType" : "java.awt.event.AdjustmentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ComponentListener remove(java.awt.event.ComponentListener, java.awt.event.ComponentListener)",
+    "returnType" : "java.awt.event.ComponentListener",
+    "genericReturnType" : "java.awt.event.ComponentListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.ComponentListener",
+      "genericType" : "java.awt.event.ComponentListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.ComponentListener",
+      "genericType" : "java.awt.event.ComponentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ContainerListener remove(java.awt.event.ContainerListener, java.awt.event.ContainerListener)",
+    "returnType" : "java.awt.event.ContainerListener",
+    "genericReturnType" : "java.awt.event.ContainerListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.ContainerListener",
+      "genericType" : "java.awt.event.ContainerListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.ContainerListener",
+      "genericType" : "java.awt.event.ContainerListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.FocusListener remove(java.awt.event.FocusListener, java.awt.event.FocusListener)",
+    "returnType" : "java.awt.event.FocusListener",
+    "genericReturnType" : "java.awt.event.FocusListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.FocusListener",
+      "genericType" : "java.awt.event.FocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.FocusListener",
+      "genericType" : "java.awt.event.FocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.HierarchyBoundsListener remove(java.awt.event.HierarchyBoundsListener, java.awt.event.HierarchyBoundsListener)",
+    "returnType" : "java.awt.event.HierarchyBoundsListener",
+    "genericReturnType" : "java.awt.event.HierarchyBoundsListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.HierarchyBoundsListener",
+      "genericType" : "java.awt.event.HierarchyBoundsListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.HierarchyBoundsListener",
+      "genericType" : "java.awt.event.HierarchyBoundsListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.HierarchyListener remove(java.awt.event.HierarchyListener, java.awt.event.HierarchyListener)",
+    "returnType" : "java.awt.event.HierarchyListener",
+    "genericReturnType" : "java.awt.event.HierarchyListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.HierarchyListener",
+      "genericType" : "java.awt.event.HierarchyListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.HierarchyListener",
+      "genericType" : "java.awt.event.HierarchyListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.InputMethodListener remove(java.awt.event.InputMethodListener, java.awt.event.InputMethodListener)",
+    "returnType" : "java.awt.event.InputMethodListener",
+    "genericReturnType" : "java.awt.event.InputMethodListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.InputMethodListener",
+      "genericType" : "java.awt.event.InputMethodListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.InputMethodListener",
+      "genericType" : "java.awt.event.InputMethodListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.ItemListener remove(java.awt.event.ItemListener, java.awt.event.ItemListener)",
+    "returnType" : "java.awt.event.ItemListener",
+    "genericReturnType" : "java.awt.event.ItemListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.ItemListener",
+      "genericType" : "java.awt.event.ItemListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.ItemListener",
+      "genericType" : "java.awt.event.ItemListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.KeyListener remove(java.awt.event.KeyListener, java.awt.event.KeyListener)",
+    "returnType" : "java.awt.event.KeyListener",
+    "genericReturnType" : "java.awt.event.KeyListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.KeyListener",
+      "genericType" : "java.awt.event.KeyListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.KeyListener",
+      "genericType" : "java.awt.event.KeyListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.MouseListener remove(java.awt.event.MouseListener, java.awt.event.MouseListener)",
+    "returnType" : "java.awt.event.MouseListener",
+    "genericReturnType" : "java.awt.event.MouseListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.MouseListener",
+      "genericType" : "java.awt.event.MouseListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.MouseListener",
+      "genericType" : "java.awt.event.MouseListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.MouseMotionListener remove(java.awt.event.MouseMotionListener, java.awt.event.MouseMotionListener)",
+    "returnType" : "java.awt.event.MouseMotionListener",
+    "genericReturnType" : "java.awt.event.MouseMotionListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.MouseMotionListener",
+      "genericType" : "java.awt.event.MouseMotionListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.MouseMotionListener",
+      "genericType" : "java.awt.event.MouseMotionListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.MouseWheelListener remove(java.awt.event.MouseWheelListener, java.awt.event.MouseWheelListener)",
+    "returnType" : "java.awt.event.MouseWheelListener",
+    "genericReturnType" : "java.awt.event.MouseWheelListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.MouseWheelListener",
+      "genericType" : "java.awt.event.MouseWheelListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.MouseWheelListener",
+      "genericType" : "java.awt.event.MouseWheelListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.TextListener remove(java.awt.event.TextListener, java.awt.event.TextListener)",
+    "returnType" : "java.awt.event.TextListener",
+    "genericReturnType" : "java.awt.event.TextListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.TextListener",
+      "genericType" : "java.awt.event.TextListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.TextListener",
+      "genericType" : "java.awt.event.TextListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.WindowFocusListener remove(java.awt.event.WindowFocusListener, java.awt.event.WindowFocusListener)",
+    "returnType" : "java.awt.event.WindowFocusListener",
+    "genericReturnType" : "java.awt.event.WindowFocusListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.WindowFocusListener",
+      "genericType" : "java.awt.event.WindowFocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.WindowFocusListener",
+      "genericType" : "java.awt.event.WindowFocusListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.WindowListener remove(java.awt.event.WindowListener, java.awt.event.WindowListener)",
+    "returnType" : "java.awt.event.WindowListener",
+    "genericReturnType" : "java.awt.event.WindowListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.WindowListener",
+      "genericType" : "java.awt.event.WindowListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.WindowListener",
+      "genericType" : "java.awt.event.WindowListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.WindowStateListener remove(java.awt.event.WindowStateListener, java.awt.event.WindowStateListener)",
+    "returnType" : "java.awt.event.WindowStateListener",
+    "genericReturnType" : "java.awt.event.WindowStateListener",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "java.awt.event.WindowStateListener",
+      "genericType" : "java.awt.event.WindowStateListener",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldl",
+      "type" : "java.awt.event.WindowStateListener",
+      "genericType" : "java.awt.event.WindowStateListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "textValueChanged",
+    "modifiers" : "public",
+    "signature" : "public void textValueChanged(java.awt.event.TextEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.TextEvent",
+      "genericType" : "java.awt.event.TextEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowActivated",
+    "modifiers" : "public",
+    "signature" : "public void windowActivated(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowClosed",
+    "modifiers" : "public",
+    "signature" : "public void windowClosed(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowClosing",
+    "modifiers" : "public",
+    "signature" : "public void windowClosing(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowDeactivated",
+    "modifiers" : "public",
+    "signature" : "public void windowDeactivated(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowDeiconified",
+    "modifiers" : "public",
+    "signature" : "public void windowDeiconified(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowGainedFocus",
+    "modifiers" : "public",
+    "signature" : "public void windowGainedFocus(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowIconified",
+    "modifiers" : "public",
+    "signature" : "public void windowIconified(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowLostFocus",
+    "modifiers" : "public",
+    "signature" : "public void windowLostFocus(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowOpened",
+    "modifiers" : "public",
+    "signature" : "public void windowOpened(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowStateChanged",
+    "modifiers" : "public",
+    "signature" : "public void windowStateChanged(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

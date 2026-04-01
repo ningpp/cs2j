@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextMembershipEvent",
+  "canonicalName" : "java.beans.beancontext.BeanContextMembershipEvent",
+  "simpleName" : "BeanContextMembershipEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.beancontext.BeanContextEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.beancontext.BeanContextMembershipEvent",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextMembershipEvent(java.beans.beancontext.BeanContext, java.lang.Object[])",
+    "parameters" : [ {
+      "name" : "bc",
+      "type" : "java.beans.beancontext.BeanContext",
+      "genericType" : "java.beans.beancontext.BeanContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "changes",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.beancontext.BeanContextMembershipEvent",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextMembershipEvent(java.beans.beancontext.BeanContext, java.util.Collection)",
+    "parameters" : [ {
+      "name" : "bc",
+      "type" : "java.beans.beancontext.BeanContext",
+      "genericType" : "java.beans.beancontext.BeanContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "changes",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "child",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator iterator()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public",
+    "signature" : "public int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[] toArray()",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ToolTipManager$stillInsideTimerAction",
+  "canonicalName" : "javax.swing.ToolTipManager.stillInsideTimerAction",
+  "simpleName" : "stillInsideTimerAction",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.ToolTipManager",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.ActionListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public",
+    "signature" : "public void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

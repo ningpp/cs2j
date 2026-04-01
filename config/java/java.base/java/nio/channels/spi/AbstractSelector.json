@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels.spi",
+  "binaryName" : "java.nio.channels.spi.AbstractSelector",
+  "canonicalName" : "java.nio.channels.spi.AbstractSelector",
+  "simpleName" : "AbstractSelector",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.channels.Selector",
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public final",
+    "signature" : "public final void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpen",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isOpen()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.spi.SelectorProvider provider()",
+    "returnType" : "java.nio.channels.spi.SelectorProvider",
+    "genericReturnType" : "java.nio.channels.spi.SelectorProvider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

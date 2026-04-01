@@ -1,0 +1,115 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.XADataSource",
+  "canonicalName" : "javax.sql.XADataSource",
+  "simpleName" : "XADataSource",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.CommonDataSource" ],
+  "declaredPublicMethods" : [ {
+    "name" : "createXAConnectionBuilder",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.XAConnectionBuilder createXAConnectionBuilder() throws java.sql.SQLException",
+    "returnType" : "javax.sql.XAConnectionBuilder",
+    "genericReturnType" : "javax.sql.XAConnectionBuilder",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getLogWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.PrintWriter getLogWriter() throws java.sql.SQLException",
+    "returnType" : "java.io.PrintWriter",
+    "genericReturnType" : "java.io.PrintWriter",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoginTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLoginTimeout() throws java.sql.SQLException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXAConnection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.XAConnection getXAConnection() throws java.sql.SQLException",
+    "returnType" : "javax.sql.XAConnection",
+    "genericReturnType" : "javax.sql.XAConnection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXAConnection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.XAConnection getXAConnection(java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "javax.sql.XAConnection",
+    "genericReturnType" : "javax.sql.XAConnection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLogWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLogWriter(java.io.PrintWriter) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.PrintWriter",
+      "genericType" : "java.io.PrintWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoginTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLoginTimeout(int) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.PKIXBuilderParameters",
+  "canonicalName" : "java.security.cert.PKIXBuilderParameters",
+  "simpleName" : "PKIXBuilderParameters",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.cert.PKIXParameters",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.PKIXBuilderParameters",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.PKIXBuilderParameters(java.security.KeyStore, java.security.cert.CertSelector) throws java.security.KeyStoreException, java.security.InvalidAlgorithmParameterException",
+    "parameters" : [ {
+      "name" : "keystore",
+      "type" : "java.security.KeyStore",
+      "genericType" : "java.security.KeyStore",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targetConstraints",
+      "type" : "java.security.cert.CertSelector",
+      "genericType" : "java.security.cert.CertSelector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.KeyStoreException", "java.security.InvalidAlgorithmParameterException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.PKIXBuilderParameters",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.PKIXBuilderParameters(java.util.Set, java.security.cert.CertSelector) throws java.security.InvalidAlgorithmParameterException",
+    "parameters" : [ {
+      "name" : "trustAnchors",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targetConstraints",
+      "type" : "java.security.cert.CertSelector",
+      "genericType" : "java.security.cert.CertSelector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMaxPathLength",
+    "modifiers" : "public",
+    "signature" : "public int getMaxPathLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaxPathLength",
+    "modifiers" : "public",
+    "signature" : "public void setMaxPathLength(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maxPathLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

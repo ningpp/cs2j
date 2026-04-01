@@ -1,0 +1,29 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.ServerError",
+  "canonicalName" : "java.rmi.ServerError",
+  "simpleName" : "ServerError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.rmi.RemoteException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.ServerError",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.ServerError(java.lang.String, java.lang.Error)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "err",
+      "type" : "java.lang.Error",
+      "genericType" : "java.lang.Error",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

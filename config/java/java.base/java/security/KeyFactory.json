@@ -1,0 +1,175 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.KeyFactory",
+  "canonicalName" : "java.security.KeyFactory",
+  "simpleName" : "KeyFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "generatePrivate",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.PrivateKey generatePrivate(java.security.spec.KeySpec) throws java.security.spec.InvalidKeySpecException",
+    "returnType" : "java.security.PrivateKey",
+    "genericReturnType" : "java.security.PrivateKey",
+    "parameters" : [ {
+      "name" : "keySpec",
+      "type" : "java.security.spec.KeySpec",
+      "genericType" : "java.security.spec.KeySpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.spec.InvalidKeySpecException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "generatePublic",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.PublicKey generatePublic(java.security.spec.KeySpec) throws java.security.spec.InvalidKeySpecException",
+    "returnType" : "java.security.PublicKey",
+    "genericReturnType" : "java.security.PublicKey",
+    "parameters" : [ {
+      "name" : "keySpec",
+      "type" : "java.security.spec.KeySpec",
+      "genericType" : "java.security.spec.KeySpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.spec.InvalidKeySpecException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlgorithm",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.KeyFactory getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.KeyFactory",
+    "genericReturnType" : "java.security.KeyFactory",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.KeyFactory getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException",
+    "returnType" : "java.security.KeyFactory",
+    "genericReturnType" : "java.security.KeyFactory",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.KeyFactory getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "java.security.KeyFactory",
+    "genericReturnType" : "java.security.KeyFactory",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeySpec",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.spec.KeySpec getKeySpec(java.security.Key, java.lang.Class) throws java.security.spec.InvalidKeySpecException",
+    "returnType" : "java.security.spec.KeySpec",
+    "genericReturnType" : "java.security.spec.KeySpec",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keySpec",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.spec.InvalidKeySpecException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "translateKey",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Key translateKey(java.security.Key) throws java.security.InvalidKeyException",
+    "returnType" : "java.security.Key",
+    "genericReturnType" : "java.security.Key",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

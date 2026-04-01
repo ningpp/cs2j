@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JToggleButton$AccessibleJToggleButton",
+  "canonicalName" : "javax.swing.JToggleButton.AccessibleJToggleButton",
+  "simpleName" : "AccessibleJToggleButton",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JToggleButton",
+  "superClass" : "javax.swing.AbstractButton$AccessibleAbstractButton",
+  "interfaces" : [ "java.awt.event.ItemListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JToggleButton$AccessibleJToggleButton",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JToggleButton$AccessibleJToggleButton(javax.swing.JToggleButton)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.JToggleButton",
+      "genericType" : "javax.swing.JToggleButton",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "itemStateChanged",
+    "modifiers" : "public",
+    "signature" : "public void itemStateChanged(java.awt.event.ItemEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ItemEvent",
+      "genericType" : "java.awt.event.ItemEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,179 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.events",
+  "binaryName" : "javax.xml.stream.events.XMLEvent",
+  "canonicalName" : "javax.xml.stream.events.XMLEvent",
+  "simpleName" : "XMLEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.stream.XMLStreamConstants" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asCharacters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Characters asCharacters()",
+    "returnType" : "javax.xml.stream.events.Characters",
+    "genericReturnType" : "javax.xml.stream.events.Characters",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asEndElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.EndElement asEndElement()",
+    "returnType" : "javax.xml.stream.events.EndElement",
+    "genericReturnType" : "javax.xml.stream.events.EndElement",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asStartElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.StartElement asStartElement()",
+    "returnType" : "javax.xml.stream.events.StartElement",
+    "genericReturnType" : "javax.xml.stream.events.StartElement",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEventType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getEventType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.Location getLocation()",
+    "returnType" : "javax.xml.stream.Location",
+    "genericReturnType" : "javax.xml.stream.Location",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchemaType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.namespace.QName getSchemaType()",
+    "returnType" : "javax.xml.namespace.QName",
+    "genericReturnType" : "javax.xml.namespace.QName",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isAttribute()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCharacters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCharacters()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEndDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isEndDocument()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEndElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isEndElement()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEntityReference",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isEntityReference()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNamespace",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isNamespace()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isProcessingInstruction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isProcessingInstruction()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStartDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isStartDocument()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStartElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isStartElement()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeAsEncodedUnicode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeAsEncodedUnicode(java.io.Writer) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

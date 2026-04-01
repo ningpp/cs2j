@@ -1,0 +1,74 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.CodeBuilder$CatchBuilder",
+  "canonicalName" : "java.lang.classfile.CodeBuilder.CatchBuilder",
+  "simpleName" : "CatchBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.CodeBuilder",
+  "declaredPublicMethods" : [ {
+    "name" : "catching",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.CodeBuilder$CatchBuilder catching(java.lang.constant.ClassDesc, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder$CatchBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder$CatchBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "catchingAll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void catchingAll(java.util.function.Consumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "catchingMulti",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.CodeBuilder$CatchBuilder catchingMulti(java.util.List, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.CodeBuilder$CatchBuilder",
+    "genericReturnType" : "java.lang.classfile.CodeBuilder$CatchBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

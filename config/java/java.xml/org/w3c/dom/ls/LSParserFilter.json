@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ls",
+  "binaryName" : "org.w3c.dom.ls.LSParserFilter",
+  "canonicalName" : "org.w3c.dom.ls.LSParserFilter",
+  "simpleName" : "LSParserFilter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "acceptNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short acceptNode(org.w3c.dom.Node)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWhatToShow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getWhatToShow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short startElement(org.w3c.dom.Element)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Element",
+      "genericType" : "org.w3c.dom.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,17 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.ActionMapUIResource",
+  "canonicalName" : "javax.swing.plaf.ActionMapUIResource",
+  "simpleName" : "ActionMapUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.ActionMap",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.ActionMapUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.ActionMapUIResource()",
+    "varArgs" : false
+  } ]
+}

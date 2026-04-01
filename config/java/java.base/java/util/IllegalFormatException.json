@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.IllegalFormatException",
+  "canonicalName" : "java.util.IllegalFormatException",
+  "simpleName" : "IllegalFormatException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException"
+}

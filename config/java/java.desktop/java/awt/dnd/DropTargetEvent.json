@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DropTargetEvent",
+  "canonicalName" : "java.awt.dnd.DropTargetEvent",
+  "simpleName" : "DropTargetEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.dnd.DropTargetEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTargetEvent(java.awt.dnd.DropTargetContext)",
+    "parameters" : [ {
+      "name" : "dtc",
+      "type" : "java.awt.dnd.DropTargetContext",
+      "genericType" : "java.awt.dnd.DropTargetContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDropTargetContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTargetContext getDropTargetContext()",
+    "returnType" : "java.awt.dnd.DropTargetContext",
+    "genericReturnType" : "java.awt.dnd.DropTargetContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

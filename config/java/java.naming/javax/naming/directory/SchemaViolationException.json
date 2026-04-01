@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.SchemaViolationException",
+  "canonicalName" : "javax.naming.directory.SchemaViolationException",
+  "simpleName" : "SchemaViolationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.SchemaViolationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.SchemaViolationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.SchemaViolationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.SchemaViolationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

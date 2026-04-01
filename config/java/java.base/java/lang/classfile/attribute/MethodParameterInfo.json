@@ -1,0 +1,126 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.MethodParameterInfo",
+  "canonicalName" : "java.lang.classfile.attribute.MethodParameterInfo",
+  "simpleName" : "MethodParameterInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "flags",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set flags()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "flagsMask",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int flagsMask()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "has",
+    "modifiers" : "public",
+    "signature" : "public boolean has(java.lang.reflect.AccessFlag)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "flag",
+      "type" : "java.lang.reflect.AccessFlag",
+      "genericType" : "java.lang.reflect.AccessFlag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional name()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.MethodParameterInfo of(java.util.Optional, int)",
+    "returnType" : "java.lang.classfile.attribute.MethodParameterInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.MethodParameterInfo",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.MethodParameterInfo of(java.util.Optional, java.lang.reflect.AccessFlag...)",
+    "returnType" : "java.lang.classfile.attribute.MethodParameterInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.MethodParameterInfo",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "java.lang.reflect.AccessFlag[]",
+      "genericType" : "java.lang.reflect.AccessFlag[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofParameter",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.MethodParameterInfo ofParameter(java.util.Optional, int)",
+    "returnType" : "java.lang.classfile.attribute.MethodParameterInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.MethodParameterInfo",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

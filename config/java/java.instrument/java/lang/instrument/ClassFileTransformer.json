@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.instrument",
+  "packageName" : "java.lang.instrument",
+  "binaryName" : "java.lang.instrument.ClassFileTransformer",
+  "canonicalName" : "java.lang.instrument.ClassFileTransformer",
+  "simpleName" : "ClassFileTransformer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "transform",
+    "modifiers" : "public",
+    "signature" : "public byte[] transform(java.lang.ClassLoader, java.lang.String, java.lang.Class, java.security.ProtectionDomain, byte[]) throws java.lang.instrument.IllegalClassFormatException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classBeingRedefined",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "protectionDomain",
+      "type" : "java.security.ProtectionDomain",
+      "genericType" : "java.security.ProtectionDomain",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classfileBuffer",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.instrument.IllegalClassFormatException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "transform",
+    "modifiers" : "public",
+    "signature" : "public byte[] transform(java.lang.Module, java.lang.ClassLoader, java.lang.String, java.lang.Class, java.security.ProtectionDomain, byte[]) throws java.lang.instrument.IllegalClassFormatException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "module",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classBeingRedefined",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "protectionDomain",
+      "type" : "java.security.ProtectionDomain",
+      "genericType" : "java.security.ProtectionDomain",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classfileBuffer",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.instrument.IllegalClassFormatException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

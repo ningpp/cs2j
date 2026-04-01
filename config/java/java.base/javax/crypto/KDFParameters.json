@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KDFParameters",
+  "canonicalName" : "javax.crypto.KDFParameters",
+  "simpleName" : "KDFParameters",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

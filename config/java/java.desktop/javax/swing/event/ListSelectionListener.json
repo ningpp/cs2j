@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.ListSelectionListener",
+  "canonicalName" : "javax.swing.event.ListSelectionListener",
+  "simpleName" : "ListSelectionListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "valueChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void valueChanged(javax.swing.event.ListSelectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.ListSelectionEvent",
+      "genericType" : "javax.swing.event.ListSelectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

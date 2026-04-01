@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpClient$Version",
+  "canonicalName" : "java.net.http.HttpClient.Version",
+  "simpleName" : "Version",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.net.http.HttpClient",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpClient$Version valueOf(java.lang.String)",
+    "returnType" : "java.net.http.HttpClient$Version",
+    "genericReturnType" : "java.net.http.HttpClient$Version",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpClient$Version[] values()",
+    "returnType" : "java.net.http.HttpClient$Version[]",
+    "genericReturnType" : "java.net.http.HttpClient$Version[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

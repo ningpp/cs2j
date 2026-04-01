@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$LocalVarTarget",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.LocalVarTarget",
+  "simpleName" : "LocalVarTarget",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "interfaces" : [ "java.lang.classfile.TypeAnnotation$TargetInfo" ],
+  "declaredPublicMethods" : [ {
+    "name" : "table",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List table()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

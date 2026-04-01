@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.DocumentType",
+  "canonicalName" : "org.w3c.dom.DocumentType",
+  "simpleName" : "DocumentType",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.Node" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getEntities",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.NamedNodeMap getEntities()",
+    "returnType" : "org.w3c.dom.NamedNodeMap",
+    "genericReturnType" : "org.w3c.dom.NamedNodeMap",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalSubset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getInternalSubset()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.NamedNodeMap getNotations()",
+    "returnType" : "org.w3c.dom.NamedNodeMap",
+    "genericReturnType" : "org.w3c.dom.NamedNodeMap",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublicId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getPublicId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

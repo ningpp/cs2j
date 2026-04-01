@@ -1,0 +1,400 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.chrono",
+  "binaryName" : "java.time.chrono.MinguoChronology",
+  "canonicalName" : "java.time.chrono.MinguoChronology",
+  "simpleName" : "MinguoChronology",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.time.chrono.AbstractChronology",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "date",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate date(int, int, int)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "prolepticYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "date",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate date(java.time.chrono.Era, int, int, int)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "era",
+      "type" : "java.time.chrono.Era",
+      "genericType" : "java.time.chrono.Era",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "yearOfEra",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "date",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate date(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateEpochDay",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate dateEpochDay(long)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "epochDay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateNow",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate dateNow()",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateNow",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate dateNow(java.time.Clock)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "clock",
+      "type" : "java.time.Clock",
+      "genericType" : "java.time.Clock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateNow",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate dateNow(java.time.ZoneId)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateYearDay",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate dateYearDay(int, int)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "prolepticYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateYearDay",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate dateYearDay(java.time.chrono.Era, int, int)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "era",
+      "type" : "java.time.chrono.Era",
+      "genericType" : "java.time.chrono.Era",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "yearOfEra",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eraOf",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoEra eraOf(int)",
+    "returnType" : "java.time.chrono.MinguoEra",
+    "genericReturnType" : "java.time.chrono.MinguoEra",
+    "parameters" : [ {
+      "name" : "eraValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eras",
+    "modifiers" : "public",
+    "signature" : "public java.util.List eras()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCalendarType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCalendarType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIsoBased",
+    "modifiers" : "public",
+    "signature" : "public boolean isIsoBased()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLeapYear",
+    "modifiers" : "public",
+    "signature" : "public boolean isLeapYear(long)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "prolepticYear",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoLocalDateTime localDateTime(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.ChronoLocalDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoLocalDateTime",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prolepticYear",
+    "modifiers" : "public",
+    "signature" : "public int prolepticYear(java.time.chrono.Era, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "era",
+      "type" : "java.time.chrono.Era",
+      "genericType" : "java.time.chrono.Era",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "yearOfEra",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.ValueRange range(java.time.temporal.ChronoField)",
+    "returnType" : "java.time.temporal.ValueRange",
+    "genericReturnType" : "java.time.temporal.ValueRange",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.ChronoField",
+      "genericType" : "java.time.temporal.ChronoField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveDate",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.MinguoDate resolveDate(java.util.Map, java.time.format.ResolverStyle)",
+    "returnType" : "java.time.chrono.MinguoDate",
+    "genericReturnType" : "java.time.chrono.MinguoDate",
+    "parameters" : [ {
+      "name" : "fieldValues",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "resolverStyle",
+      "type" : "java.time.format.ResolverStyle",
+      "genericType" : "java.time.format.ResolverStyle",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "zonedDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime zonedDateTime(java.time.Instant, java.time.ZoneId)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "zonedDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoZonedDateTime zonedDateTime(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.chrono.ChronoZonedDateTime",
+    "genericReturnType" : "java.time.chrono.ChronoZonedDateTime",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,234 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.Spring",
+  "canonicalName" : "javax.swing.Spring",
+  "simpleName" : "Spring",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "constant",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring constant(int)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constant",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring constant(int, int, int)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaximumValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMinimumValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getPreferredValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "height",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring height(java.awt.Component)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "max",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring max(javax.swing.Spring, javax.swing.Spring)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "s1",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s2",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring minus(javax.swing.Spring)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scale",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring scale(javax.swing.Spring, float)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factor",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setValue(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sum",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring sum(javax.swing.Spring, javax.swing.Spring)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "s1",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s2",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "width",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Spring width(java.awt.Component)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,129 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image.renderable",
+  "binaryName" : "java.awt.image.renderable.ContextualRenderedImageFactory",
+  "canonicalName" : "java.awt.image.renderable.ContextualRenderedImageFactory",
+  "simpleName" : "ContextualRenderedImageFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.image.renderable.RenderedImageFactory" ],
+  "declaredPublicMethods" : [ {
+    "name" : "create",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.RenderedImage create(java.awt.image.renderable.RenderContext, java.awt.image.renderable.ParameterBlock)",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.renderable.RenderContext",
+      "genericType" : "java.awt.image.renderable.RenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.image.renderable.ParameterBlock",
+      "genericType" : "java.awt.image.renderable.ParameterBlock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds2D",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.geom.Rectangle2D getBounds2D(java.awt.image.renderable.ParameterBlock)",
+    "returnType" : "java.awt.geom.Rectangle2D",
+    "genericReturnType" : "java.awt.geom.Rectangle2D",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.renderable.ParameterBlock",
+      "genericType" : "java.awt.image.renderable.ParameterBlock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getProperty(java.awt.image.renderable.ParameterBlock, java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.renderable.ParameterBlock",
+      "genericType" : "java.awt.image.renderable.ParameterBlock",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getPropertyNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDynamic",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDynamic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapRenderContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.renderable.RenderContext mapRenderContext(int, java.awt.image.renderable.RenderContext, java.awt.image.renderable.ParameterBlock, java.awt.image.renderable.RenderableImage)",
+    "returnType" : "java.awt.image.renderable.RenderContext",
+    "genericReturnType" : "java.awt.image.renderable.RenderContext",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.image.renderable.RenderContext",
+      "genericType" : "java.awt.image.renderable.RenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.awt.image.renderable.ParameterBlock",
+      "genericType" : "java.awt.image.renderable.ParameterBlock",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.awt.image.renderable.RenderableImage",
+      "genericType" : "java.awt.image.renderable.RenderableImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

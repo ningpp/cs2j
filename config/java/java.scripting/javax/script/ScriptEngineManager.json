@@ -1,0 +1,226 @@
+{
+  "moduleName" : "java.scripting",
+  "packageName" : "javax.script",
+  "binaryName" : "javax.script.ScriptEngineManager",
+  "canonicalName" : "javax.script.ScriptEngineManager",
+  "simpleName" : "ScriptEngineManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.script.ScriptEngineManager",
+    "modifiers" : "public",
+    "signature" : "public javax.script.ScriptEngineManager()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.script.ScriptEngineManager",
+    "modifiers" : "public",
+    "signature" : "public javax.script.ScriptEngineManager(java.lang.ClassLoader)",
+    "parameters" : [ {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBindings",
+    "modifiers" : "public",
+    "signature" : "public javax.script.Bindings getBindings()",
+    "returnType" : "javax.script.Bindings",
+    "genericReturnType" : "javax.script.Bindings",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEngineByExtension",
+    "modifiers" : "public",
+    "signature" : "public javax.script.ScriptEngine getEngineByExtension(java.lang.String)",
+    "returnType" : "javax.script.ScriptEngine",
+    "genericReturnType" : "javax.script.ScriptEngine",
+    "parameters" : [ {
+      "name" : "extension",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEngineByMimeType",
+    "modifiers" : "public",
+    "signature" : "public javax.script.ScriptEngine getEngineByMimeType(java.lang.String)",
+    "returnType" : "javax.script.ScriptEngine",
+    "genericReturnType" : "javax.script.ScriptEngine",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEngineByName",
+    "modifiers" : "public",
+    "signature" : "public javax.script.ScriptEngine getEngineByName(java.lang.String)",
+    "returnType" : "javax.script.ScriptEngine",
+    "genericReturnType" : "javax.script.ScriptEngine",
+    "parameters" : [ {
+      "name" : "shortName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEngineFactories",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getEngineFactories()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public void put(java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerEngineExtension",
+    "modifiers" : "public",
+    "signature" : "public void registerEngineExtension(java.lang.String, javax.script.ScriptEngineFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "extension",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factory",
+      "type" : "javax.script.ScriptEngineFactory",
+      "genericType" : "javax.script.ScriptEngineFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerEngineMimeType",
+    "modifiers" : "public",
+    "signature" : "public void registerEngineMimeType(java.lang.String, javax.script.ScriptEngineFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factory",
+      "type" : "javax.script.ScriptEngineFactory",
+      "genericType" : "javax.script.ScriptEngineFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerEngineName",
+    "modifiers" : "public",
+    "signature" : "public void registerEngineName(java.lang.String, javax.script.ScriptEngineFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factory",
+      "type" : "javax.script.ScriptEngineFactory",
+      "genericType" : "javax.script.ScriptEngineFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBindings",
+    "modifiers" : "public",
+    "signature" : "public void setBindings(javax.script.Bindings)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bindings",
+      "type" : "javax.script.Bindings",
+      "genericType" : "javax.script.Bindings",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

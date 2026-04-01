@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.catalog",
+  "binaryName" : "javax.xml.catalog.CatalogException",
+  "canonicalName" : "javax.xml.catalog.CatalogException",
+  "simpleName" : "CatalogException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.catalog.CatalogException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.catalog.CatalogException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.catalog.CatalogException",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.catalog.CatalogException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

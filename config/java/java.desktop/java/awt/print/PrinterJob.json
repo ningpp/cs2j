@@ -1,0 +1,379 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.print",
+  "binaryName" : "java.awt.print.PrinterJob",
+  "canonicalName" : "java.awt.print.PrinterJob",
+  "simpleName" : "PrinterJob",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.print.PrinterJob",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PrinterJob()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "cancel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void cancel()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultPage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PageFormat defaultPage()",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultPage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.print.PageFormat defaultPage(java.awt.print.PageFormat)",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.print.PageFormat",
+      "genericType" : "java.awt.print.PageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCopies",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getCopies()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJobName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getJobName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPageFormat",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PageFormat getPageFormat(javax.print.attribute.PrintRequestAttributeSet)",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintService",
+    "modifiers" : "public",
+    "signature" : "public javax.print.PrintService getPrintService()",
+    "returnType" : "javax.print.PrintService",
+    "genericReturnType" : "javax.print.PrintService",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrinterJob",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.print.PrinterJob getPrinterJob()",
+    "returnType" : "java.awt.print.PrinterJob",
+    "genericReturnType" : "java.awt.print.PrinterJob",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getUserName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCancelled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCancelled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupPrintServices",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.PrintService[] lookupPrintServices()",
+    "returnType" : "javax.print.PrintService[]",
+    "genericReturnType" : "javax.print.PrintService[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupStreamPrintServices",
+    "modifiers" : "public static",
+    "signature" : "public static javax.print.StreamPrintServiceFactory[] lookupStreamPrintServices(java.lang.String)",
+    "returnType" : "javax.print.StreamPrintServiceFactory[]",
+    "genericReturnType" : "javax.print.StreamPrintServiceFactory[]",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pageDialog",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.print.PageFormat pageDialog(java.awt.print.PageFormat) throws java.awt.HeadlessException",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.print.PageFormat",
+      "genericType" : "java.awt.print.PageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pageDialog",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PageFormat pageDialog(javax.print.attribute.PrintRequestAttributeSet) throws java.awt.HeadlessException",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "print",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void print() throws java.awt.print.PrinterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.awt.print.PrinterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "print",
+    "modifiers" : "public",
+    "signature" : "public void print(javax.print.attribute.PrintRequestAttributeSet) throws java.awt.print.PrinterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.print.PrinterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printDialog",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean printDialog() throws java.awt.HeadlessException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printDialog",
+    "modifiers" : "public",
+    "signature" : "public boolean printDialog(javax.print.attribute.PrintRequestAttributeSet) throws java.awt.HeadlessException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCopies",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setCopies(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setJobName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setJobName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPageable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setPageable(java.awt.print.Pageable) throws java.lang.NullPointerException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.print.Pageable",
+      "genericType" : "java.awt.print.Pageable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.NullPointerException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrintService",
+    "modifiers" : "public",
+    "signature" : "public void setPrintService(javax.print.PrintService) throws java.awt.print.PrinterException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "javax.print.PrintService",
+      "genericType" : "javax.print.PrintService",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.print.PrinterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrintable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setPrintable(java.awt.print.Printable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.print.Printable",
+      "genericType" : "java.awt.print.Printable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPrintable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setPrintable(java.awt.print.Printable, java.awt.print.PageFormat)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.print.Printable",
+      "genericType" : "java.awt.print.Printable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.print.PageFormat",
+      "genericType" : "java.awt.print.PageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validatePage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.print.PageFormat validatePage(java.awt.print.PageFormat)",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.print.PageFormat",
+      "genericType" : "java.awt.print.PageFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,124 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.im",
+  "binaryName" : "java.awt.im.InputMethodHighlight",
+  "canonicalName" : "java.awt.im.InputMethodHighlight",
+  "simpleName" : "InputMethodHighlight",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.im.InputMethodHighlight",
+    "modifiers" : "public",
+    "signature" : "public java.awt.im.InputMethodHighlight(boolean, int)",
+    "parameters" : [ {
+      "name" : "selected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "state",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.im.InputMethodHighlight",
+    "modifiers" : "public",
+    "signature" : "public java.awt.im.InputMethodHighlight(boolean, int, int)",
+    "parameters" : [ {
+      "name" : "selected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "state",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "variation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.im.InputMethodHighlight",
+    "modifiers" : "public",
+    "signature" : "public java.awt.im.InputMethodHighlight(boolean, int, int, java.util.Map)",
+    "parameters" : [ {
+      "name" : "selected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "state",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "variation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "style",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getState",
+    "modifiers" : "public",
+    "signature" : "public int getState()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyle",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getStyle()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVariation",
+    "modifiers" : "public",
+    "signature" : "public int getVariation()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSelected",
+    "modifiers" : "public",
+    "signature" : "public boolean isSelected()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

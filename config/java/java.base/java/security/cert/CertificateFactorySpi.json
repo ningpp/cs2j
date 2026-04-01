@@ -1,0 +1,159 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertificateFactorySpi",
+  "canonicalName" : "java.security.cert.CertificateFactorySpi",
+  "simpleName" : "CertificateFactorySpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.CertificateFactorySpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertificateFactorySpi()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "engineGenerateCRL",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.CRL engineGenerateCRL(java.io.InputStream) throws java.security.cert.CRLException",
+    "returnType" : "java.security.cert.CRL",
+    "genericReturnType" : "java.security.cert.CRL",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CRLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGenerateCRLs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Collection engineGenerateCRLs(java.io.InputStream) throws java.security.cert.CRLException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CRLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGenerateCertPath",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPath engineGenerateCertPath(java.io.InputStream) throws java.security.cert.CertificateException",
+    "returnType" : "java.security.cert.CertPath",
+    "genericReturnType" : "java.security.cert.CertPath",
+    "parameters" : [ {
+      "name" : "inStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGenerateCertPath",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPath engineGenerateCertPath(java.io.InputStream, java.lang.String) throws java.security.cert.CertificateException",
+    "returnType" : "java.security.cert.CertPath",
+    "genericReturnType" : "java.security.cert.CertPath",
+    "parameters" : [ {
+      "name" : "inStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "encoding",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGenerateCertPath",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPath engineGenerateCertPath(java.util.List) throws java.security.cert.CertificateException",
+    "returnType" : "java.security.cert.CertPath",
+    "genericReturnType" : "java.security.cert.CertPath",
+    "parameters" : [ {
+      "name" : "certificates",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGenerateCertificate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.Certificate engineGenerateCertificate(java.io.InputStream) throws java.security.cert.CertificateException",
+    "returnType" : "java.security.cert.Certificate",
+    "genericReturnType" : "java.security.cert.Certificate",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGenerateCertificates",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Collection engineGenerateCertificates(java.io.InputStream) throws java.security.cert.CertificateException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGetCertPathEncodings",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator engineGetCertPathEncodings()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

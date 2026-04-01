@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.PropertyResourceBundle",
+  "canonicalName" : "java.util.PropertyResourceBundle",
+  "simpleName" : "PropertyResourceBundle",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.ResourceBundle",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.PropertyResourceBundle",
+    "modifiers" : "public",
+    "signature" : "public java.util.PropertyResourceBundle(java.io.InputStream) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "stream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.PropertyResourceBundle",
+    "modifiers" : "public",
+    "signature" : "public java.util.PropertyResourceBundle(java.io.Reader) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getKeys",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration getKeys()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleGetObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object handleGetObject(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

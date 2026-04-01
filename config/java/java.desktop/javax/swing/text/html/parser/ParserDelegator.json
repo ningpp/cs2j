@@ -1,0 +1,48 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.ParserDelegator",
+  "canonicalName" : "javax.swing.text.html.parser.ParserDelegator",
+  "simpleName" : "ParserDelegator",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.html.HTMLEditorKit$Parser",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.parser.ParserDelegator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.ParserDelegator()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.Reader, javax.swing.text.html.HTMLEditorKit$ParserCallback, boolean) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cb",
+      "type" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+      "genericType" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ignoreCharSet",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

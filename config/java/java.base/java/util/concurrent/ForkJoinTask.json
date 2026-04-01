@@ -1,0 +1,592 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ForkJoinTask",
+  "canonicalName" : "java.util.concurrent.ForkJoinTask",
+  "simpleName" : "ForkJoinTask",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.util.concurrent.Future" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.ForkJoinTask",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "adapt",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinTask adapt(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "adapt",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinTask adapt(java.lang.Runnable, java.lang.Object)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "adapt",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinTask adapt(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "callable",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "adaptInterruptible",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinTask adaptInterruptible(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "adaptInterruptible",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinTask adaptInterruptible(java.lang.Runnable, java.lang.Object)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "runnable",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "adaptInterruptible",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinTask adaptInterruptible(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "callable",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cancel",
+    "modifiers" : "public",
+    "signature" : "public boolean cancel(boolean)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "mayInterruptIfRunning",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareAndSetForkJoinTaskTag",
+    "modifiers" : "public final",
+    "signature" : "public final boolean compareAndSetForkJoinTaskTag(short, short)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "expect",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "update",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "complete",
+    "modifiers" : "public",
+    "signature" : "public void complete(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "completeExceptionally",
+    "modifiers" : "public",
+    "signature" : "public void completeExceptionally(java.lang.Throwable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ex",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionNow",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable exceptionNow()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fork",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.concurrent.ForkJoinTask fork()",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object get() throws java.lang.InterruptedException, java.util.concurrent.ExecutionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.ExecutionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object get(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException, java.util.concurrent.ExecutionException, java.util.concurrent.TimeoutException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.ExecutionException", "java.util.concurrent.TimeoutException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getException",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Throwable getException()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getForkJoinTaskTag",
+    "modifiers" : "public final",
+    "signature" : "public final short getForkJoinTaskTag()",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinPool getPool()",
+    "returnType" : "java.util.concurrent.ForkJoinPool",
+    "genericReturnType" : "java.util.concurrent.ForkJoinPool",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueuedTaskCount",
+    "modifiers" : "public static",
+    "signature" : "public static int getQueuedTaskCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRawResult",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getRawResult()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSurplusQueuedTaskCount",
+    "modifiers" : "public static",
+    "signature" : "public static int getSurplusQueuedTaskCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "helpQuiesce",
+    "modifiers" : "public static",
+    "signature" : "public static void helpQuiesce()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inForkJoinPool",
+    "modifiers" : "public static",
+    "signature" : "public static boolean inForkJoinPool()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object invoke()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAll",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Collection invokeAll(java.util.Collection)",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAll",
+    "modifiers" : "public static",
+    "signature" : "public static void invokeAll(java.util.concurrent.ForkJoinTask, java.util.concurrent.ForkJoinTask)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "t1",
+      "type" : "java.util.concurrent.ForkJoinTask",
+      "genericType" : "java.util.concurrent.ForkJoinTask",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "t2",
+      "type" : "java.util.concurrent.ForkJoinTask",
+      "genericType" : "java.util.concurrent.ForkJoinTask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAll",
+    "modifiers" : "public static",
+    "signature" : "public static void invokeAll(java.util.concurrent.ForkJoinTask...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.concurrent.ForkJoinTask[]",
+      "genericType" : "java.util.concurrent.ForkJoinTask[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "isCancelled",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isCancelled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCompletedAbnormally",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isCompletedAbnormally()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCompletedNormally",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isCompletedNormally()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDone",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isDone()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "join",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object join()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quietlyComplete",
+    "modifiers" : "public final",
+    "signature" : "public final void quietlyComplete()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quietlyInvoke",
+    "modifiers" : "public final",
+    "signature" : "public final void quietlyInvoke()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quietlyJoin",
+    "modifiers" : "public final",
+    "signature" : "public final void quietlyJoin()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quietlyJoin",
+    "modifiers" : "public final",
+    "signature" : "public final boolean quietlyJoin(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "quietlyJoinUninterruptibly",
+    "modifiers" : "public final",
+    "signature" : "public final boolean quietlyJoinUninterruptibly(long, java.util.concurrent.TimeUnit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reinitialize",
+    "modifiers" : "public",
+    "signature" : "public void reinitialize()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resultNow",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object resultNow()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setForkJoinTaskTag",
+    "modifiers" : "public final",
+    "signature" : "public final short setForkJoinTaskTag(short)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "newValue",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "state",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future$State state()",
+    "returnType" : "java.util.concurrent.Future$State",
+    "genericReturnType" : "java.util.concurrent.Future$State",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryUnfork",
+    "modifiers" : "public",
+    "signature" : "public boolean tryUnfork()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

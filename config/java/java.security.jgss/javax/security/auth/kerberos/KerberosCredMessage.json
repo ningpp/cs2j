@@ -1,0 +1,124 @@
+{
+  "moduleName" : "java.security.jgss",
+  "packageName" : "javax.security.auth.kerberos",
+  "binaryName" : "javax.security.auth.kerberos.KerberosCredMessage",
+  "canonicalName" : "javax.security.auth.kerberos.KerberosCredMessage",
+  "simpleName" : "KerberosCredMessage",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.security.auth.Destroyable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.kerberos.KerberosCredMessage",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.kerberos.KerberosCredMessage(javax.security.auth.kerberos.KerberosPrincipal, javax.security.auth.kerberos.KerberosPrincipal, byte[])",
+    "parameters" : [ {
+      "name" : "sender",
+      "type" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "genericType" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "recipient",
+      "type" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "genericType" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "destroy",
+    "modifiers" : "public",
+    "signature" : "public void destroy()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoded",
+    "modifiers" : "public",
+    "signature" : "public byte[] getEncoded()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRecipient",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.kerberos.KerberosPrincipal getRecipient()",
+    "returnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "genericReturnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSender",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.kerberos.KerberosPrincipal getSender()",
+    "returnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "genericReturnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDestroyed",
+    "modifiers" : "public",
+    "signature" : "public boolean isDestroyed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

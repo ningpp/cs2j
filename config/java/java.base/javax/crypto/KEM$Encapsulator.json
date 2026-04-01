@@ -1,0 +1,81 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KEM$Encapsulator",
+  "canonicalName" : "javax.crypto.KEM.Encapsulator",
+  "simpleName" : "Encapsulator",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.crypto.KEM",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "encapsulate",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Encapsulated encapsulate()",
+    "returnType" : "javax.crypto.KEM$Encapsulated",
+    "genericReturnType" : "javax.crypto.KEM$Encapsulated",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encapsulate",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KEM$Encapsulated encapsulate(int, int, java.lang.String)",
+    "returnType" : "javax.crypto.KEM$Encapsulated",
+    "genericReturnType" : "javax.crypto.KEM$Encapsulated",
+    "parameters" : [ {
+      "name" : "from",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "to",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encapsulationSize",
+    "modifiers" : "public",
+    "signature" : "public int encapsulationSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "providerName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String providerName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "secretSize",
+    "modifiers" : "public",
+    "signature" : "public int secretSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

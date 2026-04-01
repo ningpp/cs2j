@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.zone",
+  "binaryName" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition",
+  "canonicalName" : "java.time.zone.ZoneOffsetTransitionRule.TimeDefinition",
+  "simpleName" : "TimeDefinition",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.time.zone.ZoneOffsetTransitionRule",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "createDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalDateTime createDateTime(java.time.LocalDateTime, java.time.ZoneOffset, java.time.ZoneOffset)",
+    "returnType" : "java.time.LocalDateTime",
+    "genericReturnType" : "java.time.LocalDateTime",
+    "parameters" : [ {
+      "name" : "dateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "standardOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "wallOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.zone.ZoneOffsetTransitionRule$TimeDefinition valueOf(java.lang.String)",
+    "returnType" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.zone.ZoneOffsetTransitionRule$TimeDefinition[] values()",
+    "returnType" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition[]",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

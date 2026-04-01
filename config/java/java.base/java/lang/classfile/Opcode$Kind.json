@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Opcode$Kind",
+  "canonicalName" : "java.lang.classfile.Opcode.Kind",
+  "simpleName" : "Kind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.classfile.Opcode",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Opcode$Kind valueOf(java.lang.String)",
+    "returnType" : "java.lang.classfile.Opcode$Kind",
+    "genericReturnType" : "java.lang.classfile.Opcode$Kind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Opcode$Kind[] values()",
+    "returnType" : "java.lang.classfile.Opcode$Kind[]",
+    "genericReturnType" : "java.lang.classfile.Opcode$Kind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.NoClassDefFoundError",
+  "canonicalName" : "java.lang.NoClassDefFoundError",
+  "simpleName" : "NoClassDefFoundError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.NoClassDefFoundError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NoClassDefFoundError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.NoClassDefFoundError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NoClassDefFoundError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

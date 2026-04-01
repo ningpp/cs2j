@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ModuleElement$ExportsDirective",
+  "canonicalName" : "javax.lang.model.element.ModuleElement.ExportsDirective",
+  "simpleName" : "ExportsDirective",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.lang.model.element.ModuleElement",
+  "interfaces" : [ "javax.lang.model.element.ModuleElement$Directive" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPackage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.PackageElement getPackage()",
+    "returnType" : "javax.lang.model.element.PackageElement",
+    "genericReturnType" : "javax.lang.model.element.PackageElement",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetModules",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getTargetModules()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

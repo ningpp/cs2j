@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ArithmeticException",
+  "canonicalName" : "java.lang.ArithmeticException",
+  "simpleName" : "ArithmeticException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ArithmeticException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ArithmeticException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ArithmeticException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ArithmeticException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

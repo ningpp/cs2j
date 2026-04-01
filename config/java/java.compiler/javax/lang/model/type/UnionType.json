@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.type",
+  "binaryName" : "javax.lang.model.type.UnionType",
+  "canonicalName" : "javax.lang.model.type.UnionType",
+  "simpleName" : "UnionType",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.type.TypeMirror" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAlternatives",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getAlternatives()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

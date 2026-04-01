@@ -1,0 +1,86 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.MenuKeyEvent",
+  "canonicalName" : "javax.swing.event.MenuKeyEvent",
+  "simpleName" : "MenuKeyEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.event.KeyEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.MenuKeyEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.MenuKeyEvent(java.awt.Component, int, long, int, int, char, javax.swing.MenuElement[], javax.swing.MenuSelectionManager)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "id",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "when",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keyChar",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "javax.swing.MenuElement[]",
+      "genericType" : "javax.swing.MenuElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "m",
+      "type" : "javax.swing.MenuSelectionManager",
+      "genericType" : "javax.swing.MenuSelectionManager",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMenuSelectionManager",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.MenuSelectionManager getMenuSelectionManager()",
+    "returnType" : "javax.swing.MenuSelectionManager",
+    "genericReturnType" : "javax.swing.MenuSelectionManager",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.MenuElement[] getPath()",
+    "returnType" : "javax.swing.MenuElement[]",
+    "genericReturnType" : "javax.swing.MenuElement[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

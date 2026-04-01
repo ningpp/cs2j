@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.UserSessionListener",
+  "canonicalName" : "java.awt.desktop.UserSessionListener",
+  "simpleName" : "UserSessionListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.desktop.SystemEventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "userSessionActivated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void userSessionActivated(java.awt.desktop.UserSessionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.UserSessionEvent",
+      "genericType" : "java.awt.desktop.UserSessionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "userSessionDeactivated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void userSessionDeactivated(java.awt.desktop.UserSessionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.UserSessionEvent",
+      "genericType" : "java.awt.desktop.UserSessionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

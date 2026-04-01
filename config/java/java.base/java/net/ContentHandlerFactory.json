@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.ContentHandlerFactory",
+  "canonicalName" : "java.net.ContentHandlerFactory",
+  "simpleName" : "ContentHandlerFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createContentHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.ContentHandler createContentHandler(java.lang.String)",
+    "returnType" : "java.net.ContentHandler",
+    "genericReturnType" : "java.net.ContentHandler",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

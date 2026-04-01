@@ -1,0 +1,70 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RelationTypeSupport",
+  "canonicalName" : "javax.management.relation.RelationTypeSupport",
+  "simpleName" : "RelationTypeSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.management.relation.RelationType" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RelationTypeSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RelationTypeSupport(java.lang.String, javax.management.relation.RoleInfo[]) throws java.lang.IllegalArgumentException, javax.management.relation.InvalidRelationTypeException",
+    "parameters" : [ {
+      "name" : "relationTypeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roleInfoArray",
+      "type" : "javax.management.relation.RoleInfo[]",
+      "genericType" : "javax.management.relation.RoleInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.InvalidRelationTypeException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getRelationTypeName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getRelationTypeName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoleInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleInfo getRoleInfo(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RoleInfoNotFoundException",
+    "returnType" : "javax.management.relation.RoleInfo",
+    "genericReturnType" : "javax.management.relation.RoleInfo",
+    "parameters" : [ {
+      "name" : "roleInfoName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RoleInfoNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoleInfos",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getRoleInfos()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicToolBarUI$ToolBarFocusListener",
+  "canonicalName" : "javax.swing.plaf.basic.BasicToolBarUI.ToolBarFocusListener",
+  "simpleName" : "ToolBarFocusListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicToolBarUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.FocusListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "focusGained",
+    "modifiers" : "public",
+    "signature" : "public void focusGained(java.awt.event.FocusEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.FocusEvent",
+      "genericType" : "java.awt.event.FocusEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "focusLost",
+    "modifiers" : "public",
+    "signature" : "public void focusLost(java.awt.event.FocusEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.FocusEvent",
+      "genericType" : "java.awt.event.FocusEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,203 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.nimbus",
+  "binaryName" : "javax.swing.plaf.nimbus.NimbusLookAndFeel",
+  "canonicalName" : "javax.swing.plaf.nimbus.NimbusLookAndFeel",
+  "simpleName" : "NimbusLookAndFeel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.synth.SynthLookAndFeel",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.nimbus.NimbusLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.nimbus.NimbusLookAndFeel()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDefaults",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults getDefaults()",
+    "returnType" : "javax.swing.UIDefaults",
+    "genericReturnType" : "javax.swing.UIDefaults",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDerivedColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getDerivedColor(java.lang.String, float, float, float, int, boolean)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "uiDefaultParentName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hOffset",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sOffset",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bOffset",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "aOffset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "uiResource",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisabledIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getDisabledIcon(javax.swing.JComponent, javax.swing.Icon)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "icon",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyle",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.nimbus.NimbusStyle getStyle(javax.swing.JComponent, javax.swing.plaf.synth.Region)",
+    "returnType" : "javax.swing.plaf.nimbus.NimbusStyle",
+    "genericReturnType" : "javax.swing.plaf.nimbus.NimbusStyle",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "r",
+      "type" : "javax.swing.plaf.synth.Region",
+      "genericType" : "javax.swing.plaf.synth.Region",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialize",
+    "modifiers" : "public",
+    "signature" : "public void initialize()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "register",
+    "modifiers" : "public",
+    "signature" : "public void register(javax.swing.plaf.synth.Region, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "region",
+      "type" : "javax.swing.plaf.synth.Region",
+      "genericType" : "javax.swing.plaf.synth.Region",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shouldUpdateStyleOnAncestorChanged",
+    "modifiers" : "public",
+    "signature" : "public boolean shouldUpdateStyleOnAncestorChanged()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninitialize",
+    "modifiers" : "public",
+    "signature" : "public void uninitialize()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

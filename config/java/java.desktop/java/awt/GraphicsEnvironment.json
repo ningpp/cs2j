@@ -1,0 +1,176 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.GraphicsEnvironment",
+  "canonicalName" : "java.awt.GraphicsEnvironment",
+  "simpleName" : "GraphicsEnvironment",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createGraphics",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Graphics2D createGraphics(java.awt.image.BufferedImage)",
+    "returnType" : "java.awt.Graphics2D",
+    "genericReturnType" : "java.awt.Graphics2D",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.BufferedImage",
+      "genericType" : "java.awt.image.BufferedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllFonts",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Font[] getAllFonts()",
+    "returnType" : "java.awt.Font[]",
+    "genericReturnType" : "java.awt.Font[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableFontFamilyNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getAvailableFontFamilyNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableFontFamilyNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getAvailableFontFamilyNames(java.util.Locale)",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCenterPoint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point getCenterPoint() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.Point",
+    "genericReturnType" : "java.awt.Point",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultScreenDevice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.GraphicsDevice getDefaultScreenDevice() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.GraphicsDevice",
+    "genericReturnType" : "java.awt.GraphicsDevice",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalGraphicsEnvironment",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.GraphicsEnvironment getLocalGraphicsEnvironment()",
+    "returnType" : "java.awt.GraphicsEnvironment",
+    "genericReturnType" : "java.awt.GraphicsEnvironment",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumWindowBounds",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getMaximumWindowBounds() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getScreenDevices",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.GraphicsDevice[] getScreenDevices() throws java.awt.HeadlessException",
+    "returnType" : "java.awt.GraphicsDevice[]",
+    "genericReturnType" : "java.awt.GraphicsDevice[]",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHeadless",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isHeadless()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHeadlessInstance",
+    "modifiers" : "public",
+    "signature" : "public boolean isHeadlessInstance()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferLocaleFonts",
+    "modifiers" : "public",
+    "signature" : "public void preferLocaleFonts()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferProportionalFonts",
+    "modifiers" : "public",
+    "signature" : "public void preferProportionalFonts()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerFont",
+    "modifiers" : "public",
+    "signature" : "public boolean registerFont(java.awt.Font)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "font",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

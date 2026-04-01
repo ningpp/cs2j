@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassFileTransform",
+  "canonicalName" : "java.lang.classfile.ClassFileTransform",
+  "simpleName" : "ClassFileTransform",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void accept(java.lang.classfile.ClassFileBuilder, java.lang.classfile.ClassFileElement)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.ClassFileBuilder",
+      "genericType" : "java.lang.classfile.ClassFileBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.classfile.ClassFileElement",
+      "genericType" : "java.lang.classfile.ClassFileElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "andThen",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassFileTransform andThen(java.lang.classfile.ClassFileTransform)",
+    "returnType" : "java.lang.classfile.ClassFileTransform",
+    "genericReturnType" : "java.lang.classfile.ClassFileTransform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.ClassFileTransform",
+      "genericType" : "java.lang.classfile.ClassFileTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "atEnd",
+    "modifiers" : "public",
+    "signature" : "public void atEnd(java.lang.classfile.ClassFileBuilder)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "builder",
+      "type" : "java.lang.classfile.ClassFileBuilder",
+      "genericType" : "java.lang.classfile.ClassFileBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "atStart",
+    "modifiers" : "public",
+    "signature" : "public void atStart(java.lang.classfile.ClassFileBuilder)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "builder",
+      "type" : "java.lang.classfile.ClassFileBuilder",
+      "genericType" : "java.lang.classfile.ClassFileBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.SyncFailedException",
+  "canonicalName" : "java.io.SyncFailedException",
+  "simpleName" : "SyncFailedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.SyncFailedException",
+    "modifiers" : "public",
+    "signature" : "public java.io.SyncFailedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "desc",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

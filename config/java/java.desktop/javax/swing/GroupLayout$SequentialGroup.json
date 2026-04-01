@@ -1,0 +1,363 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.GroupLayout$SequentialGroup",
+  "canonicalName" : "javax.swing.GroupLayout.SequentialGroup",
+  "simpleName" : "SequentialGroup",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.GroupLayout",
+  "superClass" : "javax.swing.GroupLayout$Group",
+  "declaredPublicMethods" : [ {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addComponent(boolean, java.awt.Component)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "useAsBaseline",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addComponent(boolean, java.awt.Component, int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "useAsBaseline",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addComponent(java.awt.Component)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addComponent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addComponent(java.awt.Component, int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addContainerGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addContainerGap()",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addContainerGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addContainerGap(int, int)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addGap(int)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addGap(int, int, int)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "min",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGroup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addGroup(boolean, javax.swing.GroupLayout$Group)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "useAsBaseline",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "group",
+      "type" : "javax.swing.GroupLayout$Group",
+      "genericType" : "javax.swing.GroupLayout$Group",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addGroup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addGroup(javax.swing.GroupLayout$Group)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "javax.swing.GroupLayout$Group",
+      "genericType" : "javax.swing.GroupLayout$Group",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPreferredGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addPreferredGap(javax.swing.JComponent, javax.swing.JComponent, javax.swing.LayoutStyle$ComponentPlacement)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "comp1",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comp2",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "genericType" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPreferredGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addPreferredGap(javax.swing.JComponent, javax.swing.JComponent, javax.swing.LayoutStyle$ComponentPlacement, int, int)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "comp1",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "comp2",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "genericType" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPreferredGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addPreferredGap(javax.swing.LayoutStyle$ComponentPlacement)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "genericType" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addPreferredGap",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.GroupLayout$SequentialGroup addPreferredGap(javax.swing.LayoutStyle$ComponentPlacement, int, int)",
+    "returnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "genericReturnType" : "javax.swing.GroupLayout$SequentialGroup",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "genericType" : "javax.swing.LayoutStyle$ComponentPlacement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pref",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

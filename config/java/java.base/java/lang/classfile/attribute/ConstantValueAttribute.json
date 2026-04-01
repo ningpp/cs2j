@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ConstantValueAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.ConstantValueAttribute",
+  "simpleName" : "ConstantValueAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.FieldElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ConstantValueEntry constant()",
+    "returnType" : "java.lang.classfile.constantpool.ConstantValueEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ConstantValueEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ConstantValueAttribute of(java.lang.classfile.constantpool.ConstantValueEntry)",
+    "returnType" : "java.lang.classfile.attribute.ConstantValueAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ConstantValueAttribute",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.ConstantValueEntry",
+      "genericType" : "java.lang.classfile.constantpool.ConstantValueEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ConstantValueAttribute of(java.lang.constant.ConstantDesc)",
+    "returnType" : "java.lang.classfile.attribute.ConstantValueAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ConstantValueAttribute",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.constant.ConstantDesc",
+      "genericType" : "java.lang.constant.ConstantDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,547 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLEngine",
+  "canonicalName" : "javax.net.ssl.SSLEngine",
+  "simpleName" : "SSLEngine",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "beginHandshake",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void beginHandshake() throws javax.net.ssl.SSLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "closeInbound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void closeInbound() throws javax.net.ssl.SSLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "closeOutbound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void closeOutbound()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApplicationProtocol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getApplicationProtocol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDelegatedTask",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Runnable getDelegatedTask()",
+    "returnType" : "java.lang.Runnable",
+    "genericReturnType" : "java.lang.Runnable",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnableSessionCreation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getEnableSessionCreation()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getEnabledCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledProtocols",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getEnabledProtocols()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHandshakeApplicationProtocol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getHandshakeApplicationProtocol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHandshakeApplicationProtocolSelector",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.BiFunction getHandshakeApplicationProtocolSelector()",
+    "returnType" : "java.util.function.BiFunction",
+    "genericReturnType" : "java.util.function.BiFunction",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHandshakeSession",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLSession getHandshakeSession()",
+    "returnType" : "javax.net.ssl.SSLSession",
+    "genericReturnType" : "javax.net.ssl.SSLSession",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHandshakeStatus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLEngineResult$HandshakeStatus getHandshakeStatus()",
+    "returnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNeedClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getNeedClientAuth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerHost",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPeerHost()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerPort",
+    "modifiers" : "public",
+    "signature" : "public int getPeerPort()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSSLParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLParameters getSSLParameters()",
+    "returnType" : "javax.net.ssl.SSLParameters",
+    "genericReturnType" : "javax.net.ssl.SSLParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSession",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLSession getSession()",
+    "returnType" : "javax.net.ssl.SSLSession",
+    "genericReturnType" : "javax.net.ssl.SSLSession",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getSupportedCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedProtocols",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getSupportedProtocols()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUseClientMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getUseClientMode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWantClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getWantClientAuth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInboundDone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isInboundDone()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOutboundDone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isOutboundDone()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnableSessionCreation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnableSessionCreation(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabledCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnabledCipherSuites(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabledProtocols",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnabledProtocols(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHandshakeApplicationProtocolSelector",
+    "modifiers" : "public",
+    "signature" : "public void setHandshakeApplicationProtocolSelector(java.util.function.BiFunction)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selector",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNeedClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNeedClientAuth(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSSLParameters",
+    "modifiers" : "public",
+    "signature" : "public void setSSLParameters(javax.net.ssl.SSLParameters)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "javax.net.ssl.SSLParameters",
+      "genericType" : "javax.net.ssl.SSLParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUseClientMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setUseClientMode(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWantClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setWantClientAuth(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unwrap",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLEngineResult unwrap(java.nio.ByteBuffer, java.nio.ByteBuffer) throws javax.net.ssl.SSLException",
+    "returnType" : "javax.net.ssl.SSLEngineResult",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unwrap",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLEngineResult unwrap(java.nio.ByteBuffer, java.nio.ByteBuffer[]) throws javax.net.ssl.SSLException",
+    "returnType" : "javax.net.ssl.SSLEngineResult",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dsts",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unwrap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLEngineResult unwrap(java.nio.ByteBuffer, java.nio.ByteBuffer[], int, int) throws javax.net.ssl.SSLException",
+    "returnType" : "javax.net.ssl.SSLEngineResult",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLEngineResult wrap(java.nio.ByteBuffer, java.nio.ByteBuffer) throws javax.net.ssl.SSLException",
+    "returnType" : "javax.net.ssl.SSLEngineResult",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLEngineResult wrap(java.nio.ByteBuffer[], int, int, java.nio.ByteBuffer) throws javax.net.ssl.SSLException",
+    "returnType" : "javax.net.ssl.SSLEngineResult",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLEngineResult wrap(java.nio.ByteBuffer[], java.nio.ByteBuffer) throws javax.net.ssl.SSLException",
+    "returnType" : "javax.net.ssl.SSLEngineResult",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult",
+    "parameters" : [ {
+      "name" : "srcs",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

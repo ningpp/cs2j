@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.DiscontinuedInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.DiscontinuedInstruction",
+  "simpleName" : "DiscontinuedInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ]
+}

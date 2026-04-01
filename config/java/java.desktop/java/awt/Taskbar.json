@@ -1,0 +1,245 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Taskbar",
+  "canonicalName" : "java.awt.Taskbar",
+  "simpleName" : "Taskbar",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getIconImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Image getIconImage()",
+    "returnType" : "java.awt.Image",
+    "genericReturnType" : "java.awt.Image",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenu",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PopupMenu getMenu()",
+    "returnType" : "java.awt.PopupMenu",
+    "genericReturnType" : "java.awt.PopupMenu",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTaskbar",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized java.awt.Taskbar getTaskbar()",
+    "returnType" : "java.awt.Taskbar",
+    "genericReturnType" : "java.awt.Taskbar",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.awt.Taskbar$Feature)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "feature",
+      "type" : "java.awt.Taskbar$Feature",
+      "genericType" : "java.awt.Taskbar$Feature",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTaskbarSupported",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isTaskbarSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestUserAttention",
+    "modifiers" : "public",
+    "signature" : "public void requestUserAttention(boolean, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "enabled",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "critical",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestWindowUserAttention",
+    "modifiers" : "public",
+    "signature" : "public void requestWindowUserAttention(java.awt.Window)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIconBadge",
+    "modifiers" : "public",
+    "signature" : "public void setIconBadge(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "badge",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIconImage",
+    "modifiers" : "public",
+    "signature" : "public void setIconImage(java.awt.Image)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMenu",
+    "modifiers" : "public",
+    "signature" : "public void setMenu(java.awt.PopupMenu)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "menu",
+      "type" : "java.awt.PopupMenu",
+      "genericType" : "java.awt.PopupMenu",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProgressValue",
+    "modifiers" : "public",
+    "signature" : "public void setProgressValue(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWindowIconBadge",
+    "modifiers" : "public",
+    "signature" : "public void setWindowIconBadge(java.awt.Window, java.awt.Image)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "badge",
+      "type" : "java.awt.Image",
+      "genericType" : "java.awt.Image",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWindowProgressState",
+    "modifiers" : "public",
+    "signature" : "public void setWindowProgressState(java.awt.Window, java.awt.Taskbar$State)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "state",
+      "type" : "java.awt.Taskbar$State",
+      "genericType" : "java.awt.Taskbar$State",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWindowProgressValue",
+    "modifiers" : "public",
+    "signature" : "public void setWindowProgressValue(java.awt.Window, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

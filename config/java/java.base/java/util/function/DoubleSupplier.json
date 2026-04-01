@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.DoubleSupplier",
+  "canonicalName" : "java.util.function.DoubleSupplier",
+  "simpleName" : "DoubleSupplier",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAsDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double getAsDouble()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.geom",
+  "binaryName" : "java.awt.geom.GeneralPath",
+  "canonicalName" : "java.awt.geom.GeneralPath",
+  "simpleName" : "GeneralPath",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.geom.Path2D$Float",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.geom.GeneralPath",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.GeneralPath()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.geom.GeneralPath",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.GeneralPath(int)",
+    "parameters" : [ {
+      "name" : "rule",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.geom.GeneralPath",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.GeneralPath(int, int)",
+    "parameters" : [ {
+      "name" : "rule",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialCapacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.geom.GeneralPath",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.GeneralPath(java.awt.Shape)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.awt.Shape",
+      "genericType" : "java.awt.Shape",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

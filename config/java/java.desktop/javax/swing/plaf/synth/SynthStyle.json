@@ -1,0 +1,298 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.synth",
+  "binaryName" : "javax.swing.plaf.synth.SynthStyle",
+  "canonicalName" : "javax.swing.plaf.synth.SynthStyle",
+  "simpleName" : "SynthStyle",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.synth.SynthStyle",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.SynthStyle()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(javax.swing.plaf.synth.SynthContext, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBoolean",
+    "modifiers" : "public",
+    "signature" : "public boolean getBoolean(javax.swing.plaf.synth.SynthContext, java.lang.Object, boolean)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getColor(javax.swing.plaf.synth.SynthContext, javax.swing.plaf.synth.ColorType)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.plaf.synth.ColorType",
+      "genericType" : "javax.swing.plaf.synth.ColorType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font getFont(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGraphicsUtils",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.SynthGraphicsUtils getGraphicsUtils(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "javax.swing.plaf.synth.SynthGraphicsUtils",
+    "genericReturnType" : "javax.swing.plaf.synth.SynthGraphicsUtils",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getIcon(javax.swing.plaf.synth.SynthContext, java.lang.Object)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInsets",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Insets getInsets(javax.swing.plaf.synth.SynthContext, java.awt.Insets)",
+    "returnType" : "java.awt.Insets",
+    "genericReturnType" : "java.awt.Insets",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insets",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInt",
+    "modifiers" : "public",
+    "signature" : "public int getInt(javax.swing.plaf.synth.SynthContext, java.lang.Object, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPainter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.SynthPainter getPainter(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "javax.swing.plaf.synth.SynthPainter",
+    "genericReturnType" : "javax.swing.plaf.synth.SynthPainter",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getString(javax.swing.plaf.synth.SynthContext, java.lang.Object, java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultValue",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "installDefaults",
+    "modifiers" : "public",
+    "signature" : "public void installDefaults(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpaque",
+    "modifiers" : "public",
+    "signature" : "public boolean isOpaque(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninstallDefaults",
+    "modifiers" : "public",
+    "signature" : "public void uninstallDefaults(javax.swing.plaf.synth.SynthContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

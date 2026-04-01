@@ -1,0 +1,154 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.SQLSyntaxErrorException",
+  "canonicalName" : "java.sql.SQLSyntaxErrorException",
+  "simpleName" : "SQLSyntaxErrorException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.sql.SQLNonTransientException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException(java.lang.String, java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException(java.lang.String, java.lang.String, int, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "vendorCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException(java.lang.String, java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "SQLState",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.sql.SQLSyntaxErrorException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLSyntaxErrorException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

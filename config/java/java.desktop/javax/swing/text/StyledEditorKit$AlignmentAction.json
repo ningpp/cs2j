@@ -1,0 +1,48 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.StyledEditorKit$AlignmentAction",
+  "canonicalName" : "javax.swing.text.StyledEditorKit.AlignmentAction",
+  "simpleName" : "AlignmentAction",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.StyledEditorKit",
+  "superClass" : "javax.swing.text.StyledEditorKit$StyledTextAction",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.StyledEditorKit$AlignmentAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.StyledEditorKit$AlignmentAction(java.lang.String, int)",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public",
+    "signature" : "public void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

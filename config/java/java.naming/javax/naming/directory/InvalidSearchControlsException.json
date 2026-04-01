@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.InvalidSearchControlsException",
+  "canonicalName" : "javax.naming.directory.InvalidSearchControlsException",
+  "simpleName" : "InvalidSearchControlsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.InvalidSearchControlsException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InvalidSearchControlsException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.InvalidSearchControlsException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InvalidSearchControlsException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

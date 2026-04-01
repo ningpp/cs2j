@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.RMISecurityException",
+  "canonicalName" : "java.rmi.RMISecurityException",
+  "simpleName" : "RMISecurityException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.SecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.RMISecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.RMISecurityException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.rmi.RMISecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.RMISecurityException(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

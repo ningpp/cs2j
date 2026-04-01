@@ -1,0 +1,116 @@
+{
+  "moduleName" : "java.smartcardio",
+  "packageName" : "javax.smartcardio",
+  "binaryName" : "javax.smartcardio.Card",
+  "canonicalName" : "javax.smartcardio.Card",
+  "simpleName" : "Card",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "beginExclusive",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void beginExclusive() throws javax.smartcardio.CardException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "disconnect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void disconnect(boolean) throws javax.smartcardio.CardException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endExclusive",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void endExclusive() throws javax.smartcardio.CardException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getATR",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.smartcardio.ATR getATR()",
+    "returnType" : "javax.smartcardio.ATR",
+    "genericReturnType" : "javax.smartcardio.ATR",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBasicChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.smartcardio.CardChannel getBasicChannel()",
+    "returnType" : "javax.smartcardio.CardChannel",
+    "genericReturnType" : "javax.smartcardio.CardChannel",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtocol",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getProtocol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openLogicalChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.smartcardio.CardChannel openLogicalChannel() throws javax.smartcardio.CardException",
+    "returnType" : "javax.smartcardio.CardChannel",
+    "genericReturnType" : "javax.smartcardio.CardChannel",
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transmitControlCommand",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] transmitControlCommand(int, byte[]) throws javax.smartcardio.CardException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.smartcardio.CardException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

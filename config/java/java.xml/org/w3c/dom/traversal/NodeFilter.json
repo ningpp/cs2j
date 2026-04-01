@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.traversal",
+  "binaryName" : "org.w3c.dom.traversal.NodeFilter",
+  "canonicalName" : "org.w3c.dom.traversal.NodeFilter",
+  "simpleName" : "NodeFilter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "acceptNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short acceptNode(org.w3c.dom.Node)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

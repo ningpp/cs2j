@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.transaction.xa",
+  "packageName" : "javax.transaction.xa",
+  "binaryName" : "javax.transaction.xa.Xid",
+  "canonicalName" : "javax.transaction.xa.Xid",
+  "simpleName" : "Xid",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getBranchQualifier",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getBranchQualifier()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFormatId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getFormatId()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGlobalTransactionId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getGlobalTransactionId()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

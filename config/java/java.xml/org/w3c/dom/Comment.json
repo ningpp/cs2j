@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.Comment",
+  "canonicalName" : "org.w3c.dom.Comment",
+  "simpleName" : "Comment",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.CharacterData" ]
+}

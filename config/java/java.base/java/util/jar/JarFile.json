@@ -1,0 +1,265 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.jar",
+  "binaryName" : "java.util.jar.JarFile",
+  "canonicalName" : "java.util.jar.JarFile",
+  "simpleName" : "JarFile",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.zip.ZipFile",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.jar.JarFile",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarFile(java.io.File) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarFile",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarFile(java.io.File, boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "verify",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarFile",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarFile(java.io.File, boolean, int) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "verify",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarFile",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarFile(java.io.File, boolean, int, java.lang.Runtime$Version) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "verify",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "java.lang.Runtime$Version",
+      "genericType" : "java.lang.Runtime$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarFile",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarFile(java.lang.String) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarFile",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarFile(java.lang.String, boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "verify",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "baseVersion",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Runtime$Version baseVersion()",
+    "returnType" : "java.lang.Runtime$Version",
+    "genericReturnType" : "java.lang.Runtime$Version",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "entries",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration entries()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipEntry getEntry(java.lang.String)",
+    "returnType" : "java.util.zip.ZipEntry",
+    "genericReturnType" : "java.util.zip.ZipEntry",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputStream",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.io.InputStream getInputStream(java.util.zip.ZipEntry) throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "ze",
+      "type" : "java.util.zip.ZipEntry",
+      "genericType" : "java.util.zip.ZipEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJarEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarEntry getJarEntry(java.lang.String)",
+    "returnType" : "java.util.jar.JarEntry",
+    "genericReturnType" : "java.util.jar.JarEntry",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getManifest",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.Manifest getManifest() throws java.io.IOException",
+    "returnType" : "java.util.jar.Manifest",
+    "genericReturnType" : "java.util.jar.Manifest",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Runtime$Version getVersion()",
+    "returnType" : "java.lang.Runtime$Version",
+    "genericReturnType" : "java.lang.Runtime$Version",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMultiRelease",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isMultiRelease()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runtimeVersion",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Runtime$Version runtimeVersion()",
+    "returnType" : "java.lang.Runtime$Version",
+    "genericReturnType" : "java.lang.Runtime$Version",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stream",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream stream()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "versionedStream",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream versionedStream()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

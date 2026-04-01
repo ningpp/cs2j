@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.views",
+  "binaryName" : "org.w3c.dom.views.DocumentView",
+  "canonicalName" : "org.w3c.dom.views.DocumentView",
+  "simpleName" : "DocumentView",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getDefaultView",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.views.AbstractView getDefaultView()",
+    "returnType" : "org.w3c.dom.views.AbstractView",
+    "genericReturnType" : "org.w3c.dom.views.AbstractView",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

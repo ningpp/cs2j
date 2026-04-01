@@ -1,0 +1,520 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.DataFlavor",
+  "canonicalName" : "java.awt.datatransfer.DataFlavor",
+  "simpleName" : "DataFlavor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Externalizable", "java.lang.Cloneable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.datatransfer.DataFlavor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.datatransfer.DataFlavor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor(java.lang.Class, java.lang.String)",
+    "parameters" : [ {
+      "name" : "representationClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "humanPresentableName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.datatransfer.DataFlavor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor(java.lang.String) throws java.lang.ClassNotFoundException",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.datatransfer.DataFlavor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "humanPresentableName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.datatransfer.DataFlavor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor(java.lang.String, java.lang.String, java.lang.ClassLoader) throws java.lang.ClassNotFoundException",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "humanPresentableName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone() throws java.lang.CloneNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.CloneNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultRepresentationClass",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Class getDefaultRepresentationClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultRepresentationClassAsString",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getDefaultRepresentationClassAsString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHumanPresentableName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getHumanPresentableName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMimeType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMimeType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameter",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getParameter(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "paramName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimaryType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPrimaryType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReaderForText",
+    "modifiers" : "public",
+    "signature" : "public java.io.Reader getReaderForText(java.awt.datatransfer.Transferable) throws java.awt.datatransfer.UnsupportedFlavorException, java.io.IOException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "parameters" : [ {
+      "name" : "transferable",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.datatransfer.UnsupportedFlavorException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRepresentationClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getRepresentationClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSubType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextPlainUnicodeFlavor",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.awt.datatransfer.DataFlavor getTextPlainUnicodeFlavor()",
+    "returnType" : "java.awt.datatransfer.DataFlavor",
+    "genericReturnType" : "java.awt.datatransfer.DataFlavor",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFlavorJavaFileListType",
+    "modifiers" : "public",
+    "signature" : "public boolean isFlavorJavaFileListType()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFlavorRemoteObjectType",
+    "modifiers" : "public",
+    "signature" : "public boolean isFlavorRemoteObjectType()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFlavorSerializedObjectType",
+    "modifiers" : "public",
+    "signature" : "public boolean isFlavorSerializedObjectType()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFlavorTextType",
+    "modifiers" : "public",
+    "signature" : "public boolean isFlavorTextType()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMimeTypeEqual",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isMimeTypeEqual(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "dataFlavor",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMimeTypeEqual",
+    "modifiers" : "public",
+    "signature" : "public boolean isMimeTypeEqual(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMimeTypeSerializedObject",
+    "modifiers" : "public",
+    "signature" : "public boolean isMimeTypeSerializedObject()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRepresentationClassByteBuffer",
+    "modifiers" : "public",
+    "signature" : "public boolean isRepresentationClassByteBuffer()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRepresentationClassCharBuffer",
+    "modifiers" : "public",
+    "signature" : "public boolean isRepresentationClassCharBuffer()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRepresentationClassInputStream",
+    "modifiers" : "public",
+    "signature" : "public boolean isRepresentationClassInputStream()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRepresentationClassReader",
+    "modifiers" : "public",
+    "signature" : "public boolean isRepresentationClassReader()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRepresentationClassRemote",
+    "modifiers" : "public",
+    "signature" : "public boolean isRepresentationClassRemote()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRepresentationClassSerializable",
+    "modifiers" : "public",
+    "signature" : "public boolean isRepresentationClassSerializable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "match",
+    "modifiers" : "public",
+    "signature" : "public boolean match(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "readExternal",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void readExternal(java.io.ObjectInput) throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "java.io.ObjectInput",
+      "genericType" : "java.io.ObjectInput",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectBestTextFlavor",
+    "modifiers" : "public static final",
+    "signature" : "public static final java.awt.datatransfer.DataFlavor selectBestTextFlavor(java.awt.datatransfer.DataFlavor[])",
+    "returnType" : "java.awt.datatransfer.DataFlavor",
+    "genericReturnType" : "java.awt.datatransfer.DataFlavor",
+    "parameters" : [ {
+      "name" : "availableFlavors",
+      "type" : "java.awt.datatransfer.DataFlavor[]",
+      "genericType" : "java.awt.datatransfer.DataFlavor[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHumanPresentableName",
+    "modifiers" : "public",
+    "signature" : "public void setHumanPresentableName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "humanPresentableName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeExternal",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void writeExternal(java.io.ObjectOutput) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "os",
+      "type" : "java.io.ObjectOutput",
+      "genericType" : "java.io.ObjectOutput",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

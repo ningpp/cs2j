@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.NewPrimitiveArrayInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.NewPrimitiveArrayInstruction",
+  "simpleName" : "NewPrimitiveArrayInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.NewPrimitiveArrayInstruction of(java.lang.classfile.TypeKind)",
+    "returnType" : "java.lang.classfile.instruction.NewPrimitiveArrayInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.NewPrimitiveArrayInstruction",
+    "parameters" : [ {
+      "name" : "typeKind",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeKind typeKind()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

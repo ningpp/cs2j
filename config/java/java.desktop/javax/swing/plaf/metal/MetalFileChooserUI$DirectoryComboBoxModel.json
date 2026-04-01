@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalFileChooserUI$DirectoryComboBoxModel",
+  "canonicalName" : "javax.swing.plaf.metal.MetalFileChooserUI.DirectoryComboBoxModel",
+  "simpleName" : "DirectoryComboBoxModel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalFileChooserUI",
+  "superClass" : "javax.swing.AbstractListModel",
+  "interfaces" : [ "javax.swing.ComboBoxModel" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalFileChooserUI$DirectoryComboBoxModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalFileChooserUI$DirectoryComboBoxModel(javax.swing.plaf.metal.MetalFileChooserUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.metal.MetalFileChooserUI",
+      "genericType" : "javax.swing.plaf.metal.MetalFileChooserUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDepth",
+    "modifiers" : "public",
+    "signature" : "public int getDepth(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementAt",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getElementAt(int)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedItem",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getSelectedItem()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSize",
+    "modifiers" : "public",
+    "signature" : "public int getSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectedItem",
+    "modifiers" : "public",
+    "signature" : "public void setSelectedItem(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "selectedDirectory",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

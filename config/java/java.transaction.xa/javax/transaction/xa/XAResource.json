@@ -1,0 +1,201 @@
+{
+  "moduleName" : "java.transaction.xa",
+  "packageName" : "javax.transaction.xa",
+  "binaryName" : "javax.transaction.xa.XAResource",
+  "canonicalName" : "javax.transaction.xa.XAResource",
+  "simpleName" : "XAResource",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "commit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void commit(javax.transaction.xa.Xid, boolean) throws javax.transaction.xa.XAException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.transaction.xa.Xid",
+      "genericType" : "javax.transaction.xa.Xid",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "end",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void end(javax.transaction.xa.Xid, int) throws javax.transaction.xa.XAException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.transaction.xa.Xid",
+      "genericType" : "javax.transaction.xa.Xid",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forget",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void forget(javax.transaction.xa.Xid) throws javax.transaction.xa.XAException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.transaction.xa.Xid",
+      "genericType" : "javax.transaction.xa.Xid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransactionTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getTransactionTimeout() throws javax.transaction.xa.XAException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSameRM",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSameRM(javax.transaction.xa.XAResource) throws javax.transaction.xa.XAException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.transaction.xa.XAResource",
+      "genericType" : "javax.transaction.xa.XAResource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prepare",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int prepare(javax.transaction.xa.Xid) throws javax.transaction.xa.XAException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.transaction.xa.Xid",
+      "genericType" : "javax.transaction.xa.Xid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "recover",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.transaction.xa.Xid[] recover(int) throws javax.transaction.xa.XAException",
+    "returnType" : "javax.transaction.xa.Xid[]",
+    "genericReturnType" : "javax.transaction.xa.Xid[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rollback",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rollback(javax.transaction.xa.Xid) throws javax.transaction.xa.XAException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.transaction.xa.Xid",
+      "genericType" : "javax.transaction.xa.Xid",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTransactionTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean setTransactionTimeout(int) throws javax.transaction.xa.XAException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void start(javax.transaction.xa.Xid, int) throws javax.transaction.xa.XAException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.transaction.xa.Xid",
+      "genericType" : "javax.transaction.xa.Xid",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.transaction.xa.XAException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

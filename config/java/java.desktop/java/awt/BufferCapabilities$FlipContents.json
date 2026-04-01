@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.BufferCapabilities$FlipContents",
+  "canonicalName" : "java.awt.BufferCapabilities.FlipContents",
+  "simpleName" : "FlipContents",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.BufferCapabilities",
+  "superClass" : "java.awt.AttributeValue"
+}

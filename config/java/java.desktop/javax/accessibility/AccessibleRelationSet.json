@@ -1,0 +1,154 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleRelationSet",
+  "canonicalName" : "javax.accessibility.AccessibleRelationSet",
+  "simpleName" : "AccessibleRelationSet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.accessibility.AccessibleRelationSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRelationSet()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.accessibility.AccessibleRelationSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRelationSet(javax.accessibility.AccessibleRelation[])",
+    "parameters" : [ {
+      "name" : "relations",
+      "type" : "javax.accessibility.AccessibleRelation[]",
+      "genericType" : "javax.accessibility.AccessibleRelation[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public boolean add(javax.accessibility.AccessibleRelation)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "relation",
+      "type" : "javax.accessibility.AccessibleRelation",
+      "genericType" : "javax.accessibility.AccessibleRelation",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAll",
+    "modifiers" : "public",
+    "signature" : "public void addAll(javax.accessibility.AccessibleRelation[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "relations",
+      "type" : "javax.accessibility.AccessibleRelation[]",
+      "genericType" : "javax.accessibility.AccessibleRelation[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clear",
+    "modifiers" : "public",
+    "signature" : "public void clear()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "contains",
+    "modifiers" : "public",
+    "signature" : "public boolean contains(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRelation get(java.lang.String)",
+    "returnType" : "javax.accessibility.AccessibleRelation",
+    "genericReturnType" : "javax.accessibility.AccessibleRelation",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public boolean remove(javax.accessibility.AccessibleRelation)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "relation",
+      "type" : "javax.accessibility.AccessibleRelation",
+      "genericType" : "javax.accessibility.AccessibleRelation",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public",
+    "signature" : "public int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRelation[] toArray()",
+    "returnType" : "javax.accessibility.AccessibleRelation[]",
+    "genericReturnType" : "javax.accessibility.AccessibleRelation[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

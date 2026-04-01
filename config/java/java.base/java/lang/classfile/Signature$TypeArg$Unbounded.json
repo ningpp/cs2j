@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Signature$TypeArg$Unbounded",
+  "canonicalName" : "java.lang.classfile.Signature.TypeArg.Unbounded",
+  "simpleName" : "Unbounded",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.Signature$TypeArg",
+  "interfaces" : [ "java.lang.classfile.Signature$TypeArg" ]
+}

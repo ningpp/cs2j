@@ -1,0 +1,233 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.constant",
+  "binaryName" : "java.lang.constant.DynamicCallSiteDesc",
+  "canonicalName" : "java.lang.constant.DynamicCallSiteDesc",
+  "simpleName" : "DynamicCallSiteDesc",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "bootstrapArgs",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ConstantDesc[] bootstrapArgs()",
+    "returnType" : "java.lang.constant.ConstantDesc[]",
+    "genericReturnType" : "java.lang.constant.ConstantDesc[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bootstrapMethod",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodHandleDesc bootstrapMethod()",
+    "returnType" : "java.lang.constant.MethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.MethodHandleDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public final",
+    "signature" : "public final boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public final",
+    "signature" : "public final int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invocationName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String invocationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invocationType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.MethodTypeDesc invocationType()",
+    "returnType" : "java.lang.constant.MethodTypeDesc",
+    "genericReturnType" : "java.lang.constant.MethodTypeDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DynamicCallSiteDesc of(java.lang.constant.DirectMethodHandleDesc, java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "genericReturnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "parameters" : [ {
+      "name" : "bootstrapMethod",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationType",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DynamicCallSiteDesc of(java.lang.constant.DirectMethodHandleDesc, java.lang.String, java.lang.constant.MethodTypeDesc, java.lang.constant.ConstantDesc...)",
+    "returnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "genericReturnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "parameters" : [ {
+      "name" : "bootstrapMethod",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationType",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bootstrapArgs",
+      "type" : "java.lang.constant.ConstantDesc[]",
+      "genericType" : "java.lang.constant.ConstantDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DynamicCallSiteDesc of(java.lang.constant.DirectMethodHandleDesc, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "genericReturnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "parameters" : [ {
+      "name" : "bootstrapMethod",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationType",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resolveCallSiteDesc",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.CallSite resolveCallSiteDesc(java.lang.invoke.MethodHandles$Lookup) throws java.lang.Throwable",
+    "returnType" : "java.lang.invoke.CallSite",
+    "genericReturnType" : "java.lang.invoke.CallSite",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withArgs",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.DynamicCallSiteDesc withArgs(java.lang.constant.ConstantDesc...)",
+    "returnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "genericReturnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "parameters" : [ {
+      "name" : "bootstrapArgs",
+      "type" : "java.lang.constant.ConstantDesc[]",
+      "genericType" : "java.lang.constant.ConstantDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "withNameAndType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.DynamicCallSiteDesc withNameAndType(java.lang.String, java.lang.constant.MethodTypeDesc)",
+    "returnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "genericReturnType" : "java.lang.constant.DynamicCallSiteDesc",
+    "parameters" : [ {
+      "name" : "invocationName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationType",
+      "type" : "java.lang.constant.MethodTypeDesc",
+      "genericType" : "java.lang.constant.MethodTypeDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,171 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.Temporal",
+  "canonicalName" : "java.time.temporal.Temporal",
+  "simpleName" : "Temporal",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.time.temporal.TemporalAccessor" ],
+  "declaredPublicMethods" : [ {
+    "name" : "isSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSupported(java.time.temporal.TemporalUnit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal minus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "amount",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal minus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal plus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "amount",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.temporal.Temporal plus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "until",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long until(java.time.temporal.Temporal, java.time.temporal.TemporalUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.Temporal with(java.time.temporal.TemporalAdjuster)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "adjuster",
+      "type" : "java.time.temporal.TemporalAdjuster",
+      "genericType" : "java.time.temporal.TemporalAdjuster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.temporal.Temporal with(java.time.temporal.TemporalField, long)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

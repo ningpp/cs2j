@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.prefs",
+  "packageName" : "java.util.prefs",
+  "binaryName" : "java.util.prefs.NodeChangeListener",
+  "canonicalName" : "java.util.prefs.NodeChangeListener",
+  "simpleName" : "NodeChangeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "childAdded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void childAdded(java.util.prefs.NodeChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.prefs.NodeChangeEvent",
+      "genericType" : "java.util.prefs.NodeChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "childRemoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void childRemoved(java.util.prefs.NodeChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.prefs.NodeChangeEvent",
+      "genericType" : "java.util.prefs.NodeChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

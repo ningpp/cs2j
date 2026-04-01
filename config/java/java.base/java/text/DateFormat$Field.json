@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.DateFormat$Field",
+  "canonicalName" : "java.text.DateFormat.Field",
+  "simpleName" : "Field",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.text.DateFormat",
+  "superClass" : "java.text.Format$Field",
+  "declaredPublicMethods" : [ {
+    "name" : "getCalendarField",
+    "modifiers" : "public",
+    "signature" : "public int getCalendarField()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofCalendarField",
+    "modifiers" : "public static",
+    "signature" : "public static java.text.DateFormat$Field ofCalendarField(int)",
+    "returnType" : "java.text.DateFormat$Field",
+    "genericReturnType" : "java.text.DateFormat$Field",
+    "parameters" : [ {
+      "name" : "calendarField",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

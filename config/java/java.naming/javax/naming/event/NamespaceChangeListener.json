@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.event",
+  "binaryName" : "javax.naming.event.NamespaceChangeListener",
+  "canonicalName" : "javax.naming.event.NamespaceChangeListener",
+  "simpleName" : "NamespaceChangeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.naming.event.NamingListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "objectAdded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void objectAdded(javax.naming.event.NamingEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.event.NamingEvent",
+      "genericType" : "javax.naming.event.NamingEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "objectRemoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void objectRemoved(javax.naming.event.NamingEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.event.NamingEvent",
+      "genericType" : "javax.naming.event.NamingEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "objectRenamed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void objectRenamed(javax.naming.event.NamingEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.event.NamingEvent",
+      "genericType" : "javax.naming.event.NamingEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

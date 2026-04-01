@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.ScreenSleepListener",
+  "canonicalName" : "java.awt.desktop.ScreenSleepListener",
+  "simpleName" : "ScreenSleepListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.desktop.SystemEventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "screenAboutToSleep",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void screenAboutToSleep(java.awt.desktop.ScreenSleepEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.ScreenSleepEvent",
+      "genericType" : "java.awt.desktop.ScreenSleepEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "screenAwoke",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void screenAwoke(java.awt.desktop.ScreenSleepEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.ScreenSleepEvent",
+      "genericType" : "java.awt.desktop.ScreenSleepEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

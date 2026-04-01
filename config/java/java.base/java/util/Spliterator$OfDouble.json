@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Spliterator$OfDouble",
+  "canonicalName" : "java.util.Spliterator.OfDouble",
+  "simpleName" : "OfDouble",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.Spliterator",
+  "interfaces" : [ "java.util.Spliterator$OfPrimitive" ],
+  "declaredPublicMethods" : [ {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.Consumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "forEachRemaining",
+    "modifiers" : "public",
+    "signature" : "public void forEachRemaining(java.util.function.DoubleConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "tryAdvance",
+    "modifiers" : "public",
+    "signature" : "public boolean tryAdvance(java.util.function.Consumer)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "tryAdvance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean tryAdvance(java.util.function.DoubleConsumer)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "trySplit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Spliterator$OfDouble trySplit()",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

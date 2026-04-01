@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.AccessControlException",
+  "canonicalName" : "java.security.AccessControlException",
+  "simpleName" : "AccessControlException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.SecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.AccessControlException",
+    "modifiers" : "public",
+    "signature" : "public java.security.AccessControlException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.AccessControlException",
+    "modifiers" : "public",
+    "signature" : "public java.security.AccessControlException(java.lang.String, java.security.Permission)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPermission",
+    "modifiers" : "public",
+    "signature" : "public java.security.Permission getPermission()",
+    "returnType" : "java.security.Permission",
+    "genericReturnType" : "java.security.Permission",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

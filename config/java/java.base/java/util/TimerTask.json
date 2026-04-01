@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.TimerTask",
+  "canonicalName" : "java.util.TimerTask",
+  "simpleName" : "TimerTask",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Runnable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "cancel",
+    "modifiers" : "public",
+    "signature" : "public boolean cancel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "run",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void run()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduledExecutionTime",
+    "modifiers" : "public",
+    "signature" : "public long scheduledExecutionTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.ConvertInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.ConvertInstruction",
+  "simpleName" : "ConvertInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "fromType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeKind fromType()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ConvertInstruction of(java.lang.classfile.Opcode)",
+    "returnType" : "java.lang.classfile.instruction.ConvertInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.ConvertInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ConvertInstruction of(java.lang.classfile.TypeKind, java.lang.classfile.TypeKind)",
+    "returnType" : "java.lang.classfile.instruction.ConvertInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.ConvertInstruction",
+    "parameters" : [ {
+      "name" : "fromType",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "toType",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeKind toType()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

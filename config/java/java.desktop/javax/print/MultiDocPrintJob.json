@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.MultiDocPrintJob",
+  "canonicalName" : "javax.print.MultiDocPrintJob",
+  "simpleName" : "MultiDocPrintJob",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.print.DocPrintJob" ],
+  "declaredPublicMethods" : [ {
+    "name" : "print",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void print(javax.print.MultiDoc, javax.print.attribute.PrintRequestAttributeSet) throws javax.print.PrintException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.MultiDoc",
+      "genericType" : "javax.print.MultiDoc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.attribute.PrintRequestAttributeSet",
+      "genericType" : "javax.print.attribute.PrintRequestAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.print.PrintException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

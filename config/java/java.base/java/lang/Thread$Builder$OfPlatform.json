@@ -1,0 +1,164 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Thread$Builder$OfPlatform",
+  "canonicalName" : "java.lang.Thread.Builder.OfPlatform",
+  "simpleName" : "OfPlatform",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.Thread$Builder",
+  "interfaces" : [ "java.lang.Thread$Builder" ],
+  "declaredPublicMethods" : [ {
+    "name" : "daemon",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread$Builder$OfPlatform daemon()",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "daemon",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform daemon(boolean)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "group",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform group(java.lang.ThreadGroup)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.ThreadGroup",
+      "genericType" : "java.lang.ThreadGroup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inheritInheritableThreadLocals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform inheritInheritableThreadLocals(boolean)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform name(java.lang.String)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform name(java.lang.String, long)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "priority",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform priority(int)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stackSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform stackSize(long)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uncaughtExceptionHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Thread$Builder$OfPlatform uncaughtExceptionHandler(java.lang.Thread$UncaughtExceptionHandler)",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Thread$UncaughtExceptionHandler",
+      "genericType" : "java.lang.Thread$UncaughtExceptionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

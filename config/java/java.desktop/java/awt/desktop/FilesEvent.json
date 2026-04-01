@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.FilesEvent",
+  "canonicalName" : "java.awt.desktop.FilesEvent",
+  "simpleName" : "FilesEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.desktop.AppEvent",
+  "declaredPublicMethods" : [ {
+    "name" : "getFiles",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getFiles()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

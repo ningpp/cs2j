@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.KeyRep",
+  "canonicalName" : "java.security.KeyRep",
+  "simpleName" : "KeyRep",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.KeyRep",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyRep(java.security.KeyRep$Type, java.lang.String, java.lang.String, byte[])",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.security.KeyRep$Type",
+      "genericType" : "java.security.KeyRep$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "encoded",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

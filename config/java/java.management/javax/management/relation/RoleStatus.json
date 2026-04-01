@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RoleStatus",
+  "canonicalName" : "javax.management.relation.RoleStatus",
+  "simpleName" : "RoleStatus",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RoleStatus",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleStatus()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "isRoleStatus",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isRoleStatus(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "status",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

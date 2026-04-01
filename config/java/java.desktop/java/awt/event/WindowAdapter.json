@@ -1,0 +1,182 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.WindowAdapter",
+  "canonicalName" : "java.awt.event.WindowAdapter",
+  "simpleName" : "WindowAdapter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.WindowFocusListener", "java.awt.event.WindowListener", "java.awt.event.WindowStateListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "windowActivated",
+    "modifiers" : "public",
+    "signature" : "public void windowActivated(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowClosed",
+    "modifiers" : "public",
+    "signature" : "public void windowClosed(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowClosing",
+    "modifiers" : "public",
+    "signature" : "public void windowClosing(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowDeactivated",
+    "modifiers" : "public",
+    "signature" : "public void windowDeactivated(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowDeiconified",
+    "modifiers" : "public",
+    "signature" : "public void windowDeiconified(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowGainedFocus",
+    "modifiers" : "public",
+    "signature" : "public void windowGainedFocus(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowIconified",
+    "modifiers" : "public",
+    "signature" : "public void windowIconified(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowLostFocus",
+    "modifiers" : "public",
+    "signature" : "public void windowLostFocus(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowOpened",
+    "modifiers" : "public",
+    "signature" : "public void windowOpened(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowStateChanged",
+    "modifiers" : "public",
+    "signature" : "public void windowStateChanged(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

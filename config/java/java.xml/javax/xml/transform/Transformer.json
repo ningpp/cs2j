@@ -1,0 +1,219 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform",
+  "binaryName" : "javax.xml.transform.Transformer",
+  "canonicalName" : "javax.xml.transform.Transformer",
+  "simpleName" : "Transformer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "clearParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void clearParameters()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getErrorListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.ErrorListener getErrorListener()",
+    "returnType" : "javax.xml.transform.ErrorListener",
+    "genericReturnType" : "javax.xml.transform.ErrorListener",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutputProperties",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Properties getOutputProperties()",
+    "returnType" : "java.util.Properties",
+    "genericReturnType" : "java.util.Properties",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutputProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getOutputProperty(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getParameter(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURIResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.URIResolver getURIResolver()",
+    "returnType" : "javax.xml.transform.URIResolver",
+    "genericReturnType" : "javax.xml.transform.URIResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public void reset()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setErrorListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setErrorListener(javax.xml.transform.ErrorListener) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.ErrorListener",
+      "genericType" : "javax.xml.transform.ErrorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOutputProperties",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setOutputProperties(java.util.Properties)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Properties",
+      "genericType" : "java.util.Properties",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOutputProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setOutputProperty(java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParameter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setParameter(java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setURIResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setURIResolver(javax.xml.transform.URIResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.URIResolver",
+      "genericType" : "javax.xml.transform.URIResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transform",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void transform(javax.xml.transform.Source, javax.xml.transform.Result) throws javax.xml.transform.TransformerException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.transform.Result",
+      "genericType" : "javax.xml.transform.Result",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

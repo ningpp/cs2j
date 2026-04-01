@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.NumberFormat$Field",
+  "canonicalName" : "java.text.NumberFormat.Field",
+  "simpleName" : "Field",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.text.NumberFormat",
+  "superClass" : "java.text.Format$Field"
+}

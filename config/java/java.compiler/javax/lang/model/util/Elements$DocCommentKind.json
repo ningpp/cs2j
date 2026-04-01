@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.Elements$DocCommentKind",
+  "canonicalName" : "javax.lang.model.util.Elements.DocCommentKind",
+  "simpleName" : "DocCommentKind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.lang.model.util.Elements",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.util.Elements$DocCommentKind valueOf(java.lang.String)",
+    "returnType" : "javax.lang.model.util.Elements$DocCommentKind",
+    "genericReturnType" : "javax.lang.model.util.Elements$DocCommentKind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.util.Elements$DocCommentKind[] values()",
+    "returnType" : "javax.lang.model.util.Elements$DocCommentKind[]",
+    "genericReturnType" : "javax.lang.model.util.Elements$DocCommentKind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

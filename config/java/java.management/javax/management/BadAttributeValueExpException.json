@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.BadAttributeValueExpException",
+  "canonicalName" : "javax.management.BadAttributeValueExpException",
+  "simpleName" : "BadAttributeValueExpException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.BadAttributeValueExpException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.BadAttributeValueExpException(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

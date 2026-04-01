@@ -1,0 +1,232 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.synth",
+  "binaryName" : "javax.swing.plaf.synth.SynthLookAndFeel",
+  "canonicalName" : "javax.swing.plaf.synth.SynthLookAndFeel",
+  "simpleName" : "SynthLookAndFeel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.basic.BasicLookAndFeel",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.synth.SynthLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.synth.SynthLookAndFeel()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createUI",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ComponentUI createUI(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.ComponentUI",
+    "genericReturnType" : "javax.swing.plaf.ComponentUI",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaults",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults getDefaults()",
+    "returnType" : "javax.swing.UIDefaults",
+    "genericReturnType" : "javax.swing.UIDefaults",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRegion",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.synth.Region getRegion(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.synth.Region",
+    "genericReturnType" : "javax.swing.plaf.synth.Region",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyle",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.synth.SynthStyle getStyle(javax.swing.JComponent, javax.swing.plaf.synth.Region)",
+    "returnType" : "javax.swing.plaf.synth.SynthStyle",
+    "genericReturnType" : "javax.swing.plaf.synth.SynthStyle",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "region",
+      "type" : "javax.swing.plaf.synth.Region",
+      "genericType" : "javax.swing.plaf.synth.Region",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyleFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.synth.SynthStyleFactory getStyleFactory()",
+    "returnType" : "javax.swing.plaf.synth.SynthStyleFactory",
+    "genericReturnType" : "javax.swing.plaf.synth.SynthStyleFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialize",
+    "modifiers" : "public",
+    "signature" : "public void initialize()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNativeLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public boolean isNativeLookAndFeel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupportedLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupportedLookAndFeel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public",
+    "signature" : "public void load(java.io.InputStream, java.lang.Class) throws java.text.ParseException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "resourceBase",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.text.ParseException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStyleFactory",
+    "modifiers" : "public static",
+    "signature" : "public static void setStyleFactory(javax.swing.plaf.synth.SynthStyleFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cache",
+      "type" : "javax.swing.plaf.synth.SynthStyleFactory",
+      "genericType" : "javax.swing.plaf.synth.SynthStyleFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shouldUpdateStyleOnAncestorChanged",
+    "modifiers" : "public",
+    "signature" : "public boolean shouldUpdateStyleOnAncestorChanged()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uninitialize",
+    "modifiers" : "public",
+    "signature" : "public void uninitialize()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateStyles",
+    "modifiers" : "public static",
+    "signature" : "public static void updateStyles(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

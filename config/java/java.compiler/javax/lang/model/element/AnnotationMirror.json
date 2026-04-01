@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.AnnotationMirror",
+  "canonicalName" : "javax.lang.model.element.AnnotationMirror",
+  "simpleName" : "AnnotationMirror",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAnnotationType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.type.DeclaredType getAnnotationType()",
+    "returnType" : "javax.lang.model.type.DeclaredType",
+    "genericReturnType" : "javax.lang.model.type.DeclaredType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementValues",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getElementValues()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

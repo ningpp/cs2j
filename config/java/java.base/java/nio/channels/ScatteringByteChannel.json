@@ -1,0 +1,59 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ScatteringByteChannel",
+  "canonicalName" : "java.nio.channels.ScatteringByteChannel",
+  "simpleName" : "ScatteringByteChannel",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.channels.ReadableByteChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long read(java.nio.ByteBuffer[]) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long read(java.nio.ByteBuffer[], int, int) throws java.io.IOException",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteBuffer[]",
+      "genericType" : "java.nio.ByteBuffer[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

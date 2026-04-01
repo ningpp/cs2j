@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.Proxy$Type",
+  "canonicalName" : "java.net.Proxy.Type",
+  "simpleName" : "Type",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.net.Proxy",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.Proxy$Type valueOf(java.lang.String)",
+    "returnType" : "java.net.Proxy$Type",
+    "genericReturnType" : "java.net.Proxy$Type",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.Proxy$Type[] values()",
+    "returnType" : "java.net.Proxy$Type[]",
+    "genericReturnType" : "java.net.Proxy$Type[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

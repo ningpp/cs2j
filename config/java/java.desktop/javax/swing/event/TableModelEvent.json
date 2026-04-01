@@ -1,0 +1,172 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.TableModelEvent",
+  "canonicalName" : "javax.swing.event.TableModelEvent",
+  "simpleName" : "TableModelEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.TableModelEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TableModelEvent(javax.swing.table.TableModel)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.table.TableModel",
+      "genericType" : "javax.swing.table.TableModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.TableModelEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TableModelEvent(javax.swing.table.TableModel, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.table.TableModel",
+      "genericType" : "javax.swing.table.TableModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.TableModelEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TableModelEvent(javax.swing.table.TableModel, int, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.table.TableModel",
+      "genericType" : "javax.swing.table.TableModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstRow",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lastRow",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.TableModelEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TableModelEvent(javax.swing.table.TableModel, int, int, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.table.TableModel",
+      "genericType" : "javax.swing.table.TableModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstRow",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lastRow",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "column",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.TableModelEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TableModelEvent(javax.swing.table.TableModel, int, int, int, int)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.table.TableModel",
+      "genericType" : "javax.swing.table.TableModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstRow",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lastRow",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "column",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getColumn",
+    "modifiers" : "public",
+    "signature" : "public int getColumn()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirstRow",
+    "modifiers" : "public",
+    "signature" : "public int getFirstRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastRow",
+    "modifiers" : "public",
+    "signature" : "public int getLastRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

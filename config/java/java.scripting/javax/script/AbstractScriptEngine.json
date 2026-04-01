@@ -1,0 +1,221 @@
+{
+  "moduleName" : "java.scripting",
+  "packageName" : "javax.script",
+  "binaryName" : "javax.script.AbstractScriptEngine",
+  "canonicalName" : "javax.script.AbstractScriptEngine",
+  "simpleName" : "AbstractScriptEngine",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.script.ScriptEngine" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.script.AbstractScriptEngine",
+    "modifiers" : "public",
+    "signature" : "public javax.script.AbstractScriptEngine()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.script.AbstractScriptEngine",
+    "modifiers" : "public",
+    "signature" : "public javax.script.AbstractScriptEngine(javax.script.Bindings)",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "javax.script.Bindings",
+      "genericType" : "javax.script.Bindings",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "eval",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object eval(java.io.Reader) throws javax.script.ScriptException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eval",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object eval(java.io.Reader, javax.script.Bindings) throws javax.script.ScriptException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bindings",
+      "type" : "javax.script.Bindings",
+      "genericType" : "javax.script.Bindings",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eval",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object eval(java.lang.String) throws javax.script.ScriptException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "script",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eval",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object eval(java.lang.String, javax.script.Bindings) throws javax.script.ScriptException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "script",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bindings",
+      "type" : "javax.script.Bindings",
+      "genericType" : "javax.script.Bindings",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBindings",
+    "modifiers" : "public",
+    "signature" : "public javax.script.Bindings getBindings(int)",
+    "returnType" : "javax.script.Bindings",
+    "genericReturnType" : "javax.script.Bindings",
+    "parameters" : [ {
+      "name" : "scope",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContext",
+    "modifiers" : "public",
+    "signature" : "public javax.script.ScriptContext getContext()",
+    "returnType" : "javax.script.ScriptContext",
+    "genericReturnType" : "javax.script.ScriptContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public void put(java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBindings",
+    "modifiers" : "public",
+    "signature" : "public void setBindings(javax.script.Bindings, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bindings",
+      "type" : "javax.script.Bindings",
+      "genericType" : "javax.script.Bindings",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scope",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContext",
+    "modifiers" : "public",
+    "signature" : "public void setContext(javax.script.ScriptContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ctxt",
+      "type" : "javax.script.ScriptContext",
+      "genericType" : "javax.script.ScriptContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

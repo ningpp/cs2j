@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SNIHostName",
+  "canonicalName" : "javax.net.ssl.SNIHostName",
+  "simpleName" : "SNIHostName",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.net.ssl.SNIServerName",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SNIHostName",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SNIHostName(byte[])",
+    "parameters" : [ {
+      "name" : "encoded",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.net.ssl.SNIHostName",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SNIHostName(java.lang.String)",
+    "parameters" : [ {
+      "name" : "hostname",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createSNIMatcher",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ssl.SNIMatcher createSNIMatcher(java.lang.String)",
+    "returnType" : "javax.net.ssl.SNIMatcher",
+    "genericReturnType" : "javax.net.ssl.SNIMatcher",
+    "parameters" : [ {
+      "name" : "regex",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsciiName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAsciiName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

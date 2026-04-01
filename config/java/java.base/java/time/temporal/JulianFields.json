@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.JulianFields",
+  "canonicalName" : "java.time.temporal.JulianFields",
+  "simpleName" : "JulianFields",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

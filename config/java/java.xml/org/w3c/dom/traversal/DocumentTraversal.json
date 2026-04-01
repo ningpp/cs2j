@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.traversal",
+  "binaryName" : "org.w3c.dom.traversal.DocumentTraversal",
+  "canonicalName" : "org.w3c.dom.traversal.DocumentTraversal",
+  "simpleName" : "DocumentTraversal",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createNodeIterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.traversal.NodeIterator createNodeIterator(org.w3c.dom.Node, int, org.w3c.dom.traversal.NodeFilter, boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.traversal.NodeIterator",
+    "genericReturnType" : "org.w3c.dom.traversal.NodeIterator",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.w3c.dom.traversal.NodeFilter",
+      "genericType" : "org.w3c.dom.traversal.NodeFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createTreeWalker",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.traversal.TreeWalker createTreeWalker(org.w3c.dom.Node, int, org.w3c.dom.traversal.NodeFilter, boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.traversal.TreeWalker",
+    "genericReturnType" : "org.w3c.dom.traversal.TreeWalker",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "org.w3c.dom.traversal.NodeFilter",
+      "genericType" : "org.w3c.dom.traversal.NodeFilter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

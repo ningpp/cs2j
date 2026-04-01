@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalToolBarUI$MetalDockingListener",
+  "canonicalName" : "javax.swing.plaf.metal.MetalToolBarUI.MetalDockingListener",
+  "simpleName" : "MetalDockingListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalToolBarUI",
+  "superClass" : "javax.swing.plaf.basic.BasicToolBarUI$DockingListener",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalToolBarUI$MetalDockingListener",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalToolBarUI$MetalDockingListener(javax.swing.plaf.metal.MetalToolBarUI, javax.swing.JToolBar)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.metal.MetalToolBarUI",
+      "genericType" : "javax.swing.plaf.metal.MetalToolBarUI",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "t",
+      "type" : "javax.swing.JToolBar",
+      "genericType" : "javax.swing.JToolBar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "mouseDragged",
+    "modifiers" : "public",
+    "signature" : "public void mouseDragged(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mousePressed",
+    "modifiers" : "public",
+    "signature" : "public void mousePressed(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

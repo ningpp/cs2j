@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.LdapReferralException",
+  "canonicalName" : "javax.naming.ldap.LdapReferralException",
+  "simpleName" : "LdapReferralException",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.naming.ReferralException",
+  "declaredPublicMethods" : [ {
+    "name" : "getReferralContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.Context getReferralContext() throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReferralContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.Context getReferralContext(java.util.Hashtable) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReferralContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.Context getReferralContext(java.util.Hashtable, javax.naming.ldap.Control[]) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.naming.ldap.Control[]",
+      "genericType" : "javax.naming.ldap.Control[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

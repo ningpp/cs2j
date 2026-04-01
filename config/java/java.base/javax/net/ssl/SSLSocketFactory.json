@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLSocketFactory",
+  "canonicalName" : "javax.net.ssl.SSLSocketFactory",
+  "simpleName" : "SSLSocketFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.net.SocketFactory",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SSLSocketFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLSocketFactory()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.Socket createSocket(java.net.Socket, java.io.InputStream, boolean) throws java.io.IOException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.net.Socket",
+      "genericType" : "java.net.Socket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "consumed",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "autoClose",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.Socket createSocket(java.net.Socket, java.lang.String, int, boolean) throws java.io.IOException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.Socket",
+      "genericType" : "java.net.Socket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.SocketFactory getDefault()",
+    "returnType" : "javax.net.SocketFactory",
+    "genericReturnType" : "javax.net.SocketFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getDefaultCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getSupportedCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

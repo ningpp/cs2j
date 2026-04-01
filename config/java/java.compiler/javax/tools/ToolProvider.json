@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.ToolProvider",
+  "canonicalName" : "javax.tools.ToolProvider",
+  "simpleName" : "ToolProvider",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getSystemDocumentationTool",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.DocumentationTool getSystemDocumentationTool()",
+    "returnType" : "javax.tools.DocumentationTool",
+    "genericReturnType" : "javax.tools.DocumentationTool",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemJavaCompiler",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.JavaCompiler getSystemJavaCompiler()",
+    "returnType" : "javax.tools.JavaCompiler",
+    "genericReturnType" : "javax.tools.JavaCompiler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemToolClassLoader",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.ClassLoader getSystemToolClassLoader()",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

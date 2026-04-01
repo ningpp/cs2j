@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.TextField$AccessibleAWTTextField",
+  "canonicalName" : "java.awt.TextField.AccessibleAWTTextField",
+  "simpleName" : "AccessibleAWTTextField",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.TextField",
+  "superClass" : "java.awt.TextComponent$AccessibleAWTTextComponent",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,75 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.synth",
+  "binaryName" : "javax.swing.plaf.synth.SynthUI",
+  "canonicalName" : "javax.swing.plaf.synth.SynthUI",
+  "simpleName" : "SynthUI",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.swing.plaf.synth.SynthConstants" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.plaf.synth.SynthContext getContext(javax.swing.JComponent)",
+    "returnType" : "javax.swing.plaf.synth.SynthContext",
+    "genericReturnType" : "javax.swing.plaf.synth.SynthContext",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paintBorder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void paintBorder(javax.swing.plaf.synth.SynthContext, java.awt.Graphics, int, int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.plaf.synth.SynthContext",
+      "genericType" : "javax.swing.plaf.synth.SynthContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.Graphics",
+      "genericType" : "java.awt.Graphics",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg5",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

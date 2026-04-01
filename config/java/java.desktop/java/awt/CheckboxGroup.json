@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.CheckboxGroup",
+  "canonicalName" : "java.awt.CheckboxGroup",
+  "simpleName" : "CheckboxGroup",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.CheckboxGroup",
+    "modifiers" : "public",
+    "signature" : "public java.awt.CheckboxGroup()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCurrent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Checkbox getCurrent()",
+    "returnType" : "java.awt.Checkbox",
+    "genericReturnType" : "java.awt.Checkbox",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSelectedCheckbox",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Checkbox getSelectedCheckbox()",
+    "returnType" : "java.awt.Checkbox",
+    "genericReturnType" : "java.awt.Checkbox",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setCurrent(java.awt.Checkbox)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "box",
+      "type" : "java.awt.Checkbox",
+      "genericType" : "java.awt.Checkbox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSelectedCheckbox",
+    "modifiers" : "public",
+    "signature" : "public void setSelectedCheckbox(java.awt.Checkbox)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "box",
+      "type" : "java.awt.Checkbox",
+      "genericType" : "java.awt.Checkbox",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

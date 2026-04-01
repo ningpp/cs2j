@@ -1,0 +1,156 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.JMX",
+  "canonicalName" : "javax.management.JMX",
+  "simpleName" : "JMX",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "isMXBeanInterface",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isMXBeanInterface(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "interfaceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newMBeanProxy",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object newMBeanProxy(javax.management.MBeanServerConnection, javax.management.ObjectName, java.lang.Class)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "connection",
+      "type" : "javax.management.MBeanServerConnection",
+      "genericType" : "javax.management.MBeanServerConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "objectName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newMBeanProxy",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object newMBeanProxy(javax.management.MBeanServerConnection, javax.management.ObjectName, java.lang.Class, boolean)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "connection",
+      "type" : "javax.management.MBeanServerConnection",
+      "genericType" : "javax.management.MBeanServerConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "objectName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notificationEmitter",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newMXBeanProxy",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object newMXBeanProxy(javax.management.MBeanServerConnection, javax.management.ObjectName, java.lang.Class)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "connection",
+      "type" : "javax.management.MBeanServerConnection",
+      "genericType" : "javax.management.MBeanServerConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "objectName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newMXBeanProxy",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object newMXBeanProxy(javax.management.MBeanServerConnection, javax.management.ObjectName, java.lang.Class, boolean)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "connection",
+      "type" : "javax.management.MBeanServerConnection",
+      "genericType" : "javax.management.MBeanServerConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "objectName",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notificationEmitter",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

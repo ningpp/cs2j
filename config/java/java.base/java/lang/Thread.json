@@ -1,0 +1,760 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Thread",
+  "canonicalName" : "java.lang.Thread",
+  "simpleName" : "Thread",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Runnable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.Runnable)",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.Runnable, java.lang.String)",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.ThreadGroup, java.lang.Runnable)",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "java.lang.ThreadGroup",
+      "genericType" : "java.lang.ThreadGroup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.ThreadGroup, java.lang.Runnable, java.lang.String)",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "java.lang.ThreadGroup",
+      "genericType" : "java.lang.ThreadGroup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.ThreadGroup, java.lang.Runnable, java.lang.String, long)",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "java.lang.ThreadGroup",
+      "genericType" : "java.lang.ThreadGroup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stackSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.ThreadGroup, java.lang.Runnable, java.lang.String, long, boolean)",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "java.lang.ThreadGroup",
+      "genericType" : "java.lang.ThreadGroup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stackSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inheritInheritableThreadLocals",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Thread",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread(java.lang.ThreadGroup, java.lang.String)",
+    "parameters" : [ {
+      "name" : "group",
+      "type" : "java.lang.ThreadGroup",
+      "genericType" : "java.lang.ThreadGroup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "activeCount",
+    "modifiers" : "public static",
+    "signature" : "public static int activeCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkAccess",
+    "modifiers" : "public final",
+    "signature" : "public final void checkAccess()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "currentThread",
+    "modifiers" : "public static native",
+    "signature" : "public static native java.lang.Thread currentThread()",
+    "returnType" : "java.lang.Thread",
+    "genericReturnType" : "java.lang.Thread",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dumpStack",
+    "modifiers" : "public static",
+    "signature" : "public static void dumpStack()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enumerate",
+    "modifiers" : "public static",
+    "signature" : "public static int enumerate(java.lang.Thread[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "tarray",
+      "type" : "java.lang.Thread[]",
+      "genericType" : "java.lang.Thread[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllStackTraces",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Map getAllStackTraces()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContextClassLoader",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassLoader getContextClassLoader()",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultUncaughtExceptionHandler",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Thread$UncaughtExceptionHandler getDefaultUncaughtExceptionHandler()",
+    "returnType" : "java.lang.Thread$UncaughtExceptionHandler",
+    "genericReturnType" : "java.lang.Thread$UncaughtExceptionHandler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getId",
+    "modifiers" : "public",
+    "signature" : "public long getId()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPriority",
+    "modifiers" : "public final",
+    "signature" : "public final int getPriority()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStackTrace",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StackTraceElement[] getStackTrace()",
+    "returnType" : "java.lang.StackTraceElement[]",
+    "genericReturnType" : "java.lang.StackTraceElement[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getState",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread$State getState()",
+    "returnType" : "java.lang.Thread$State",
+    "genericReturnType" : "java.lang.Thread$State",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getThreadGroup",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.ThreadGroup getThreadGroup()",
+    "returnType" : "java.lang.ThreadGroup",
+    "genericReturnType" : "java.lang.ThreadGroup",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUncaughtExceptionHandler",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread$UncaughtExceptionHandler getUncaughtExceptionHandler()",
+    "returnType" : "java.lang.Thread$UncaughtExceptionHandler",
+    "genericReturnType" : "java.lang.Thread$UncaughtExceptionHandler",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "holdsLock",
+    "modifiers" : "public static native",
+    "signature" : "public static native boolean holdsLock(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interrupt",
+    "modifiers" : "public",
+    "signature" : "public void interrupt()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interrupted",
+    "modifiers" : "public static",
+    "signature" : "public static boolean interrupted()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAlive",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isAlive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDaemon",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isDaemon()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInterrupted",
+    "modifiers" : "public",
+    "signature" : "public boolean isInterrupted()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isVirtual",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isVirtual()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "join",
+    "modifiers" : "public final",
+    "signature" : "public final void join() throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "join",
+    "modifiers" : "public final",
+    "signature" : "public final boolean join(java.time.Duration) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "join",
+    "modifiers" : "public final",
+    "signature" : "public final void join(long) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "millis",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "join",
+    "modifiers" : "public final",
+    "signature" : "public final void join(long, int) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "millis",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nanos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofPlatform",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Thread$Builder$OfPlatform ofPlatform()",
+    "returnType" : "java.lang.Thread$Builder$OfPlatform",
+    "genericReturnType" : "java.lang.Thread$Builder$OfPlatform",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofVirtual",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Thread$Builder$OfVirtual ofVirtual()",
+    "returnType" : "java.lang.Thread$Builder$OfVirtual",
+    "genericReturnType" : "java.lang.Thread$Builder$OfVirtual",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onSpinWait",
+    "modifiers" : "public static",
+    "signature" : "public static void onSpinWait()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "run",
+    "modifiers" : "public",
+    "signature" : "public void run()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContextClassLoader",
+    "modifiers" : "public",
+    "signature" : "public void setContextClassLoader(java.lang.ClassLoader)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "cl",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDaemon",
+    "modifiers" : "public final",
+    "signature" : "public final void setDaemon(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "on",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultUncaughtExceptionHandler",
+    "modifiers" : "public static",
+    "signature" : "public static void setDefaultUncaughtExceptionHandler(java.lang.Thread$UncaughtExceptionHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ueh",
+      "type" : "java.lang.Thread$UncaughtExceptionHandler",
+      "genericType" : "java.lang.Thread$UncaughtExceptionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setName",
+    "modifiers" : "public final synchronized",
+    "signature" : "public final synchronized void setName(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPriority",
+    "modifiers" : "public final",
+    "signature" : "public final void setPriority(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newPriority",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUncaughtExceptionHandler",
+    "modifiers" : "public",
+    "signature" : "public void setUncaughtExceptionHandler(java.lang.Thread$UncaughtExceptionHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ueh",
+      "type" : "java.lang.Thread$UncaughtExceptionHandler",
+      "genericType" : "java.lang.Thread$UncaughtExceptionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sleep",
+    "modifiers" : "public static",
+    "signature" : "public static void sleep(java.time.Duration) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sleep",
+    "modifiers" : "public static",
+    "signature" : "public static void sleep(long) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "millis",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sleep",
+    "modifiers" : "public static",
+    "signature" : "public static void sleep(long, int) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "millis",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nanos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public",
+    "signature" : "public void start()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startVirtualThread",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Thread startVirtualThread(java.lang.Runnable)",
+    "returnType" : "java.lang.Thread",
+    "genericReturnType" : "java.lang.Thread",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public final",
+    "signature" : "public final void stop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "threadId",
+    "modifiers" : "public final",
+    "signature" : "public final long threadId()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "yield",
+    "modifiers" : "public static",
+    "signature" : "public static void yield()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

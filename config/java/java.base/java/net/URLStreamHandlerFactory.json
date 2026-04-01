@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.URLStreamHandlerFactory",
+  "canonicalName" : "java.net.URLStreamHandlerFactory",
+  "simpleName" : "URLStreamHandlerFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createURLStreamHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.URLStreamHandler createURLStreamHandler(java.lang.String)",
+    "returnType" : "java.net.URLStreamHandler",
+    "genericReturnType" : "java.net.URLStreamHandler",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

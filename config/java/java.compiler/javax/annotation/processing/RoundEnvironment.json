@@ -1,0 +1,108 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.annotation.processing",
+  "binaryName" : "javax.annotation.processing.RoundEnvironment",
+  "canonicalName" : "javax.annotation.processing.RoundEnvironment",
+  "simpleName" : "RoundEnvironment",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "errorRaised",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean errorRaised()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsAnnotatedWith",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getElementsAnnotatedWith(java.lang.Class)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsAnnotatedWith",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getElementsAnnotatedWith(javax.lang.model.element.TypeElement)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.TypeElement",
+      "genericType" : "javax.lang.model.element.TypeElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsAnnotatedWithAny",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getElementsAnnotatedWithAny(java.util.Set)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "annotations",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getElementsAnnotatedWithAny",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getElementsAnnotatedWithAny(javax.lang.model.element.TypeElement...)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "annotations",
+      "type" : "javax.lang.model.element.TypeElement[]",
+      "genericType" : "javax.lang.model.element.TypeElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "getRootElements",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getRootElements()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processingOver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean processingOver()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

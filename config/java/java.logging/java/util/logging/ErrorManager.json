@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.ErrorManager",
+  "canonicalName" : "java.util.logging.ErrorManager",
+  "simpleName" : "ErrorManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.logging.ErrorManager",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.ErrorManager()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "error",
+    "modifiers" : "public",
+    "signature" : "public void error(java.lang.String, java.lang.Exception, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ex",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "code",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

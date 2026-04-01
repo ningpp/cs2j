@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model",
+  "binaryName" : "javax.lang.model.UnknownEntityException",
+  "canonicalName" : "javax.lang.model.UnknownEntityException",
+  "simpleName" : "UnknownEntityException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException"
+}

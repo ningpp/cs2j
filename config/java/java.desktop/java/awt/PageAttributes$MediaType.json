@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.PageAttributes$MediaType",
+  "canonicalName" : "java.awt.PageAttributes.MediaType",
+  "simpleName" : "MediaType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.PageAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

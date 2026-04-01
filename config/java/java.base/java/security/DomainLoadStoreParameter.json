@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.DomainLoadStoreParameter",
+  "canonicalName" : "java.security.DomainLoadStoreParameter",
+  "simpleName" : "DomainLoadStoreParameter",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.KeyStore$LoadStoreParameter" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.DomainLoadStoreParameter",
+    "modifiers" : "public",
+    "signature" : "public java.security.DomainLoadStoreParameter(java.net.URI, java.util.Map)",
+    "parameters" : [ {
+      "name" : "configuration",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "protectionParams",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getConfiguration",
+    "modifiers" : "public",
+    "signature" : "public java.net.URI getConfiguration()",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtectionParameter",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyStore$ProtectionParameter getProtectionParameter()",
+    "returnType" : "java.security.KeyStore$ProtectionParameter",
+    "genericReturnType" : "java.security.KeyStore$ProtectionParameter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtectionParams",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getProtectionParams()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,277 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.LinearGradientPaint",
+  "canonicalName" : "java.awt.LinearGradientPaint",
+  "simpleName" : "LinearGradientPaint",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.MultipleGradientPaint",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.LinearGradientPaint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.LinearGradientPaint(float, float, float, float, float[], java.awt.Color[])",
+    "parameters" : [ {
+      "name" : "startX",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startY",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endX",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endY",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fractions",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "colors",
+      "type" : "java.awt.Color[]",
+      "genericType" : "java.awt.Color[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.LinearGradientPaint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.LinearGradientPaint(float, float, float, float, float[], java.awt.Color[], java.awt.MultipleGradientPaint$CycleMethod)",
+    "parameters" : [ {
+      "name" : "startX",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "startY",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endX",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endY",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fractions",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "colors",
+      "type" : "java.awt.Color[]",
+      "genericType" : "java.awt.Color[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cycleMethod",
+      "type" : "java.awt.MultipleGradientPaint$CycleMethod",
+      "genericType" : "java.awt.MultipleGradientPaint$CycleMethod",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.LinearGradientPaint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.LinearGradientPaint(java.awt.geom.Point2D, java.awt.geom.Point2D, float[], java.awt.Color[])",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fractions",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "colors",
+      "type" : "java.awt.Color[]",
+      "genericType" : "java.awt.Color[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.LinearGradientPaint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.LinearGradientPaint(java.awt.geom.Point2D, java.awt.geom.Point2D, float[], java.awt.Color[], java.awt.MultipleGradientPaint$CycleMethod)",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fractions",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "colors",
+      "type" : "java.awt.Color[]",
+      "genericType" : "java.awt.Color[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cycleMethod",
+      "type" : "java.awt.MultipleGradientPaint$CycleMethod",
+      "genericType" : "java.awt.MultipleGradientPaint$CycleMethod",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.LinearGradientPaint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.LinearGradientPaint(java.awt.geom.Point2D, java.awt.geom.Point2D, float[], java.awt.Color[], java.awt.MultipleGradientPaint$CycleMethod, java.awt.MultipleGradientPaint$ColorSpaceType, java.awt.geom.AffineTransform)",
+    "parameters" : [ {
+      "name" : "start",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "end",
+      "type" : "java.awt.geom.Point2D",
+      "genericType" : "java.awt.geom.Point2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fractions",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "colors",
+      "type" : "java.awt.Color[]",
+      "genericType" : "java.awt.Color[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cycleMethod",
+      "type" : "java.awt.MultipleGradientPaint$CycleMethod",
+      "genericType" : "java.awt.MultipleGradientPaint$CycleMethod",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "colorSpace",
+      "type" : "java.awt.MultipleGradientPaint$ColorSpaceType",
+      "genericType" : "java.awt.MultipleGradientPaint$ColorSpaceType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "gradientTransform",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.PaintContext createContext(java.awt.image.ColorModel, java.awt.Rectangle, java.awt.geom.Rectangle2D, java.awt.geom.AffineTransform, java.awt.RenderingHints)",
+    "returnType" : "java.awt.PaintContext",
+    "genericReturnType" : "java.awt.PaintContext",
+    "parameters" : [ {
+      "name" : "cm",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "deviceBounds",
+      "type" : "java.awt.Rectangle",
+      "genericType" : "java.awt.Rectangle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "userBounds",
+      "type" : "java.awt.geom.Rectangle2D",
+      "genericType" : "java.awt.geom.Rectangle2D",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transform",
+      "type" : "java.awt.geom.AffineTransform",
+      "genericType" : "java.awt.geom.AffineTransform",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndPoint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Point2D getEndPoint()",
+    "returnType" : "java.awt.geom.Point2D",
+    "genericReturnType" : "java.awt.geom.Point2D",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartPoint",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.Point2D getStartPoint()",
+    "returnType" : "java.awt.geom.Point2D",
+    "genericReturnType" : "java.awt.geom.Point2D",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

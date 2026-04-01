@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.InvalidParameterSpecException",
+  "canonicalName" : "java.security.spec.InvalidParameterSpecException",
+  "simpleName" : "InvalidParameterSpecException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.InvalidParameterSpecException",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.InvalidParameterSpecException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.spec.InvalidParameterSpecException",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.InvalidParameterSpecException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

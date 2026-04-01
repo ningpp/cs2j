@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio",
+  "binaryName" : "java.nio.BufferUnderflowException",
+  "canonicalName" : "java.nio.BufferUnderflowException",
+  "simpleName" : "BufferUnderflowException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.BufferUnderflowException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.BufferUnderflowException()",
+    "varArgs" : false
+  } ]
+}

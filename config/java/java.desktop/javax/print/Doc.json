@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.Doc",
+  "canonicalName" : "javax.print.Doc",
+  "simpleName" : "Doc",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.attribute.DocAttributeSet getAttributes()",
+    "returnType" : "javax.print.attribute.DocAttributeSet",
+    "genericReturnType" : "javax.print.attribute.DocAttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocFlavor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.DocFlavor getDocFlavor()",
+    "returnType" : "javax.print.DocFlavor",
+    "genericReturnType" : "javax.print.DocFlavor",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getPrintData() throws java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReaderForText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.Reader getReaderForText() throws java.io.IOException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStreamForBytes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getStreamForBytes() throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

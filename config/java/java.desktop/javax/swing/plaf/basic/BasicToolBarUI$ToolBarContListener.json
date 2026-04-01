@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicToolBarUI$ToolBarContListener",
+  "canonicalName" : "javax.swing.plaf.basic.BasicToolBarUI.ToolBarContListener",
+  "simpleName" : "ToolBarContListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicToolBarUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.ContainerListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "componentAdded",
+    "modifiers" : "public",
+    "signature" : "public void componentAdded(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentRemoved",
+    "modifiers" : "public",
+    "signature" : "public void componentRemoved(java.awt.event.ContainerEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ContainerEvent",
+      "genericType" : "java.awt.event.ContainerEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

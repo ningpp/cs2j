@@ -1,0 +1,48 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.ModuleEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.ModuleEntry",
+  "simpleName" : "ModuleEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.PoolEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asSymbol",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.ModuleDesc asSymbol()",
+    "returnType" : "java.lang.constant.ModuleDesc",
+    "genericReturnType" : "java.lang.constant.ModuleDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "matches",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean matches(java.lang.constant.ModuleDesc)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ModuleDesc",
+      "genericType" : "java.lang.constant.ModuleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry name()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

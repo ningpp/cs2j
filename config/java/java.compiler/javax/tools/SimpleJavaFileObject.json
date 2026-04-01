@@ -1,0 +1,207 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.SimpleJavaFileObject",
+  "canonicalName" : "javax.tools.SimpleJavaFileObject",
+  "simpleName" : "SimpleJavaFileObject",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.tools.JavaFileObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "delete",
+    "modifiers" : "public",
+    "signature" : "public boolean delete()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forSource",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.JavaFileObject forSource(java.net.URI, java.lang.String)",
+    "returnType" : "javax.tools.JavaFileObject",
+    "genericReturnType" : "javax.tools.JavaFileObject",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "content",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessLevel",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.Modifier getAccessLevel()",
+    "returnType" : "javax.lang.model.element.Modifier",
+    "genericReturnType" : "javax.lang.model.element.Modifier",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharContent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.CharSequence getCharContent(boolean) throws java.io.IOException",
+    "returnType" : "java.lang.CharSequence",
+    "genericReturnType" : "java.lang.CharSequence",
+    "parameters" : [ {
+      "name" : "ignoreEncodingErrors",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKind",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileObject$Kind getKind()",
+    "returnType" : "javax.tools.JavaFileObject$Kind",
+    "genericReturnType" : "javax.tools.JavaFileObject$Kind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastModified",
+    "modifiers" : "public",
+    "signature" : "public long getLastModified()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNestingKind",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.NestingKind getNestingKind()",
+    "returnType" : "javax.lang.model.element.NestingKind",
+    "genericReturnType" : "javax.lang.model.element.NestingKind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNameCompatible",
+    "modifiers" : "public",
+    "signature" : "public boolean isNameCompatible(java.lang.String, javax.tools.JavaFileObject$Kind)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "simpleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kind",
+      "type" : "javax.tools.JavaFileObject$Kind",
+      "genericType" : "javax.tools.JavaFileObject$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openInputStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream openInputStream() throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openOutputStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.OutputStream openOutputStream() throws java.io.IOException",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.Reader openReader(boolean) throws java.io.IOException",
+    "returnType" : "java.io.Reader",
+    "genericReturnType" : "java.io.Reader",
+    "parameters" : [ {
+      "name" : "ignoreEncodingErrors",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openWriter",
+    "modifiers" : "public",
+    "signature" : "public java.io.Writer openWriter() throws java.io.IOException",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toUri",
+    "modifiers" : "public",
+    "signature" : "public java.net.URI toUri()",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

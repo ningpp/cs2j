@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.XMLFormatter",
+  "canonicalName" : "java.util.logging.XMLFormatter",
+  "simpleName" : "XMLFormatter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.logging.Formatter",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.logging.XMLFormatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.XMLFormatter()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String format(java.util.logging.LogRecord)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "record",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHead",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getHead(java.util.logging.Handler)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "h",
+      "type" : "java.util.logging.Handler",
+      "genericType" : "java.util.logging.Handler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTail",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getTail(java.util.logging.Handler)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "h",
+      "type" : "java.util.logging.Handler",
+      "genericType" : "java.util.logging.Handler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

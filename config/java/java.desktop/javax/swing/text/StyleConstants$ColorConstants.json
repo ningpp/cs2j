@@ -1,0 +1,12 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.StyleConstants$ColorConstants",
+  "canonicalName" : "javax.swing.text.StyleConstants.ColorConstants",
+  "simpleName" : "ColorConstants",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.text.StyleConstants",
+  "superClass" : "javax.swing.text.StyleConstants",
+  "interfaces" : [ "javax.swing.text.AttributeSet$CharacterAttribute", "javax.swing.text.AttributeSet$ColorAttribute" ]
+}

@@ -1,0 +1,221 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.zone",
+  "binaryName" : "java.time.zone.ZoneOffsetTransitionRule",
+  "canonicalName" : "java.time.zone.ZoneOffsetTransitionRule",
+  "simpleName" : "ZoneOffsetTransitionRule",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "createTransition",
+    "modifiers" : "public",
+    "signature" : "public java.time.zone.ZoneOffsetTransition createTransition(int)",
+    "returnType" : "java.time.zone.ZoneOffsetTransition",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransition",
+    "parameters" : [ {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "otherRule",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDayOfMonthIndicator",
+    "modifiers" : "public",
+    "signature" : "public int getDayOfMonthIndicator()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDayOfWeek",
+    "modifiers" : "public",
+    "signature" : "public java.time.DayOfWeek getDayOfWeek()",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalTime getLocalTime()",
+    "returnType" : "java.time.LocalTime",
+    "genericReturnType" : "java.time.LocalTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMonth",
+    "modifiers" : "public",
+    "signature" : "public java.time.Month getMonth()",
+    "returnType" : "java.time.Month",
+    "genericReturnType" : "java.time.Month",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffsetAfter",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneOffset getOffsetAfter()",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffsetBefore",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneOffset getOffsetBefore()",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStandardOffset",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneOffset getStandardOffset()",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTimeDefinition",
+    "modifiers" : "public",
+    "signature" : "public java.time.zone.ZoneOffsetTransitionRule$TimeDefinition getTimeDefinition()",
+    "returnType" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMidnightEndOfDay",
+    "modifiers" : "public",
+    "signature" : "public boolean isMidnightEndOfDay()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.zone.ZoneOffsetTransitionRule of(java.time.Month, int, java.time.DayOfWeek, java.time.LocalTime, boolean, java.time.zone.ZoneOffsetTransitionRule$TimeDefinition, java.time.ZoneOffset, java.time.ZoneOffset, java.time.ZoneOffset)",
+    "returnType" : "java.time.zone.ZoneOffsetTransitionRule",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransitionRule",
+    "parameters" : [ {
+      "name" : "month",
+      "type" : "java.time.Month",
+      "genericType" : "java.time.Month",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonthIndicator",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "time",
+      "type" : "java.time.LocalTime",
+      "genericType" : "java.time.LocalTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeEndOfDay",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeDefinition",
+      "type" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition",
+      "genericType" : "java.time.zone.ZoneOffsetTransitionRule$TimeDefinition",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "standardOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsetBefore",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offsetAfter",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.ConsoleHandler",
+  "canonicalName" : "java.util.logging.ConsoleHandler",
+  "simpleName" : "ConsoleHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.logging.StreamHandler",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.logging.ConsoleHandler",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.ConsoleHandler()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "publish",
+    "modifiers" : "public",
+    "signature" : "public void publish(java.util.logging.LogRecord)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "record",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

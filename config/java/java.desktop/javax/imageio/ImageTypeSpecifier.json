@@ -1,0 +1,468 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio",
+  "binaryName" : "javax.imageio.ImageTypeSpecifier",
+  "canonicalName" : "javax.imageio.ImageTypeSpecifier",
+  "simpleName" : "ImageTypeSpecifier",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.ImageTypeSpecifier",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.ImageTypeSpecifier(java.awt.image.ColorModel, java.awt.image.SampleModel)",
+    "parameters" : [ {
+      "name" : "colorModel",
+      "type" : "java.awt.image.ColorModel",
+      "genericType" : "java.awt.image.ColorModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sampleModel",
+      "type" : "java.awt.image.SampleModel",
+      "genericType" : "java.awt.image.SampleModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.ImageTypeSpecifier",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.ImageTypeSpecifier(java.awt.image.RenderedImage)",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createBanded",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createBanded(java.awt.color.ColorSpace, int[], int[], int, boolean, boolean)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "colorSpace",
+      "type" : "java.awt.color.ColorSpace",
+      "genericType" : "java.awt.color.ColorSpace",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bankIndices",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bandOffsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hasAlpha",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isAlphaPremultiplied",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createBufferedImage",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.BufferedImage createBufferedImage(int, int)",
+    "returnType" : "java.awt.image.BufferedImage",
+    "genericReturnType" : "java.awt.image.BufferedImage",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFromBufferedImageType",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createFromBufferedImageType(int)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "bufferedImageType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFromRenderedImage",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createFromRenderedImage(java.awt.image.RenderedImage)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "image",
+      "type" : "java.awt.image.RenderedImage",
+      "genericType" : "java.awt.image.RenderedImage",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGrayscale",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createGrayscale(int, int, boolean)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "bits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isSigned",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createGrayscale",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createGrayscale(int, int, boolean, boolean)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "bits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isSigned",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isAlphaPremultiplied",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createIndexed",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createIndexed(byte[], byte[], byte[], byte[], int, int)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "redLUT",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "greenLUT",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "blueLUT",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "alphaLUT",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bits",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createInterleaved",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createInterleaved(java.awt.color.ColorSpace, int[], int, boolean, boolean)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "colorSpace",
+      "type" : "java.awt.color.ColorSpace",
+      "genericType" : "java.awt.color.ColorSpace",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bandOffsets",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dataType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hasAlpha",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isAlphaPremultiplied",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createPacked",
+    "modifiers" : "public static",
+    "signature" : "public static javax.imageio.ImageTypeSpecifier createPacked(java.awt.color.ColorSpace, int, int, int, int, int, boolean)",
+    "returnType" : "javax.imageio.ImageTypeSpecifier",
+    "genericReturnType" : "javax.imageio.ImageTypeSpecifier",
+    "parameters" : [ {
+      "name" : "colorSpace",
+      "type" : "java.awt.color.ColorSpace",
+      "genericType" : "java.awt.color.ColorSpace",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "redMask",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "greenMask",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "blueMask",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "alphaMask",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transferType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isAlphaPremultiplied",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBitsPerBand",
+    "modifiers" : "public",
+    "signature" : "public int getBitsPerBand(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "band",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBufferedImageType",
+    "modifiers" : "public",
+    "signature" : "public int getBufferedImageType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColorModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ColorModel getColorModel()",
+    "returnType" : "java.awt.image.ColorModel",
+    "genericReturnType" : "java.awt.image.ColorModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumBands",
+    "modifiers" : "public",
+    "signature" : "public int getNumBands()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumComponents",
+    "modifiers" : "public",
+    "signature" : "public int getNumComponents()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.SampleModel getSampleModel()",
+    "returnType" : "java.awt.image.SampleModel",
+    "genericReturnType" : "java.awt.image.SampleModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSampleModel",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.SampleModel getSampleModel(int, int)",
+    "returnType" : "java.awt.image.SampleModel",
+    "genericReturnType" : "java.awt.image.SampleModel",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

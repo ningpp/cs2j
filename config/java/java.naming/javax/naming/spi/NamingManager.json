@@ -1,0 +1,189 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.spi",
+  "binaryName" : "javax.naming.spi.NamingManager",
+  "canonicalName" : "javax.naming.spi.NamingManager",
+  "simpleName" : "NamingManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getContinuationContext",
+    "modifiers" : "public static",
+    "signature" : "public static javax.naming.Context getContinuationContext(javax.naming.CannotProceedException) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "parameters" : [ {
+      "name" : "cpe",
+      "type" : "javax.naming.CannotProceedException",
+      "genericType" : "javax.naming.CannotProceedException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInitialContext",
+    "modifiers" : "public static",
+    "signature" : "public static javax.naming.Context getInitialContext(java.util.Hashtable) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "parameters" : [ {
+      "name" : "env",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObjectInstance",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object getObjectInstance(java.lang.Object, javax.naming.Name, javax.naming.Context, java.util.Hashtable) throws java.lang.Exception",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "refInfo",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameCtx",
+      "type" : "javax.naming.Context",
+      "genericType" : "javax.naming.Context",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStateToBind",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object getStateToBind(java.lang.Object, javax.naming.Name, javax.naming.Context, java.util.Hashtable) throws javax.naming.NamingException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameCtx",
+      "type" : "javax.naming.Context",
+      "genericType" : "javax.naming.Context",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURLContext",
+    "modifiers" : "public static",
+    "signature" : "public static javax.naming.Context getURLContext(java.lang.String, java.util.Hashtable) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "parameters" : [ {
+      "name" : "scheme",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasInitialContextFactoryBuilder",
+    "modifiers" : "public static",
+    "signature" : "public static boolean hasInitialContextFactoryBuilder()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInitialContextFactoryBuilder",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized void setInitialContextFactoryBuilder(javax.naming.spi.InitialContextFactoryBuilder) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "builder",
+      "type" : "javax.naming.spi.InitialContextFactoryBuilder",
+      "genericType" : "javax.naming.spi.InitialContextFactoryBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setObjectFactoryBuilder",
+    "modifiers" : "public static",
+    "signature" : "public static void setObjectFactoryBuilder(javax.naming.spi.ObjectFactoryBuilder) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "builder",
+      "type" : "javax.naming.spi.ObjectFactoryBuilder",
+      "genericType" : "javax.naming.spi.ObjectFactoryBuilder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

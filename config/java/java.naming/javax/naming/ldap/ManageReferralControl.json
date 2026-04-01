@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.ManageReferralControl",
+  "canonicalName" : "javax.naming.ldap.ManageReferralControl",
+  "simpleName" : "ManageReferralControl",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.naming.ldap.BasicControl",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.ManageReferralControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.ManageReferralControl()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.ManageReferralControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.ManageReferralControl(boolean)",
+    "parameters" : [ {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.NoPermissionException",
+  "canonicalName" : "javax.naming.NoPermissionException",
+  "simpleName" : "NoPermissionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.NoPermissionException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NoPermissionException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.NoPermissionException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NoPermissionException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

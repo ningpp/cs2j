@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ProcessHandle$Info",
+  "canonicalName" : "java.lang.ProcessHandle.Info",
+  "simpleName" : "Info",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.ProcessHandle",
+  "declaredPublicMethods" : [ {
+    "name" : "arguments",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional arguments()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "command",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional command()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "commandLine",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional commandLine()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startInstant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional startInstant()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "totalCpuDuration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional totalCpuDuration()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "user",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional user()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

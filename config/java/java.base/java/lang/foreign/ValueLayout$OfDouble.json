@@ -1,0 +1,73 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.ValueLayout$OfDouble",
+  "canonicalName" : "java.lang.foreign.ValueLayout.OfDouble",
+  "simpleName" : "OfDouble",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.foreign.ValueLayout",
+  "interfaces" : [ "java.lang.foreign.ValueLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfDouble withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfDouble withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withOrder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfDouble withOrder(java.nio.ByteOrder)",
+    "returnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteOrder",
+      "genericType" : "java.nio.ByteOrder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout$OfDouble withoutName()",
+    "returnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "genericReturnType" : "java.lang.foreign.ValueLayout$OfDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

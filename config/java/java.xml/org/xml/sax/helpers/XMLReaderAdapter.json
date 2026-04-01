@@ -1,0 +1,400 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax.helpers",
+  "binaryName" : "org.xml.sax.helpers.XMLReaderAdapter",
+  "canonicalName" : "org.xml.sax.helpers.XMLReaderAdapter",
+  "simpleName" : "XMLReaderAdapter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "org.xml.sax.ContentHandler", "org.xml.sax.Parser" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "org.xml.sax.helpers.XMLReaderAdapter",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.helpers.XMLReaderAdapter() throws org.xml.sax.SAXException",
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "varArgs" : false
+  }, {
+    "name" : "org.xml.sax.helpers.XMLReaderAdapter",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.helpers.XMLReaderAdapter(org.xml.sax.XMLReader)",
+    "parameters" : [ {
+      "name" : "xmlReader",
+      "type" : "org.xml.sax.XMLReader",
+      "genericType" : "org.xml.sax.XMLReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "characters",
+    "modifiers" : "public",
+    "signature" : "public void characters(char[], int, int) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endDocument",
+    "modifiers" : "public",
+    "signature" : "public void endDocument() throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endElement",
+    "modifiers" : "public",
+    "signature" : "public void endElement(java.lang.String, java.lang.String, java.lang.String) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "localName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "qName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endPrefixMapping",
+    "modifiers" : "public",
+    "signature" : "public void endPrefixMapping(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ignorableWhitespace",
+    "modifiers" : "public",
+    "signature" : "public void ignorableWhitespace(char[], int, int) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.lang.String) throws java.io.IOException, org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(org.xml.sax.InputSource) throws java.io.IOException, org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "input",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processingInstruction",
+    "modifiers" : "public",
+    "signature" : "public void processingInstruction(java.lang.String, java.lang.String) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDTDHandler",
+    "modifiers" : "public",
+    "signature" : "public void setDTDHandler(org.xml.sax.DTDHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "org.xml.sax.DTDHandler",
+      "genericType" : "org.xml.sax.DTDHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDocumentHandler",
+    "modifiers" : "public",
+    "signature" : "public void setDocumentHandler(org.xml.sax.DocumentHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "org.xml.sax.DocumentHandler",
+      "genericType" : "org.xml.sax.DocumentHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDocumentLocator",
+    "modifiers" : "public",
+    "signature" : "public void setDocumentLocator(org.xml.sax.Locator)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "locator",
+      "type" : "org.xml.sax.Locator",
+      "genericType" : "org.xml.sax.Locator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEntityResolver",
+    "modifiers" : "public",
+    "signature" : "public void setEntityResolver(org.xml.sax.EntityResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "resolver",
+      "type" : "org.xml.sax.EntityResolver",
+      "genericType" : "org.xml.sax.EntityResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setErrorHandler",
+    "modifiers" : "public",
+    "signature" : "public void setErrorHandler(org.xml.sax.ErrorHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "org.xml.sax.ErrorHandler",
+      "genericType" : "org.xml.sax.ErrorHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocale",
+    "modifiers" : "public",
+    "signature" : "public void setLocale(java.util.Locale) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skippedEntity",
+    "modifiers" : "public",
+    "signature" : "public void skippedEntity(java.lang.String) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startDocument",
+    "modifiers" : "public",
+    "signature" : "public void startDocument() throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startElement",
+    "modifiers" : "public",
+    "signature" : "public void startElement(java.lang.String, java.lang.String, java.lang.String, org.xml.sax.Attributes) throws org.xml.sax.SAXException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "localName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "qName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "atts",
+      "type" : "org.xml.sax.Attributes",
+      "genericType" : "org.xml.sax.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startPrefixMapping",
+    "modifiers" : "public",
+    "signature" : "public void startPrefixMapping(java.lang.String, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "prefix",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

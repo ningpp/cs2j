@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.TextAction",
+  "canonicalName" : "javax.swing.text.TextAction",
+  "simpleName" : "TextAction",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.swing.AbstractAction",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.TextAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.TextAction(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "augmentList",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.swing.Action[] augmentList(javax.swing.Action[], javax.swing.Action[])",
+    "returnType" : "javax.swing.Action[]",
+    "genericReturnType" : "javax.swing.Action[]",
+    "parameters" : [ {
+      "name" : "list1",
+      "type" : "javax.swing.Action[]",
+      "genericType" : "javax.swing.Action[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "list2",
+      "type" : "javax.swing.Action[]",
+      "genericType" : "javax.swing.Action[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

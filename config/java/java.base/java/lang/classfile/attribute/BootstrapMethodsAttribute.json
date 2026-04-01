@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.BootstrapMethodsAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.BootstrapMethodsAttribute",
+  "simpleName" : "BootstrapMethodsAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute" ],
+  "declaredPublicMethods" : [ {
+    "name" : "bootstrapMethods",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List bootstrapMethods()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bootstrapMethodsSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int bootstrapMethodsSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,78 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.DefaultTreeCellEditor$DefaultTextField",
+  "canonicalName" : "javax.swing.tree.DefaultTreeCellEditor.DefaultTextField",
+  "simpleName" : "DefaultTextField",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.tree.DefaultTreeCellEditor",
+  "superClass" : "javax.swing.JTextField",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.tree.DefaultTreeCellEditor$DefaultTextField",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.DefaultTreeCellEditor$DefaultTextField(javax.swing.tree.DefaultTreeCellEditor, javax.swing.border.Border)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.tree.DefaultTreeCellEditor",
+      "genericType" : "javax.swing.tree.DefaultTreeCellEditor",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "border",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBorder",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.border.Border getBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font getFont()",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBorder",
+    "modifiers" : "public",
+    "signature" : "public void setBorder(javax.swing.border.Border)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "border",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

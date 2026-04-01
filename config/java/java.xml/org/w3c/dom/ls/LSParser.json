@@ -1,0 +1,143 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ls",
+  "binaryName" : "org.w3c.dom.ls.LSParser",
+  "canonicalName" : "org.w3c.dom.ls.LSParser",
+  "simpleName" : "LSParser",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "abort",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void abort()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getAsync()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBusy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getBusy()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDomConfig",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.DOMConfiguration getDomConfig()",
+    "returnType" : "org.w3c.dom.DOMConfiguration",
+    "genericReturnType" : "org.w3c.dom.DOMConfiguration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSParserFilter getFilter()",
+    "returnType" : "org.w3c.dom.ls.LSParserFilter",
+    "genericReturnType" : "org.w3c.dom.ls.LSParserFilter",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Document parse(org.w3c.dom.ls.LSInput) throws org.w3c.dom.DOMException, org.w3c.dom.ls.LSException",
+    "returnType" : "org.w3c.dom.Document",
+    "genericReturnType" : "org.w3c.dom.Document",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.ls.LSInput",
+      "genericType" : "org.w3c.dom.ls.LSInput",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException", "org.w3c.dom.ls.LSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parseURI",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Document parseURI(java.lang.String) throws org.w3c.dom.DOMException, org.w3c.dom.ls.LSException",
+    "returnType" : "org.w3c.dom.Document",
+    "genericReturnType" : "org.w3c.dom.Document",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException", "org.w3c.dom.ls.LSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parseWithContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node parseWithContext(org.w3c.dom.ls.LSInput, org.w3c.dom.Node, short) throws org.w3c.dom.DOMException, org.w3c.dom.ls.LSException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.ls.LSInput",
+      "genericType" : "org.w3c.dom.ls.LSInput",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException", "org.w3c.dom.ls.LSException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFilter(org.w3c.dom.ls.LSParserFilter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.ls.LSParserFilter",
+      "genericType" : "org.w3c.dom.ls.LSParserFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

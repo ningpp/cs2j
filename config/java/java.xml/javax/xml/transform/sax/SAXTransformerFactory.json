@@ -1,0 +1,105 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.sax",
+  "binaryName" : "javax.xml.transform.sax.SAXTransformerFactory",
+  "canonicalName" : "javax.xml.transform.sax.SAXTransformerFactory",
+  "simpleName" : "SAXTransformerFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.xml.transform.TransformerFactory",
+  "declaredPublicMethods" : [ {
+    "name" : "newTemplatesHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.sax.TemplatesHandler newTemplatesHandler() throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.sax.TemplatesHandler",
+    "genericReturnType" : "javax.xml.transform.sax.TemplatesHandler",
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newTransformerHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.sax.TransformerHandler newTransformerHandler() throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.sax.TransformerHandler",
+    "genericReturnType" : "javax.xml.transform.sax.TransformerHandler",
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newTransformerHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.sax.TransformerHandler newTransformerHandler(javax.xml.transform.Source) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.sax.TransformerHandler",
+    "genericReturnType" : "javax.xml.transform.sax.TransformerHandler",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newTransformerHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.sax.TransformerHandler newTransformerHandler(javax.xml.transform.Templates) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.sax.TransformerHandler",
+    "genericReturnType" : "javax.xml.transform.sax.TransformerHandler",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Templates",
+      "genericType" : "javax.xml.transform.Templates",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.XMLFilter newXMLFilter(javax.xml.transform.Source) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "org.xml.sax.XMLFilter",
+    "genericReturnType" : "org.xml.sax.XMLFilter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXMLFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.XMLFilter newXMLFilter(javax.xml.transform.Templates) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "org.xml.sax.XMLFilter",
+    "genericReturnType" : "org.xml.sax.XMLFilter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Templates",
+      "genericType" : "javax.xml.transform.Templates",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KDFSpi",
+  "canonicalName" : "javax.crypto.KDFSpi",
+  "simpleName" : "KDFSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object"
+}

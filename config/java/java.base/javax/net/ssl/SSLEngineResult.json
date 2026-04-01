@@ -1,0 +1,138 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLEngineResult",
+  "canonicalName" : "javax.net.ssl.SSLEngineResult",
+  "simpleName" : "SSLEngineResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SSLEngineResult",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLEngineResult(javax.net.ssl.SSLEngineResult$Status, javax.net.ssl.SSLEngineResult$HandshakeStatus, int, int)",
+    "parameters" : [ {
+      "name" : "status",
+      "type" : "javax.net.ssl.SSLEngineResult$Status",
+      "genericType" : "javax.net.ssl.SSLEngineResult$Status",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handshakeStatus",
+      "type" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+      "genericType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bytesConsumed",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bytesProduced",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.net.ssl.SSLEngineResult",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLEngineResult(javax.net.ssl.SSLEngineResult$Status, javax.net.ssl.SSLEngineResult$HandshakeStatus, int, int, long)",
+    "parameters" : [ {
+      "name" : "status",
+      "type" : "javax.net.ssl.SSLEngineResult$Status",
+      "genericType" : "javax.net.ssl.SSLEngineResult$Status",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handshakeStatus",
+      "type" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+      "genericType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bytesConsumed",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bytesProduced",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sequenceNumber",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "bytesConsumed",
+    "modifiers" : "public final",
+    "signature" : "public final int bytesConsumed()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bytesProduced",
+    "modifiers" : "public final",
+    "signature" : "public final int bytesProduced()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHandshakeStatus",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLEngineResult$HandshakeStatus getHandshakeStatus()",
+    "returnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStatus",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLEngineResult$Status getStatus()",
+    "returnType" : "javax.net.ssl.SSLEngineResult$Status",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult$Status",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequenceNumber",
+    "modifiers" : "public final",
+    "signature" : "public final long sequenceNumber()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.InvalidRoleInfoException",
+  "canonicalName" : "javax.management.relation.InvalidRoleInfoException",
+  "simpleName" : "InvalidRoleInfoException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.relation.RelationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.InvalidRoleInfoException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRoleInfoException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.InvalidRoleInfoException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRoleInfoException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

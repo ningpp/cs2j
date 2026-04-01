@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalComboBoxUI$MetalPropertyChangeListener",
+  "canonicalName" : "javax.swing.plaf.metal.MetalComboBoxUI.MetalPropertyChangeListener",
+  "simpleName" : "MetalPropertyChangeListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalComboBoxUI",
+  "superClass" : "javax.swing.plaf.basic.BasicComboBoxUI$PropertyChangeHandler",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalComboBoxUI$MetalPropertyChangeListener",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalComboBoxUI$MetalPropertyChangeListener(javax.swing.plaf.metal.MetalComboBoxUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.metal.MetalComboBoxUI",
+      "genericType" : "javax.swing.plaf.metal.MetalComboBoxUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "propertyChange",
+    "modifiers" : "public",
+    "signature" : "public void propertyChange(java.beans.PropertyChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.beans.PropertyChangeEvent",
+      "genericType" : "java.beans.PropertyChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

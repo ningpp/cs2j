@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.spi",
+  "binaryName" : "javax.sql.rowset.spi.SyncFactoryException",
+  "canonicalName" : "javax.sql.rowset.spi.SyncFactoryException",
+  "simpleName" : "SyncFactoryException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.sql.SQLException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.rowset.spi.SyncFactoryException",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.spi.SyncFactoryException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.sql.rowset.spi.SyncFactoryException",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.spi.SyncFactoryException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,130 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.Line",
+  "canonicalName" : "javax.sound.sampled.Line",
+  "simpleName" : "Line",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.AutoCloseable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addLineListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addLineListener(javax.sound.sampled.LineListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.LineListener",
+      "genericType" : "javax.sound.sampled.LineListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControl",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Control getControl(javax.sound.sampled.Control$Type)",
+    "returnType" : "javax.sound.sampled.Control",
+    "genericReturnType" : "javax.sound.sampled.Control",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Control$Type",
+      "genericType" : "javax.sound.sampled.Control$Type",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControls",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Control[] getControls()",
+    "returnType" : "javax.sound.sampled.Control[]",
+    "genericReturnType" : "javax.sound.sampled.Control[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLineInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line$Info getLineInfo()",
+    "returnType" : "javax.sound.sampled.Line$Info",
+    "genericReturnType" : "javax.sound.sampled.Line$Info",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isControlSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isControlSupported(javax.sound.sampled.Control$Type)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Control$Type",
+      "genericType" : "javax.sound.sampled.Control$Type",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOpen",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isOpen()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void open() throws javax.sound.sampled.LineUnavailableException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.sound.sampled.LineUnavailableException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeLineListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeLineListener(javax.sound.sampled.LineListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.LineListener",
+      "genericType" : "javax.sound.sampled.LineListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

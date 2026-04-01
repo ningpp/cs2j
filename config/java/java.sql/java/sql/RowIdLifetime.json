@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.RowIdLifetime",
+  "canonicalName" : "java.sql.RowIdLifetime",
+  "simpleName" : "RowIdLifetime",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.RowIdLifetime valueOf(java.lang.String)",
+    "returnType" : "java.sql.RowIdLifetime",
+    "genericReturnType" : "java.sql.RowIdLifetime",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.RowIdLifetime[] values()",
+    "returnType" : "java.sql.RowIdLifetime[]",
+    "genericReturnType" : "java.sql.RowIdLifetime[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

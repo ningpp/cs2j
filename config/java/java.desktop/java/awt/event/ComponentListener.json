@@ -1,0 +1,79 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.ComponentListener",
+  "canonicalName" : "java.awt.event.ComponentListener",
+  "simpleName" : "ComponentListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "componentHidden",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void componentHidden(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentMoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void componentMoved(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentResized",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void componentResized(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentShown",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void componentShown(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

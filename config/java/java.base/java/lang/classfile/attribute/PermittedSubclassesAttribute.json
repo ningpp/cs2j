@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+  "simpleName" : "PermittedSubclassesAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.PermittedSubclassesAttribute of(java.lang.classfile.constantpool.ClassEntry...)",
+    "returnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "parameters" : [ {
+      "name" : "permittedSubclasses",
+      "type" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.PermittedSubclassesAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "parameters" : [ {
+      "name" : "permittedSubclasses",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.PermittedSubclassesAttribute ofSymbols(java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "parameters" : [ {
+      "name" : "permittedSubclasses",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofSymbols",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.PermittedSubclassesAttribute ofSymbols(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.PermittedSubclassesAttribute",
+    "parameters" : [ {
+      "name" : "permittedSubclasses",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "permittedSubclasses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List permittedSubclasses()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,241 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Timer",
+  "canonicalName" : "java.util.Timer",
+  "simpleName" : "Timer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.Timer",
+    "modifiers" : "public",
+    "signature" : "public java.util.Timer()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Timer",
+    "modifiers" : "public",
+    "signature" : "public java.util.Timer(boolean)",
+    "parameters" : [ {
+      "name" : "isDaemon",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Timer",
+    "modifiers" : "public",
+    "signature" : "public java.util.Timer(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.Timer",
+    "modifiers" : "public",
+    "signature" : "public java.util.Timer(java.lang.String, boolean)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isDaemon",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "cancel",
+    "modifiers" : "public",
+    "signature" : "public void cancel()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "purge",
+    "modifiers" : "public",
+    "signature" : "public int purge()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public void schedule(java.util.TimerTask, java.util.Date)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.TimerTask",
+      "genericType" : "java.util.TimerTask",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "time",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public void schedule(java.util.TimerTask, java.util.Date, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.TimerTask",
+      "genericType" : "java.util.TimerTask",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstTime",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public void schedule(java.util.TimerTask, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.TimerTask",
+      "genericType" : "java.util.TimerTask",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public void schedule(java.util.TimerTask, long, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.TimerTask",
+      "genericType" : "java.util.TimerTask",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleAtFixedRate",
+    "modifiers" : "public",
+    "signature" : "public void scheduleAtFixedRate(java.util.TimerTask, java.util.Date, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.TimerTask",
+      "genericType" : "java.util.TimerTask",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "firstTime",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleAtFixedRate",
+    "modifiers" : "public",
+    "signature" : "public void scheduleAtFixedRate(java.util.TimerTask, long, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.TimerTask",
+      "genericType" : "java.util.TimerTask",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

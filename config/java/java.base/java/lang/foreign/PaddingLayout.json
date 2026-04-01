@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.PaddingLayout",
+  "canonicalName" : "java.lang.foreign.PaddingLayout",
+  "simpleName" : "PaddingLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.foreign.MemoryLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.PaddingLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.PaddingLayout",
+    "genericReturnType" : "java.lang.foreign.PaddingLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.PaddingLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.PaddingLayout",
+    "genericReturnType" : "java.lang.foreign.PaddingLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.PaddingLayout withoutName()",
+    "returnType" : "java.lang.foreign.PaddingLayout",
+    "genericReturnType" : "java.lang.foreign.PaddingLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

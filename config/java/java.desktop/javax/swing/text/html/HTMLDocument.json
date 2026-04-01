@@ -1,0 +1,476 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLDocument",
+  "canonicalName" : "javax.swing.text.html.HTMLDocument",
+  "simpleName" : "HTMLDocument",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.DefaultStyledDocument",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLDocument()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.HTMLDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLDocument(javax.swing.text.AbstractDocument$Content, javax.swing.text.html.StyleSheet)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.AbstractDocument$Content",
+      "genericType" : "javax.swing.text.AbstractDocument$Content",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "styles",
+      "type" : "javax.swing.text.html.StyleSheet",
+      "genericType" : "javax.swing.text.html.StyleSheet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.HTMLDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLDocument(javax.swing.text.html.StyleSheet)",
+    "parameters" : [ {
+      "name" : "styles",
+      "type" : "javax.swing.text.html.StyleSheet",
+      "genericType" : "javax.swing.text.html.StyleSheet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBase",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL getBase()",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getElement(java.lang.String)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getElement(javax.swing.text.Element, java.lang.Object, java.lang.Object)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attribute",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIterator",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLDocument$Iterator getIterator(javax.swing.text.html.HTML$Tag)",
+    "returnType" : "javax.swing.text.html.HTMLDocument$Iterator",
+    "genericReturnType" : "javax.swing.text.html.HTMLDocument$Iterator",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParser",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$Parser getParser()",
+    "returnType" : "javax.swing.text.html.HTMLEditorKit$Parser",
+    "genericReturnType" : "javax.swing.text.html.HTMLEditorKit$Parser",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreservesUnknownTags",
+    "modifiers" : "public",
+    "signature" : "public boolean getPreservesUnknownTags()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$ParserCallback getReader(int)",
+    "returnType" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+    "genericReturnType" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$ParserCallback getReader(int, int, int, javax.swing.text.html.HTML$Tag)",
+    "returnType" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+    "genericReturnType" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "popDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pushDepth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insertTag",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyleSheet",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.StyleSheet getStyleSheet()",
+    "returnType" : "javax.swing.text.html.StyleSheet",
+    "genericReturnType" : "javax.swing.text.html.StyleSheet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTokenThreshold",
+    "modifiers" : "public",
+    "signature" : "public int getTokenThreshold()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertAfterEnd",
+    "modifiers" : "public",
+    "signature" : "public void insertAfterEnd(javax.swing.text.Element, java.lang.String) throws javax.swing.text.BadLocationException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "htmlText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertAfterStart",
+    "modifiers" : "public",
+    "signature" : "public void insertAfterStart(javax.swing.text.Element, java.lang.String) throws javax.swing.text.BadLocationException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "htmlText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertBeforeEnd",
+    "modifiers" : "public",
+    "signature" : "public void insertBeforeEnd(javax.swing.text.Element, java.lang.String) throws javax.swing.text.BadLocationException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "htmlText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertBeforeStart",
+    "modifiers" : "public",
+    "signature" : "public void insertBeforeStart(javax.swing.text.Element, java.lang.String) throws javax.swing.text.BadLocationException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "htmlText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "processHTMLFrameHyperlinkEvent",
+    "modifiers" : "public",
+    "signature" : "public void processHTMLFrameHyperlinkEvent(javax.swing.text.html.HTMLFrameHyperlinkEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.text.html.HTMLFrameHyperlinkEvent",
+      "genericType" : "javax.swing.text.html.HTMLFrameHyperlinkEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBase",
+    "modifiers" : "public",
+    "signature" : "public void setBase(java.net.URL)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "u",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInnerHTML",
+    "modifiers" : "public",
+    "signature" : "public void setInnerHTML(javax.swing.text.Element, java.lang.String) throws javax.swing.text.BadLocationException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "htmlText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOuterHTML",
+    "modifiers" : "public",
+    "signature" : "public void setOuterHTML(javax.swing.text.Element, java.lang.String) throws javax.swing.text.BadLocationException, java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "htmlText",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.swing.text.BadLocationException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParagraphAttributes",
+    "modifiers" : "public",
+    "signature" : "public void setParagraphAttributes(int, int, javax.swing.text.AttributeSet, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "replace",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParser",
+    "modifiers" : "public",
+    "signature" : "public void setParser(javax.swing.text.html.HTMLEditorKit$Parser)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parser",
+      "type" : "javax.swing.text.html.HTMLEditorKit$Parser",
+      "genericType" : "javax.swing.text.html.HTMLEditorKit$Parser",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPreservesUnknownTags",
+    "modifiers" : "public",
+    "signature" : "public void setPreservesUnknownTags(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "preservesTags",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTokenThreshold",
+    "modifiers" : "public",
+    "signature" : "public void setTokenThreshold(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

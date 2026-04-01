@@ -1,0 +1,105 @@
+{
+  "moduleName" : "java.security.jgss",
+  "packageName" : "org.ietf.jgss",
+  "binaryName" : "org.ietf.jgss.ChannelBinding",
+  "canonicalName" : "org.ietf.jgss.ChannelBinding",
+  "simpleName" : "ChannelBinding",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "org.ietf.jgss.ChannelBinding",
+    "modifiers" : "public",
+    "signature" : "public org.ietf.jgss.ChannelBinding(byte[])",
+    "parameters" : [ {
+      "name" : "appData",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "org.ietf.jgss.ChannelBinding",
+    "modifiers" : "public",
+    "signature" : "public org.ietf.jgss.ChannelBinding(java.net.InetAddress, java.net.InetAddress, byte[])",
+    "parameters" : [ {
+      "name" : "initAddr",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "acceptAddr",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "appData",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAcceptorAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.InetAddress getAcceptorAddress()",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getApplicationData",
+    "modifiers" : "public",
+    "signature" : "public byte[] getApplicationData()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInitiatorAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.InetAddress getInitiatorAddress()",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

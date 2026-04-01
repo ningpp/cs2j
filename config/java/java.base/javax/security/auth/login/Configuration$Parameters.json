@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.login",
+  "binaryName" : "javax.security.auth.login.Configuration$Parameters",
+  "canonicalName" : "javax.security.auth.login.Configuration.Parameters",
+  "simpleName" : "Parameters",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.security.auth.login.Configuration"
+}

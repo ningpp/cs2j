@@ -1,0 +1,49 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.TypePathComponent.Kind",
+  "simpleName" : "Kind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.classfile.TypeAnnotation$TypePathComponent",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "tag",
+    "modifiers" : "public",
+    "signature" : "public int tag()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypePathComponent$Kind valueOf(java.lang.String)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypePathComponent$Kind[] values()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind[]",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypePathComponent$Kind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

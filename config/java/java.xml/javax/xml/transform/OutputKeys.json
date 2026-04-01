@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform",
+  "binaryName" : "javax.xml.transform.OutputKeys",
+  "canonicalName" : "javax.xml.transform.OutputKeys",
+  "simpleName" : "OutputKeys",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object"
+}

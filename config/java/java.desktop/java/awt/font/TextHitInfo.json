@@ -1,0 +1,190 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.TextHitInfo",
+  "canonicalName" : "java.awt.font.TextHitInfo",
+  "simpleName" : "TextHitInfo",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "afterOffset",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.TextHitInfo afterOffset(int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "beforeOffset",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.TextHitInfo beforeOffset(int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.awt.font.TextHitInfo)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "hitInfo",
+      "type" : "java.awt.font.TextHitInfo",
+      "genericType" : "java.awt.font.TextHitInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharIndex",
+    "modifiers" : "public",
+    "signature" : "public int getCharIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInsertionIndex",
+    "modifiers" : "public",
+    "signature" : "public int getInsertionIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffsetHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getOffsetHit(int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "delta",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOtherHit",
+    "modifiers" : "public",
+    "signature" : "public java.awt.font.TextHitInfo getOtherHit()",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLeadingEdge",
+    "modifiers" : "public",
+    "signature" : "public boolean isLeadingEdge()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "leading",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.TextHitInfo leading(int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "charIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "trailing",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.TextHitInfo trailing(int)",
+    "returnType" : "java.awt.font.TextHitInfo",
+    "genericReturnType" : "java.awt.font.TextHitInfo",
+    "parameters" : [ {
+      "name" : "charIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

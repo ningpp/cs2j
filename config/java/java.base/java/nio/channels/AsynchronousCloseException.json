@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.AsynchronousCloseException",
+  "canonicalName" : "java.nio.channels.AsynchronousCloseException",
+  "simpleName" : "AsynchronousCloseException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.nio.channels.ClosedChannelException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.AsynchronousCloseException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.AsynchronousCloseException()",
+    "varArgs" : false
+  } ]
+}

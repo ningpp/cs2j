@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.AnnotationDefaultAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.AnnotationDefaultAttribute",
+  "simpleName" : "AnnotationDefaultAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "defaultValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.AnnotationValue defaultValue()",
+    "returnType" : "java.lang.classfile.AnnotationValue",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.AnnotationDefaultAttribute of(java.lang.classfile.AnnotationValue)",
+    "returnType" : "java.lang.classfile.attribute.AnnotationDefaultAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.AnnotationDefaultAttribute",
+    "parameters" : [ {
+      "name" : "annotationDefault",
+      "type" : "java.lang.classfile.AnnotationValue",
+      "genericType" : "java.lang.classfile.AnnotationValue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.ReadOnlyFileSystemException",
+  "canonicalName" : "java.nio.file.ReadOnlyFileSystemException",
+  "simpleName" : "ReadOnlyFileSystemException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.UnsupportedOperationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.ReadOnlyFileSystemException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.ReadOnlyFileSystemException()",
+    "varArgs" : false
+  } ]
+}

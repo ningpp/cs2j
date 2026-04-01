@@ -1,0 +1,704 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.InitialDirContext",
+  "canonicalName" : "javax.naming.directory.InitialDirContext",
+  "simpleName" : "InitialDirContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.InitialContext",
+  "interfaces" : [ "javax.naming.directory.DirContext" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.InitialDirContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InitialDirContext() throws javax.naming.NamingException",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.InitialDirContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.InitialDirContext(java.util.Hashtable) throws javax.naming.NamingException",
+    "parameters" : [ {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "bind",
+    "modifiers" : "public",
+    "signature" : "public void bind(java.lang.String, java.lang.Object, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public",
+    "signature" : "public void bind(javax.naming.Name, java.lang.Object, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSubcontext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.DirContext createSubcontext(java.lang.String, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.DirContext",
+    "genericReturnType" : "javax.naming.directory.DirContext",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSubcontext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.DirContext createSubcontext(javax.naming.Name, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.DirContext",
+    "genericReturnType" : "javax.naming.directory.DirContext",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attributes getAttributes(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.Attributes",
+    "genericReturnType" : "javax.naming.directory.Attributes",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attributes getAttributes(java.lang.String, java.lang.String[]) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.Attributes",
+    "genericReturnType" : "javax.naming.directory.Attributes",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrIds",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attributes getAttributes(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.Attributes",
+    "genericReturnType" : "javax.naming.directory.Attributes",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attributes getAttributes(javax.naming.Name, java.lang.String[]) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.Attributes",
+    "genericReturnType" : "javax.naming.directory.Attributes",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrIds",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.DirContext getSchema(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.DirContext",
+    "genericReturnType" : "javax.naming.directory.DirContext",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.DirContext getSchema(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.DirContext",
+    "genericReturnType" : "javax.naming.directory.DirContext",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchemaClassDefinition",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.DirContext getSchemaClassDefinition(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.DirContext",
+    "genericReturnType" : "javax.naming.directory.DirContext",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchemaClassDefinition",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.DirContext getSchemaClassDefinition(javax.naming.Name) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.directory.DirContext",
+    "genericReturnType" : "javax.naming.directory.DirContext",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modifyAttributes",
+    "modifiers" : "public",
+    "signature" : "public void modifyAttributes(java.lang.String, int, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mod_op",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modifyAttributes",
+    "modifiers" : "public",
+    "signature" : "public void modifyAttributes(java.lang.String, javax.naming.directory.ModificationItem[]) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mods",
+      "type" : "javax.naming.directory.ModificationItem[]",
+      "genericType" : "javax.naming.directory.ModificationItem[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modifyAttributes",
+    "modifiers" : "public",
+    "signature" : "public void modifyAttributes(javax.naming.Name, int, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mod_op",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "modifyAttributes",
+    "modifiers" : "public",
+    "signature" : "public void modifyAttributes(javax.naming.Name, javax.naming.directory.ModificationItem[]) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mods",
+      "type" : "javax.naming.directory.ModificationItem[]",
+      "genericType" : "javax.naming.directory.ModificationItem[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rebind",
+    "modifiers" : "public",
+    "signature" : "public void rebind(java.lang.String, java.lang.Object, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rebind",
+    "modifiers" : "public",
+    "signature" : "public void rebind(javax.naming.Name, java.lang.Object, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(java.lang.String, java.lang.String, java.lang.Object[], javax.naming.directory.SearchControls) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filterExpr",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filterArgs",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cons",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(java.lang.String, java.lang.String, javax.naming.directory.SearchControls) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cons",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(java.lang.String, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "matchingAttributes",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(java.lang.String, javax.naming.directory.Attributes, java.lang.String[]) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "matchingAttributes",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributesToReturn",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(javax.naming.Name, java.lang.String, java.lang.Object[], javax.naming.directory.SearchControls) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filterExpr",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filterArgs",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cons",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(javax.naming.Name, java.lang.String, javax.naming.directory.SearchControls) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cons",
+      "type" : "javax.naming.directory.SearchControls",
+      "genericType" : "javax.naming.directory.SearchControls",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(javax.naming.Name, javax.naming.directory.Attributes) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "matchingAttributes",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "search",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingEnumeration search(javax.naming.Name, javax.naming.directory.Attributes, java.lang.String[]) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "matchingAttributes",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributesToReturn",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

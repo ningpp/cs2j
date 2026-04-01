@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MBeanTrustPermission",
+  "canonicalName" : "javax.management.MBeanTrustPermission",
+  "simpleName" : "MBeanTrustPermission",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.BasicPermission",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.MBeanTrustPermission",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanTrustPermission(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.MBeanTrustPermission",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanTrustPermission(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

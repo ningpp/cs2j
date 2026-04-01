@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.HKDFParameterSpec$Expand",
+  "canonicalName" : "javax.crypto.spec.HKDFParameterSpec.Expand",
+  "simpleName" : "Expand",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.crypto.spec.HKDFParameterSpec",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.crypto.spec.HKDFParameterSpec" ],
+  "declaredPublicMethods" : [ {
+    "name" : "info",
+    "modifiers" : "public",
+    "signature" : "public byte[] info()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public",
+    "signature" : "public int length()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "prk",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.SecretKey prk()",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

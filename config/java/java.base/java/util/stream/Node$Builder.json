@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Node$Builder",
+  "canonicalName" : "java.util.stream.Node.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Node",
+  "interfaces" : [ "java.util.stream.Sink" ],
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Node build()",
+    "returnType" : "java.util.stream.Node",
+    "genericReturnType" : "java.util.stream.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

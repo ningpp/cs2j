@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.HashPrintJobAttributeSet",
+  "canonicalName" : "javax.print.attribute.HashPrintJobAttributeSet",
+  "simpleName" : "HashPrintJobAttributeSet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.attribute.HashAttributeSet",
+  "interfaces" : [ "java.io.Serializable", "javax.print.attribute.PrintJobAttributeSet" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.HashPrintJobAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintJobAttributeSet()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashPrintJobAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintJobAttributeSet(javax.print.attribute.PrintJobAttribute)",
+    "parameters" : [ {
+      "name" : "attribute",
+      "type" : "javax.print.attribute.PrintJobAttribute",
+      "genericType" : "javax.print.attribute.PrintJobAttribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashPrintJobAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintJobAttributeSet(javax.print.attribute.PrintJobAttributeSet)",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintJobAttributeSet",
+      "genericType" : "javax.print.attribute.PrintJobAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashPrintJobAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashPrintJobAttributeSet(javax.print.attribute.PrintJobAttribute[])",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintJobAttribute[]",
+      "genericType" : "javax.print.attribute.PrintJobAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

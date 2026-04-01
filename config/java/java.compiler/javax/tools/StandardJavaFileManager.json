@@ -1,0 +1,299 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.StandardJavaFileManager",
+  "canonicalName" : "javax.tools.StandardJavaFileManager",
+  "simpleName" : "StandardJavaFileManager",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.tools.JavaFileManager" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asPath",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.Path asPath(javax.tools.FileObject)",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getJavaFileObjects",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Iterable getJavaFileObjects(java.io.File...)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.File[]",
+      "genericType" : "java.io.File[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getJavaFileObjects",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Iterable getJavaFileObjects(java.lang.String...)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getJavaFileObjects",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Iterable getJavaFileObjects(java.nio.file.Path...)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "paths",
+      "type" : "java.nio.file.Path[]",
+      "genericType" : "java.nio.file.Path[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "getJavaFileObjectsFromFiles",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Iterable getJavaFileObjectsFromFiles(java.lang.Iterable)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJavaFileObjectsFromPaths",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Iterable getJavaFileObjectsFromPaths(java.lang.Iterable)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "paths",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getJavaFileObjectsFromPaths",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Iterable getJavaFileObjectsFromPaths(java.util.Collection)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "paths",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getJavaFileObjectsFromStrings",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Iterable getJavaFileObjectsFromStrings(java.lang.Iterable)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Iterable getLocation(javax.tools.JavaFileManager$Location)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocationAsPaths",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Iterable getLocationAsPaths(javax.tools.JavaFileManager$Location)",
+    "returnType" : "java.lang.Iterable",
+    "genericReturnType" : "java.lang.Iterable",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isSameFile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSameFile(javax.tools.FileObject, javax.tools.FileObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.tools.FileObject",
+      "genericType" : "javax.tools.FileObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLocation(javax.tools.JavaFileManager$Location, java.lang.Iterable) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocationForModule",
+    "modifiers" : "public",
+    "signature" : "public void setLocationForModule(javax.tools.JavaFileManager$Location, java.lang.String, java.util.Collection) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "moduleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paths",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "setLocationFromPaths",
+    "modifiers" : "public",
+    "signature" : "public void setLocationFromPaths(javax.tools.JavaFileManager$Location, java.util.Collection) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "location",
+      "type" : "javax.tools.JavaFileManager$Location",
+      "genericType" : "javax.tools.JavaFileManager$Location",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paths",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "setPathFactory",
+    "modifiers" : "public",
+    "signature" : "public void setPathFactory(javax.tools.StandardJavaFileManager$PathFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "javax.tools.StandardJavaFileManager$PathFactory",
+      "genericType" : "javax.tools.StandardJavaFileManager$PathFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

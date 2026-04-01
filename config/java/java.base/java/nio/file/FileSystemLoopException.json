@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.FileSystemLoopException",
+  "canonicalName" : "java.nio.file.FileSystemLoopException",
+  "simpleName" : "FileSystemLoopException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.nio.file.FileSystemException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.FileSystemLoopException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileSystemLoopException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

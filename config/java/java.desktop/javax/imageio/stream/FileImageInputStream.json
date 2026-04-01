@@ -1,0 +1,117 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.stream",
+  "binaryName" : "javax.imageio.stream.FileImageInputStream",
+  "canonicalName" : "javax.imageio.stream.FileImageInputStream",
+  "simpleName" : "FileImageInputStream",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.imageio.stream.ImageInputStreamImpl",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.stream.FileImageInputStream",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.stream.FileImageInputStream(java.io.File) throws java.io.FileNotFoundException, java.io.IOException",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException", "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.stream.FileImageInputStream",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.stream.FileImageInputStream(java.io.RandomAccessFile)",
+    "parameters" : [ {
+      "name" : "raf",
+      "type" : "java.io.RandomAccessFile",
+      "genericType" : "java.io.RandomAccessFile",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public",
+    "signature" : "public long length()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read() throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public int read(byte[], int, int) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "b",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "off",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "seek",
+    "modifiers" : "public",
+    "signature" : "public void seek(long) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

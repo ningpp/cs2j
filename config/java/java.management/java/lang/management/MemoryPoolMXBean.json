@@ -1,0 +1,205 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.MemoryPoolMXBean",
+  "canonicalName" : "java.lang.management.MemoryPoolMXBean",
+  "simpleName" : "MemoryPoolMXBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.management.PlatformManagedObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCollectionUsage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.MemoryUsage getCollectionUsage()",
+    "returnType" : "java.lang.management.MemoryUsage",
+    "genericReturnType" : "java.lang.management.MemoryUsage",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCollectionUsageThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getCollectionUsageThreshold()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCollectionUsageThresholdCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getCollectionUsageThresholdCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMemoryManagerNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getMemoryManagerNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeakUsage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.MemoryUsage getPeakUsage()",
+    "returnType" : "java.lang.management.MemoryUsage",
+    "genericReturnType" : "java.lang.management.MemoryUsage",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.MemoryType getType()",
+    "returnType" : "java.lang.management.MemoryType",
+    "genericReturnType" : "java.lang.management.MemoryType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUsage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.management.MemoryUsage getUsage()",
+    "returnType" : "java.lang.management.MemoryUsage",
+    "genericReturnType" : "java.lang.management.MemoryUsage",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUsageThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getUsageThreshold()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUsageThresholdCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getUsageThresholdCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCollectionUsageThresholdExceeded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCollectionUsageThresholdExceeded()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCollectionUsageThresholdSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCollectionUsageThresholdSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUsageThresholdExceeded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isUsageThresholdExceeded()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUsageThresholdSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isUsageThresholdSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resetPeakUsage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void resetPeakUsage()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCollectionUsageThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setCollectionUsageThreshold(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUsageThreshold",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setUsageThreshold(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

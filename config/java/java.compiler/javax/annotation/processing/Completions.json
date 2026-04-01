@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.annotation.processing",
+  "binaryName" : "javax.annotation.processing.Completions",
+  "canonicalName" : "javax.annotation.processing.Completions",
+  "simpleName" : "Completions",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static javax.annotation.processing.Completion of(java.lang.String)",
+    "returnType" : "javax.annotation.processing.Completion",
+    "genericReturnType" : "javax.annotation.processing.Completion",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static javax.annotation.processing.Completion of(java.lang.String, java.lang.String)",
+    "returnType" : "javax.annotation.processing.Completion",
+    "genericReturnType" : "javax.annotation.processing.Completion",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.datatype",
+  "binaryName" : "javax.xml.datatype.DatatypeConstants",
+  "canonicalName" : "javax.xml.datatype.DatatypeConstants",
+  "simpleName" : "DatatypeConstants",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

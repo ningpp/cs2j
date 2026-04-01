@@ -1,0 +1,106 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.StartTlsResponse",
+  "canonicalName" : "javax.naming.ldap.StartTlsResponse",
+  "simpleName" : "StartTlsResponse",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.naming.ldap.ExtendedResponse" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncodedValue",
+    "modifiers" : "public",
+    "signature" : "public byte[] getEncodedValue()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negotiate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLSession negotiate() throws java.io.IOException",
+    "returnType" : "javax.net.ssl.SSLSession",
+    "genericReturnType" : "javax.net.ssl.SSLSession",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negotiate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLSession negotiate(javax.net.ssl.SSLSocketFactory) throws java.io.IOException",
+    "returnType" : "javax.net.ssl.SSLSession",
+    "genericReturnType" : "javax.net.ssl.SSLSession",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.net.ssl.SSLSocketFactory",
+      "genericType" : "javax.net.ssl.SSLSocketFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabledCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnabledCipherSuites(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHostnameVerifier",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setHostnameVerifier(javax.net.ssl.HostnameVerifier)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.net.ssl.HostnameVerifier",
+      "genericType" : "javax.net.ssl.HostnameVerifier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

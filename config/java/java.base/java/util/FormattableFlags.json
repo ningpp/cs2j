@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.FormattableFlags",
+  "canonicalName" : "java.util.FormattableFlags",
+  "simpleName" : "FormattableFlags",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

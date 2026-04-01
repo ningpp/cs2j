@@ -1,0 +1,222 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathFactory",
+  "canonicalName" : "javax.xml.xpath.XPathFactory",
+  "simpleName" : "XPathFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getFeature(java.lang.String) throws javax.xml.xpath.XPathFactoryConfigurationException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathFactoryConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getProperty(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isObjectModelSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isObjectModelSupported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.xpath.XPathFactory newDefaultInstance()",
+    "returnType" : "javax.xml.xpath.XPathFactory",
+    "genericReturnType" : "javax.xml.xpath.XPathFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.xpath.XPathFactory newInstance()",
+    "returnType" : "javax.xml.xpath.XPathFactory",
+    "genericReturnType" : "javax.xml.xpath.XPathFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.xpath.XPathFactory newInstance(java.lang.String) throws javax.xml.xpath.XPathFactoryConfigurationException",
+    "returnType" : "javax.xml.xpath.XPathFactory",
+    "genericReturnType" : "javax.xml.xpath.XPathFactory",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathFactoryConfigurationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.xpath.XPathFactory newInstance(java.lang.String, java.lang.String, java.lang.ClassLoader) throws javax.xml.xpath.XPathFactoryConfigurationException",
+    "returnType" : "javax.xml.xpath.XPathFactory",
+    "genericReturnType" : "javax.xml.xpath.XPathFactory",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathFactoryConfigurationException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newXPath",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.xpath.XPath newXPath()",
+    "returnType" : "javax.xml.xpath.XPath",
+    "genericReturnType" : "javax.xml.xpath.XPath",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFeature(java.lang.String, boolean) throws javax.xml.xpath.XPathFactoryConfigurationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathFactoryConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProperty",
+    "modifiers" : "public",
+    "signature" : "public void setProperty(java.lang.String, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXPathFunctionResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setXPathFunctionResolver(javax.xml.xpath.XPathFunctionResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.xpath.XPathFunctionResolver",
+      "genericType" : "javax.xml.xpath.XPathFunctionResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXPathVariableResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setXPathVariableResolver(javax.xml.xpath.XPathVariableResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.xpath.XPathVariableResolver",
+      "genericType" : "javax.xml.xpath.XPathVariableResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

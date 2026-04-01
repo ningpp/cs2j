@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLContextSpi",
+  "canonicalName" : "javax.net.ssl.SSLContextSpi",
+  "simpleName" : "SSLContextSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SSLContextSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLContextSpi()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertStoreException",
+  "canonicalName" : "java.security.cert.CertStoreException",
+  "simpleName" : "CertStoreException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.CertStoreException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertStoreException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.CertStoreException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertStoreException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.CertStoreException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertStoreException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.CertStoreException",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertStoreException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

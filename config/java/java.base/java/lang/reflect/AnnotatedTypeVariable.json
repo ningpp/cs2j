@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.AnnotatedTypeVariable",
+  "canonicalName" : "java.lang.reflect.AnnotatedTypeVariable",
+  "simpleName" : "AnnotatedTypeVariable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.reflect.AnnotatedType" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAnnotatedBounds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.AnnotatedType[] getAnnotatedBounds()",
+    "returnType" : "java.lang.reflect.AnnotatedType[]",
+    "genericReturnType" : "java.lang.reflect.AnnotatedType[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAnnotatedOwnerType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.AnnotatedType getAnnotatedOwnerType()",
+    "returnType" : "java.lang.reflect.AnnotatedType",
+    "genericReturnType" : "java.lang.reflect.AnnotatedType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

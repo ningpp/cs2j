@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.OptionalDataException",
+  "canonicalName" : "java.io.OptionalDataException",
+  "simpleName" : "OptionalDataException",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.io.ObjectStreamException"
+}

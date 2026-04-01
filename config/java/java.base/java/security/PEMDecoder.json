@@ -1,0 +1,137 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.PEMDecoder",
+  "canonicalName" : "java.security.PEMDecoder",
+  "simpleName" : "PEMDecoder",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "decode",
+    "modifiers" : "public",
+    "signature" : "public java.security.DEREncodable decode(java.io.InputStream) throws java.io.IOException",
+    "returnType" : "java.security.DEREncodable",
+    "genericReturnType" : "java.security.DEREncodable",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decode",
+    "modifiers" : "public",
+    "signature" : "public java.security.DEREncodable decode(java.io.InputStream, java.lang.Class) throws java.io.IOException",
+    "returnType" : "java.security.DEREncodable",
+    "genericReturnType" : "java.security.DEREncodable",
+    "parameters" : [ {
+      "name" : "is",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decode",
+    "modifiers" : "public",
+    "signature" : "public java.security.DEREncodable decode(java.lang.String)",
+    "returnType" : "java.security.DEREncodable",
+    "genericReturnType" : "java.security.DEREncodable",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decode",
+    "modifiers" : "public",
+    "signature" : "public java.security.DEREncodable decode(java.lang.String, java.lang.Class)",
+    "returnType" : "java.security.DEREncodable",
+    "genericReturnType" : "java.security.DEREncodable",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.PEMDecoder of()",
+    "returnType" : "java.security.PEMDecoder",
+    "genericReturnType" : "java.security.PEMDecoder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withDecryption",
+    "modifiers" : "public",
+    "signature" : "public java.security.PEMDecoder withDecryption(char[])",
+    "returnType" : "java.security.PEMDecoder",
+    "genericReturnType" : "java.security.PEMDecoder",
+    "parameters" : [ {
+      "name" : "password",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withFactory",
+    "modifiers" : "public",
+    "signature" : "public java.security.PEMDecoder withFactory(java.security.Provider)",
+    "returnType" : "java.security.PEMDecoder",
+    "genericReturnType" : "java.security.PEMDecoder",
+    "parameters" : [ {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

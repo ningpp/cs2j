@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleValue",
+  "canonicalName" : "javax.accessibility.AccessibleValue",
+  "simpleName" : "AccessibleValue",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getCurrentAccessibleValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getCurrentAccessibleValue()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaximumAccessibleValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getMaximumAccessibleValue()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimumAccessibleValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Number getMinimumAccessibleValue()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrentAccessibleValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean setCurrentAccessibleValue(java.lang.Number)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

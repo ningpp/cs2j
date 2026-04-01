@@ -1,0 +1,246 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.SpinnerNumberModel",
+  "canonicalName" : "javax.swing.SpinnerNumberModel",
+  "simpleName" : "SpinnerNumberModel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.AbstractSpinnerModel",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.SpinnerNumberModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpinnerNumberModel()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.SpinnerNumberModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpinnerNumberModel(double, double, double, double)",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimum",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximum",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stepSize",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.SpinnerNumberModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpinnerNumberModel(int, int, int, int)",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximum",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stepSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.SpinnerNumberModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpinnerNumberModel(java.lang.Number, java.lang.Comparable, java.lang.Comparable, java.lang.Number)",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimum",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximum",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stepSize",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMaximum",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Comparable getMaximum()",
+    "returnType" : "java.lang.Comparable",
+    "genericReturnType" : "java.lang.Comparable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimum",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Comparable getMinimum()",
+    "returnType" : "java.lang.Comparable",
+    "genericReturnType" : "java.lang.Comparable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNextValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getNextValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumber",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Number getNumber()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreviousValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getPreviousValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStepSize",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Number getStepSize()",
+    "returnType" : "java.lang.Number",
+    "genericReturnType" : "java.lang.Number",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMaximum",
+    "modifiers" : "public",
+    "signature" : "public void setMaximum(java.lang.Comparable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "maximum",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMinimum",
+    "modifiers" : "public",
+    "signature" : "public void setMinimum(java.lang.Comparable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "minimum",
+      "type" : "java.lang.Comparable",
+      "genericType" : "java.lang.Comparable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStepSize",
+    "modifiers" : "public",
+    "signature" : "public void setStepSize(java.lang.Number)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "stepSize",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValue",
+    "modifiers" : "public",
+    "signature" : "public void setValue(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

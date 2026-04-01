@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.PrintServiceAttribute",
+  "canonicalName" : "javax.print.attribute.PrintServiceAttribute",
+  "simpleName" : "PrintServiceAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.print.attribute.Attribute" ]
+}

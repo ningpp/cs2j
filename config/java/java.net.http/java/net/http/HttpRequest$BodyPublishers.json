@@ -1,0 +1,217 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpRequest$BodyPublishers",
+  "canonicalName" : "java.net.http.HttpRequest.BodyPublishers",
+  "simpleName" : "BodyPublishers",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpRequest",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "concat",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher concat(java.net.http.HttpRequest$BodyPublisher...)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "publishers",
+      "type" : "java.net.http.HttpRequest$BodyPublisher[]",
+      "genericType" : "java.net.http.HttpRequest$BodyPublisher[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "fromPublisher",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher fromPublisher(java.util.concurrent.Flow$Publisher)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "publisher",
+      "type" : "java.util.concurrent.Flow$Publisher",
+      "genericType" : "java.util.concurrent.Flow$Publisher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromPublisher",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher fromPublisher(java.util.concurrent.Flow$Publisher, long)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "publisher",
+      "type" : "java.util.concurrent.Flow$Publisher",
+      "genericType" : "java.util.concurrent.Flow$Publisher",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "contentLength",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "noBody",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher noBody()",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByteArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher ofByteArray(byte[])",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "buf",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByteArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher ofByteArray(byte[], int, int)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "buf",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByteArrays",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher ofByteArrays(java.lang.Iterable)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "iter",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher ofFile(java.nio.file.Path) throws java.io.FileNotFoundException",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher ofInputStream(java.util.function.Supplier)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "streamSupplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher ofString(java.lang.String)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "body",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpRequest$BodyPublisher ofString(java.lang.String, java.nio.charset.Charset)",
+    "returnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "genericReturnType" : "java.net.http.HttpRequest$BodyPublisher",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

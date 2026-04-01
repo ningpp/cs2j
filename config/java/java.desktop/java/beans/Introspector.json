@@ -1,0 +1,178 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.Introspector",
+  "canonicalName" : "java.beans.Introspector",
+  "simpleName" : "Introspector",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "decapitalize",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String decapitalize(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flushCaches",
+    "modifiers" : "public static",
+    "signature" : "public static void flushCaches()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flushFromCaches",
+    "modifiers" : "public static",
+    "signature" : "public static void flushFromCaches(java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "clz",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanInfo",
+    "modifiers" : "public static",
+    "signature" : "public static java.beans.BeanInfo getBeanInfo(java.lang.Class) throws java.beans.IntrospectionException",
+    "returnType" : "java.beans.BeanInfo",
+    "genericReturnType" : "java.beans.BeanInfo",
+    "parameters" : [ {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanInfo",
+    "modifiers" : "public static",
+    "signature" : "public static java.beans.BeanInfo getBeanInfo(java.lang.Class, int) throws java.beans.IntrospectionException",
+    "returnType" : "java.beans.BeanInfo",
+    "genericReturnType" : "java.beans.BeanInfo",
+    "parameters" : [ {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanInfo",
+    "modifiers" : "public static",
+    "signature" : "public static java.beans.BeanInfo getBeanInfo(java.lang.Class, java.lang.Class) throws java.beans.IntrospectionException",
+    "returnType" : "java.beans.BeanInfo",
+    "genericReturnType" : "java.beans.BeanInfo",
+    "parameters" : [ {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stopClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanInfo",
+    "modifiers" : "public static",
+    "signature" : "public static java.beans.BeanInfo getBeanInfo(java.lang.Class, java.lang.Class, int) throws java.beans.IntrospectionException",
+    "returnType" : "java.beans.BeanInfo",
+    "genericReturnType" : "java.beans.BeanInfo",
+    "parameters" : [ {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "stopClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanInfoSearchPath",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getBeanInfoSearchPath()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBeanInfoSearchPath",
+    "modifiers" : "public static",
+    "signature" : "public static void setBeanInfoSearchPath(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

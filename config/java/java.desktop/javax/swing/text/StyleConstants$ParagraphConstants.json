@@ -1,0 +1,12 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.StyleConstants$ParagraphConstants",
+  "canonicalName" : "javax.swing.text.StyleConstants.ParagraphConstants",
+  "simpleName" : "ParagraphConstants",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.text.StyleConstants",
+  "superClass" : "javax.swing.text.StyleConstants",
+  "interfaces" : [ "javax.swing.text.AttributeSet$ParagraphAttribute" ]
+}

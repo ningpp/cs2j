@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.SocketHandler",
+  "canonicalName" : "java.util.logging.SocketHandler",
+  "simpleName" : "SocketHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.logging.StreamHandler",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.logging.SocketHandler",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.SocketHandler() throws java.io.IOException",
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.logging.SocketHandler",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.SocketHandler(java.lang.String, int) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "host",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "publish",
+    "modifiers" : "public",
+    "signature" : "public void publish(java.util.logging.LogRecord)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "record",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

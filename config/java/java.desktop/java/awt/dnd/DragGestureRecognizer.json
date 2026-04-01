@@ -1,0 +1,131 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DragGestureRecognizer",
+  "canonicalName" : "java.awt.dnd.DragGestureRecognizer",
+  "simpleName" : "DragGestureRecognizer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addDragGestureListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addDragGestureListener(java.awt.dnd.DragGestureListener) throws java.util.TooManyListenersException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dgl",
+      "type" : "java.awt.dnd.DragGestureListener",
+      "genericType" : "java.awt.dnd.DragGestureListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.util.TooManyListenersException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getComponent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.awt.Component getComponent()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDragSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSource getDragSource()",
+    "returnType" : "java.awt.dnd.DragSource",
+    "genericReturnType" : "java.awt.dnd.DragSource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceActions",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized int getSourceActions()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTriggerEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.event.InputEvent getTriggerEvent()",
+    "returnType" : "java.awt.event.InputEvent",
+    "genericReturnType" : "java.awt.event.InputEvent",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeDragGestureListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeDragGestureListener(java.awt.dnd.DragGestureListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dgl",
+      "type" : "java.awt.dnd.DragGestureListener",
+      "genericType" : "java.awt.dnd.DragGestureListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resetRecognizer",
+    "modifiers" : "public",
+    "signature" : "public void resetRecognizer()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setComponent",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setComponent(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSourceActions",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setSourceActions(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "actions",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.RuntimeErrorException",
+  "canonicalName" : "javax.management.RuntimeErrorException",
+  "simpleName" : "RuntimeErrorException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.JMRuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.RuntimeErrorException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.RuntimeErrorException(java.lang.Error)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Error",
+      "genericType" : "java.lang.Error",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.RuntimeErrorException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.RuntimeErrorException(java.lang.Error, java.lang.String)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Error",
+      "genericType" : "java.lang.Error",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Error getTargetError()",
+    "returnType" : "java.lang.Error",
+    "genericReturnType" : "java.lang.Error",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

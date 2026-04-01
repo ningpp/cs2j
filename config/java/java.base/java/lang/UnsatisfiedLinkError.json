@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.UnsatisfiedLinkError",
+  "canonicalName" : "java.lang.UnsatisfiedLinkError",
+  "simpleName" : "UnsatisfiedLinkError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.UnsatisfiedLinkError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsatisfiedLinkError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.UnsatisfiedLinkError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.UnsatisfiedLinkError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

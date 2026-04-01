@@ -1,0 +1,76 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.dom",
+  "binaryName" : "javax.xml.crypto.dsig.dom.DOMValidateContext",
+  "canonicalName" : "javax.xml.crypto.dsig.dom.DOMValidateContext",
+  "simpleName" : "DOMValidateContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.xml.crypto.dom.DOMCryptoContext",
+  "interfaces" : [ "javax.xml.crypto.dsig.XMLValidateContext" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.dom.DOMValidateContext",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.dom.DOMValidateContext(java.security.Key, org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "validatingKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "node",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.dsig.dom.DOMValidateContext",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.dom.DOMValidateContext(javax.xml.crypto.KeySelector, org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "ks",
+      "type" : "javax.xml.crypto.KeySelector",
+      "genericType" : "javax.xml.crypto.KeySelector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "node",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNode",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.Node getNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNode",
+    "modifiers" : "public",
+    "signature" : "public void setNode(org.w3c.dom.Node)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "node",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

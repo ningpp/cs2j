@@ -1,0 +1,303 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalIconFactory",
+  "canonicalName" : "javax.swing.plaf.metal.MetalIconFactory",
+  "simpleName" : "MetalIconFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalIconFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalIconFactory()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCheckBoxIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getCheckBoxIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCheckBoxMenuItemIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getCheckBoxMenuItemIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileChooserDetailViewIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getFileChooserDetailViewIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileChooserHomeFolderIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getFileChooserHomeFolderIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileChooserListViewIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getFileChooserListViewIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileChooserNewFolderIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getFileChooserNewFolderIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileChooserUpFolderIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getFileChooserUpFolderIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHorizontalSliderThumbIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getHorizontalSliderThumbIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalFrameAltMaximizeIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getInternalFrameAltMaximizeIcon(int)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalFrameCloseIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getInternalFrameCloseIcon(int)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalFrameDefaultMenuIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getInternalFrameDefaultMenuIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalFrameMaximizeIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getInternalFrameMaximizeIcon(int)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalFrameMinimizeIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getInternalFrameMinimizeIcon(int)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuArrowIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getMenuArrowIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuItemArrowIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getMenuItemArrowIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuItemCheckIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getMenuItemCheckIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRadioButtonIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getRadioButtonIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRadioButtonMenuItemIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getRadioButtonMenuItemIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeComputerIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getTreeComputerIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeControlIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getTreeControlIcon(boolean)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "isCollapsed",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeFloppyDriveIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getTreeFloppyDriveIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeFolderIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getTreeFolderIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeHardDriveIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getTreeHardDriveIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeLeafIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getTreeLeafIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVerticalSliderThumbIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getVerticalSliderThumbIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

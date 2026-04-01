@@ -1,0 +1,149 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ServerSocketChannel",
+  "canonicalName" : "java.nio.channels.ServerSocketChannel",
+  "simpleName" : "ServerSocketChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.channels.spi.AbstractSelectableChannel",
+  "interfaces" : [ "java.nio.channels.NetworkChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SocketChannel accept() throws java.io.IOException",
+    "returnType" : "java.nio.channels.SocketChannel",
+    "genericReturnType" : "java.nio.channels.SocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.ServerSocketChannel bind(java.net.SocketAddress) throws java.io.IOException",
+    "returnType" : "java.nio.channels.ServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.ServerSocketChannel",
+    "parameters" : [ {
+      "name" : "local",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.ServerSocketChannel bind(java.net.SocketAddress, int) throws java.io.IOException",
+    "returnType" : "java.nio.channels.ServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.ServerSocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalAddress",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.SocketAddress getLocalAddress() throws java.io.IOException",
+    "returnType" : "java.net.SocketAddress",
+    "genericReturnType" : "java.net.SocketAddress",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.ServerSocketChannel open() throws java.io.IOException",
+    "returnType" : "java.nio.channels.ServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.ServerSocketChannel",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.ServerSocketChannel open(java.net.ProtocolFamily) throws java.io.IOException",
+    "returnType" : "java.nio.channels.ServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.ServerSocketChannel",
+    "parameters" : [ {
+      "name" : "family",
+      "type" : "java.net.ProtocolFamily",
+      "genericType" : "java.net.ProtocolFamily",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOption",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.ServerSocketChannel setOption(java.net.SocketOption, java.lang.Object) throws java.io.IOException",
+    "returnType" : "java.nio.channels.ServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.ServerSocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.SocketOption",
+      "genericType" : "java.net.SocketOption",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "socket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.ServerSocket socket()",
+    "returnType" : "java.net.ServerSocket",
+    "genericReturnType" : "java.net.ServerSocket",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validOps",
+    "modifiers" : "public final",
+    "signature" : "public final int validOps()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

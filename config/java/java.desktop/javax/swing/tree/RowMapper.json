@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.RowMapper",
+  "canonicalName" : "javax.swing.tree.RowMapper",
+  "simpleName" : "RowMapper",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getRowsForPaths",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] getRowsForPaths(javax.swing.tree.TreePath[])",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.tree.TreePath[]",
+      "genericType" : "javax.swing.tree.TreePath[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

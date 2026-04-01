@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.OpenDataException",
+  "canonicalName" : "javax.management.openmbean.OpenDataException",
+  "simpleName" : "OpenDataException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.JMException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.OpenDataException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenDataException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.OpenDataException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenDataException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

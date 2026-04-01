@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicTreeUI$TreeModelHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicTreeUI.TreeModelHandler",
+  "simpleName" : "TreeModelHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicTreeUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.event.TreeModelListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicTreeUI$TreeModelHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicTreeUI$TreeModelHandler(javax.swing.plaf.basic.BasicTreeUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicTreeUI",
+      "genericType" : "javax.swing.plaf.basic.BasicTreeUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "treeNodesChanged",
+    "modifiers" : "public",
+    "signature" : "public void treeNodesChanged(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeNodesInserted",
+    "modifiers" : "public",
+    "signature" : "public void treeNodesInserted(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeNodesRemoved",
+    "modifiers" : "public",
+    "signature" : "public void treeNodesRemoved(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeStructureChanged",
+    "modifiers" : "public",
+    "signature" : "public void treeStructureChanged(javax.swing.event.TreeModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeModelEvent",
+      "genericType" : "javax.swing.event.TreeModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

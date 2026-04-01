@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.SupportedValuesAttribute",
+  "canonicalName" : "javax.print.attribute.SupportedValuesAttribute",
+  "simpleName" : "SupportedValuesAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.print.attribute.Attribute" ]
+}

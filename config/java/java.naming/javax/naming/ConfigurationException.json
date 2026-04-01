@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.ConfigurationException",
+  "canonicalName" : "javax.naming.ConfigurationException",
+  "simpleName" : "ConfigurationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ConfigurationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ConfigurationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ConfigurationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

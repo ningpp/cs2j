@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTree$TreeSelectionRedirector",
+  "canonicalName" : "javax.swing.JTree.TreeSelectionRedirector",
+  "simpleName" : "TreeSelectionRedirector",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JTree",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "javax.swing.event.TreeSelectionListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "valueChanged",
+    "modifiers" : "public",
+    "signature" : "public void valueChanged(javax.swing.event.TreeSelectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeSelectionEvent",
+      "genericType" : "javax.swing.event.TreeSelectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

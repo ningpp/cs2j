@@ -1,0 +1,408 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.parsers",
+  "binaryName" : "javax.xml.parsers.DocumentBuilderFactory",
+  "canonicalName" : "javax.xml.parsers.DocumentBuilderFactory",
+  "simpleName" : "DocumentBuilderFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getAttribute(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getFeature(java.lang.String) throws javax.xml.parsers.ParserConfigurationException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.parsers.ParserConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.Schema getSchema()",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCoalescing",
+    "modifiers" : "public",
+    "signature" : "public boolean isCoalescing()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isExpandEntityReferences",
+    "modifiers" : "public",
+    "signature" : "public boolean isExpandEntityReferences()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIgnoringComments",
+    "modifiers" : "public",
+    "signature" : "public boolean isIgnoringComments()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIgnoringElementContentWhitespace",
+    "modifiers" : "public",
+    "signature" : "public boolean isIgnoringElementContentWhitespace()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNamespaceAware",
+    "modifiers" : "public",
+    "signature" : "public boolean isNamespaceAware()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValidating",
+    "modifiers" : "public",
+    "signature" : "public boolean isValidating()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isXIncludeAware",
+    "modifiers" : "public",
+    "signature" : "public boolean isXIncludeAware()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.DocumentBuilderFactory newDefaultInstance()",
+    "returnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "genericReturnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultNSInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.DocumentBuilderFactory newDefaultNSInstance()",
+    "returnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "genericReturnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDocumentBuilder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.parsers.DocumentBuilder newDocumentBuilder() throws javax.xml.parsers.ParserConfigurationException",
+    "returnType" : "javax.xml.parsers.DocumentBuilder",
+    "genericReturnType" : "javax.xml.parsers.DocumentBuilder",
+    "exceptions" : [ "javax.xml.parsers.ParserConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.DocumentBuilderFactory newInstance()",
+    "returnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "genericReturnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.DocumentBuilderFactory newInstance(java.lang.String, java.lang.ClassLoader)",
+    "returnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "genericReturnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "parameters" : [ {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newNSInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.DocumentBuilderFactory newNSInstance()",
+    "returnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "genericReturnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newNSInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.parsers.DocumentBuilderFactory newNSInstance(java.lang.String, java.lang.ClassLoader)",
+    "returnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "genericReturnType" : "javax.xml.parsers.DocumentBuilderFactory",
+    "parameters" : [ {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAttribute(java.lang.String, java.lang.Object) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCoalescing",
+    "modifiers" : "public",
+    "signature" : "public void setCoalescing(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "coalescing",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setExpandEntityReferences",
+    "modifiers" : "public",
+    "signature" : "public void setExpandEntityReferences(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "expandEntityRef",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFeature(java.lang.String, boolean) throws javax.xml.parsers.ParserConfigurationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.parsers.ParserConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIgnoringComments",
+    "modifiers" : "public",
+    "signature" : "public void setIgnoringComments(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ignoreComments",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setIgnoringElementContentWhitespace",
+    "modifiers" : "public",
+    "signature" : "public void setIgnoringElementContentWhitespace(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "whitespace",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNamespaceAware",
+    "modifiers" : "public",
+    "signature" : "public void setNamespaceAware(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "awareness",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSchema",
+    "modifiers" : "public",
+    "signature" : "public void setSchema(javax.xml.validation.Schema)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "schema",
+      "type" : "javax.xml.validation.Schema",
+      "genericType" : "javax.xml.validation.Schema",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setValidating",
+    "modifiers" : "public",
+    "signature" : "public void setValidating(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "validating",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXIncludeAware",
+    "modifiers" : "public",
+    "signature" : "public void setXIncludeAware(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "state",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

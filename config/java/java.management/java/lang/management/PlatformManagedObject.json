@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.PlatformManagedObject",
+  "canonicalName" : "java.lang.management.PlatformManagedObject",
+  "simpleName" : "PlatformManagedObject",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getObjectName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.ObjectName getObjectName()",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

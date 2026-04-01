@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.XAConnectionBuilder",
+  "canonicalName" : "javax.sql.XAConnectionBuilder",
+  "simpleName" : "XAConnectionBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.XAConnection build() throws java.sql.SQLException",
+    "returnType" : "javax.sql.XAConnection",
+    "genericReturnType" : "javax.sql.XAConnection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "password",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.XAConnectionBuilder password(java.lang.String)",
+    "returnType" : "javax.sql.XAConnectionBuilder",
+    "genericReturnType" : "javax.sql.XAConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shardingKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.XAConnectionBuilder shardingKey(java.sql.ShardingKey)",
+    "returnType" : "javax.sql.XAConnectionBuilder",
+    "genericReturnType" : "javax.sql.XAConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ShardingKey",
+      "genericType" : "java.sql.ShardingKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superShardingKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.XAConnectionBuilder superShardingKey(java.sql.ShardingKey)",
+    "returnType" : "javax.sql.XAConnectionBuilder",
+    "genericReturnType" : "javax.sql.XAConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ShardingKey",
+      "genericType" : "java.sql.ShardingKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "user",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.XAConnectionBuilder user(java.lang.String)",
+    "returnType" : "javax.sql.XAConnectionBuilder",
+    "genericReturnType" : "javax.sql.XAConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

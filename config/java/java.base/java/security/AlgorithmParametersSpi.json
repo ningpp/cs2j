@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.AlgorithmParametersSpi",
+  "canonicalName" : "java.security.AlgorithmParametersSpi",
+  "simpleName" : "AlgorithmParametersSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.AlgorithmParametersSpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.AlgorithmParametersSpi()",
+    "varArgs" : false
+  } ]
+}

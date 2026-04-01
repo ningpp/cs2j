@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.PageAttributes$PrintQualityType",
+  "canonicalName" : "java.awt.PageAttributes.PrintQualityType",
+  "simpleName" : "PrintQualityType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.PageAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.OpenURIHandler",
+  "canonicalName" : "java.awt.desktop.OpenURIHandler",
+  "simpleName" : "OpenURIHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "openURI",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void openURI(java.awt.desktop.OpenURIEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.OpenURIEvent",
+      "genericType" : "java.awt.desktop.OpenURIEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

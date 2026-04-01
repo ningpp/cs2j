@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.SocketSecurityException",
+  "canonicalName" : "java.rmi.server.SocketSecurityException",
+  "simpleName" : "SocketSecurityException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.rmi.server.ExportException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.server.SocketSecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.SocketSecurityException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.rmi.server.SocketSecurityException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.SocketSecurityException(java.lang.String, java.lang.Exception)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ex",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

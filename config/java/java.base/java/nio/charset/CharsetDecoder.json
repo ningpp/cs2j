@@ -1,0 +1,226 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset",
+  "binaryName" : "java.nio.charset.CharsetDecoder",
+  "canonicalName" : "java.nio.charset.CharsetDecoder",
+  "simpleName" : "CharsetDecoder",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "averageCharsPerByte",
+    "modifiers" : "public final",
+    "signature" : "public final float averageCharsPerByte()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "charset",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.charset.Charset charset()",
+    "returnType" : "java.nio.charset.Charset",
+    "genericReturnType" : "java.nio.charset.Charset",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decode",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.CharBuffer decode(java.nio.ByteBuffer) throws java.nio.charset.CharacterCodingException",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.nio.charset.CharacterCodingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decode",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.charset.CoderResult decode(java.nio.ByteBuffer, java.nio.CharBuffer, boolean)",
+    "returnType" : "java.nio.charset.CoderResult",
+    "genericReturnType" : "java.nio.charset.CoderResult",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "out",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endOfInput",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "detectedCharset",
+    "modifiers" : "public",
+    "signature" : "public java.nio.charset.Charset detectedCharset()",
+    "returnType" : "java.nio.charset.Charset",
+    "genericReturnType" : "java.nio.charset.Charset",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flush",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.charset.CoderResult flush(java.nio.CharBuffer)",
+    "returnType" : "java.nio.charset.CoderResult",
+    "genericReturnType" : "java.nio.charset.CoderResult",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.nio.CharBuffer",
+      "genericType" : "java.nio.CharBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAutoDetecting",
+    "modifiers" : "public",
+    "signature" : "public boolean isAutoDetecting()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCharsetDetected",
+    "modifiers" : "public",
+    "signature" : "public boolean isCharsetDetected()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "malformedInputAction",
+    "modifiers" : "public",
+    "signature" : "public java.nio.charset.CodingErrorAction malformedInputAction()",
+    "returnType" : "java.nio.charset.CodingErrorAction",
+    "genericReturnType" : "java.nio.charset.CodingErrorAction",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maxCharsPerByte",
+    "modifiers" : "public final",
+    "signature" : "public final float maxCharsPerByte()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onMalformedInput",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.charset.CharsetDecoder onMalformedInput(java.nio.charset.CodingErrorAction)",
+    "returnType" : "java.nio.charset.CharsetDecoder",
+    "genericReturnType" : "java.nio.charset.CharsetDecoder",
+    "parameters" : [ {
+      "name" : "newAction",
+      "type" : "java.nio.charset.CodingErrorAction",
+      "genericType" : "java.nio.charset.CodingErrorAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onUnmappableCharacter",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.charset.CharsetDecoder onUnmappableCharacter(java.nio.charset.CodingErrorAction)",
+    "returnType" : "java.nio.charset.CharsetDecoder",
+    "genericReturnType" : "java.nio.charset.CharsetDecoder",
+    "parameters" : [ {
+      "name" : "newAction",
+      "type" : "java.nio.charset.CodingErrorAction",
+      "genericType" : "java.nio.charset.CodingErrorAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replaceWith",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.charset.CharsetDecoder replaceWith(java.lang.String)",
+    "returnType" : "java.nio.charset.CharsetDecoder",
+    "genericReturnType" : "java.nio.charset.CharsetDecoder",
+    "parameters" : [ {
+      "name" : "newReplacement",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replacement",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String replacement()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.charset.CharsetDecoder reset()",
+    "returnType" : "java.nio.charset.CharsetDecoder",
+    "genericReturnType" : "java.nio.charset.CharsetDecoder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmappableCharacterAction",
+    "modifiers" : "public",
+    "signature" : "public java.nio.charset.CodingErrorAction unmappableCharacterAction()",
+    "returnType" : "java.nio.charset.CodingErrorAction",
+    "genericReturnType" : "java.nio.charset.CodingErrorAction",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

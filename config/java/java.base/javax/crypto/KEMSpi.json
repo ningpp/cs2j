@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KEMSpi",
+  "canonicalName" : "javax.crypto.KEMSpi",
+  "simpleName" : "KEMSpi",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "engineNewDecapsulator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.crypto.KEMSpi$DecapsulatorSpi engineNewDecapsulator(java.security.PrivateKey, java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidAlgorithmParameterException, java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.KEMSpi$DecapsulatorSpi",
+    "genericReturnType" : "javax.crypto.KEMSpi$DecapsulatorSpi",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineNewEncapsulator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.crypto.KEMSpi$EncapsulatorSpi engineNewEncapsulator(java.security.PublicKey, java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom) throws java.security.InvalidAlgorithmParameterException, java.security.InvalidKeyException",
+    "returnType" : "javax.crypto.KEMSpi$EncapsulatorSpi",
+    "genericReturnType" : "javax.crypto.KEMSpi$EncapsulatorSpi",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

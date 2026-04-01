@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.ShardingKeyBuilder",
+  "canonicalName" : "java.sql.ShardingKeyBuilder",
+  "simpleName" : "ShardingKeyBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ShardingKey build() throws java.sql.SQLException",
+    "returnType" : "java.sql.ShardingKey",
+    "genericReturnType" : "java.sql.ShardingKey",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subkey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ShardingKeyBuilder subkey(java.lang.Object, java.sql.SQLType)",
+    "returnType" : "java.sql.ShardingKeyBuilder",
+    "genericReturnType" : "java.sql.ShardingKeyBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.sql.SQLType",
+      "genericType" : "java.sql.SQLType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

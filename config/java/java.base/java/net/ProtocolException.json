@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.ProtocolException",
+  "canonicalName" : "java.net.ProtocolException",
+  "simpleName" : "ProtocolException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.ProtocolException",
+    "modifiers" : "public",
+    "signature" : "public java.net.ProtocolException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.ProtocolException",
+    "modifiers" : "public",
+    "signature" : "public java.net.ProtocolException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

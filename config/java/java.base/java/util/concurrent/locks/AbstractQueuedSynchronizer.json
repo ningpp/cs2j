@@ -1,0 +1,339 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent.locks",
+  "binaryName" : "java.util.concurrent.locks.AbstractQueuedSynchronizer",
+  "canonicalName" : "java.util.concurrent.locks.AbstractQueuedSynchronizer",
+  "simpleName" : "AbstractQueuedSynchronizer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.concurrent.locks.AbstractOwnableSynchronizer",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "acquire",
+    "modifiers" : "public final",
+    "signature" : "public final void acquire(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acquireInterruptibly",
+    "modifiers" : "public final",
+    "signature" : "public final void acquireInterruptibly(int) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acquireShared",
+    "modifiers" : "public final",
+    "signature" : "public final void acquireShared(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acquireSharedInterruptibly",
+    "modifiers" : "public final",
+    "signature" : "public final void acquireSharedInterruptibly(int) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExclusiveQueuedThreads",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Collection getExclusiveQueuedThreads()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirstQueuedThread",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Thread getFirstQueuedThread()",
+    "returnType" : "java.lang.Thread",
+    "genericReturnType" : "java.lang.Thread",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueueLength",
+    "modifiers" : "public final",
+    "signature" : "public final int getQueueLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueuedThreads",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Collection getQueuedThreads()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSharedQueuedThreads",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Collection getSharedQueuedThreads()",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWaitQueueLength",
+    "modifiers" : "public final",
+    "signature" : "public final int getWaitQueueLength(java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "condition",
+      "type" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "genericType" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWaitingThreads",
+    "modifiers" : "public final",
+    "signature" : "public final java.util.Collection getWaitingThreads(java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "condition",
+      "type" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "genericType" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasContended",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasContended()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasQueuedPredecessors",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasQueuedPredecessors()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasQueuedThreads",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasQueuedThreads()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasWaiters",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasWaiters(java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "condition",
+      "type" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "genericType" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isQueued",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isQueued(java.lang.Thread)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "thread",
+      "type" : "java.lang.Thread",
+      "genericType" : "java.lang.Thread",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "owns",
+    "modifiers" : "public final",
+    "signature" : "public final boolean owns(java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "condition",
+      "type" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "genericType" : "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "release",
+    "modifiers" : "public final",
+    "signature" : "public final boolean release(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseShared",
+    "modifiers" : "public final",
+    "signature" : "public final boolean releaseShared(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryAcquireNanos",
+    "modifiers" : "public final",
+    "signature" : "public final boolean tryAcquireNanos(int, long) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nanosTimeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryAcquireSharedNanos",
+    "modifiers" : "public final",
+    "signature" : "public final boolean tryAcquireSharedNanos(int, long) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nanosTimeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

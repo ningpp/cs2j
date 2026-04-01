@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.FocusEvent$Cause",
+  "canonicalName" : "java.awt.event.FocusEvent.Cause",
+  "simpleName" : "Cause",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.event.FocusEvent",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.FocusEvent$Cause valueOf(java.lang.String)",
+    "returnType" : "java.awt.event.FocusEvent$Cause",
+    "genericReturnType" : "java.awt.event.FocusEvent$Cause",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.event.FocusEvent$Cause[] values()",
+    "returnType" : "java.awt.event.FocusEvent$Cause[]",
+    "genericReturnType" : "java.awt.event.FocusEvent$Cause[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

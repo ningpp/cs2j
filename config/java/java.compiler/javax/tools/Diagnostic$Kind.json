@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.Diagnostic$Kind",
+  "canonicalName" : "javax.tools.Diagnostic.Kind",
+  "simpleName" : "Kind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.tools.Diagnostic",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.Diagnostic$Kind valueOf(java.lang.String)",
+    "returnType" : "javax.tools.Diagnostic$Kind",
+    "genericReturnType" : "javax.tools.Diagnostic$Kind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.Diagnostic$Kind[] values()",
+    "returnType" : "javax.tools.Diagnostic$Kind[]",
+    "genericReturnType" : "javax.tools.Diagnostic$Kind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

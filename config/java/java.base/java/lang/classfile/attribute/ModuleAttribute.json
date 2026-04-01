@@ -1,0 +1,223 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ModuleAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.ModuleAttribute",
+  "simpleName" : "ModuleAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "exports",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List exports()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "has",
+    "modifiers" : "public",
+    "signature" : "public boolean has(java.lang.reflect.AccessFlag)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "flag",
+      "type" : "java.lang.reflect.AccessFlag",
+      "genericType" : "java.lang.reflect.AccessFlag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "moduleFlags",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set moduleFlags()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "moduleFlagsMask",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int moduleFlagsMask()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ModuleEntry moduleName()",
+    "returnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional moduleVersion()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleAttribute of(java.lang.classfile.constantpool.ModuleEntry, int, java.lang.classfile.constantpool.Utf8Entry, java.util.Collection, java.util.Collection, java.util.Collection, java.util.Collection, java.util.Collection)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute",
+    "parameters" : [ {
+      "name" : "moduleName",
+      "type" : "java.lang.classfile.constantpool.ModuleEntry",
+      "genericType" : "java.lang.classfile.constantpool.ModuleEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "moduleFlags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "moduleVersion",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requires",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exports",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opens",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "uses",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provides",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleAttribute of(java.lang.classfile.constantpool.ModuleEntry, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute",
+    "parameters" : [ {
+      "name" : "moduleName",
+      "type" : "java.lang.classfile.constantpool.ModuleEntry",
+      "genericType" : "java.lang.classfile.constantpool.ModuleEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleAttribute of(java.lang.constant.ModuleDesc, java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute",
+    "parameters" : [ {
+      "name" : "moduleName",
+      "type" : "java.lang.constant.ModuleDesc",
+      "genericType" : "java.lang.constant.ModuleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrHandler",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List opens()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provides",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List provides()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requires",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List requires()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List uses()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

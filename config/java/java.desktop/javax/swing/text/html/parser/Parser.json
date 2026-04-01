@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.Parser",
+  "canonicalName" : "javax.swing.text.html.parser.Parser",
+  "simpleName" : "Parser",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.text.html.parser.DTDConstants" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.parser.Parser",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Parser(javax.swing.text.html.parser.DTD)",
+    "parameters" : [ {
+      "name" : "dtd",
+      "type" : "javax.swing.text.html.parser.DTD",
+      "genericType" : "javax.swing.text.html.parser.DTD",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "parse",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void parse(java.io.Reader) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parseDTDMarkup",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String parseDTDMarkup() throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

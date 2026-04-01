@@ -1,0 +1,111 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContext",
+  "canonicalName" : "java.beans.beancontext.BeanContext",
+  "simpleName" : "BeanContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.beans.DesignMode", "java.beans.Visibility", "java.beans.beancontext.BeanContextChild", "java.util.Collection" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addBeanContextMembershipListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addBeanContextMembershipListener(java.beans.beancontext.BeanContextMembershipListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.beancontext.BeanContextMembershipListener",
+      "genericType" : "java.beans.beancontext.BeanContextMembershipListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResource",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.URL getResource(java.lang.String, java.beans.beancontext.BeanContextChild) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.beans.beancontext.BeanContextChild",
+      "genericType" : "java.beans.beancontext.BeanContextChild",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceAsStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getResourceAsStream(java.lang.String, java.beans.beancontext.BeanContextChild) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.beans.beancontext.BeanContextChild",
+      "genericType" : "java.beans.beancontext.BeanContextChild",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "instantiateChild",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object instantiateChild(java.lang.String) throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeBeanContextMembershipListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeBeanContextMembershipListener(java.beans.beancontext.BeanContextMembershipListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.beans.beancontext.BeanContextMembershipListener",
+      "genericType" : "java.beans.beancontext.BeanContextMembershipListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

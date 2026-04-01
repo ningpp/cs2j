@@ -1,0 +1,208 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.MenuBar",
+  "canonicalName" : "java.awt.MenuBar",
+  "simpleName" : "MenuBar",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.MenuComponent",
+  "interfaces" : [ "java.awt.MenuContainer", "javax.accessibility.Accessible" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.MenuBar",
+    "modifiers" : "public",
+    "signature" : "public java.awt.MenuBar() throws java.awt.HeadlessException",
+    "exceptions" : [ "java.awt.HeadlessException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Menu add(java.awt.Menu)",
+    "returnType" : "java.awt.Menu",
+    "genericReturnType" : "java.awt.Menu",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.awt.Menu",
+      "genericType" : "java.awt.Menu",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addNotify",
+    "modifiers" : "public",
+    "signature" : "public void addNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "countMenus",
+    "modifiers" : "public",
+    "signature" : "public int countMenus()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteShortcut",
+    "modifiers" : "public",
+    "signature" : "public void deleteShortcut(java.awt.MenuShortcut)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.awt.MenuShortcut",
+      "genericType" : "java.awt.MenuShortcut",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHelpMenu",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Menu getHelpMenu()",
+    "returnType" : "java.awt.Menu",
+    "genericReturnType" : "java.awt.Menu",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenu",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Menu getMenu(int)",
+    "returnType" : "java.awt.Menu",
+    "genericReturnType" : "java.awt.Menu",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuCount",
+    "modifiers" : "public",
+    "signature" : "public int getMenuCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getShortcutMenuItem",
+    "modifiers" : "public",
+    "signature" : "public java.awt.MenuItem getShortcutMenuItem(java.awt.MenuShortcut)",
+    "returnType" : "java.awt.MenuItem",
+    "genericReturnType" : "java.awt.MenuItem",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.awt.MenuShortcut",
+      "genericType" : "java.awt.MenuShortcut",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public",
+    "signature" : "public void remove(java.awt.MenuComponent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.awt.MenuComponent",
+      "genericType" : "java.awt.MenuComponent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeNotify",
+    "modifiers" : "public",
+    "signature" : "public void removeNotify()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHelpMenu",
+    "modifiers" : "public",
+    "signature" : "public void setHelpMenu(java.awt.Menu)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "java.awt.Menu",
+      "genericType" : "java.awt.Menu",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shortcuts",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.util.Enumeration shortcuts()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,709 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RelationServiceMBean",
+  "canonicalName" : "javax.management.relation.RelationServiceMBean",
+  "simpleName" : "RelationServiceMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addRelation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addRelation(javax.management.ObjectName) throws java.lang.IllegalArgumentException, javax.management.relation.RelationServiceNotRegisteredException, java.lang.NoSuchMethodException, javax.management.relation.InvalidRelationIdException, javax.management.InstanceNotFoundException, javax.management.relation.InvalidRelationServiceException, javax.management.relation.RelationTypeNotFoundException, javax.management.relation.RoleNotFoundException, javax.management.relation.InvalidRoleValueException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.NoSuchMethodException", "javax.management.relation.InvalidRelationIdException", "javax.management.InstanceNotFoundException", "javax.management.relation.InvalidRelationServiceException", "javax.management.relation.RelationTypeNotFoundException", "javax.management.relation.RoleNotFoundException", "javax.management.relation.InvalidRoleValueException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addRelationType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addRelationType(javax.management.relation.RelationType) throws java.lang.IllegalArgumentException, javax.management.relation.InvalidRelationTypeException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.relation.RelationType",
+      "genericType" : "javax.management.relation.RelationType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.InvalidRelationTypeException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkRoleReading",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Integer checkRoleReading(java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationTypeNotFoundException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationTypeNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkRoleWriting",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Integer checkRoleWriting(javax.management.relation.Role, java.lang.String, java.lang.Boolean) throws java.lang.IllegalArgumentException, javax.management.relation.RelationTypeNotFoundException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.relation.Role",
+      "genericType" : "javax.management.relation.Role",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Boolean",
+      "genericType" : "java.lang.Boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationTypeNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createRelation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void createRelation(java.lang.String, java.lang.String, javax.management.relation.RoleList) throws javax.management.relation.RelationServiceNotRegisteredException, java.lang.IllegalArgumentException, javax.management.relation.RoleNotFoundException, javax.management.relation.InvalidRelationIdException, javax.management.relation.RelationTypeNotFoundException, javax.management.relation.InvalidRoleValueException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.management.relation.RoleList",
+      "genericType" : "javax.management.relation.RoleList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.IllegalArgumentException", "javax.management.relation.RoleNotFoundException", "javax.management.relation.InvalidRelationIdException", "javax.management.relation.RelationTypeNotFoundException", "javax.management.relation.InvalidRoleValueException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createRelationType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void createRelationType(java.lang.String, javax.management.relation.RoleInfo[]) throws java.lang.IllegalArgumentException, javax.management.relation.InvalidRelationTypeException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.relation.RoleInfo[]",
+      "genericType" : "javax.management.relation.RoleInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.InvalidRelationTypeException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findAssociatedMBeans",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map findAssociatedMBeans(javax.management.ObjectName, java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findReferencingRelations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map findReferencingRelations(javax.management.ObjectName, java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findRelationsOfType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List findRelationsOfType(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationTypeNotFoundException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationTypeNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllRelationIds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getAllRelationIds()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllRelationTypeNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getAllRelationTypeNames()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllRoles",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.relation.RoleResult getAllRoles(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException, javax.management.relation.RelationServiceNotRegisteredException",
+    "returnType" : "javax.management.relation.RoleResult",
+    "genericReturnType" : "javax.management.relation.RoleResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException", "javax.management.relation.RelationServiceNotRegisteredException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPurgeFlag",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getPurgeFlag()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReferencedMBeans",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getReferencedMBeans(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRelationTypeName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getRelationTypeName(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRole",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getRole(java.lang.String, java.lang.String) throws javax.management.relation.RelationServiceNotRegisteredException, java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException, javax.management.relation.RoleNotFoundException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException", "javax.management.relation.RoleNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoleCardinality",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Integer getRoleCardinality(java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException, javax.management.relation.RoleNotFoundException",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException", "javax.management.relation.RoleNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoleInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.relation.RoleInfo getRoleInfo(java.lang.String, java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationTypeNotFoundException, javax.management.relation.RoleInfoNotFoundException",
+    "returnType" : "javax.management.relation.RoleInfo",
+    "genericReturnType" : "javax.management.relation.RoleInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationTypeNotFoundException", "javax.management.relation.RoleInfoNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoleInfos",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getRoleInfos(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationTypeNotFoundException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationTypeNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoles",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.relation.RoleResult getRoles(java.lang.String, java.lang.String[]) throws javax.management.relation.RelationServiceNotRegisteredException, java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "javax.management.relation.RoleResult",
+    "genericReturnType" : "javax.management.relation.RoleResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasRelation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Boolean hasRelation(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Boolean",
+    "genericReturnType" : "java.lang.Boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isActive",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void isActive() throws javax.management.relation.RelationServiceNotRegisteredException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRelation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String isRelation(javax.management.ObjectName) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRelationMBean",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.ObjectName isRelationMBean(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "purgeRelations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void purgeRelations() throws javax.management.relation.RelationServiceNotRegisteredException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeRelation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeRelation(java.lang.String) throws javax.management.relation.RelationServiceNotRegisteredException, java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeRelationType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeRelationType(java.lang.String) throws javax.management.relation.RelationServiceNotRegisteredException, java.lang.IllegalArgumentException, javax.management.relation.RelationTypeNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.IllegalArgumentException", "javax.management.relation.RelationTypeNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendRelationCreationNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sendRelationCreationNotification(java.lang.String) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendRelationRemovalNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sendRelationRemovalNotification(java.lang.String, java.util.List) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendRoleUpdateNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void sendRoleUpdateNotification(java.lang.String, javax.management.relation.Role, java.util.List) throws java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.relation.Role",
+      "genericType" : "javax.management.relation.Role",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setPurgeFlag",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setPurgeFlag(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRole",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setRole(java.lang.String, javax.management.relation.Role) throws javax.management.relation.RelationServiceNotRegisteredException, java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException, javax.management.relation.RoleNotFoundException, javax.management.relation.InvalidRoleValueException, javax.management.relation.RelationTypeNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.relation.Role",
+      "genericType" : "javax.management.relation.Role",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException", "javax.management.relation.RoleNotFoundException", "javax.management.relation.InvalidRoleValueException", "javax.management.relation.RelationTypeNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRoles",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.relation.RoleResult setRoles(java.lang.String, javax.management.relation.RoleList) throws javax.management.relation.RelationServiceNotRegisteredException, java.lang.IllegalArgumentException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "javax.management.relation.RoleResult",
+    "genericReturnType" : "javax.management.relation.RoleResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.relation.RoleList",
+      "genericType" : "javax.management.relation.RoleList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.relation.RelationServiceNotRegisteredException", "java.lang.IllegalArgumentException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateRoleMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void updateRoleMap(java.lang.String, javax.management.relation.Role, java.util.List) throws java.lang.IllegalArgumentException, javax.management.relation.RelationServiceNotRegisteredException, javax.management.relation.RelationNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.management.relation.Role",
+      "genericType" : "javax.management.relation.Role",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException", "javax.management.relation.RelationServiceNotRegisteredException", "javax.management.relation.RelationNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

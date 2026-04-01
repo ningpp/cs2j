@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.TreeExpansionListener",
+  "canonicalName" : "javax.swing.event.TreeExpansionListener",
+  "simpleName" : "TreeExpansionListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "treeCollapsed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void treeCollapsed(javax.swing.event.TreeExpansionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.TreeExpansionEvent",
+      "genericType" : "javax.swing.event.TreeExpansionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeExpanded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void treeExpanded(javax.swing.event.TreeExpansionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.TreeExpansionEvent",
+      "genericType" : "javax.swing.event.TreeExpansionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

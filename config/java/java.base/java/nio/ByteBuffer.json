@@ -1,0 +1,1206 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio",
+  "binaryName" : "java.nio.ByteBuffer",
+  "canonicalName" : "java.nio.ByteBuffer",
+  "simpleName" : "ByteBuffer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.Buffer",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "alignedSlice",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ByteBuffer alignedSlice(int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "unitSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "alignmentOffset",
+    "modifiers" : "public final",
+    "signature" : "public final int alignmentOffset(int, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unitSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "allocate",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.ByteBuffer allocate(int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "capacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "allocateDirect",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.ByteBuffer allocateDirect(int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "capacity",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "array",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] array()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "arrayOffset",
+    "modifiers" : "public final",
+    "signature" : "public final int arrayOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asCharBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.CharBuffer asCharBuffer()",
+    "returnType" : "java.nio.CharBuffer",
+    "genericReturnType" : "java.nio.CharBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asDoubleBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.DoubleBuffer asDoubleBuffer()",
+    "returnType" : "java.nio.DoubleBuffer",
+    "genericReturnType" : "java.nio.DoubleBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asFloatBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.FloatBuffer asFloatBuffer()",
+    "returnType" : "java.nio.FloatBuffer",
+    "genericReturnType" : "java.nio.FloatBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asIntBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.IntBuffer asIntBuffer()",
+    "returnType" : "java.nio.IntBuffer",
+    "genericReturnType" : "java.nio.IntBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asLongBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.LongBuffer asLongBuffer()",
+    "returnType" : "java.nio.LongBuffer",
+    "genericReturnType" : "java.nio.LongBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asReadOnlyBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer asReadOnlyBuffer()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asShortBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ShortBuffer asShortBuffer()",
+    "returnType" : "java.nio.ShortBuffer",
+    "genericReturnType" : "java.nio.ShortBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "clear",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer clear()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compact",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer compact()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.nio.ByteBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "duplicate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer duplicate()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ob",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flip",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer flip()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte get()",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer get(byte[])",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "dst",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer get(byte[], int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "dst",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte get(int)",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer get(int, byte[])",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer get(int, byte[], int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char getChar()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char getChar(int)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double getDouble()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double getDouble(int)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFloat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getFloat()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFloat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getFloat(int)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getInt()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getInt(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getLong()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getLong(int)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getShort",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short getShort()",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getShort",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short getShort(int)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasArray",
+    "modifiers" : "public final",
+    "signature" : "public final boolean hasArray()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDirect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDirect()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limit",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer limit(int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "newLimit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mark",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer mark()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mismatch",
+    "modifiers" : "public",
+    "signature" : "public int mismatch(java.nio.ByteBuffer)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "that",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "order",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ByteOrder order()",
+    "returnType" : "java.nio.ByteOrder",
+    "genericReturnType" : "java.nio.ByteOrder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "order",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ByteBuffer order(java.nio.ByteOrder)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "bo",
+      "type" : "java.nio.ByteOrder",
+      "genericType" : "java.nio.ByteOrder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "position",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer position(int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "newPosition",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer put(byte)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.ByteBuffer put(byte[])",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer put(byte[], int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer put(int, byte)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer put(int, byte[])",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer put(int, byte[], int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer put(int, java.nio.ByteBuffer, int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "src",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer put(java.nio.ByteBuffer)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.nio.ByteBuffer",
+      "genericType" : "java.nio.ByteBuffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putChar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putChar(char)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putChar",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putChar(int, char)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putDouble(double)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putDouble",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putDouble(int, double)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putFloat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putFloat(float)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putFloat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putFloat(int, float)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putInt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putInt(int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putInt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putInt(int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putLong(int, long)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putLong(long)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putShort",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putShort(int, short)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putShort",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer putShort(short)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer reset()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rewind",
+    "modifiers" : "public",
+    "signature" : "public java.nio.ByteBuffer rewind()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer slice()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer slice(int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.ByteBuffer wrap(byte[])",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wrap",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.ByteBuffer wrap(byte[], int, int)",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

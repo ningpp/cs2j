@@ -1,0 +1,160 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.RowFilter",
+  "canonicalName" : "javax.swing.RowFilter",
+  "simpleName" : "RowFilter",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "andFilter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.RowFilter andFilter(java.lang.Iterable)",
+    "returnType" : "javax.swing.RowFilter",
+    "genericReturnType" : "javax.swing.RowFilter",
+    "parameters" : [ {
+      "name" : "filters",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dateFilter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.RowFilter dateFilter(javax.swing.RowFilter$ComparisonType, java.util.Date, int...)",
+    "returnType" : "javax.swing.RowFilter",
+    "genericReturnType" : "javax.swing.RowFilter",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "javax.swing.RowFilter$ComparisonType",
+      "genericType" : "javax.swing.RowFilter$ComparisonType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "date",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "indices",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "include",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean include(javax.swing.RowFilter$Entry)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.RowFilter$Entry",
+      "genericType" : "javax.swing.RowFilter$Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "notFilter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.RowFilter notFilter(javax.swing.RowFilter)",
+    "returnType" : "javax.swing.RowFilter",
+    "genericReturnType" : "javax.swing.RowFilter",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "javax.swing.RowFilter",
+      "genericType" : "javax.swing.RowFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "numberFilter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.RowFilter numberFilter(javax.swing.RowFilter$ComparisonType, java.lang.Number, int...)",
+    "returnType" : "javax.swing.RowFilter",
+    "genericReturnType" : "javax.swing.RowFilter",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "javax.swing.RowFilter$ComparisonType",
+      "genericType" : "javax.swing.RowFilter$ComparisonType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "number",
+      "type" : "java.lang.Number",
+      "genericType" : "java.lang.Number",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "indices",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "orFilter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.RowFilter orFilter(java.lang.Iterable)",
+    "returnType" : "javax.swing.RowFilter",
+    "genericReturnType" : "javax.swing.RowFilter",
+    "parameters" : [ {
+      "name" : "filters",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "regexFilter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.RowFilter regexFilter(java.lang.String, int...)",
+    "returnType" : "javax.swing.RowFilter",
+    "genericReturnType" : "javax.swing.RowFilter",
+    "parameters" : [ {
+      "name" : "regex",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "indices",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

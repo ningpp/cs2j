@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicMenuUI$ChangeHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicMenuUI.ChangeHandler",
+  "simpleName" : "ChangeHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicMenuUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.event.ChangeListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicMenuUI$ChangeHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicMenuUI$ChangeHandler(javax.swing.plaf.basic.BasicMenuUI, javax.swing.JMenu, javax.swing.plaf.basic.BasicMenuUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicMenuUI",
+      "genericType" : "javax.swing.plaf.basic.BasicMenuUI",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "m",
+      "type" : "javax.swing.JMenu",
+      "genericType" : "javax.swing.JMenu",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.basic.BasicMenuUI",
+      "genericType" : "javax.swing.plaf.basic.BasicMenuUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "stateChanged",
+    "modifiers" : "public",
+    "signature" : "public void stateChanged(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

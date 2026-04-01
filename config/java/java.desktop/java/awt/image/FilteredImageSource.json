@@ -1,0 +1,116 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.FilteredImageSource",
+  "canonicalName" : "java.awt.image.FilteredImageSource",
+  "simpleName" : "FilteredImageSource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.image.ImageProducer" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.FilteredImageSource",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.FilteredImageSource(java.awt.image.ImageProducer, java.awt.image.ImageFilter)",
+    "parameters" : [ {
+      "name" : "orig",
+      "type" : "java.awt.image.ImageProducer",
+      "genericType" : "java.awt.image.ImageProducer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "imgf",
+      "type" : "java.awt.image.ImageFilter",
+      "genericType" : "java.awt.image.ImageFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addConsumer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConsumer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean isConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeConsumer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestTopDownLeftRightResend",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void requestTopDownLeftRightResend(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startProduction",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void startProduction(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ic",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

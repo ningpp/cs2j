@@ -1,0 +1,266 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpClient",
+  "canonicalName" : "java.net.http.HttpClient",
+  "simpleName" : "HttpClient",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.AutoCloseable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "authenticator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional authenticator()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitTermination",
+    "modifiers" : "public",
+    "signature" : "public boolean awaitTermination(java.time.Duration) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "duration",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connectTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional connectTimeout()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cookieHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional cookieHandler()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "executor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional executor()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "followRedirects",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Redirect followRedirects()",
+    "returnType" : "java.net.http.HttpClient$Redirect",
+    "genericReturnType" : "java.net.http.HttpClient$Redirect",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTerminated",
+    "modifiers" : "public",
+    "signature" : "public boolean isTerminated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newBuilder",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpClient$Builder newBuilder()",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newHttpClient",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpClient newHttpClient()",
+    "returnType" : "java.net.http.HttpClient",
+    "genericReturnType" : "java.net.http.HttpClient",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newWebSocketBuilder",
+    "modifiers" : "public",
+    "signature" : "public java.net.http.WebSocket$Builder newWebSocketBuilder()",
+    "returnType" : "java.net.http.WebSocket$Builder",
+    "genericReturnType" : "java.net.http.WebSocket$Builder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "proxy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional proxy()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "send",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpResponse send(java.net.http.HttpRequest, java.net.http.HttpResponse$BodyHandler) throws java.io.IOException, java.lang.InterruptedException",
+    "returnType" : "java.net.http.HttpResponse",
+    "genericReturnType" : "java.net.http.HttpResponse",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpRequest",
+      "genericType" : "java.net.http.HttpRequest",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.http.HttpResponse$BodyHandler",
+      "genericType" : "java.net.http.HttpResponse$BodyHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletableFuture sendAsync(java.net.http.HttpRequest, java.net.http.HttpResponse$BodyHandler)",
+    "returnType" : "java.util.concurrent.CompletableFuture",
+    "genericReturnType" : "java.util.concurrent.CompletableFuture",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpRequest",
+      "genericType" : "java.net.http.HttpRequest",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.http.HttpResponse$BodyHandler",
+      "genericType" : "java.net.http.HttpResponse$BodyHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sendAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletableFuture sendAsync(java.net.http.HttpRequest, java.net.http.HttpResponse$BodyHandler, java.net.http.HttpResponse$PushPromiseHandler)",
+    "returnType" : "java.util.concurrent.CompletableFuture",
+    "genericReturnType" : "java.util.concurrent.CompletableFuture",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpRequest",
+      "genericType" : "java.net.http.HttpRequest",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.net.http.HttpResponse$BodyHandler",
+      "genericType" : "java.net.http.HttpResponse$BodyHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.net.http.HttpResponse$PushPromiseHandler",
+      "genericType" : "java.net.http.HttpResponse$PushPromiseHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdown",
+    "modifiers" : "public",
+    "signature" : "public void shutdown()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdownNow",
+    "modifiers" : "public",
+    "signature" : "public void shutdownNow()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sslContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLContext sslContext()",
+    "returnType" : "javax.net.ssl.SSLContext",
+    "genericReturnType" : "javax.net.ssl.SSLContext",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sslParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLParameters sslParameters()",
+    "returnType" : "javax.net.ssl.SSLParameters",
+    "genericReturnType" : "javax.net.ssl.SSLParameters",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Version version()",
+    "returnType" : "java.net.http.HttpClient$Version",
+    "genericReturnType" : "java.net.http.HttpClient$Version",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

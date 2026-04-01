@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent.locks",
+  "binaryName" : "java.util.concurrent.locks.AbstractOwnableSynchronizer",
+  "canonicalName" : "java.util.concurrent.locks.AbstractOwnableSynchronizer",
+  "simpleName" : "AbstractOwnableSynchronizer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ]
+}

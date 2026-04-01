@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.ScrollPaneConstants",
+  "canonicalName" : "javax.swing.ScrollPaneConstants",
+  "simpleName" : "ScrollPaneConstants",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

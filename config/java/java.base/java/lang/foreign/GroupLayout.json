@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.GroupLayout",
+  "canonicalName" : "java.lang.foreign.GroupLayout",
+  "simpleName" : "GroupLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.foreign.MemoryLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "memberLayouts",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List memberLayouts()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.GroupLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.GroupLayout",
+    "genericReturnType" : "java.lang.foreign.GroupLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.GroupLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.GroupLayout",
+    "genericReturnType" : "java.lang.foreign.GroupLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.GroupLayout withoutName()",
+    "returnType" : "java.lang.foreign.GroupLayout",
+    "genericReturnType" : "java.lang.foreign.GroupLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

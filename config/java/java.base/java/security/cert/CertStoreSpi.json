@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertStoreSpi",
+  "canonicalName" : "java.security.cert.CertStoreSpi",
+  "simpleName" : "CertStoreSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.CertStoreSpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertStoreSpi(java.security.cert.CertStoreParameters) throws java.security.InvalidAlgorithmParameterException",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "java.security.cert.CertStoreParameters",
+      "genericType" : "java.security.cert.CertStoreParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidAlgorithmParameterException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "engineGetCRLs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Collection engineGetCRLs(java.security.cert.CRLSelector) throws java.security.cert.CertStoreException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.cert.CRLSelector",
+      "genericType" : "java.security.cert.CRLSelector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertStoreException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGetCertificates",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Collection engineGetCertificates(java.security.cert.CertSelector) throws java.security.cert.CertStoreException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.cert.CertSelector",
+      "genericType" : "java.security.cert.CertSelector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertStoreException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,99 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Signature$TypeParam",
+  "canonicalName" : "java.lang.classfile.Signature.TypeParam",
+  "simpleName" : "TypeParam",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.Signature",
+  "declaredPublicMethods" : [ {
+    "name" : "classBound",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional classBound()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "identifier",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String identifier()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "interfaceBounds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List interfaceBounds()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeParam of(java.lang.String, java.lang.classfile.Signature$RefTypeSig, java.lang.classfile.Signature$RefTypeSig...)",
+    "returnType" : "java.lang.classfile.Signature$TypeParam",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeParam",
+    "parameters" : [ {
+      "name" : "identifier",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classBound",
+      "type" : "java.lang.classfile.Signature$RefTypeSig",
+      "genericType" : "java.lang.classfile.Signature$RefTypeSig",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceBounds",
+      "type" : "java.lang.classfile.Signature$RefTypeSig[]",
+      "genericType" : "java.lang.classfile.Signature$RefTypeSig[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeParam of(java.lang.String, java.util.Optional, java.lang.classfile.Signature$RefTypeSig...)",
+    "returnType" : "java.lang.classfile.Signature$TypeParam",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeParam",
+    "parameters" : [ {
+      "name" : "identifier",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classBound",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "interfaceBounds",
+      "type" : "java.lang.classfile.Signature$RefTypeSig[]",
+      "genericType" : "java.lang.classfile.Signature$RefTypeSig[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

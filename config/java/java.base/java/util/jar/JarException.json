@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.jar",
+  "binaryName" : "java.util.jar.JarException",
+  "canonicalName" : "java.util.jar.JarException",
+  "simpleName" : "JarException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.zip.ZipException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.jar.JarException",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.jar.JarException",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

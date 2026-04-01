@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Gatherer$Integrator$Greedy",
+  "canonicalName" : "java.util.stream.Gatherer.Integrator.Greedy",
+  "simpleName" : "Greedy",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Gatherer$Integrator",
+  "interfaces" : [ "java.util.stream.Gatherer$Integrator" ]
+}

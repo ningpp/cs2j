@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassFileVersion",
+  "canonicalName" : "java.lang.classfile.ClassFileVersion",
+  "simpleName" : "ClassFileVersion",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "majorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int majorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minorVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int minorVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassFileVersion of(int, int)",
+    "returnType" : "java.lang.classfile.ClassFileVersion",
+    "genericReturnType" : "java.lang.classfile.ClassFileVersion",
+    "parameters" : [ {
+      "name" : "majorVersion",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minorVersion",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

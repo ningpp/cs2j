@@ -1,0 +1,378 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+  "canonicalName" : "java.lang.classfile.attribute.ModuleAttribute.ModuleAttributeBuilder",
+  "simpleName" : "ModuleAttributeBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.attribute.ModuleAttribute",
+  "declaredPublicMethods" : [ {
+    "name" : "exports",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder exports(java.lang.classfile.attribute.ModuleExportInfo)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.attribute.ModuleExportInfo",
+      "genericType" : "java.lang.classfile.attribute.ModuleExportInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exports",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder exports(java.lang.constant.PackageDesc, int, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "exports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder exports(java.lang.constant.PackageDesc, java.util.Collection, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "pkge",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exportsToModules",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "moduleFlags",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder moduleFlags(int)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder moduleFlags(java.lang.reflect.AccessFlag...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "moduleFlags",
+      "type" : "java.lang.reflect.AccessFlag[]",
+      "genericType" : "java.lang.reflect.AccessFlag[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "moduleName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder moduleName(java.lang.constant.ModuleDesc)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ModuleDesc",
+      "genericType" : "java.lang.constant.ModuleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder moduleVersion(java.lang.String)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder opens(java.lang.classfile.attribute.ModuleOpenInfo)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.attribute.ModuleOpenInfo",
+      "genericType" : "java.lang.classfile.attribute.ModuleOpenInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "opens",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder opens(java.lang.constant.PackageDesc, int, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "opens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder opens(java.lang.constant.PackageDesc, java.util.Collection, java.lang.constant.ModuleDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "pkge",
+      "type" : "java.lang.constant.PackageDesc",
+      "genericType" : "java.lang.constant.PackageDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "opensToModules",
+      "type" : "java.lang.constant.ModuleDesc[]",
+      "genericType" : "java.lang.constant.ModuleDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "provides",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder provides(java.lang.classfile.attribute.ModuleProvideInfo)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.attribute.ModuleProvideInfo",
+      "genericType" : "java.lang.classfile.attribute.ModuleProvideInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provides",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder provides(java.lang.constant.ClassDesc, java.lang.constant.ClassDesc...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.constant.ClassDesc[]",
+      "genericType" : "java.lang.constant.ClassDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "requires",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder requires(java.lang.classfile.attribute.ModuleRequireInfo)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.attribute.ModuleRequireInfo",
+      "genericType" : "java.lang.classfile.attribute.ModuleRequireInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requires",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder requires(java.lang.constant.ModuleDesc, int, java.lang.String)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ModuleDesc",
+      "genericType" : "java.lang.constant.ModuleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requires",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder requires(java.lang.constant.ModuleDesc, java.util.Collection, java.lang.String)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "module",
+      "type" : "java.lang.constant.ModuleDesc",
+      "genericType" : "java.lang.constant.ModuleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requiresFlags",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "uses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder uses(java.lang.classfile.constantpool.ClassEntry)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uses",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder uses(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleAttribute$ModuleAttributeBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,629 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.Elements",
+  "canonicalName" : "javax.lang.model.util.Elements",
+  "simpleName" : "Elements",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAllAnnotationMirrors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getAllAnnotationMirrors(javax.lang.model.element.Element)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllMembers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getAllMembers(javax.lang.model.element.TypeElement)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.TypeElement",
+      "genericType" : "javax.lang.model.element.TypeElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllModuleElements",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getAllModuleElements()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getAllPackageElements",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getAllPackageElements(java.lang.CharSequence)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getAllTypeElements",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getAllTypeElements(java.lang.CharSequence)",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getBinaryName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Name getBinaryName(javax.lang.model.element.TypeElement)",
+    "returnType" : "javax.lang.model.element.Name",
+    "genericReturnType" : "javax.lang.model.element.Name",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.TypeElement",
+      "genericType" : "javax.lang.model.element.TypeElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConstantExpression",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getConstantExpression(java.lang.Object)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocComment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDocComment(javax.lang.model.element.Element)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocCommentKind",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.util.Elements$DocCommentKind getDocCommentKind(javax.lang.model.element.Element)",
+    "returnType" : "javax.lang.model.util.Elements$DocCommentKind",
+    "genericReturnType" : "javax.lang.model.util.Elements$DocCommentKind",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getElementValuesWithDefaults",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getElementValuesWithDefaults(javax.lang.model.element.AnnotationMirror)",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.AnnotationMirror",
+      "genericType" : "javax.lang.model.element.AnnotationMirror",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnumConstantBody",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.TypeElement getEnumConstantBody(javax.lang.model.element.VariableElement)",
+    "returnType" : "javax.lang.model.element.TypeElement",
+    "genericReturnType" : "javax.lang.model.element.TypeElement",
+    "parameters" : [ {
+      "name" : "enumConstant",
+      "type" : "javax.lang.model.element.VariableElement",
+      "genericType" : "javax.lang.model.element.VariableElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getFileObjectOf",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileObject getFileObjectOf(javax.lang.model.element.Element)",
+    "returnType" : "javax.tools.JavaFileObject",
+    "genericReturnType" : "javax.tools.JavaFileObject",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getModuleElement",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.ModuleElement getModuleElement(java.lang.CharSequence)",
+    "returnType" : "javax.lang.model.element.ModuleElement",
+    "genericReturnType" : "javax.lang.model.element.ModuleElement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getModuleOf",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.ModuleElement getModuleOf(javax.lang.model.element.Element)",
+    "returnType" : "javax.lang.model.element.ModuleElement",
+    "genericReturnType" : "javax.lang.model.element.ModuleElement",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Name getName(java.lang.CharSequence)",
+    "returnType" : "javax.lang.model.element.Name",
+    "genericReturnType" : "javax.lang.model.element.Name",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOrigin",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.util.Elements$Origin getOrigin(javax.lang.model.AnnotatedConstruct, javax.lang.model.element.AnnotationMirror)",
+    "returnType" : "javax.lang.model.util.Elements$Origin",
+    "genericReturnType" : "javax.lang.model.util.Elements$Origin",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.lang.model.AnnotatedConstruct",
+      "genericType" : "javax.lang.model.AnnotatedConstruct",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "javax.lang.model.element.AnnotationMirror",
+      "genericType" : "javax.lang.model.element.AnnotationMirror",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getOrigin",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.util.Elements$Origin getOrigin(javax.lang.model.element.Element)",
+    "returnType" : "javax.lang.model.util.Elements$Origin",
+    "genericReturnType" : "javax.lang.model.util.Elements$Origin",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getOrigin",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.util.Elements$Origin getOrigin(javax.lang.model.element.ModuleElement, javax.lang.model.element.ModuleElement$Directive)",
+    "returnType" : "javax.lang.model.util.Elements$Origin",
+    "genericReturnType" : "javax.lang.model.util.Elements$Origin",
+    "parameters" : [ {
+      "name" : "m",
+      "type" : "javax.lang.model.element.ModuleElement",
+      "genericType" : "javax.lang.model.element.ModuleElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "directive",
+      "type" : "javax.lang.model.element.ModuleElement$Directive",
+      "genericType" : "javax.lang.model.element.ModuleElement$Directive",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getOutermostTypeElement",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.TypeElement getOutermostTypeElement(javax.lang.model.element.Element)",
+    "returnType" : "javax.lang.model.element.TypeElement",
+    "genericReturnType" : "javax.lang.model.element.TypeElement",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getPackageElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.PackageElement getPackageElement(java.lang.CharSequence)",
+    "returnType" : "javax.lang.model.element.PackageElement",
+    "genericReturnType" : "javax.lang.model.element.PackageElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPackageElement",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.PackageElement getPackageElement(javax.lang.model.element.ModuleElement, java.lang.CharSequence)",
+    "returnType" : "javax.lang.model.element.PackageElement",
+    "genericReturnType" : "javax.lang.model.element.PackageElement",
+    "parameters" : [ {
+      "name" : "module",
+      "type" : "javax.lang.model.element.ModuleElement",
+      "genericType" : "javax.lang.model.element.ModuleElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getPackageOf",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.PackageElement getPackageOf(javax.lang.model.element.Element)",
+    "returnType" : "javax.lang.model.element.PackageElement",
+    "genericReturnType" : "javax.lang.model.element.PackageElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeElement",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.TypeElement getTypeElement(java.lang.CharSequence)",
+    "returnType" : "javax.lang.model.element.TypeElement",
+    "genericReturnType" : "javax.lang.model.element.TypeElement",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeElement",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.TypeElement getTypeElement(javax.lang.model.element.ModuleElement, java.lang.CharSequence)",
+    "returnType" : "javax.lang.model.element.TypeElement",
+    "genericReturnType" : "javax.lang.model.element.TypeElement",
+    "parameters" : [ {
+      "name" : "module",
+      "type" : "javax.lang.model.element.ModuleElement",
+      "genericType" : "javax.lang.model.element.ModuleElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "hides",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hides(javax.lang.model.element.Element, javax.lang.model.element.Element)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAutomaticModule",
+    "modifiers" : "public",
+    "signature" : "public boolean isAutomaticModule(javax.lang.model.element.ModuleElement)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "module",
+      "type" : "javax.lang.model.element.ModuleElement",
+      "genericType" : "javax.lang.model.element.ModuleElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isBridge",
+    "modifiers" : "public",
+    "signature" : "public boolean isBridge(javax.lang.model.element.ExecutableElement)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isCanonicalConstructor",
+    "modifiers" : "public",
+    "signature" : "public boolean isCanonicalConstructor(javax.lang.model.element.ExecutableElement)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isCompactConstructor",
+    "modifiers" : "public",
+    "signature" : "public boolean isCompactConstructor(javax.lang.model.element.ExecutableElement)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isDeprecated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isDeprecated(javax.lang.model.element.Element)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.Element",
+      "genericType" : "javax.lang.model.element.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFunctionalInterface",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isFunctionalInterface(javax.lang.model.element.TypeElement)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.TypeElement",
+      "genericType" : "javax.lang.model.element.TypeElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "overrides",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean overrides(javax.lang.model.element.ExecutableElement, javax.lang.model.element.ExecutableElement, javax.lang.model.element.TypeElement)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.lang.model.element.TypeElement",
+      "genericType" : "javax.lang.model.element.TypeElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "printElements",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void printElements(java.io.Writer, javax.lang.model.element.Element...)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.lang.model.element.Element[]",
+      "genericType" : "javax.lang.model.element.Element[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "recordComponentFor",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.RecordComponentElement recordComponentFor(javax.lang.model.element.ExecutableElement)",
+    "returnType" : "javax.lang.model.element.RecordComponentElement",
+    "genericReturnType" : "javax.lang.model.element.RecordComponentElement",
+    "parameters" : [ {
+      "name" : "accessor",
+      "type" : "javax.lang.model.element.ExecutableElement",
+      "genericType" : "javax.lang.model.element.ExecutableElement",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

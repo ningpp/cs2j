@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.IntUnaryOperator",
+  "canonicalName" : "java.util.function.IntUnaryOperator",
+  "simpleName" : "IntUnaryOperator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.IntUnaryOperator andThen(java.util.function.IntUnaryOperator)",
+    "returnType" : "java.util.function.IntUnaryOperator",
+    "genericReturnType" : "java.util.function.IntUnaryOperator",
+    "parameters" : [ {
+      "name" : "after",
+      "type" : "java.util.function.IntUnaryOperator",
+      "genericType" : "java.util.function.IntUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "applyAsInt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int applyAsInt(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compose",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.IntUnaryOperator compose(java.util.function.IntUnaryOperator)",
+    "returnType" : "java.util.function.IntUnaryOperator",
+    "genericReturnType" : "java.util.function.IntUnaryOperator",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.util.function.IntUnaryOperator",
+      "genericType" : "java.util.function.IntUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "identity",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.IntUnaryOperator identity()",
+    "returnType" : "java.util.function.IntUnaryOperator",
+    "genericReturnType" : "java.util.function.IntUnaryOperator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

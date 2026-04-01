@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.RuntimeInvisibleParameterAnnotationsAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.RuntimeInvisibleParameterAnnotationsAttribute",
+  "simpleName" : "RuntimeInvisibleParameterAnnotationsAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.MethodElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.RuntimeInvisibleParameterAnnotationsAttribute of(java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.RuntimeInvisibleParameterAnnotationsAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.RuntimeInvisibleParameterAnnotationsAttribute",
+    "parameters" : [ {
+      "name" : "parameterAnnotations",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parameterAnnotations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List parameterAnnotations()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

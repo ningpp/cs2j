@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.KeyManager",
+  "canonicalName" : "javax.net.ssl.KeyManager",
+  "simpleName" : "KeyManager",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

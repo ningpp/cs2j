@@ -1,0 +1,69 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.DrbgParameters$Capability",
+  "canonicalName" : "java.security.DrbgParameters.Capability",
+  "simpleName" : "Capability",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.security.DrbgParameters",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "supportsPredictionResistance",
+    "modifiers" : "public",
+    "signature" : "public boolean supportsPredictionResistance()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsReseeding",
+    "modifiers" : "public",
+    "signature" : "public boolean supportsReseeding()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.DrbgParameters$Capability valueOf(java.lang.String)",
+    "returnType" : "java.security.DrbgParameters$Capability",
+    "genericReturnType" : "java.security.DrbgParameters$Capability",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.DrbgParameters$Capability[] values()",
+    "returnType" : "java.security.DrbgParameters$Capability[]",
+    "genericReturnType" : "java.security.DrbgParameters$Capability[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

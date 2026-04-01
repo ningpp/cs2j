@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.GridBagLayoutInfo",
+  "canonicalName" : "java.awt.GridBagLayoutInfo",
+  "simpleName" : "GridBagLayoutInfo",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ]
+}

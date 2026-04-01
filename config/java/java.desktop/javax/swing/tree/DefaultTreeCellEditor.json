@@ -1,0 +1,298 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.tree",
+  "binaryName" : "javax.swing.tree.DefaultTreeCellEditor",
+  "canonicalName" : "javax.swing.tree.DefaultTreeCellEditor",
+  "simpleName" : "DefaultTreeCellEditor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.ActionListener", "javax.swing.event.TreeSelectionListener", "javax.swing.tree.TreeCellEditor" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.tree.DefaultTreeCellEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.DefaultTreeCellEditor(javax.swing.JTree, javax.swing.tree.DefaultTreeCellRenderer)",
+    "parameters" : [ {
+      "name" : "tree",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "renderer",
+      "type" : "javax.swing.tree.DefaultTreeCellRenderer",
+      "genericType" : "javax.swing.tree.DefaultTreeCellRenderer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.tree.DefaultTreeCellEditor",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.DefaultTreeCellEditor(javax.swing.JTree, javax.swing.tree.DefaultTreeCellRenderer, javax.swing.tree.TreeCellEditor)",
+    "parameters" : [ {
+      "name" : "tree",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "renderer",
+      "type" : "javax.swing.tree.DefaultTreeCellRenderer",
+      "genericType" : "javax.swing.tree.DefaultTreeCellRenderer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "editor",
+      "type" : "javax.swing.tree.TreeCellEditor",
+      "genericType" : "javax.swing.tree.TreeCellEditor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public",
+    "signature" : "public void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addCellEditorListener",
+    "modifiers" : "public",
+    "signature" : "public void addCellEditorListener(javax.swing.event.CellEditorListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.CellEditorListener",
+      "genericType" : "javax.swing.event.CellEditorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cancelCellEditing",
+    "modifiers" : "public",
+    "signature" : "public void cancelCellEditing()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBorderSelectionColor",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getBorderSelectionColor()",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCellEditorListeners",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.CellEditorListener[] getCellEditorListeners()",
+    "returnType" : "javax.swing.event.CellEditorListener[]",
+    "genericReturnType" : "javax.swing.event.CellEditorListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCellEditorValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getCellEditorValue()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font getFont()",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTreeCellEditorComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getTreeCellEditorComponent(javax.swing.JTree, java.lang.Object, boolean, boolean, boolean, int)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "tree",
+      "type" : "javax.swing.JTree",
+      "genericType" : "javax.swing.JTree",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isSelected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "expanded",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "leaf",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "row",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCellEditable",
+    "modifiers" : "public",
+    "signature" : "public boolean isCellEditable(java.util.EventObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.util.EventObject",
+      "genericType" : "java.util.EventObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeCellEditorListener",
+    "modifiers" : "public",
+    "signature" : "public void removeCellEditorListener(javax.swing.event.CellEditorListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.CellEditorListener",
+      "genericType" : "javax.swing.event.CellEditorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBorderSelectionColor",
+    "modifiers" : "public",
+    "signature" : "public void setBorderSelectionColor(java.awt.Color)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newColor",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFont",
+    "modifiers" : "public",
+    "signature" : "public void setFont(java.awt.Font)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "font",
+      "type" : "java.awt.Font",
+      "genericType" : "java.awt.Font",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shouldSelectCell",
+    "modifiers" : "public",
+    "signature" : "public boolean shouldSelectCell(java.util.EventObject)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.util.EventObject",
+      "genericType" : "java.util.EventObject",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stopCellEditing",
+    "modifiers" : "public",
+    "signature" : "public boolean stopCellEditing()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueChanged",
+    "modifiers" : "public",
+    "signature" : "public void valueChanged(javax.swing.event.TreeSelectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TreeSelectionEvent",
+      "genericType" : "javax.swing.event.TreeSelectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

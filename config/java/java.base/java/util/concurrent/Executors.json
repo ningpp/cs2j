@@ -1,0 +1,388 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Executors",
+  "canonicalName" : "java.util.concurrent.Executors",
+  "simpleName" : "Executors",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "callable",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.Callable callable(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.Callable",
+    "genericReturnType" : "java.util.concurrent.Callable",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "callable",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.Callable callable(java.lang.Runnable, java.lang.Object)",
+    "returnType" : "java.util.concurrent.Callable",
+    "genericReturnType" : "java.util.concurrent.Callable",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "callable",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.Callable callable(java.security.PrivilegedAction)",
+    "returnType" : "java.util.concurrent.Callable",
+    "genericReturnType" : "java.util.concurrent.Callable",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "callable",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.Callable callable(java.security.PrivilegedExceptionAction)",
+    "returnType" : "java.util.concurrent.Callable",
+    "genericReturnType" : "java.util.concurrent.Callable",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultThreadFactory",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ThreadFactory defaultThreadFactory()",
+    "returnType" : "java.util.concurrent.ThreadFactory",
+    "genericReturnType" : "java.util.concurrent.ThreadFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newCachedThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newCachedThreadPool()",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newCachedThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newCachedThreadPool(java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "parameters" : [ {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFixedThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newFixedThreadPool(int)",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "parameters" : [ {
+      "name" : "nThreads",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFixedThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newFixedThreadPool(int, java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "parameters" : [ {
+      "name" : "nThreads",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newScheduledThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ScheduledExecutorService newScheduledThreadPool(int)",
+    "returnType" : "java.util.concurrent.ScheduledExecutorService",
+    "genericReturnType" : "java.util.concurrent.ScheduledExecutorService",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newScheduledThreadPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ScheduledExecutorService newScheduledThreadPool(int, java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.util.concurrent.ScheduledExecutorService",
+    "genericReturnType" : "java.util.concurrent.ScheduledExecutorService",
+    "parameters" : [ {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSingleThreadExecutor",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newSingleThreadExecutor()",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSingleThreadExecutor",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newSingleThreadExecutor(java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "parameters" : [ {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSingleThreadScheduledExecutor",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ScheduledExecutorService newSingleThreadScheduledExecutor()",
+    "returnType" : "java.util.concurrent.ScheduledExecutorService",
+    "genericReturnType" : "java.util.concurrent.ScheduledExecutorService",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSingleThreadScheduledExecutor",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ScheduledExecutorService newSingleThreadScheduledExecutor(java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.util.concurrent.ScheduledExecutorService",
+    "genericReturnType" : "java.util.concurrent.ScheduledExecutorService",
+    "parameters" : [ {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newThreadPerTaskExecutor",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newThreadPerTaskExecutor(java.util.concurrent.ThreadFactory)",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "parameters" : [ {
+      "name" : "threadFactory",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newVirtualThreadPerTaskExecutor",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newVirtualThreadPerTaskExecutor()",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newWorkStealingPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newWorkStealingPool()",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newWorkStealingPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService newWorkStealingPool(int)",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "parameters" : [ {
+      "name" : "parallelism",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "privilegedCallable",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.Callable privilegedCallable(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.Callable",
+    "genericReturnType" : "java.util.concurrent.Callable",
+    "parameters" : [ {
+      "name" : "callable",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "privilegedCallableUsingCurrentClassLoader",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.Callable privilegedCallableUsingCurrentClassLoader(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.Callable",
+    "genericReturnType" : "java.util.concurrent.Callable",
+    "parameters" : [ {
+      "name" : "callable",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "privilegedThreadFactory",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ThreadFactory privilegedThreadFactory()",
+    "returnType" : "java.util.concurrent.ThreadFactory",
+    "genericReturnType" : "java.util.concurrent.ThreadFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unconfigurableExecutorService",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ExecutorService unconfigurableExecutorService(java.util.concurrent.ExecutorService)",
+    "returnType" : "java.util.concurrent.ExecutorService",
+    "genericReturnType" : "java.util.concurrent.ExecutorService",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.ExecutorService",
+      "genericType" : "java.util.concurrent.ExecutorService",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unconfigurableScheduledExecutorService",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ScheduledExecutorService unconfigurableScheduledExecutorService(java.util.concurrent.ScheduledExecutorService)",
+    "returnType" : "java.util.concurrent.ScheduledExecutorService",
+    "genericReturnType" : "java.util.concurrent.ScheduledExecutorService",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.ScheduledExecutorService",
+      "genericType" : "java.util.concurrent.ScheduledExecutorService",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

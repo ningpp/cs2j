@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.RowSorterEvent",
+  "canonicalName" : "javax.swing.event.RowSorterEvent",
+  "simpleName" : "RowSorterEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.RowSorterEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.RowSorterEvent(javax.swing.RowSorter)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.RowSorter",
+      "genericType" : "javax.swing.RowSorter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.RowSorterEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.RowSorterEvent(javax.swing.RowSorter, javax.swing.event.RowSorterEvent$Type, int[])",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.swing.RowSorter",
+      "genericType" : "javax.swing.RowSorter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.event.RowSorterEvent$Type",
+      "genericType" : "javax.swing.event.RowSorterEvent$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "previousRowIndexToModel",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "convertPreviousRowIndexToModel",
+    "modifiers" : "public",
+    "signature" : "public int convertPreviousRowIndexToModel(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreviousRowCount",
+    "modifiers" : "public",
+    "signature" : "public int getPreviousRowCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.RowSorter getSource()",
+    "returnType" : "javax.swing.RowSorter",
+    "genericReturnType" : "javax.swing.RowSorter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.RowSorterEvent$Type getType()",
+    "returnType" : "javax.swing.event.RowSorterEvent$Type",
+    "genericReturnType" : "javax.swing.event.RowSorterEvent$Type",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

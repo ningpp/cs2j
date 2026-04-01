@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.JobAttributes$MultipleDocumentHandlingType",
+  "canonicalName" : "java.awt.JobAttributes.MultipleDocumentHandlingType",
+  "simpleName" : "MultipleDocumentHandlingType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.JobAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

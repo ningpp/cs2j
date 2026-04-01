@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalToolBarUI$MetalContainerListener",
+  "canonicalName" : "javax.swing.plaf.metal.MetalToolBarUI.MetalContainerListener",
+  "simpleName" : "MetalContainerListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalToolBarUI",
+  "superClass" : "javax.swing.plaf.basic.BasicToolBarUI$ToolBarContListener"
+}

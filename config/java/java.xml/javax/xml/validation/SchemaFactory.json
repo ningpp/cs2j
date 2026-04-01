@@ -1,0 +1,305 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.validation",
+  "binaryName" : "javax.xml.validation.SchemaFactory",
+  "canonicalName" : "javax.xml.validation.SchemaFactory",
+  "simpleName" : "SchemaFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getErrorHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.xml.sax.ErrorHandler getErrorHandler()",
+    "returnType" : "org.xml.sax.ErrorHandler",
+    "genericReturnType" : "org.xml.sax.ErrorHandler",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFeature",
+    "modifiers" : "public",
+    "signature" : "public boolean getFeature(java.lang.String) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResourceResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ls.LSResourceResolver getResourceResolver()",
+    "returnType" : "org.w3c.dom.ls.LSResourceResolver",
+    "genericReturnType" : "org.w3c.dom.ls.LSResourceResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSchemaLanguageSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSchemaLanguageSupported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.validation.SchemaFactory newDefaultInstance()",
+    "returnType" : "javax.xml.validation.SchemaFactory",
+    "genericReturnType" : "javax.xml.validation.SchemaFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.validation.SchemaFactory newInstance(java.lang.String)",
+    "returnType" : "javax.xml.validation.SchemaFactory",
+    "genericReturnType" : "javax.xml.validation.SchemaFactory",
+    "parameters" : [ {
+      "name" : "schemaLanguage",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.validation.SchemaFactory newInstance(java.lang.String, java.lang.String, java.lang.ClassLoader)",
+    "returnType" : "javax.xml.validation.SchemaFactory",
+    "genericReturnType" : "javax.xml.validation.SchemaFactory",
+    "parameters" : [ {
+      "name" : "schemaLanguage",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSchema",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.validation.Schema newSchema() throws org.xml.sax.SAXException",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.Schema newSchema(java.io.File) throws org.xml.sax.SAXException",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "parameters" : [ {
+      "name" : "schema",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.Schema newSchema(java.net.URL) throws org.xml.sax.SAXException",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "parameters" : [ {
+      "name" : "schema",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSchema",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.validation.Schema newSchema(javax.xml.transform.Source) throws org.xml.sax.SAXException",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "parameters" : [ {
+      "name" : "schema",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newSchema",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.validation.Schema newSchema(javax.xml.transform.Source[]) throws org.xml.sax.SAXException",
+    "returnType" : "javax.xml.validation.Schema",
+    "genericReturnType" : "javax.xml.validation.Schema",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Source[]",
+      "genericType" : "javax.xml.transform.Source[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setErrorHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setErrorHandler(org.xml.sax.ErrorHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.ErrorHandler",
+      "genericType" : "org.xml.sax.ErrorHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFeature",
+    "modifiers" : "public",
+    "signature" : "public void setFeature(java.lang.String, boolean) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProperty",
+    "modifiers" : "public",
+    "signature" : "public void setProperty(java.lang.String, java.lang.Object) throws org.xml.sax.SAXNotRecognizedException, org.xml.sax.SAXNotSupportedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.xml.sax.SAXNotRecognizedException", "org.xml.sax.SAXNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResourceResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setResourceResolver(org.w3c.dom.ls.LSResourceResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.ls.LSResourceResolver",
+      "genericType" : "org.w3c.dom.ls.LSResourceResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

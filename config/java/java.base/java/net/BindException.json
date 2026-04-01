@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.BindException",
+  "canonicalName" : "java.net.BindException",
+  "simpleName" : "BindException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.net.SocketException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.BindException",
+    "modifiers" : "public",
+    "signature" : "public java.net.BindException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.BindException",
+    "modifiers" : "public",
+    "signature" : "public java.net.BindException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

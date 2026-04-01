@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RoleInfoNotFoundException",
+  "canonicalName" : "javax.management.relation.RoleInfoNotFoundException",
+  "simpleName" : "RoleInfoNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.relation.RelationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.RoleInfoNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleInfoNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.RoleInfoNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.RoleInfoNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

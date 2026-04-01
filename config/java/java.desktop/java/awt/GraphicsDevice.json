@@ -1,0 +1,179 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.GraphicsDevice",
+  "canonicalName" : "java.awt.GraphicsDevice",
+  "simpleName" : "GraphicsDevice",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAvailableAcceleratedMemory",
+    "modifiers" : "public",
+    "signature" : "public int getAvailableAcceleratedMemory()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBestConfiguration",
+    "modifiers" : "public",
+    "signature" : "public java.awt.GraphicsConfiguration getBestConfiguration(java.awt.GraphicsConfigTemplate)",
+    "returnType" : "java.awt.GraphicsConfiguration",
+    "genericReturnType" : "java.awt.GraphicsConfiguration",
+    "parameters" : [ {
+      "name" : "gct",
+      "type" : "java.awt.GraphicsConfigTemplate",
+      "genericType" : "java.awt.GraphicsConfigTemplate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConfigurations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.GraphicsConfiguration[] getConfigurations()",
+    "returnType" : "java.awt.GraphicsConfiguration[]",
+    "genericReturnType" : "java.awt.GraphicsConfiguration[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultConfiguration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.GraphicsConfiguration getDefaultConfiguration()",
+    "returnType" : "java.awt.GraphicsConfiguration",
+    "genericReturnType" : "java.awt.GraphicsConfiguration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisplayMode",
+    "modifiers" : "public",
+    "signature" : "public java.awt.DisplayMode getDisplayMode()",
+    "returnType" : "java.awt.DisplayMode",
+    "genericReturnType" : "java.awt.DisplayMode",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisplayModes",
+    "modifiers" : "public",
+    "signature" : "public java.awt.DisplayMode[] getDisplayModes()",
+    "returnType" : "java.awt.DisplayMode[]",
+    "genericReturnType" : "java.awt.DisplayMode[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFullScreenWindow",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Window getFullScreenWindow()",
+    "returnType" : "java.awt.Window",
+    "genericReturnType" : "java.awt.Window",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIDstring",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getIDstring()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDisplayChangeSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isDisplayChangeSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFullScreenSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isFullScreenSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isWindowTranslucencySupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isWindowTranslucencySupported(java.awt.GraphicsDevice$WindowTranslucency)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "translucencyKind",
+      "type" : "java.awt.GraphicsDevice$WindowTranslucency",
+      "genericType" : "java.awt.GraphicsDevice$WindowTranslucency",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDisplayMode",
+    "modifiers" : "public",
+    "signature" : "public void setDisplayMode(java.awt.DisplayMode)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dm",
+      "type" : "java.awt.DisplayMode",
+      "genericType" : "java.awt.DisplayMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFullScreenWindow",
+    "modifiers" : "public",
+    "signature" : "public void setFullScreenWindow(java.awt.Window)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.awt.Window",
+      "genericType" : "java.awt.Window",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

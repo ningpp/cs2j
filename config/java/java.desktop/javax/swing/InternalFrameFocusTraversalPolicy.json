@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.InternalFrameFocusTraversalPolicy",
+  "canonicalName" : "javax.swing.InternalFrameFocusTraversalPolicy",
+  "simpleName" : "InternalFrameFocusTraversalPolicy",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.awt.FocusTraversalPolicy",
+  "declaredPublicMethods" : [ {
+    "name" : "getInitialComponent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Component getInitialComponent(javax.swing.JInternalFrame)",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "parameters" : [ {
+      "name" : "frame",
+      "type" : "javax.swing.JInternalFrame",
+      "genericType" : "javax.swing.JInternalFrame",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,342 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.EncryptedPrivateKeyInfo",
+  "canonicalName" : "javax.crypto.EncryptedPrivateKeyInfo",
+  "simpleName" : "EncryptedPrivateKeyInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.DEREncodable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.EncryptedPrivateKeyInfo(byte[]) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "encoded",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.EncryptedPrivateKeyInfo(java.lang.String, byte[]) throws java.security.NoSuchAlgorithmException",
+    "parameters" : [ {
+      "name" : "algName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "encryptedData",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.EncryptedPrivateKeyInfo(java.security.AlgorithmParameters, byte[]) throws java.security.NoSuchAlgorithmException",
+    "parameters" : [ {
+      "name" : "algParams",
+      "type" : "java.security.AlgorithmParameters",
+      "genericType" : "java.security.AlgorithmParameters",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "encryptedData",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "encryptKey",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.EncryptedPrivateKeyInfo encryptKey(java.security.PrivateKey, char[])",
+    "returnType" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "genericReturnType" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "password",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encryptKey",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.EncryptedPrivateKeyInfo encryptKey(java.security.PrivateKey, char[], java.lang.String, java.security.spec.AlgorithmParameterSpec, java.security.Provider)",
+    "returnType" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "genericReturnType" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "password",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encryptKey",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.EncryptedPrivateKeyInfo encryptKey(java.security.PrivateKey, java.security.Key, java.lang.String, java.security.spec.AlgorithmParameterSpec, java.security.Provider, java.security.SecureRandom)",
+    "returnType" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "genericReturnType" : "javax.crypto.EncryptedPrivateKeyInfo",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "encKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlgName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAlgName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAlgParameters",
+    "modifiers" : "public",
+    "signature" : "public java.security.AlgorithmParameters getAlgParameters()",
+    "returnType" : "java.security.AlgorithmParameters",
+    "genericReturnType" : "java.security.AlgorithmParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoded",
+    "modifiers" : "public",
+    "signature" : "public byte[] getEncoded() throws java.io.IOException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncryptedData",
+    "modifiers" : "public",
+    "signature" : "public byte[] getEncryptedData()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKey",
+    "modifiers" : "public",
+    "signature" : "public java.security.PrivateKey getKey(char[]) throws java.security.GeneralSecurityException",
+    "returnType" : "java.security.PrivateKey",
+    "genericReturnType" : "java.security.PrivateKey",
+    "parameters" : [ {
+      "name" : "password",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.GeneralSecurityException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKey",
+    "modifiers" : "public",
+    "signature" : "public java.security.PrivateKey getKey(java.security.Key, java.security.Provider) throws java.security.GeneralSecurityException",
+    "returnType" : "java.security.PrivateKey",
+    "genericReturnType" : "java.security.PrivateKey",
+    "parameters" : [ {
+      "name" : "decryptKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.GeneralSecurityException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.PKCS8EncodedKeySpec getKeySpec(java.security.Key) throws java.security.NoSuchAlgorithmException, java.security.InvalidKeyException",
+    "returnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "genericReturnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "parameters" : [ {
+      "name" : "decryptKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.PKCS8EncodedKeySpec getKeySpec(java.security.Key, java.lang.String) throws java.security.NoSuchProviderException, java.security.NoSuchAlgorithmException, java.security.InvalidKeyException",
+    "returnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "genericReturnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "parameters" : [ {
+      "name" : "decryptKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "providerName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchProviderException", "java.security.NoSuchAlgorithmException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.PKCS8EncodedKeySpec getKeySpec(java.security.Key, java.security.Provider) throws java.security.NoSuchAlgorithmException, java.security.InvalidKeyException",
+    "returnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "genericReturnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "parameters" : [ {
+      "name" : "decryptKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.InvalidKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.PKCS8EncodedKeySpec getKeySpec(javax.crypto.Cipher) throws java.security.spec.InvalidKeySpecException",
+    "returnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "genericReturnType" : "java.security.spec.PKCS8EncodedKeySpec",
+    "parameters" : [ {
+      "name" : "cipher",
+      "type" : "javax.crypto.Cipher",
+      "genericType" : "javax.crypto.Cipher",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.spec.InvalidKeySpecException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

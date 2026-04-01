@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextServicesSupport$BCSSChild",
+  "canonicalName" : "java.beans.beancontext.BeanContextServicesSupport.BCSSChild",
+  "simpleName" : "BCSSChild",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.beans.beancontext.BeanContextServicesSupport",
+  "superClass" : "java.beans.beancontext.BeanContextSupport$BCSChild"
+}

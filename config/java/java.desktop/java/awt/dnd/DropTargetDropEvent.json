@@ -1,0 +1,209 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DropTargetDropEvent",
+  "canonicalName" : "java.awt.dnd.DropTargetDropEvent",
+  "simpleName" : "DropTargetDropEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.dnd.DropTargetEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.dnd.DropTargetDropEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTargetDropEvent(java.awt.dnd.DropTargetContext, java.awt.Point, int, int)",
+    "parameters" : [ {
+      "name" : "dtc",
+      "type" : "java.awt.dnd.DropTargetContext",
+      "genericType" : "java.awt.dnd.DropTargetContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cursorLocn",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dropAction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcActions",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.DropTargetDropEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DropTargetDropEvent(java.awt.dnd.DropTargetContext, java.awt.Point, int, int, boolean)",
+    "parameters" : [ {
+      "name" : "dtc",
+      "type" : "java.awt.dnd.DropTargetContext",
+      "genericType" : "java.awt.dnd.DropTargetContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cursorLocn",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dropAction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcActions",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isLocal",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "acceptDrop",
+    "modifiers" : "public",
+    "signature" : "public void acceptDrop(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "dropAction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dropComplete",
+    "modifiers" : "public",
+    "signature" : "public void dropComplete(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "success",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentDataFlavors",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor[] getCurrentDataFlavors()",
+    "returnType" : "java.awt.datatransfer.DataFlavor[]",
+    "genericReturnType" : "java.awt.datatransfer.DataFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentDataFlavorsAsList",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getCurrentDataFlavorsAsList()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDropAction",
+    "modifiers" : "public",
+    "signature" : "public int getDropAction()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocation",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point getLocation()",
+    "returnType" : "java.awt.Point",
+    "genericReturnType" : "java.awt.Point",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceActions",
+    "modifiers" : "public",
+    "signature" : "public int getSourceActions()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransferable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.Transferable getTransferable()",
+    "returnType" : "java.awt.datatransfer.Transferable",
+    "genericReturnType" : "java.awt.datatransfer.Transferable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDataFlavorSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isDataFlavorSupported(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "df",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLocalTransfer",
+    "modifiers" : "public",
+    "signature" : "public boolean isLocalTransfer()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rejectDrop",
+    "modifiers" : "public",
+    "signature" : "public void rejectDrop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

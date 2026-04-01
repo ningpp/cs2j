@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.IllegalFormatPrecisionException",
+  "canonicalName" : "java.util.IllegalFormatPrecisionException",
+  "simpleName" : "IllegalFormatPrecisionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.IllegalFormatException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.IllegalFormatPrecisionException",
+    "modifiers" : "public",
+    "signature" : "public java.util.IllegalFormatPrecisionException(int)",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrecision",
+    "modifiers" : "public",
+    "signature" : "public int getPrecision()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

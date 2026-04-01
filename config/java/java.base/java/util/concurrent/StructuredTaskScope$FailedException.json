@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.StructuredTaskScope$FailedException",
+  "canonicalName" : "java.util.concurrent.StructuredTaskScope.FailedException",
+  "simpleName" : "FailedException",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.util.concurrent.StructuredTaskScope",
+  "superClass" : "java.lang.RuntimeException"
+}

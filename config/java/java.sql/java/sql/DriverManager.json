@@ -1,0 +1,279 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.DriverManager",
+  "canonicalName" : "java.sql.DriverManager",
+  "simpleName" : "DriverManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "deregisterDriver",
+    "modifiers" : "public static",
+    "signature" : "public static void deregisterDriver(java.sql.Driver) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "driver",
+      "type" : "java.sql.Driver",
+      "genericType" : "java.sql.Driver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "drivers",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Stream drivers()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnection",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.Connection getConnection(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnection",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.Connection getConnection(java.lang.String, java.lang.String, java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "user",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "password",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConnection",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.Connection getConnection(java.lang.String, java.util.Properties) throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "info",
+      "type" : "java.util.Properties",
+      "genericType" : "java.util.Properties",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDriver",
+    "modifiers" : "public static",
+    "signature" : "public static java.sql.Driver getDriver(java.lang.String) throws java.sql.SQLException",
+    "returnType" : "java.sql.Driver",
+    "genericReturnType" : "java.sql.Driver",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDrivers",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Enumeration getDrivers()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.PrintStream getLogStream()",
+    "returnType" : "java.io.PrintStream",
+    "genericReturnType" : "java.io.PrintStream",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogWriter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.PrintWriter getLogWriter()",
+    "returnType" : "java.io.PrintWriter",
+    "genericReturnType" : "java.io.PrintWriter",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoginTimeout",
+    "modifiers" : "public static",
+    "signature" : "public static int getLoginTimeout()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "println",
+    "modifiers" : "public static",
+    "signature" : "public static void println(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerDriver",
+    "modifiers" : "public static",
+    "signature" : "public static void registerDriver(java.sql.Driver) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "driver",
+      "type" : "java.sql.Driver",
+      "genericType" : "java.sql.Driver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerDriver",
+    "modifiers" : "public static",
+    "signature" : "public static void registerDriver(java.sql.Driver, java.sql.DriverAction) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "driver",
+      "type" : "java.sql.Driver",
+      "genericType" : "java.sql.Driver",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "da",
+      "type" : "java.sql.DriverAction",
+      "genericType" : "java.sql.DriverAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLogStream",
+    "modifiers" : "public static",
+    "signature" : "public static void setLogStream(java.io.PrintStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.PrintStream",
+      "genericType" : "java.io.PrintStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLogWriter",
+    "modifiers" : "public static",
+    "signature" : "public static void setLogWriter(java.io.PrintWriter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "out",
+      "type" : "java.io.PrintWriter",
+      "genericType" : "java.io.PrintWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLoginTimeout",
+    "modifiers" : "public static",
+    "signature" : "public static void setLoginTimeout(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "seconds",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

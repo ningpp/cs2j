@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio",
+  "binaryName" : "javax.imageio.ImageTranscoder",
+  "canonicalName" : "javax.imageio.ImageTranscoder",
+  "simpleName" : "ImageTranscoder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "convertImageMetadata",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.metadata.IIOMetadata convertImageMetadata(javax.imageio.metadata.IIOMetadata, javax.imageio.ImageTypeSpecifier, javax.imageio.ImageWriteParam)",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.imageio.ImageTypeSpecifier",
+      "genericType" : "javax.imageio.ImageTypeSpecifier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "convertStreamMetadata",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.imageio.metadata.IIOMetadata convertStreamMetadata(javax.imageio.metadata.IIOMetadata, javax.imageio.ImageWriteParam)",
+    "returnType" : "javax.imageio.metadata.IIOMetadata",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadata",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.imageio.ImageWriteParam",
+      "genericType" : "javax.imageio.ImageWriteParam",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

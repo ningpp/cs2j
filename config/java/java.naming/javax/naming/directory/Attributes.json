@@ -1,0 +1,135 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.Attributes",
+  "canonicalName" : "javax.naming.directory.Attributes",
+  "simpleName" : "Attributes",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.directory.Attribute get(java.lang.String)",
+    "returnType" : "javax.naming.directory.Attribute",
+    "genericReturnType" : "javax.naming.directory.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.NamingEnumeration getAll()",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIDs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.NamingEnumeration getIDs()",
+    "returnType" : "javax.naming.NamingEnumeration",
+    "genericReturnType" : "javax.naming.NamingEnumeration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCaseIgnored",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCaseIgnored()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.directory.Attribute put(java.lang.String, java.lang.Object)",
+    "returnType" : "javax.naming.directory.Attribute",
+    "genericReturnType" : "javax.naming.directory.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "put",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.directory.Attribute put(javax.naming.directory.Attribute)",
+    "returnType" : "javax.naming.directory.Attribute",
+    "genericReturnType" : "javax.naming.directory.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.directory.Attribute",
+      "genericType" : "javax.naming.directory.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remove",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.directory.Attribute remove(java.lang.String)",
+    "returnType" : "javax.naming.directory.Attribute",
+    "genericReturnType" : "javax.naming.directory.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,380 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.keyinfo",
+  "binaryName" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+  "canonicalName" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+  "simpleName" : "KeyInfoFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.crypto.dsig.keyinfo.KeyInfoFactory getInstance()",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.crypto.dsig.keyinfo.KeyInfoFactory getInstance(java.lang.String)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "parameters" : [ {
+      "name" : "mechanismType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.crypto.dsig.keyinfo.KeyInfoFactory getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchProviderException",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "parameters" : [ {
+      "name" : "mechanismType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.crypto.dsig.keyinfo.KeyInfoFactory getInstance(java.lang.String, java.security.Provider)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfoFactory",
+    "parameters" : [ {
+      "name" : "mechanismType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMechanismType",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getMechanismType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURIDereferencer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.URIDereferencer getURIDereferencer()",
+    "returnType" : "javax.xml.crypto.URIDereferencer",
+    "genericReturnType" : "javax.xml.crypto.URIDereferencer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFeatureSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isFeatureSupported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newKeyInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.KeyInfo newKeyInfo(java.util.List)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newKeyInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.KeyInfo newKeyInfo(java.util.List, java.lang.String)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newKeyName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.KeyName newKeyName(java.lang.String)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyName",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyName",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newKeyValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.KeyValue newKeyValue(java.security.PublicKey) throws java.security.KeyException",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyValue",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyValue",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.KeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPGPData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.PGPData newPGPData(byte[])",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPGPData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.PGPData newPGPData(byte[], byte[], java.util.List)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newPGPData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.PGPData newPGPData(byte[], java.util.List)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.PGPData",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newRetrievalMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.RetrievalMethod newRetrievalMethod(java.lang.String)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.RetrievalMethod",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.RetrievalMethod",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newRetrievalMethod",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.RetrievalMethod newRetrievalMethod(java.lang.String, java.lang.String, java.util.List)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.RetrievalMethod",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.RetrievalMethod",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newX509Data",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.X509Data newX509Data(java.util.List)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.X509Data",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.X509Data",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newX509IssuerSerial",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.X509IssuerSerial newX509IssuerSerial(java.lang.String, java.math.BigInteger)",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.X509IssuerSerial",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.X509IssuerSerial",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unmarshalKeyInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.dsig.keyinfo.KeyInfo unmarshalKeyInfo(javax.xml.crypto.XMLStructure) throws javax.xml.crypto.MarshalException",
+    "returnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "genericReturnType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.XMLStructure",
+      "genericType" : "javax.xml.crypto.XMLStructure",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.MarshalException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

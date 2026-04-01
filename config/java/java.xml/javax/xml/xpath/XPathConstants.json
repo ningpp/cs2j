@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathConstants",
+  "canonicalName" : "javax.xml.xpath.XPathConstants",
+  "simpleName" : "XPathConstants",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object"
+}

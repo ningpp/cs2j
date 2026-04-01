@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.interfaces",
+  "binaryName" : "java.security.interfaces.DSAParams",
+  "canonicalName" : "java.security.interfaces.DSAParams",
+  "simpleName" : "DSAParams",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getG",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getG()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getP",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getP()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQ",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getQ()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

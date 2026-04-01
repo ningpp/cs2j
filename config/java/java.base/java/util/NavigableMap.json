@@ -1,0 +1,365 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.NavigableMap",
+  "canonicalName" : "java.util.NavigableMap",
+  "simpleName" : "NavigableMap",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.SortedMap" ],
+  "declaredPublicMethods" : [ {
+    "name" : "ceilingEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry ceilingEntry(java.lang.Object)",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ceilingKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object ceilingKey(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descendingKeySet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet descendingKeySet()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descendingMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableMap descendingMap()",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry firstEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "floorEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry floorEntry(java.lang.Object)",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "floorKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object floorKey(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SortedMap headMap(java.lang.Object)",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableMap headMap(java.lang.Object, boolean)",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "higherEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry higherEntry(java.lang.Object)",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "higherKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object higherKey(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lastEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry lastEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lowerEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry lowerEntry(java.lang.Object)",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lowerKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object lowerKey(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "navigableKeySet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet navigableKeySet()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pollFirstEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry pollFirstEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pollLastEntry",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map$Entry pollLastEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reversed",
+    "modifiers" : "public",
+    "signature" : "public java.util.NavigableMap reversed()",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "subMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableMap subMap(java.lang.Object, boolean, java.lang.Object, boolean)",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SortedMap subMap(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tailMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SortedMap tailMap(java.lang.Object)",
+    "returnType" : "java.util.SortedMap",
+    "genericReturnType" : "java.util.SortedMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tailMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableMap tailMap(java.lang.Object, boolean)",
+    "returnType" : "java.util.NavigableMap",
+    "genericReturnType" : "java.util.NavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

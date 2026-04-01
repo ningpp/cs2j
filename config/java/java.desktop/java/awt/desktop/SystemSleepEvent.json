@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.SystemSleepEvent",
+  "canonicalName" : "java.awt.desktop.SystemSleepEvent",
+  "simpleName" : "SystemSleepEvent",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.desktop.AppEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.desktop.SystemSleepEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.desktop.SystemSleepEvent()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Dialog$ModalExclusionType",
+  "canonicalName" : "java.awt.Dialog.ModalExclusionType",
+  "simpleName" : "ModalExclusionType",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.Dialog",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Dialog$ModalExclusionType valueOf(java.lang.String)",
+    "returnType" : "java.awt.Dialog$ModalExclusionType",
+    "genericReturnType" : "java.awt.Dialog$ModalExclusionType",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.Dialog$ModalExclusionType[] values()",
+    "returnType" : "java.awt.Dialog$ModalExclusionType[]",
+    "genericReturnType" : "java.awt.Dialog$ModalExclusionType[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

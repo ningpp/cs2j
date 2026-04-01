@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.logging",
+  "packageName" : "java.util.logging",
+  "binaryName" : "java.util.logging.SimpleFormatter",
+  "canonicalName" : "java.util.logging.SimpleFormatter",
+  "simpleName" : "SimpleFormatter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.logging.Formatter",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.logging.SimpleFormatter",
+    "modifiers" : "public",
+    "signature" : "public java.util.logging.SimpleFormatter()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String format(java.util.logging.LogRecord)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "record",
+      "type" : "java.util.logging.LogRecord",
+      "genericType" : "java.util.logging.LogRecord",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

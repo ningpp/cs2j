@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.StructuredTaskScope$Joiner",
+  "canonicalName" : "java.util.concurrent.StructuredTaskScope.Joiner",
+  "simpleName" : "Joiner",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.StructuredTaskScope",
+  "declaredPublicMethods" : [ {
+    "name" : "allSuccessfulOrThrow",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope$Joiner allSuccessfulOrThrow()",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "allUntil",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope$Joiner allUntil(java.util.function.Predicate)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "parameters" : [ {
+      "name" : "isDone",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "anySuccessfulResultOrThrow",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope$Joiner anySuccessfulResultOrThrow()",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitAll",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope$Joiner awaitAll()",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitAllSuccessfulOrThrow",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope$Joiner awaitAllSuccessfulOrThrow()",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onComplete",
+    "modifiers" : "public",
+    "signature" : "public boolean onComplete(java.util.concurrent.StructuredTaskScope$Subtask)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "subtask",
+      "type" : "java.util.concurrent.StructuredTaskScope$Subtask",
+      "genericType" : "java.util.concurrent.StructuredTaskScope$Subtask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "onFork",
+    "modifiers" : "public",
+    "signature" : "public boolean onFork(java.util.concurrent.StructuredTaskScope$Subtask)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "subtask",
+      "type" : "java.util.concurrent.StructuredTaskScope$Subtask",
+      "genericType" : "java.util.concurrent.StructuredTaskScope$Subtask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "result",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object result() throws java.lang.Throwable",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.Throwable" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

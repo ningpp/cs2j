@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.StringRefAddr",
+  "canonicalName" : "javax.naming.StringRefAddr",
+  "simpleName" : "StringRefAddr",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.RefAddr",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.StringRefAddr",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.StringRefAddr(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "addrType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addr",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getContent",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getContent()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

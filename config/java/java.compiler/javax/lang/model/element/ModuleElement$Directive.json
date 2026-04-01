@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ModuleElement$Directive",
+  "canonicalName" : "javax.lang.model.element.ModuleElement.Directive",
+  "simpleName" : "Directive",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.lang.model.element.ModuleElement",
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object accept(javax.lang.model.element.ModuleElement$DirectiveVisitor, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.lang.model.element.ModuleElement$DirectiveVisitor",
+      "genericType" : "javax.lang.model.element.ModuleElement$DirectiveVisitor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.ModuleElement$DirectiveKind getKind()",
+    "returnType" : "javax.lang.model.element.ModuleElement$DirectiveKind",
+    "genericReturnType" : "javax.lang.model.element.ModuleElement$DirectiveKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

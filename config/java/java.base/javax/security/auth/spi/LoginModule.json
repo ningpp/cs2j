@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.spi",
+  "binaryName" : "javax.security.auth.spi.LoginModule",
+  "canonicalName" : "javax.security.auth.spi.LoginModule",
+  "simpleName" : "LoginModule",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "abort",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean abort() throws javax.security.auth.login.LoginException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "commit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean commit() throws javax.security.auth.login.LoginException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void initialize(javax.security.auth.Subject, javax.security.auth.callback.CallbackHandler, java.util.Map, java.util.Map)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.security.auth.Subject",
+      "genericType" : "javax.security.auth.Subject",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.security.auth.callback.CallbackHandler",
+      "genericType" : "javax.security.auth.callback.CallbackHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "login",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean login() throws javax.security.auth.login.LoginException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "logout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean logout() throws javax.security.auth.login.LoginException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "javax.security.auth.login.LoginException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

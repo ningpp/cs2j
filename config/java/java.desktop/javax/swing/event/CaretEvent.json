@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.CaretEvent",
+  "canonicalName" : "javax.swing.event.CaretEvent",
+  "simpleName" : "CaretEvent",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.CaretEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.CaretEvent(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDot()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMark",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMark()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

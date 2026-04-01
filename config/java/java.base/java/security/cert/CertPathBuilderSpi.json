@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertPathBuilderSpi",
+  "canonicalName" : "java.security.cert.CertPathBuilderSpi",
+  "simpleName" : "CertPathBuilderSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.CertPathBuilderSpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPathBuilderSpi()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "engineBuild",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.CertPathBuilderResult engineBuild(java.security.cert.CertPathParameters) throws java.security.cert.CertPathBuilderException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "java.security.cert.CertPathBuilderResult",
+    "genericReturnType" : "java.security.cert.CertPathBuilderResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.cert.CertPathParameters",
+      "genericType" : "java.security.cert.CertPathParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertPathBuilderException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineGetRevocationChecker",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPathChecker engineGetRevocationChecker()",
+    "returnType" : "java.security.cert.CertPathChecker",
+    "genericReturnType" : "java.security.cert.CertPathChecker",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

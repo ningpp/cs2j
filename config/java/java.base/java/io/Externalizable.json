@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.Externalizable",
+  "canonicalName" : "java.io.Externalizable",
+  "simpleName" : "Externalizable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "readExternal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void readExternal(java.io.ObjectInput) throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.ObjectInput",
+      "genericType" : "java.io.ObjectInput",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeExternal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void writeExternal(java.io.ObjectOutput) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.ObjectOutput",
+      "genericType" : "java.io.ObjectOutput",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

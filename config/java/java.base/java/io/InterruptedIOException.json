@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.InterruptedIOException",
+  "canonicalName" : "java.io.InterruptedIOException",
+  "simpleName" : "InterruptedIOException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.InterruptedIOException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InterruptedIOException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.InterruptedIOException",
+    "modifiers" : "public",
+    "signature" : "public java.io.InterruptedIOException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

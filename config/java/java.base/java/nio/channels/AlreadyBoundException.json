@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.AlreadyBoundException",
+  "canonicalName" : "java.nio.channels.AlreadyBoundException",
+  "simpleName" : "AlreadyBoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.AlreadyBoundException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.AlreadyBoundException()",
+    "varArgs" : false
+  } ]
+}

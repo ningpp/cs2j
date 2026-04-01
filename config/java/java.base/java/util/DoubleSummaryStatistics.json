@@ -1,0 +1,143 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.DoubleSummaryStatistics",
+  "canonicalName" : "java.util.DoubleSummaryStatistics",
+  "simpleName" : "DoubleSummaryStatistics",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.function.DoubleConsumer" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.DoubleSummaryStatistics",
+    "modifiers" : "public",
+    "signature" : "public java.util.DoubleSummaryStatistics()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.DoubleSummaryStatistics",
+    "modifiers" : "public",
+    "signature" : "public java.util.DoubleSummaryStatistics(long, double, double, double) throws java.lang.IllegalArgumentException",
+    "parameters" : [ {
+      "name" : "count",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "min",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "max",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sum",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public",
+    "signature" : "public void accept(double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "combine",
+    "modifiers" : "public",
+    "signature" : "public void combine(java.util.DoubleSummaryStatistics)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.DoubleSummaryStatistics",
+      "genericType" : "java.util.DoubleSummaryStatistics",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAverage",
+    "modifiers" : "public final",
+    "signature" : "public final double getAverage()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCount",
+    "modifiers" : "public final",
+    "signature" : "public final long getCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMax",
+    "modifiers" : "public final",
+    "signature" : "public final double getMax()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMin",
+    "modifiers" : "public final",
+    "signature" : "public final double getMin()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSum",
+    "modifiers" : "public final",
+    "signature" : "public final double getSum()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

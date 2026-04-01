@@ -1,0 +1,86 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.StandardLocation",
+  "canonicalName" : "javax.tools.StandardLocation",
+  "simpleName" : "StandardLocation",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "interfaces" : [ "javax.tools.JavaFileManager$Location" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isModuleOrientedLocation",
+    "modifiers" : "public",
+    "signature" : "public boolean isModuleOrientedLocation()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOutputLocation",
+    "modifiers" : "public",
+    "signature" : "public boolean isOutputLocation()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "locationFor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.JavaFileManager$Location locationFor(java.lang.String)",
+    "returnType" : "javax.tools.JavaFileManager$Location",
+    "genericReturnType" : "javax.tools.JavaFileManager$Location",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.StandardLocation valueOf(java.lang.String)",
+    "returnType" : "javax.tools.StandardLocation",
+    "genericReturnType" : "javax.tools.StandardLocation",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.tools.StandardLocation[] values()",
+    "returnType" : "javax.tools.StandardLocation[]",
+    "genericReturnType" : "javax.tools.StandardLocation[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

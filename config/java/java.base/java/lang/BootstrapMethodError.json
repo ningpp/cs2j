@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.BootstrapMethodError",
+  "canonicalName" : "java.lang.BootstrapMethodError",
+  "simpleName" : "BootstrapMethodError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.BootstrapMethodError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.BootstrapMethodError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.BootstrapMethodError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.BootstrapMethodError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.BootstrapMethodError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.BootstrapMethodError(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.BootstrapMethodError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.BootstrapMethodError(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

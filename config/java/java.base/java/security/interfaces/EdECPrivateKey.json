@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.interfaces",
+  "binaryName" : "java.security.interfaces.EdECPrivateKey",
+  "canonicalName" : "java.security.interfaces.EdECPrivateKey",
+  "simpleName" : "EdECPrivateKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.PrivateKey", "java.security.interfaces.EdECKey" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBytes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional getBytes()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParams",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.NamedParameterSpec getParams()",
+    "returnType" : "java.security.spec.NamedParameterSpec",
+    "genericReturnType" : "java.security.spec.NamedParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

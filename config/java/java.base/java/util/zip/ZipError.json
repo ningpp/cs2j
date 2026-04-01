@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.zip",
+  "binaryName" : "java.util.zip.ZipError",
+  "canonicalName" : "java.util.zip.ZipError",
+  "simpleName" : "ZipError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.InternalError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.zip.ZipError",
+    "modifiers" : "public",
+    "signature" : "public java.util.zip.ZipError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

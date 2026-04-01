@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.monitor",
+  "binaryName" : "javax.management.monitor.MonitorSettingException",
+  "canonicalName" : "javax.management.monitor.MonitorSettingException",
+  "simpleName" : "MonitorSettingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.JMRuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.monitor.MonitorSettingException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.monitor.MonitorSettingException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.monitor.MonitorSettingException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.monitor.MonitorSettingException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

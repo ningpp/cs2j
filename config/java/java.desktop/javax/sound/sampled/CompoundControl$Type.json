@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.CompoundControl$Type",
+  "canonicalName" : "javax.sound.sampled.CompoundControl.Type",
+  "simpleName" : "Type",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.sound.sampled.CompoundControl",
+  "superClass" : "javax.sound.sampled.Control$Type"
+}

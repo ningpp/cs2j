@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.NoSuchFieldException",
+  "canonicalName" : "java.lang.NoSuchFieldException",
+  "simpleName" : "NoSuchFieldException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ReflectiveOperationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.NoSuchFieldException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NoSuchFieldException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.NoSuchFieldException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.NoSuchFieldException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

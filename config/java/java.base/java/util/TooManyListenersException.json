@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.TooManyListenersException",
+  "canonicalName" : "java.util.TooManyListenersException",
+  "simpleName" : "TooManyListenersException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.TooManyListenersException",
+    "modifiers" : "public",
+    "signature" : "public java.util.TooManyListenersException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.TooManyListenersException",
+    "modifiers" : "public",
+    "signature" : "public java.util.TooManyListenersException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

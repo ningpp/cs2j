@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.SequencedSet",
+  "canonicalName" : "java.util.SequencedSet",
+  "simpleName" : "SequencedSet",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.SequencedCollection", "java.util.Set" ],
+  "declaredPublicMethods" : [ {
+    "name" : "reversed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SequencedSet reversed()",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

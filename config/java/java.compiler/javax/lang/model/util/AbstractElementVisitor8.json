@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.AbstractElementVisitor8",
+  "canonicalName" : "javax.lang.model.util.AbstractElementVisitor8",
+  "simpleName" : "AbstractElementVisitor8",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.lang.model.util.AbstractElementVisitor7"
+}

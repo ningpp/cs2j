@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalFileChooserUI$FileRenderer",
+  "canonicalName" : "javax.swing.plaf.metal.MetalFileChooserUI.FileRenderer",
+  "simpleName" : "FileRenderer",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalFileChooserUI",
+  "superClass" : "javax.swing.DefaultListCellRenderer"
+}

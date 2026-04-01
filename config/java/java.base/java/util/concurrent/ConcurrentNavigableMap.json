@@ -1,0 +1,189 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ConcurrentNavigableMap",
+  "canonicalName" : "java.util.concurrent.ConcurrentNavigableMap",
+  "simpleName" : "ConcurrentNavigableMap",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.NavigableMap", "java.util.concurrent.ConcurrentMap" ],
+  "declaredPublicMethods" : [ {
+    "name" : "descendingKeySet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet descendingKeySet()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "descendingMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ConcurrentNavigableMap descendingMap()",
+    "returnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "genericReturnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ConcurrentNavigableMap headMap(java.lang.Object)",
+    "returnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "genericReturnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "headMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ConcurrentNavigableMap headMap(java.lang.Object, boolean)",
+    "returnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "genericReturnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keySet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet keySet()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "navigableKeySet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.NavigableSet navigableKeySet()",
+    "returnType" : "java.util.NavigableSet",
+    "genericReturnType" : "java.util.NavigableSet",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ConcurrentNavigableMap subMap(java.lang.Object, boolean, java.lang.Object, boolean)",
+    "returnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "genericReturnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ConcurrentNavigableMap subMap(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "genericReturnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tailMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ConcurrentNavigableMap tailMap(java.lang.Object)",
+    "returnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "genericReturnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tailMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ConcurrentNavigableMap tailMap(java.lang.Object, boolean)",
+    "returnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "genericReturnType" : "java.util.concurrent.ConcurrentNavigableMap",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

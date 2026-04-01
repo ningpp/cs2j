@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.FileStoreAttributeView",
+  "canonicalName" : "java.nio.file.attribute.FileStoreAttributeView",
+  "simpleName" : "FileStoreAttributeView",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.file.attribute.AttributeView" ]
+}

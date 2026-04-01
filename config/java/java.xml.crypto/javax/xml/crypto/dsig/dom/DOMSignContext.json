@@ -1,0 +1,151 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.dom",
+  "binaryName" : "javax.xml.crypto.dsig.dom.DOMSignContext",
+  "canonicalName" : "javax.xml.crypto.dsig.dom.DOMSignContext",
+  "simpleName" : "DOMSignContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.xml.crypto.dom.DOMCryptoContext",
+  "interfaces" : [ "javax.xml.crypto.dsig.XMLSignContext" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.dom.DOMSignContext",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.dom.DOMSignContext(java.security.Key, org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "signingKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.dsig.dom.DOMSignContext",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.dom.DOMSignContext(java.security.Key, org.w3c.dom.Node, org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "signingKey",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nextSibling",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.dsig.dom.DOMSignContext",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.dom.DOMSignContext(javax.xml.crypto.KeySelector, org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "ks",
+      "type" : "javax.xml.crypto.KeySelector",
+      "genericType" : "javax.xml.crypto.KeySelector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.dsig.dom.DOMSignContext",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.dom.DOMSignContext(javax.xml.crypto.KeySelector, org.w3c.dom.Node, org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "ks",
+      "type" : "javax.xml.crypto.KeySelector",
+      "genericType" : "javax.xml.crypto.KeySelector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nextSibling",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNextSibling",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.Node getNextSibling()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.Node getParent()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNextSibling",
+    "modifiers" : "public",
+    "signature" : "public void setNextSibling(org.w3c.dom.Node)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "nextSibling",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParent",
+    "modifiers" : "public",
+    "signature" : "public void setParent(org.w3c.dom.Node)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

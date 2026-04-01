@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.X509Extension",
+  "canonicalName" : "java.security.cert.X509Extension",
+  "simpleName" : "X509Extension",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getCriticalExtensionOIDs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getCriticalExtensionOIDs()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtensionValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getExtensionValue(java.lang.String)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNonCriticalExtensionOIDs",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getNonCriticalExtensionOIDs()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasUnsupportedCriticalExtension",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasUnsupportedCriticalExtension()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

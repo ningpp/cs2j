@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory",
+  "canonicalName" : "java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory",
+  "simpleName" : "ForkJoinWorkerThreadFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.ForkJoinPool",
+  "declaredPublicMethods" : [ {
+    "name" : "newThread",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.ForkJoinWorkerThread newThread(java.util.concurrent.ForkJoinPool)",
+    "returnType" : "java.util.concurrent.ForkJoinWorkerThread",
+    "genericReturnType" : "java.util.concurrent.ForkJoinWorkerThread",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.ForkJoinPool",
+      "genericType" : "java.util.concurrent.ForkJoinPool",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

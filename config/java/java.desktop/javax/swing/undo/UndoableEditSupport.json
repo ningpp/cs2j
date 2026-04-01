@@ -1,0 +1,130 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.undo",
+  "binaryName" : "javax.swing.undo.UndoableEditSupport",
+  "canonicalName" : "javax.swing.undo.UndoableEditSupport",
+  "simpleName" : "UndoableEditSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.undo.UndoableEditSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.undo.UndoableEditSupport()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.undo.UndoableEditSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.undo.UndoableEditSupport(java.lang.Object)",
+    "parameters" : [ {
+      "name" : "r",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addUndoableEditListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void addUndoableEditListener(javax.swing.event.UndoableEditListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.UndoableEditListener",
+      "genericType" : "javax.swing.event.UndoableEditListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "beginUpdate",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void beginUpdate()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endUpdate",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void endUpdate()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUndoableEditListeners",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized javax.swing.event.UndoableEditListener[] getUndoableEditListeners()",
+    "returnType" : "javax.swing.event.UndoableEditListener[]",
+    "genericReturnType" : "javax.swing.event.UndoableEditListener[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUpdateLevel",
+    "modifiers" : "public",
+    "signature" : "public int getUpdateLevel()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postEdit",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void postEdit(javax.swing.undo.UndoableEdit)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.undo.UndoableEdit",
+      "genericType" : "javax.swing.undo.UndoableEdit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeUndoableEditListener",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void removeUndoableEditListener(javax.swing.event.UndoableEditListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "l",
+      "type" : "javax.swing.event.UndoableEditListener",
+      "genericType" : "javax.swing.event.UndoableEditListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

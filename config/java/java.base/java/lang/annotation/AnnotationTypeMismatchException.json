@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.annotation",
+  "binaryName" : "java.lang.annotation.AnnotationTypeMismatchException",
+  "canonicalName" : "java.lang.annotation.AnnotationTypeMismatchException",
+  "simpleName" : "AnnotationTypeMismatchException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.annotation.AnnotationTypeMismatchException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.AnnotationTypeMismatchException(java.lang.reflect.Method, java.lang.String)",
+    "parameters" : [ {
+      "name" : "element",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "foundType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "element",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.Method element()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "foundType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String foundType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

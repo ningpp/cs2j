@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.PropertyEditorManager",
+  "canonicalName" : "java.beans.PropertyEditorManager",
+  "simpleName" : "PropertyEditorManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.PropertyEditorManager",
+    "modifiers" : "public",
+    "signature" : "public java.beans.PropertyEditorManager()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "findEditor",
+    "modifiers" : "public static",
+    "signature" : "public static java.beans.PropertyEditor findEditor(java.lang.Class)",
+    "returnType" : "java.beans.PropertyEditor",
+    "genericReturnType" : "java.beans.PropertyEditor",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEditorSearchPath",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.String[] getEditorSearchPath()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerEditor",
+    "modifiers" : "public static",
+    "signature" : "public static void registerEditor(java.lang.Class, java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "editorClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEditorSearchPath",
+    "modifiers" : "public static",
+    "signature" : "public static void setEditorSearchPath(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

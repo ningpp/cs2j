@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.annotation",
+  "binaryName" : "java.lang.annotation.IncompleteAnnotationException",
+  "canonicalName" : "java.lang.annotation.IncompleteAnnotationException",
+  "simpleName" : "IncompleteAnnotationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.annotation.IncompleteAnnotationException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.annotation.IncompleteAnnotationException(java.lang.Class, java.lang.String)",
+    "parameters" : [ {
+      "name" : "annotationType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elementName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "annotationType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class annotationType()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "elementName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String elementName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

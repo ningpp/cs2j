@@ -1,0 +1,98 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicIconFactory",
+  "canonicalName" : "javax.swing.plaf.basic.BasicIconFactory",
+  "simpleName" : "BasicIconFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicIconFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicIconFactory()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createEmptyFrameIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon createEmptyFrameIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCheckBoxIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getCheckBoxIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCheckBoxMenuItemIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getCheckBoxMenuItemIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuArrowIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getMenuArrowIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuItemArrowIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getMenuItemArrowIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuItemCheckIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getMenuItemCheckIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRadioButtonIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getRadioButtonIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRadioButtonMenuItemIcon",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.Icon getRadioButtonMenuItemIcon()",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

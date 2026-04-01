@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.StackMapFrameInfo$VerificationTypeInfo",
+  "canonicalName" : "java.lang.classfile.attribute.StackMapFrameInfo.VerificationTypeInfo",
+  "simpleName" : "VerificationTypeInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.attribute.StackMapFrameInfo",
+  "declaredPublicMethods" : [ {
+    "name" : "tag",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int tag()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.RowSetInternal",
+  "canonicalName" : "javax.sql.RowSetInternal",
+  "simpleName" : "RowSetInternal",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getConnection",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.Connection getConnection() throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOriginal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getOriginal() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOriginalRow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ResultSet getOriginalRow() throws java.sql.SQLException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParams",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object[] getParams() throws java.sql.SQLException",
+    "returnType" : "java.lang.Object[]",
+    "genericReturnType" : "java.lang.Object[]",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMetaData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMetaData(javax.sql.RowSetMetaData) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetMetaData",
+      "genericType" : "javax.sql.RowSetMetaData",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

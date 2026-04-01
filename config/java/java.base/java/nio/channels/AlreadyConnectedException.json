@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.AlreadyConnectedException",
+  "canonicalName" : "java.nio.channels.AlreadyConnectedException",
+  "simpleName" : "AlreadyConnectedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.AlreadyConnectedException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.AlreadyConnectedException()",
+    "varArgs" : false
+  } ]
+}

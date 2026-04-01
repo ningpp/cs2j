@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.AdjustmentListener",
+  "canonicalName" : "java.awt.event.AdjustmentListener",
+  "simpleName" : "AdjustmentListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "adjustmentValueChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void adjustmentValueChanged(java.awt.event.AdjustmentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.AdjustmentEvent",
+      "genericType" : "java.awt.event.AdjustmentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+  "canonicalName" : "javax.net.ssl.SSLEngineResult.HandshakeStatus",
+  "simpleName" : "HandshakeStatus",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.net.ssl.SSLEngineResult",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ssl.SSLEngineResult$HandshakeStatus valueOf(java.lang.String)",
+    "returnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ssl.SSLEngineResult$HandshakeStatus[] values()",
+    "returnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus[]",
+    "genericReturnType" : "javax.net.ssl.SSLEngineResult$HandshakeStatus[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

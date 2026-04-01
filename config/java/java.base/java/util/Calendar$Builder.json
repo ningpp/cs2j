@@ -1,0 +1,315 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Calendar$Builder",
+  "canonicalName" : "java.util.Calendar.Builder",
+  "simpleName" : "Builder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.util.Calendar",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.Calendar$Builder",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar build()",
+    "returnType" : "java.util.Calendar",
+    "genericReturnType" : "java.util.Calendar",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder set(int, int)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCalendarType",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setCalendarType(java.lang.String)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDate",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setDate(int, int, int)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFields",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setFields(int...)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "fieldValuePairs",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "setInstant",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setInstant(java.util.Date)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInstant",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setInstant(long)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLenient",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setLenient(boolean)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "lenient",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocale",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setLocale(java.util.Locale)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTimeOfDay",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setTimeOfDay(int, int, int)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "hourOfDay",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTimeOfDay",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setTimeOfDay(int, int, int, int)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "hourOfDay",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "millis",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTimeZone",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setTimeZone(java.util.TimeZone)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.util.TimeZone",
+      "genericType" : "java.util.TimeZone",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWeekDate",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setWeekDate(int, int, int)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "weekYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "weekOfYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfWeek",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWeekDefinition",
+    "modifiers" : "public",
+    "signature" : "public java.util.Calendar$Builder setWeekDefinition(int, int)",
+    "returnType" : "java.util.Calendar$Builder",
+    "genericReturnType" : "java.util.Calendar$Builder",
+    "parameters" : [ {
+      "name" : "firstDayOfWeek",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimalDaysInFirstWeek",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

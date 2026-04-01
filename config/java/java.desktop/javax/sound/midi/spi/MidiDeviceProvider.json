@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi.spi",
+  "binaryName" : "javax.sound.midi.spi.MidiDeviceProvider",
+  "canonicalName" : "javax.sound.midi.spi.MidiDeviceProvider",
+  "simpleName" : "MidiDeviceProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getDevice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.MidiDevice getDevice(javax.sound.midi.MidiDevice$Info)",
+    "returnType" : "javax.sound.midi.MidiDevice",
+    "genericReturnType" : "javax.sound.midi.MidiDevice",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.MidiDevice$Info",
+      "genericType" : "javax.sound.midi.MidiDevice$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDeviceInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.MidiDevice$Info[] getDeviceInfo()",
+    "returnType" : "javax.sound.midi.MidiDevice$Info[]",
+    "genericReturnType" : "javax.sound.midi.MidiDevice$Info[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDeviceSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isDeviceSupported(javax.sound.midi.MidiDevice$Info)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "info",
+      "type" : "javax.sound.midi.MidiDevice$Info",
+      "genericType" : "javax.sound.midi.MidiDevice$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

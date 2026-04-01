@@ -1,0 +1,151 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.WritableRenderedImage",
+  "canonicalName" : "java.awt.image.WritableRenderedImage",
+  "simpleName" : "WritableRenderedImage",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.image.RenderedImage" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addTileObserver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addTileObserver(java.awt.image.TileObserver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.TileObserver",
+      "genericType" : "java.awt.image.TileObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWritableTile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.image.WritableRaster getWritableTile(int, int)",
+    "returnType" : "java.awt.image.WritableRaster",
+    "genericReturnType" : "java.awt.image.WritableRaster",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWritableTileIndices",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Point[] getWritableTileIndices()",
+    "returnType" : "java.awt.Point[]",
+    "genericReturnType" : "java.awt.Point[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasTileWriters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasTileWriters()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTileWritable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isTileWritable(int, int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseWritableTile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void releaseWritableTile(int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeTileObserver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeTileObserver(java.awt.image.TileObserver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.TileObserver",
+      "genericType" : "java.awt.image.TileObserver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setData(java.awt.image.Raster)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.Raster",
+      "genericType" : "java.awt.image.Raster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.WindowFocusListener",
+  "canonicalName" : "java.awt.event.WindowFocusListener",
+  "simpleName" : "WindowFocusListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "windowGainedFocus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowGainedFocus(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "windowLostFocus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void windowLostFocus(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

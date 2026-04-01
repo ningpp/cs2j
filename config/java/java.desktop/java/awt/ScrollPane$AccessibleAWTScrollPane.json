@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.ScrollPane$AccessibleAWTScrollPane",
+  "canonicalName" : "java.awt.ScrollPane.AccessibleAWTScrollPane",
+  "simpleName" : "AccessibleAWTScrollPane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.ScrollPane",
+  "superClass" : "java.awt.Container$AccessibleAWTContainer",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleRole",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleRole getAccessibleRole()",
+    "returnType" : "javax.accessibility.AccessibleRole",
+    "genericReturnType" : "javax.accessibility.AccessibleRole",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.JMXAuthenticator",
+  "canonicalName" : "javax.management.remote.JMXAuthenticator",
+  "simpleName" : "JMXAuthenticator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "authenticate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.security.auth.Subject authenticate(java.lang.Object)",
+    "returnType" : "javax.security.auth.Subject",
+    "genericReturnType" : "javax.security.auth.Subject",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

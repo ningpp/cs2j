@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.UndeclaredThrowableException",
+  "canonicalName" : "java.lang.reflect.UndeclaredThrowableException",
+  "simpleName" : "UndeclaredThrowableException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.reflect.UndeclaredThrowableException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.UndeclaredThrowableException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "undeclaredThrowable",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.reflect.UndeclaredThrowableException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.UndeclaredThrowableException(java.lang.Throwable, java.lang.String)",
+    "parameters" : [ {
+      "name" : "undeclaredThrowable",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getUndeclaredThrowable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getUndeclaredThrowable()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

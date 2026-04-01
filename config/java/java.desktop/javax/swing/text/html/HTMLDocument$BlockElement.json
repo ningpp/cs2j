@@ -1,0 +1,57 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLDocument$BlockElement",
+  "canonicalName" : "javax.swing.text.html.HTMLDocument.BlockElement",
+  "simpleName" : "BlockElement",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.html.HTMLDocument",
+  "superClass" : "javax.swing.text.AbstractDocument$BranchElement",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLDocument$BlockElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLDocument$BlockElement(javax.swing.text.html.HTMLDocument, javax.swing.text.Element, javax.swing.text.AttributeSet)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.html.HTMLDocument",
+      "genericType" : "javax.swing.text.html.HTMLDocument",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "a",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolveParent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AttributeSet getResolveParent()",
+    "returnType" : "javax.swing.text.AttributeSet",
+    "genericReturnType" : "javax.swing.text.AttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

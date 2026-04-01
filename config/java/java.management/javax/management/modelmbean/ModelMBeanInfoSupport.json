@@ -1,0 +1,338 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.ModelMBeanInfoSupport",
+  "canonicalName" : "javax.management.modelmbean.ModelMBeanInfoSupport",
+  "simpleName" : "ModelMBeanInfoSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.MBeanInfo",
+  "interfaces" : [ "javax.management.modelmbean.ModelMBeanInfo" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.modelmbean.ModelMBeanInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanInfoSupport(java.lang.String, java.lang.String, javax.management.modelmbean.ModelMBeanAttributeInfo[], javax.management.modelmbean.ModelMBeanConstructorInfo[], javax.management.modelmbean.ModelMBeanOperationInfo[], javax.management.modelmbean.ModelMBeanNotificationInfo[])",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.management.modelmbean.ModelMBeanAttributeInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanAttributeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constructors",
+      "type" : "javax.management.modelmbean.ModelMBeanConstructorInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanConstructorInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "operations",
+      "type" : "javax.management.modelmbean.ModelMBeanOperationInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanOperationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifications",
+      "type" : "javax.management.modelmbean.ModelMBeanNotificationInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanInfoSupport(java.lang.String, java.lang.String, javax.management.modelmbean.ModelMBeanAttributeInfo[], javax.management.modelmbean.ModelMBeanConstructorInfo[], javax.management.modelmbean.ModelMBeanOperationInfo[], javax.management.modelmbean.ModelMBeanNotificationInfo[], javax.management.Descriptor)",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.management.modelmbean.ModelMBeanAttributeInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanAttributeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constructors",
+      "type" : "javax.management.modelmbean.ModelMBeanConstructorInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanConstructorInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "operations",
+      "type" : "javax.management.modelmbean.ModelMBeanOperationInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanOperationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifications",
+      "type" : "javax.management.modelmbean.ModelMBeanNotificationInfo[]",
+      "genericType" : "javax.management.modelmbean.ModelMBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mbeandescriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.modelmbean.ModelMBeanInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanInfoSupport(javax.management.modelmbean.ModelMBeanInfo)",
+    "parameters" : [ {
+      "name" : "mbi",
+      "type" : "javax.management.modelmbean.ModelMBeanInfo",
+      "genericType" : "javax.management.modelmbean.ModelMBeanInfo",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanAttributeInfo getAttribute(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "genericReturnType" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "parameters" : [ {
+      "name" : "inName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConstructor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanConstructorInfo getConstructor(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.modelmbean.ModelMBeanConstructorInfo",
+    "genericReturnType" : "javax.management.modelmbean.ModelMBeanConstructorInfo",
+    "parameters" : [ {
+      "name" : "inName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor getDescriptor()",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor getDescriptor(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "parameters" : [ {
+      "name" : "inDescriptorName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor getDescriptor(java.lang.String, java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "parameters" : [ {
+      "name" : "inDescriptorName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inDescriptorType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptors",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor[] getDescriptors(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.Descriptor[]",
+    "genericReturnType" : "javax.management.Descriptor[]",
+    "parameters" : [ {
+      "name" : "inDescriptorType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanDescriptor",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Descriptor getMBeanDescriptor() throws javax.management.MBeanException",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "exceptions" : [ "javax.management.MBeanException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotification",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanNotificationInfo getNotification(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+    "genericReturnType" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+    "parameters" : [ {
+      "name" : "inName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOperation",
+    "modifiers" : "public",
+    "signature" : "public javax.management.modelmbean.ModelMBeanOperationInfo getOperation(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.modelmbean.ModelMBeanOperationInfo",
+    "genericReturnType" : "javax.management.modelmbean.ModelMBeanOperationInfo",
+    "parameters" : [ {
+      "name" : "inName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDescriptor",
+    "modifiers" : "public",
+    "signature" : "public void setDescriptor(javax.management.Descriptor, java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inDescriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inDescriptorType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDescriptors",
+    "modifiers" : "public",
+    "signature" : "public void setDescriptors(javax.management.Descriptor[]) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inDescriptors",
+      "type" : "javax.management.Descriptor[]",
+      "genericType" : "javax.management.Descriptor[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanDescriptor",
+    "modifiers" : "public",
+    "signature" : "public void setMBeanDescriptor(javax.management.Descriptor) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inMBeanDescriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

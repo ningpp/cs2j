@@ -1,0 +1,281 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.serial",
+  "binaryName" : "javax.sql.rowset.serial.SerialArray",
+  "canonicalName" : "javax.sql.rowset.serial.SerialArray",
+  "simpleName" : "SerialArray",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.lang.Cloneable", "java.sql.Array" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.rowset.serial.SerialArray",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.serial.SerialArray(java.sql.Array) throws javax.sql.rowset.serial.SerialException, java.sql.SQLException",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "java.sql.Array",
+      "genericType" : "java.sql.Array",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException", "java.sql.SQLException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sql.rowset.serial.SerialArray",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.serial.SerialArray(java.sql.Array, java.util.Map) throws javax.sql.rowset.serial.SerialException, java.sql.SQLException",
+    "parameters" : [ {
+      "name" : "array",
+      "type" : "java.sql.Array",
+      "genericType" : "java.sql.Array",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException", "java.sql.SQLException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "free",
+    "modifiers" : "public",
+    "signature" : "public void free() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getArray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getArray() throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getArray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getArray(java.util.Map) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getArray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getArray(long, int) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getArray",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getArray(long, int, java.util.Map) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaseType",
+    "modifiers" : "public",
+    "signature" : "public int getBaseType() throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBaseTypeName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getBaseTypeName() throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResultSet",
+    "modifiers" : "public",
+    "signature" : "public java.sql.ResultSet getResultSet() throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResultSet",
+    "modifiers" : "public",
+    "signature" : "public java.sql.ResultSet getResultSet(java.util.Map) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResultSet",
+    "modifiers" : "public",
+    "signature" : "public java.sql.ResultSet getResultSet(long, int) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResultSet",
+    "modifiers" : "public",
+    "signature" : "public java.sql.ResultSet getResultSet(long, int, java.util.Map) throws javax.sql.rowset.serial.SerialException",
+    "returnType" : "java.sql.ResultSet",
+    "genericReturnType" : "java.sql.ResultSet",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "map",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.serial.SerialException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,73 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.bootstrap",
+  "binaryName" : "org.w3c.dom.bootstrap.DOMImplementationRegistry",
+  "canonicalName" : "org.w3c.dom.bootstrap.DOMImplementationRegistry",
+  "simpleName" : "DOMImplementationRegistry",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addSource",
+    "modifiers" : "public",
+    "signature" : "public void addSource(org.w3c.dom.DOMImplementationSource)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "org.w3c.dom.DOMImplementationSource",
+      "genericType" : "org.w3c.dom.DOMImplementationSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDOMImplementation",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.DOMImplementation getDOMImplementation(java.lang.String)",
+    "returnType" : "org.w3c.dom.DOMImplementation",
+    "genericReturnType" : "org.w3c.dom.DOMImplementation",
+    "parameters" : [ {
+      "name" : "features",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDOMImplementationList",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.DOMImplementationList getDOMImplementationList(java.lang.String)",
+    "returnType" : "org.w3c.dom.DOMImplementationList",
+    "genericReturnType" : "org.w3c.dom.DOMImplementationList",
+    "parameters" : [ {
+      "name" : "features",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static org.w3c.dom.bootstrap.DOMImplementationRegistry newInstance() throws java.lang.ClassNotFoundException, java.lang.InstantiationException, java.lang.IllegalAccessException, java.lang.ClassCastException",
+    "returnType" : "org.w3c.dom.bootstrap.DOMImplementationRegistry",
+    "genericReturnType" : "org.w3c.dom.bootstrap.DOMImplementationRegistry",
+    "exceptions" : [ "java.lang.ClassNotFoundException", "java.lang.InstantiationException", "java.lang.IllegalAccessException", "java.lang.ClassCastException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

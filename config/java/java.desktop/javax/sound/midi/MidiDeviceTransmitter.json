@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.MidiDeviceTransmitter",
+  "canonicalName" : "javax.sound.midi.MidiDeviceTransmitter",
+  "simpleName" : "MidiDeviceTransmitter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sound.midi.Transmitter" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMidiDevice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.MidiDevice getMidiDevice()",
+    "returnType" : "javax.sound.midi.MidiDevice",
+    "genericReturnType" : "javax.sound.midi.MidiDevice",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

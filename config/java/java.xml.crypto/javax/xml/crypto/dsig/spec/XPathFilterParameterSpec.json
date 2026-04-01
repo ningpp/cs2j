@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.XPathFilterParameterSpec",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.XPathFilterParameterSpec",
+  "simpleName" : "XPathFilterParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.crypto.dsig.spec.TransformParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.spec.XPathFilterParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.XPathFilterParameterSpec(java.lang.String)",
+    "parameters" : [ {
+      "name" : "xPath",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.dsig.spec.XPathFilterParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.XPathFilterParameterSpec(java.lang.String, java.util.Map)",
+    "parameters" : [ {
+      "name" : "xPath",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "namespaceMap",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNamespaceMap",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getNamespaceMap()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXPath",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getXPath()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

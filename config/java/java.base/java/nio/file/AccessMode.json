@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.AccessMode",
+  "canonicalName" : "java.nio.file.AccessMode",
+  "simpleName" : "AccessMode",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.AccessMode valueOf(java.lang.String)",
+    "returnType" : "java.nio.file.AccessMode",
+    "genericReturnType" : "java.nio.file.AccessMode",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.AccessMode[] values()",
+    "returnType" : "java.nio.file.AccessMode[]",
+    "genericReturnType" : "java.nio.file.AccessMode[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

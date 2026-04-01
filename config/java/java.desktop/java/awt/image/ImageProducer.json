@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.ImageProducer",
+  "canonicalName" : "java.awt.image.ImageProducer",
+  "simpleName" : "ImageProducer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "addConsumer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConsumer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeConsumer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeConsumer(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "requestTopDownLeftRightResend",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void requestTopDownLeftRightResend(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startProduction",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void startProduction(java.awt.image.ImageConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.image.ImageConsumer",
+      "genericType" : "java.awt.image.ImageConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

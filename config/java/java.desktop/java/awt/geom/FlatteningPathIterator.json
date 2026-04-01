@@ -1,0 +1,139 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.geom",
+  "binaryName" : "java.awt.geom.FlatteningPathIterator",
+  "canonicalName" : "java.awt.geom.FlatteningPathIterator",
+  "simpleName" : "FlatteningPathIterator",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.geom.PathIterator" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.geom.FlatteningPathIterator",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.FlatteningPathIterator(java.awt.geom.PathIterator, double)",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.geom.PathIterator",
+      "genericType" : "java.awt.geom.PathIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flatness",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.geom.FlatteningPathIterator",
+    "modifiers" : "public",
+    "signature" : "public java.awt.geom.FlatteningPathIterator(java.awt.geom.PathIterator, double, int)",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "java.awt.geom.PathIterator",
+      "genericType" : "java.awt.geom.PathIterator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flatness",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "limit",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "currentSegment",
+    "modifiers" : "public",
+    "signature" : "public int currentSegment(double[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "coords",
+      "type" : "double[]",
+      "genericType" : "double[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "currentSegment",
+    "modifiers" : "public",
+    "signature" : "public int currentSegment(float[])",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "coords",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFlatness",
+    "modifiers" : "public",
+    "signature" : "public double getFlatness()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRecursionLimit",
+    "modifiers" : "public",
+    "signature" : "public int getRecursionLimit()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindingRule",
+    "modifiers" : "public",
+    "signature" : "public int getWindingRule()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDone",
+    "modifiers" : "public",
+    "signature" : "public boolean isDone()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public",
+    "signature" : "public void next()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

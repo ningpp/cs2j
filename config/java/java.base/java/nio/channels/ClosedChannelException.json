@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ClosedChannelException",
+  "canonicalName" : "java.nio.channels.ClosedChannelException",
+  "simpleName" : "ClosedChannelException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.ClosedChannelException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.ClosedChannelException()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,164 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.stream",
+  "binaryName" : "javax.xml.transform.stream.StreamResult",
+  "canonicalName" : "javax.xml.transform.stream.StreamResult",
+  "simpleName" : "StreamResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.transform.Result" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.transform.stream.StreamResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stream.StreamResult()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.stream.StreamResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stream.StreamResult(java.io.File)",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.stream.StreamResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stream.StreamResult(java.io.OutputStream)",
+    "parameters" : [ {
+      "name" : "outputStream",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.stream.StreamResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stream.StreamResult(java.io.Writer)",
+    "parameters" : [ {
+      "name" : "writer",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.stream.StreamResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stream.StreamResult(java.lang.String)",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getOutputStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.OutputStream getOutputStream()",
+    "returnType" : "java.io.OutputStream",
+    "genericReturnType" : "java.io.OutputStream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWriter",
+    "modifiers" : "public",
+    "signature" : "public java.io.Writer getWriter()",
+    "returnType" : "java.io.Writer",
+    "genericReturnType" : "java.io.Writer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOutputStream",
+    "modifiers" : "public",
+    "signature" : "public void setOutputStream(java.io.OutputStream)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "outputStream",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.io.File)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWriter",
+    "modifiers" : "public",
+    "signature" : "public void setWriter(java.io.Writer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "writer",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

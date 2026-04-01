@@ -1,0 +1,89 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.ConnectionBuilder",
+  "canonicalName" : "java.sql.ConnectionBuilder",
+  "simpleName" : "ConnectionBuilder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.Connection build() throws java.sql.SQLException",
+    "returnType" : "java.sql.Connection",
+    "genericReturnType" : "java.sql.Connection",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "password",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ConnectionBuilder password(java.lang.String)",
+    "returnType" : "java.sql.ConnectionBuilder",
+    "genericReturnType" : "java.sql.ConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shardingKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ConnectionBuilder shardingKey(java.sql.ShardingKey)",
+    "returnType" : "java.sql.ConnectionBuilder",
+    "genericReturnType" : "java.sql.ConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ShardingKey",
+      "genericType" : "java.sql.ShardingKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superShardingKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ConnectionBuilder superShardingKey(java.sql.ShardingKey)",
+    "returnType" : "java.sql.ConnectionBuilder",
+    "genericReturnType" : "java.sql.ConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.ShardingKey",
+      "genericType" : "java.sql.ShardingKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "user",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.sql.ConnectionBuilder user(java.lang.String)",
+    "returnType" : "java.sql.ConnectionBuilder",
+    "genericReturnType" : "java.sql.ConnectionBuilder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

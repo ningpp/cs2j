@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "java.sql",
+  "binaryName" : "java.sql.DriverAction",
+  "canonicalName" : "java.sql.DriverAction",
+  "simpleName" : "DriverAction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "deregister",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void deregister()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

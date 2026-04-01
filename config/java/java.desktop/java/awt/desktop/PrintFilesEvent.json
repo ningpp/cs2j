@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.PrintFilesEvent",
+  "canonicalName" : "java.awt.desktop.PrintFilesEvent",
+  "simpleName" : "PrintFilesEvent",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.desktop.FilesEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.desktop.PrintFilesEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.desktop.PrintFilesEvent(java.util.List)",
+    "parameters" : [ {
+      "name" : "files",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

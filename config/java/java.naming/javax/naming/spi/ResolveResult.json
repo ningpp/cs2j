@@ -1,0 +1,137 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.spi",
+  "binaryName" : "javax.naming.spi.ResolveResult",
+  "canonicalName" : "javax.naming.spi.ResolveResult",
+  "simpleName" : "ResolveResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.spi.ResolveResult",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.spi.ResolveResult(java.lang.Object, java.lang.String)",
+    "parameters" : [ {
+      "name" : "robj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rcomp",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.spi.ResolveResult",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.spi.ResolveResult(java.lang.Object, javax.naming.Name)",
+    "parameters" : [ {
+      "name" : "robj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "rname",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "appendRemainingComponent",
+    "modifiers" : "public",
+    "signature" : "public void appendRemainingComponent(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appendRemainingName",
+    "modifiers" : "public",
+    "signature" : "public void appendRemainingName(javax.naming.Name)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRemainingName",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Name getRemainingName()",
+    "returnType" : "javax.naming.Name",
+    "genericReturnType" : "javax.naming.Name",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolvedObj",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getResolvedObj()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRemainingName",
+    "modifiers" : "public",
+    "signature" : "public void setRemainingName(javax.naming.Name)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResolvedObj",
+    "modifiers" : "public",
+    "signature" : "public void setResolvedObj(java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

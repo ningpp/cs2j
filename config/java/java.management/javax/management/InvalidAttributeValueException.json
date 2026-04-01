@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.InvalidAttributeValueException",
+  "canonicalName" : "javax.management.InvalidAttributeValueException",
+  "simpleName" : "InvalidAttributeValueException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.OperationsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.InvalidAttributeValueException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.InvalidAttributeValueException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.InvalidAttributeValueException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.InvalidAttributeValueException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

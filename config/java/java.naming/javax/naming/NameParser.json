@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.NameParser",
+  "canonicalName" : "javax.naming.NameParser",
+  "simpleName" : "NameParser",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "parse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.Name parse(java.lang.String) throws javax.naming.NamingException",
+    "returnType" : "javax.naming.Name",
+    "genericReturnType" : "javax.naming.Name",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

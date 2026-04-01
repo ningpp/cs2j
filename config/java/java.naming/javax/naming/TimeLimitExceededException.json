@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.TimeLimitExceededException",
+  "canonicalName" : "javax.naming.TimeLimitExceededException",
+  "simpleName" : "TimeLimitExceededException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.LimitExceededException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.TimeLimitExceededException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.TimeLimitExceededException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.TimeLimitExceededException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.TimeLimitExceededException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

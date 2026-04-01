@@ -1,0 +1,116 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MBeanServerFactory",
+  "canonicalName" : "javax.management.MBeanServerFactory",
+  "simpleName" : "MBeanServerFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createMBeanServer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.MBeanServer createMBeanServer()",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createMBeanServer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.MBeanServer createMBeanServer(java.lang.String)",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findMBeanServer",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized java.util.ArrayList findMBeanServer(java.lang.String)",
+    "returnType" : "java.util.ArrayList",
+    "genericReturnType" : "java.util.ArrayList",
+    "parameters" : [ {
+      "name" : "agentId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassLoaderRepository",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.loading.ClassLoaderRepository getClassLoaderRepository(javax.management.MBeanServer)",
+    "returnType" : "javax.management.loading.ClassLoaderRepository",
+    "genericReturnType" : "javax.management.loading.ClassLoaderRepository",
+    "parameters" : [ {
+      "name" : "server",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newMBeanServer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.MBeanServer newMBeanServer()",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newMBeanServer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.MBeanServer newMBeanServer(java.lang.String)",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "parameters" : [ {
+      "name" : "domain",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseMBeanServer",
+    "modifiers" : "public static",
+    "signature" : "public static void releaseMBeanServer(javax.management.MBeanServer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mbeanServer",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

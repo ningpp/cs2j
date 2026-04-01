@@ -1,0 +1,137 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.SequencedMap",
+  "canonicalName" : "java.util.SequencedMap",
+  "simpleName" : "SequencedMap",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.Map" ],
+  "declaredPublicMethods" : [ {
+    "name" : "firstEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map$Entry firstEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "lastEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map$Entry lastEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "pollFirstEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map$Entry pollFirstEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "pollLastEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map$Entry pollLastEntry()",
+    "returnType" : "java.util.Map$Entry",
+    "genericReturnType" : "java.util.Map$Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "putFirst",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object putFirst(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "k",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "putLast",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object putLast(java.lang.Object, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "k",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "v",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "reversed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.SequencedMap reversed()",
+    "returnType" : "java.util.SequencedMap",
+    "genericReturnType" : "java.util.SequencedMap",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequencedEntrySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedSet sequencedEntrySet()",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "sequencedKeySet",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedSet sequencedKeySet()",
+    "returnType" : "java.util.SequencedSet",
+    "genericReturnType" : "java.util.SequencedSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "sequencedValues",
+    "modifiers" : "public",
+    "signature" : "public java.util.SequencedCollection sequencedValues()",
+    "returnType" : "java.util.SequencedCollection",
+    "genericReturnType" : "java.util.SequencedCollection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

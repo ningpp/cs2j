@@ -1,0 +1,81 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.Component$AccessibleAWTComponent$AccessibleAWTComponentHandler",
+  "canonicalName" : "java.awt.Component.AccessibleAWTComponent.AccessibleAWTComponentHandler",
+  "simpleName" : "AccessibleAWTComponentHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.Component$AccessibleAWTComponent",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.ComponentListener", "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "componentHidden",
+    "modifiers" : "public",
+    "signature" : "public void componentHidden(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentMoved",
+    "modifiers" : "public",
+    "signature" : "public void componentMoved(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentResized",
+    "modifiers" : "public",
+    "signature" : "public void componentResized(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "componentShown",
+    "modifiers" : "public",
+    "signature" : "public void componentShown(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

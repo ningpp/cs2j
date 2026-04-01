@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.MenuListener",
+  "canonicalName" : "javax.swing.event.MenuListener",
+  "simpleName" : "MenuListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "menuCanceled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuCanceled(javax.swing.event.MenuEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuEvent",
+      "genericType" : "javax.swing.event.MenuEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuDeselected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuDeselected(javax.swing.event.MenuEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuEvent",
+      "genericType" : "javax.swing.event.MenuEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "menuSelected",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void menuSelected(javax.swing.event.MenuEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.MenuEvent",
+      "genericType" : "javax.swing.event.MenuEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

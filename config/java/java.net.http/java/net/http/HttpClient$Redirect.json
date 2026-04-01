@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpClient$Redirect",
+  "canonicalName" : "java.net.http.HttpClient.Redirect",
+  "simpleName" : "Redirect",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.net.http.HttpClient",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpClient$Redirect valueOf(java.lang.String)",
+    "returnType" : "java.net.http.HttpClient$Redirect",
+    "genericReturnType" : "java.net.http.HttpClient$Redirect",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpClient$Redirect[] values()",
+    "returnType" : "java.net.http.HttpClient$Redirect[]",
+    "genericReturnType" : "java.net.http.HttpClient$Redirect[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

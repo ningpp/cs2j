@@ -1,0 +1,96 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.MethodTransform",
+  "canonicalName" : "java.lang.classfile.MethodTransform",
+  "simpleName" : "MethodTransform",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.ClassFileTransform" ],
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.MethodTransform andThen(java.lang.classfile.MethodTransform)",
+    "returnType" : "java.lang.classfile.MethodTransform",
+    "genericReturnType" : "java.lang.classfile.MethodTransform",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "java.lang.classfile.MethodTransform",
+      "genericType" : "java.lang.classfile.MethodTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "dropping",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.MethodTransform dropping(java.util.function.Predicate)",
+    "returnType" : "java.lang.classfile.MethodTransform",
+    "genericReturnType" : "java.lang.classfile.MethodTransform",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endHandler",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.MethodTransform endHandler(java.util.function.Consumer)",
+    "returnType" : "java.lang.classfile.MethodTransform",
+    "genericReturnType" : "java.lang.classfile.MethodTransform",
+    "parameters" : [ {
+      "name" : "finisher",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofStateful",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.MethodTransform ofStateful(java.util.function.Supplier)",
+    "returnType" : "java.lang.classfile.MethodTransform",
+    "genericReturnType" : "java.lang.classfile.MethodTransform",
+    "parameters" : [ {
+      "name" : "supplier",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transformingCode",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.MethodTransform transformingCode(java.lang.classfile.CodeTransform)",
+    "returnType" : "java.lang.classfile.MethodTransform",
+    "genericReturnType" : "java.lang.classfile.MethodTransform",
+    "parameters" : [ {
+      "name" : "xform",
+      "type" : "java.lang.classfile.CodeTransform",
+      "genericType" : "java.lang.classfile.CodeTransform",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

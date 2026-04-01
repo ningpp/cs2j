@@ -1,0 +1,83 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "java.lang.management",
+  "binaryName" : "java.lang.management.MemoryNotificationInfo",
+  "canonicalName" : "java.lang.management.MemoryNotificationInfo",
+  "simpleName" : "MemoryNotificationInfo",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.management.MemoryNotificationInfo",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.MemoryNotificationInfo(java.lang.String, java.lang.management.MemoryUsage, long)",
+    "parameters" : [ {
+      "name" : "poolName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "usage",
+      "type" : "java.lang.management.MemoryUsage",
+      "genericType" : "java.lang.management.MemoryUsage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.management.MemoryNotificationInfo from(javax.management.openmbean.CompositeData)",
+    "returnType" : "java.lang.management.MemoryNotificationInfo",
+    "genericReturnType" : "java.lang.management.MemoryNotificationInfo",
+    "parameters" : [ {
+      "name" : "cd",
+      "type" : "javax.management.openmbean.CompositeData",
+      "genericType" : "javax.management.openmbean.CompositeData",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCount",
+    "modifiers" : "public",
+    "signature" : "public long getCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoolName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPoolName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUsage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.management.MemoryUsage getUsage()",
+    "returnType" : "java.lang.management.MemoryUsage",
+    "genericReturnType" : "java.lang.management.MemoryUsage",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.Exception",
+  "canonicalName" : "java.lang.Exception",
+  "simpleName" : "Exception",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Throwable",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.Exception",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Exception()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Exception",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Exception(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Exception",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Exception(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.Exception",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Exception(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

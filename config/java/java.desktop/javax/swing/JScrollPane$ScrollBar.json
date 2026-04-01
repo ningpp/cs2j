@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JScrollPane$ScrollBar",
+  "canonicalName" : "javax.swing.JScrollPane.ScrollBar",
+  "simpleName" : "ScrollBar",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JScrollPane",
+  "superClass" : "javax.swing.JScrollBar",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JScrollPane$ScrollBar",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JScrollPane$ScrollBar(javax.swing.JScrollPane, int)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.JScrollPane",
+      "genericType" : "javax.swing.JScrollPane",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "orientation",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBlockIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getBlockIncrement(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "direction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnitIncrement",
+    "modifiers" : "public",
+    "signature" : "public int getUnitIncrement(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "direction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBlockIncrement",
+    "modifiers" : "public",
+    "signature" : "public void setBlockIncrement(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "blockIncrement",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUnitIncrement",
+    "modifiers" : "public",
+    "signature" : "public void setUnitIncrement(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "unitIncrement",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

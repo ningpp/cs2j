@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.MethodHandles$Lookup$ClassOption",
+  "canonicalName" : "java.lang.invoke.MethodHandles.Lookup.ClassOption",
+  "simpleName" : "ClassOption",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.invoke.MethodHandles$Lookup",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.MethodHandles$Lookup$ClassOption valueOf(java.lang.String)",
+    "returnType" : "java.lang.invoke.MethodHandles$Lookup$ClassOption",
+    "genericReturnType" : "java.lang.invoke.MethodHandles$Lookup$ClassOption",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.MethodHandles$Lookup$ClassOption[] values()",
+    "returnType" : "java.lang.invoke.MethodHandles$Lookup$ClassOption[]",
+    "genericReturnType" : "java.lang.invoke.MethodHandles$Lookup$ClassOption[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

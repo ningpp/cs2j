@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.Pipe",
+  "canonicalName" : "java.nio.channels.Pipe",
+  "simpleName" : "Pipe",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.Pipe open() throws java.io.IOException",
+    "returnType" : "java.nio.channels.Pipe",
+    "genericReturnType" : "java.nio.channels.Pipe",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sink",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.Pipe$SinkChannel sink()",
+    "returnType" : "java.nio.channels.Pipe$SinkChannel",
+    "genericReturnType" : "java.nio.channels.Pipe$SinkChannel",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "source",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.Pipe$SourceChannel source()",
+    "returnType" : "java.nio.channels.Pipe$SourceChannel",
+    "genericReturnType" : "java.nio.channels.Pipe$SourceChannel",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

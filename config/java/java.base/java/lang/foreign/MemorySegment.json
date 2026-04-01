@@ -1,0 +1,1992 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.MemorySegment",
+  "canonicalName" : "java.lang.foreign.MemorySegment",
+  "simpleName" : "MemorySegment",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "address",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long address()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asByteBuffer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteBuffer asByteBuffer()",
+    "returnType" : "java.nio.ByteBuffer",
+    "genericReturnType" : "java.nio.ByteBuffer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asOverlappingSlice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional asOverlappingSlice(java.lang.foreign.MemorySegment)",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asReadOnly",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment asReadOnly()",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asSlice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment asSlice(long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asSlice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment asSlice(long, java.lang.foreign.MemoryLayout)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asSlice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment asSlice(long, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asSlice",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment asSlice(long, long, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "byteSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long byteSize()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static void copy(java.lang.Object, int, java.lang.foreign.MemorySegment, java.lang.foreign.ValueLayout, long, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "srcArray",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstLayout",
+      "type" : "java.lang.foreign.ValueLayout",
+      "genericType" : "java.lang.foreign.ValueLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elementCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static void copy(java.lang.foreign.MemorySegment, java.lang.foreign.ValueLayout, long, java.lang.Object, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "srcSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcLayout",
+      "type" : "java.lang.foreign.ValueLayout",
+      "genericType" : "java.lang.foreign.ValueLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstArray",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elementCount",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static void copy(java.lang.foreign.MemorySegment, java.lang.foreign.ValueLayout, long, java.lang.foreign.MemorySegment, java.lang.foreign.ValueLayout, long, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "srcSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcElementLayout",
+      "type" : "java.lang.foreign.ValueLayout",
+      "genericType" : "java.lang.foreign.ValueLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstElementLayout",
+      "type" : "java.lang.foreign.ValueLayout",
+      "genericType" : "java.lang.foreign.ValueLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elementCount",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copy",
+    "modifiers" : "public static",
+    "signature" : "public static void copy(java.lang.foreign.MemorySegment, long, java.lang.foreign.MemorySegment, long, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "srcSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bytes",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyFrom",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment copyFrom(java.lang.foreign.MemorySegment)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "elements",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream elements(java.lang.foreign.MemoryLayout)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fill",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment fill(byte)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "force",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void force()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment get(java.lang.foreign.AddressLayout, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.AddressLayout",
+      "genericType" : "java.lang.foreign.AddressLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean get(java.lang.foreign.ValueLayout$OfBoolean, long)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "genericType" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte get(java.lang.foreign.ValueLayout$OfByte, long)",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfByte",
+      "genericType" : "java.lang.foreign.ValueLayout$OfByte",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char get(java.lang.foreign.ValueLayout$OfChar, long)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfChar",
+      "genericType" : "java.lang.foreign.ValueLayout$OfChar",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double get(java.lang.foreign.ValueLayout$OfDouble, long)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfDouble",
+      "genericType" : "java.lang.foreign.ValueLayout$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float get(java.lang.foreign.ValueLayout$OfFloat, long)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfFloat",
+      "genericType" : "java.lang.foreign.ValueLayout$OfFloat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int get(java.lang.foreign.ValueLayout$OfInt, long)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfInt",
+      "genericType" : "java.lang.foreign.ValueLayout$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long get(java.lang.foreign.ValueLayout$OfLong, long)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfLong",
+      "genericType" : "java.lang.foreign.ValueLayout$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short get(java.lang.foreign.ValueLayout$OfShort, long)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfShort",
+      "genericType" : "java.lang.foreign.ValueLayout$OfShort",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment getAtIndex(java.lang.foreign.AddressLayout, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.AddressLayout",
+      "genericType" : "java.lang.foreign.AddressLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getAtIndex(java.lang.foreign.ValueLayout$OfBoolean, long)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "genericType" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte getAtIndex(java.lang.foreign.ValueLayout$OfByte, long)",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfByte",
+      "genericType" : "java.lang.foreign.ValueLayout$OfByte",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char getAtIndex(java.lang.foreign.ValueLayout$OfChar, long)",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfChar",
+      "genericType" : "java.lang.foreign.ValueLayout$OfChar",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double getAtIndex(java.lang.foreign.ValueLayout$OfDouble, long)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfDouble",
+      "genericType" : "java.lang.foreign.ValueLayout$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float getAtIndex(java.lang.foreign.ValueLayout$OfFloat, long)",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfFloat",
+      "genericType" : "java.lang.foreign.ValueLayout$OfFloat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getAtIndex(java.lang.foreign.ValueLayout$OfInt, long)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfInt",
+      "genericType" : "java.lang.foreign.ValueLayout$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getAtIndex(java.lang.foreign.ValueLayout$OfLong, long)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfLong",
+      "genericType" : "java.lang.foreign.ValueLayout$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short getAtIndex(java.lang.foreign.ValueLayout$OfShort, long)",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfShort",
+      "genericType" : "java.lang.foreign.ValueLayout$OfShort",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getString(long)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getString(long, java.nio.charset.Charset)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "heapBase",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional heapBase()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAccessibleBy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isAccessibleBy(java.lang.Thread)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Thread",
+      "genericType" : "java.lang.Thread",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLoaded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isLoaded()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isMapped",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isMapped()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNative",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isNative()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadOnly",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isReadOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "load",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void load()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maxByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long maxByteAlignment()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mismatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long mismatch(java.lang.foreign.MemorySegment)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mismatch",
+    "modifiers" : "public static",
+    "signature" : "public static long mismatch(java.lang.foreign.MemorySegment, long, long, java.lang.foreign.MemorySegment, long, long)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "srcSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcFromOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "srcToOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstSegment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstFromOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dstToOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofAddress",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofAddress(long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "address",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofArray(byte[])",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "byteArray",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofArray(char[])",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "charArray",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofArray(double[])",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "doubleArray",
+      "type" : "double[]",
+      "genericType" : "double[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofArray(float[])",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "floatArray",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofArray(int[])",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "intArray",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofArray(long[])",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "longArray",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofArray(short[])",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "shortArray",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofBuffer",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.MemorySegment ofBuffer(java.nio.Buffer)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "buffer",
+      "type" : "java.nio.Buffer",
+      "genericType" : "java.nio.Buffer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reinterpret",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment reinterpret(java.lang.foreign.Arena, java.util.function.Consumer)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.Arena",
+      "genericType" : "java.lang.foreign.Arena",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reinterpret",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment reinterpret(long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reinterpret",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment reinterpret(long, java.lang.foreign.Arena, java.util.function.Consumer)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.foreign.Arena",
+      "genericType" : "java.lang.foreign.Arena",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scope",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment$Scope scope()",
+    "returnType" : "java.lang.foreign.MemorySegment$Scope",
+    "genericReturnType" : "java.lang.foreign.MemorySegment$Scope",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.AddressLayout, long, java.lang.foreign.MemorySegment)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.AddressLayout",
+      "genericType" : "java.lang.foreign.AddressLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfBoolean, long, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "genericType" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfByte, long, byte)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfByte",
+      "genericType" : "java.lang.foreign.ValueLayout$OfByte",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfChar, long, char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfChar",
+      "genericType" : "java.lang.foreign.ValueLayout$OfChar",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfDouble, long, double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfDouble",
+      "genericType" : "java.lang.foreign.ValueLayout$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfFloat, long, float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfFloat",
+      "genericType" : "java.lang.foreign.ValueLayout$OfFloat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfInt, long, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfInt",
+      "genericType" : "java.lang.foreign.ValueLayout$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfLong, long, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfLong",
+      "genericType" : "java.lang.foreign.ValueLayout$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "set",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void set(java.lang.foreign.ValueLayout$OfShort, long, short)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfShort",
+      "genericType" : "java.lang.foreign.ValueLayout$OfShort",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.AddressLayout, long, java.lang.foreign.MemorySegment)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.AddressLayout",
+      "genericType" : "java.lang.foreign.AddressLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfBoolean, long, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "genericType" : "java.lang.foreign.ValueLayout$OfBoolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfByte, long, byte)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfByte",
+      "genericType" : "java.lang.foreign.ValueLayout$OfByte",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfChar, long, char)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfChar",
+      "genericType" : "java.lang.foreign.ValueLayout$OfChar",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfDouble, long, double)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfDouble",
+      "genericType" : "java.lang.foreign.ValueLayout$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfFloat, long, float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfFloat",
+      "genericType" : "java.lang.foreign.ValueLayout$OfFloat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfInt, long, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfInt",
+      "genericType" : "java.lang.foreign.ValueLayout$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfLong, long, long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfLong",
+      "genericType" : "java.lang.foreign.ValueLayout$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAtIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAtIndex(java.lang.foreign.ValueLayout$OfShort, long, short)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfShort",
+      "genericType" : "java.lang.foreign.ValueLayout$OfShort",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setString(long, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setString(long, java.lang.String, java.nio.charset.Charset)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Spliterator spliterator(java.lang.foreign.MemoryLayout)",
+    "returnType" : "java.util.Spliterator",
+    "genericReturnType" : "java.util.Spliterator",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] toArray(java.lang.foreign.ValueLayout$OfByte)",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfByte",
+      "genericType" : "java.lang.foreign.ValueLayout$OfByte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char[] toArray(java.lang.foreign.ValueLayout$OfChar)",
+    "returnType" : "char[]",
+    "genericReturnType" : "char[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfChar",
+      "genericType" : "java.lang.foreign.ValueLayout$OfChar",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double[] toArray(java.lang.foreign.ValueLayout$OfDouble)",
+    "returnType" : "double[]",
+    "genericReturnType" : "double[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfDouble",
+      "genericType" : "java.lang.foreign.ValueLayout$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract float[] toArray(java.lang.foreign.ValueLayout$OfFloat)",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfFloat",
+      "genericType" : "java.lang.foreign.ValueLayout$OfFloat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int[] toArray(java.lang.foreign.ValueLayout$OfInt)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfInt",
+      "genericType" : "java.lang.foreign.ValueLayout$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long[] toArray(java.lang.foreign.ValueLayout$OfLong)",
+    "returnType" : "long[]",
+    "genericReturnType" : "long[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfLong",
+      "genericType" : "java.lang.foreign.ValueLayout$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short[] toArray(java.lang.foreign.ValueLayout$OfShort)",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.ValueLayout$OfShort",
+      "genericType" : "java.lang.foreign.ValueLayout$OfShort",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unload",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void unload()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

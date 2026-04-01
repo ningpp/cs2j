@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset",
+  "binaryName" : "javax.sql.rowset.RowSetProvider",
+  "canonicalName" : "javax.sql.rowset.RowSetProvider",
+  "simpleName" : "RowSetProvider",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "newFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sql.rowset.RowSetFactory newFactory() throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.RowSetFactory",
+    "genericReturnType" : "javax.sql.rowset.RowSetFactory",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sql.rowset.RowSetFactory newFactory(java.lang.String, java.lang.ClassLoader) throws java.sql.SQLException",
+    "returnType" : "javax.sql.rowset.RowSetFactory",
+    "genericReturnType" : "javax.sql.rowset.RowSetFactory",
+    "parameters" : [ {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cl",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

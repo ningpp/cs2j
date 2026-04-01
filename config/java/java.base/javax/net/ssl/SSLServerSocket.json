@@ -1,0 +1,220 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLServerSocket",
+  "canonicalName" : "javax.net.ssl.SSLServerSocket",
+  "simpleName" : "SSLServerSocket",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.net.ServerSocket",
+  "declaredPublicMethods" : [ {
+    "name" : "getEnableSessionCreation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getEnableSessionCreation()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getEnabledCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnabledProtocols",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getEnabledProtocols()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNeedClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getNeedClientAuth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSSLParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLParameters getSSLParameters()",
+    "returnType" : "javax.net.ssl.SSLParameters",
+    "genericReturnType" : "javax.net.ssl.SSLParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getSupportedCipherSuites()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedProtocols",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getSupportedProtocols()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUseClientMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getUseClientMode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWantClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getWantClientAuth()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnableSessionCreation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnableSessionCreation(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabledCipherSuites",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnabledCipherSuites(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnabledProtocols",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnabledProtocols(java.lang.String[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNeedClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setNeedClientAuth(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSSLParameters",
+    "modifiers" : "public",
+    "signature" : "public void setSSLParameters(javax.net.ssl.SSLParameters)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "javax.net.ssl.SSLParameters",
+      "genericType" : "javax.net.ssl.SSLParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUseClientMode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setUseClientMode(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWantClientAuth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setWantClientAuth(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.CipherSpi",
+  "canonicalName" : "javax.crypto.CipherSpi",
+  "simpleName" : "CipherSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.CipherSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.CipherSpi()",
+    "varArgs" : false
+  } ]
+}

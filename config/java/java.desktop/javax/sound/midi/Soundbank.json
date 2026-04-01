@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.Soundbank",
+  "canonicalName" : "javax.sound.midi.Soundbank",
+  "simpleName" : "Soundbank",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstrument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Instrument getInstrument(javax.sound.midi.Patch)",
+    "returnType" : "javax.sound.midi.Instrument",
+    "genericReturnType" : "javax.sound.midi.Instrument",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.midi.Patch",
+      "genericType" : "javax.sound.midi.Patch",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstruments",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.Instrument[] getInstruments()",
+    "returnType" : "javax.sound.midi.Instrument[]",
+    "genericReturnType" : "javax.sound.midi.Instrument[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResources",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.midi.SoundbankResource[] getResources()",
+    "returnType" : "javax.sound.midi.SoundbankResource[]",
+    "genericReturnType" : "javax.sound.midi.SoundbankResource[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVendor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVendor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

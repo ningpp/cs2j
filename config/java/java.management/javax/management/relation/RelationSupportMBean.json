@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.RelationSupportMBean",
+  "canonicalName" : "javax.management.relation.RelationSupportMBean",
+  "simpleName" : "RelationSupportMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.relation.Relation" ],
+  "declaredPublicMethods" : [ {
+    "name" : "isInRelationService",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Boolean isInRelationService()",
+    "returnType" : "java.lang.Boolean",
+    "genericReturnType" : "java.lang.Boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRelationServiceManagementFlag",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setRelationServiceManagementFlag(java.lang.Boolean) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Boolean",
+      "genericType" : "java.lang.Boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

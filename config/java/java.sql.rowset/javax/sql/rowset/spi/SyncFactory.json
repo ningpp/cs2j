@@ -1,0 +1,155 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.spi",
+  "binaryName" : "javax.sql.rowset.spi.SyncFactory",
+  "canonicalName" : "javax.sql.rowset.spi.SyncFactory",
+  "simpleName" : "SyncFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sql.rowset.spi.SyncProvider getInstance(java.lang.String) throws javax.sql.rowset.spi.SyncFactoryException",
+    "returnType" : "javax.sql.rowset.spi.SyncProvider",
+    "genericReturnType" : "javax.sql.rowset.spi.SyncProvider",
+    "parameters" : [ {
+      "name" : "providerID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.spi.SyncFactoryException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogger",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.logging.Logger getLogger() throws javax.sql.rowset.spi.SyncFactoryException",
+    "returnType" : "java.util.logging.Logger",
+    "genericReturnType" : "java.util.logging.Logger",
+    "exceptions" : [ "javax.sql.rowset.spi.SyncFactoryException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRegisteredProviders",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Enumeration getRegisteredProviders() throws javax.sql.rowset.spi.SyncFactoryException",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "exceptions" : [ "javax.sql.rowset.spi.SyncFactoryException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSyncFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sql.rowset.spi.SyncFactory getSyncFactory()",
+    "returnType" : "javax.sql.rowset.spi.SyncFactory",
+    "genericReturnType" : "javax.sql.rowset.spi.SyncFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerProvider",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized void registerProvider(java.lang.String) throws javax.sql.rowset.spi.SyncFactoryException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "providerID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.spi.SyncFactoryException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setJNDIContext",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized void setJNDIContext(javax.naming.Context) throws javax.sql.rowset.spi.SyncFactoryException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ctx",
+      "type" : "javax.naming.Context",
+      "genericType" : "javax.naming.Context",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.spi.SyncFactoryException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLogger",
+    "modifiers" : "public static",
+    "signature" : "public static void setLogger(java.util.logging.Logger)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "logger",
+      "type" : "java.util.logging.Logger",
+      "genericType" : "java.util.logging.Logger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLogger",
+    "modifiers" : "public static",
+    "signature" : "public static void setLogger(java.util.logging.Logger, java.util.logging.Level)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "logger",
+      "type" : "java.util.logging.Logger",
+      "genericType" : "java.util.logging.Logger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "level",
+      "type" : "java.util.logging.Level",
+      "genericType" : "java.util.logging.Level",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unregisterProvider",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized void unregisterProvider(java.lang.String) throws javax.sql.rowset.spi.SyncFactoryException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "providerID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.spi.SyncFactoryException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

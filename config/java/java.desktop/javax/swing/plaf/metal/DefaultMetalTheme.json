@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.DefaultMetalTheme",
+  "canonicalName" : "javax.swing.plaf.metal.DefaultMetalTheme",
+  "simpleName" : "DefaultMetalTheme",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.metal.MetalTheme",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.DefaultMetalTheme",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.DefaultMetalTheme()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getControlTextFont",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource getControlTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuTextFont",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource getMenuTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubTextFont",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource getSubTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemTextFont",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource getSystemTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserTextFont",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource getUserTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindowTitleFont",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.FontUIResource getWindowTitleFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,73 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.JavaCompiler$CompilationTask",
+  "canonicalName" : "javax.tools.JavaCompiler.CompilationTask",
+  "simpleName" : "CompilationTask",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.tools.JavaCompiler",
+  "interfaces" : [ "java.util.concurrent.Callable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addModules",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void addModules(java.lang.Iterable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "call",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Boolean call()",
+    "returnType" : "java.lang.Boolean",
+    "genericReturnType" : "java.lang.Boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLocale",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLocale(java.util.Locale)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProcessors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setProcessors(java.lang.Iterable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Iterable",
+      "genericType" : "java.lang.Iterable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

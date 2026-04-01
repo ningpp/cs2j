@@ -1,0 +1,159 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.WeekFields",
+  "canonicalName" : "java.time.temporal.WeekFields",
+  "simpleName" : "WeekFields",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "dayOfWeek",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalField dayOfWeek()",
+    "returnType" : "java.time.temporal.TemporalField",
+    "genericReturnType" : "java.time.temporal.TemporalField",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirstDayOfWeek",
+    "modifiers" : "public",
+    "signature" : "public java.time.DayOfWeek getFirstDayOfWeek()",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinimalDaysInFirstWeek",
+    "modifiers" : "public",
+    "signature" : "public int getMinimalDaysInFirstWeek()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.WeekFields of(java.time.DayOfWeek, int)",
+    "returnType" : "java.time.temporal.WeekFields",
+    "genericReturnType" : "java.time.temporal.WeekFields",
+    "parameters" : [ {
+      "name" : "firstDayOfWeek",
+      "type" : "java.time.DayOfWeek",
+      "genericType" : "java.time.DayOfWeek",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimalDaysInFirstWeek",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.WeekFields of(java.util.Locale)",
+    "returnType" : "java.time.temporal.WeekFields",
+    "genericReturnType" : "java.time.temporal.WeekFields",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "weekBasedYear",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalField weekBasedYear()",
+    "returnType" : "java.time.temporal.TemporalField",
+    "genericReturnType" : "java.time.temporal.TemporalField",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "weekOfMonth",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalField weekOfMonth()",
+    "returnType" : "java.time.temporal.TemporalField",
+    "genericReturnType" : "java.time.temporal.TemporalField",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "weekOfWeekBasedYear",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalField weekOfWeekBasedYear()",
+    "returnType" : "java.time.temporal.TemporalField",
+    "genericReturnType" : "java.time.temporal.TemporalField",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "weekOfYear",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.TemporalField weekOfYear()",
+    "returnType" : "java.time.temporal.TemporalField",
+    "genericReturnType" : "java.time.temporal.TemporalField",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

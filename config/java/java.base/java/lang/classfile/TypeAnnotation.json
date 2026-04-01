@@ -1,0 +1,69 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation",
+  "simpleName" : "TypeAnnotation",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "annotation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Annotation annotation()",
+    "returnType" : "java.lang.classfile.Annotation",
+    "genericReturnType" : "java.lang.classfile.Annotation",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation of(java.lang.classfile.TypeAnnotation$TargetInfo, java.util.List, java.lang.classfile.Annotation)",
+    "returnType" : "java.lang.classfile.TypeAnnotation",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation",
+    "parameters" : [ {
+      "name" : "targetInfo",
+      "type" : "java.lang.classfile.TypeAnnotation$TargetInfo",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TargetInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "targetPath",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "annotation",
+      "type" : "java.lang.classfile.Annotation",
+      "genericType" : "java.lang.classfile.Annotation",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "targetInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeAnnotation$TargetInfo targetInfo()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TargetInfo",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TargetInfo",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "targetPath",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List targetPath()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

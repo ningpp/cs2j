@@ -1,0 +1,248 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLContext",
+  "canonicalName" : "javax.net.ssl.SSLContext",
+  "simpleName" : "SSLContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createSSLEngine",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLEngine createSSLEngine()",
+    "returnType" : "javax.net.ssl.SSLEngine",
+    "genericReturnType" : "javax.net.ssl.SSLEngine",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSSLEngine",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLEngine createSSLEngine(java.lang.String, int)",
+    "returnType" : "javax.net.ssl.SSLEngine",
+    "genericReturnType" : "javax.net.ssl.SSLEngine",
+    "parameters" : [ {
+      "name" : "peerHost",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "peerPort",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClientSessionContext",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLSessionContext getClientSessionContext()",
+    "returnType" : "javax.net.ssl.SSLSessionContext",
+    "genericReturnType" : "javax.net.ssl.SSLSessionContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ssl.SSLContext getDefault() throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.net.ssl.SSLContext",
+    "genericReturnType" : "javax.net.ssl.SSLContext",
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultSSLParameters",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLParameters getDefaultSSLParameters()",
+    "returnType" : "javax.net.ssl.SSLParameters",
+    "genericReturnType" : "javax.net.ssl.SSLParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ssl.SSLContext getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.net.ssl.SSLContext",
+    "genericReturnType" : "javax.net.ssl.SSLContext",
+    "parameters" : [ {
+      "name" : "protocol",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ssl.SSLContext getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException",
+    "returnType" : "javax.net.ssl.SSLContext",
+    "genericReturnType" : "javax.net.ssl.SSLContext",
+    "parameters" : [ {
+      "name" : "protocol",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException", "java.security.NoSuchProviderException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.net.ssl.SSLContext getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException",
+    "returnType" : "javax.net.ssl.SSLContext",
+    "genericReturnType" : "javax.net.ssl.SSLContext",
+    "parameters" : [ {
+      "name" : "protocol",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "provider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.NoSuchAlgorithmException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtocol",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getProtocol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProvider",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Provider getProvider()",
+    "returnType" : "java.security.Provider",
+    "genericReturnType" : "java.security.Provider",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServerSessionContext",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLSessionContext getServerSessionContext()",
+    "returnType" : "javax.net.ssl.SSLSessionContext",
+    "genericReturnType" : "javax.net.ssl.SSLSessionContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getServerSocketFactory",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLServerSocketFactory getServerSocketFactory()",
+    "returnType" : "javax.net.ssl.SSLServerSocketFactory",
+    "genericReturnType" : "javax.net.ssl.SSLServerSocketFactory",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSocketFactory",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLSocketFactory getSocketFactory()",
+    "returnType" : "javax.net.ssl.SSLSocketFactory",
+    "genericReturnType" : "javax.net.ssl.SSLSocketFactory",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportedSSLParameters",
+    "modifiers" : "public final",
+    "signature" : "public final javax.net.ssl.SSLParameters getSupportedSSLParameters()",
+    "returnType" : "javax.net.ssl.SSLParameters",
+    "genericReturnType" : "javax.net.ssl.SSLParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "init",
+    "modifiers" : "public final",
+    "signature" : "public final void init(javax.net.ssl.KeyManager[], javax.net.ssl.TrustManager[], java.security.SecureRandom) throws java.security.KeyManagementException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "km",
+      "type" : "javax.net.ssl.KeyManager[]",
+      "genericType" : "javax.net.ssl.KeyManager[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tm",
+      "type" : "javax.net.ssl.TrustManager[]",
+      "genericType" : "javax.net.ssl.TrustManager[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "random",
+      "type" : "java.security.SecureRandom",
+      "genericType" : "java.security.SecureRandom",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.KeyManagementException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefault",
+    "modifiers" : "public static",
+    "signature" : "public static void setDefault(javax.net.ssl.SSLContext)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "javax.net.ssl.SSLContext",
+      "genericType" : "javax.net.ssl.SSLContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpResponse$BodySubscriber",
+  "canonicalName" : "java.net.http.HttpResponse.BodySubscriber",
+  "simpleName" : "BodySubscriber",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpResponse",
+  "interfaces" : [ "java.util.concurrent.Flow$Subscriber" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBody",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage getBody()",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

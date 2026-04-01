@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset",
+  "binaryName" : "java.nio.charset.CoderMalfunctionError",
+  "canonicalName" : "java.nio.charset.CoderMalfunctionError",
+  "simpleName" : "CoderMalfunctionError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.charset.CoderMalfunctionError",
+    "modifiers" : "public",
+    "signature" : "public java.nio.charset.CoderMalfunctionError(java.lang.Exception)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

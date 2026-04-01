@@ -1,0 +1,12 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertPath$CertPathRep",
+  "canonicalName" : "java.security.cert.CertPath.CertPathRep",
+  "simpleName" : "CertPathRep",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.security.cert.CertPath",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ]
+}

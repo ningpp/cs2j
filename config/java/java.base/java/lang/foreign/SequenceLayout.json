@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.SequenceLayout",
+  "canonicalName" : "java.lang.foreign.SequenceLayout",
+  "simpleName" : "SequenceLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.foreign.MemoryLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "elementCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long elementCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "elementLayout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemoryLayout elementLayout()",
+    "returnType" : "java.lang.foreign.MemoryLayout",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flatten",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.SequenceLayout flatten()",
+    "returnType" : "java.lang.foreign.SequenceLayout",
+    "genericReturnType" : "java.lang.foreign.SequenceLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reshape",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.SequenceLayout reshape(long...)",
+    "returnType" : "java.lang.foreign.SequenceLayout",
+    "genericReturnType" : "java.lang.foreign.SequenceLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.SequenceLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.SequenceLayout",
+    "genericReturnType" : "java.lang.foreign.SequenceLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withElementCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.SequenceLayout withElementCount(long)",
+    "returnType" : "java.lang.foreign.SequenceLayout",
+    "genericReturnType" : "java.lang.foreign.SequenceLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.SequenceLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.SequenceLayout",
+    "genericReturnType" : "java.lang.foreign.SequenceLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemoryLayout withoutName()",
+    "returnType" : "java.lang.foreign.MemoryLayout",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

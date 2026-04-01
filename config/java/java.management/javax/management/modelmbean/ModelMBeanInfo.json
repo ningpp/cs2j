@@ -1,0 +1,247 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.modelmbean",
+  "binaryName" : "javax.management.modelmbean.ModelMBeanInfo",
+  "canonicalName" : "javax.management.modelmbean.ModelMBeanInfo",
+  "simpleName" : "ModelMBeanInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.modelmbean.ModelMBeanAttributeInfo getAttribute(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "genericReturnType" : "javax.management.modelmbean.ModelMBeanAttributeInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanAttributeInfo[] getAttributes()",
+    "returnType" : "javax.management.MBeanAttributeInfo[]",
+    "genericReturnType" : "javax.management.MBeanAttributeInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConstructors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanConstructorInfo[] getConstructors()",
+    "returnType" : "javax.management.MBeanConstructorInfo[]",
+    "genericReturnType" : "javax.management.MBeanConstructorInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.Descriptor getDescriptor(java.lang.String, java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescriptors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.Descriptor[] getDescriptors(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.Descriptor[]",
+    "genericReturnType" : "javax.management.Descriptor[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.Descriptor getMBeanDescriptor() throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.Descriptor",
+    "genericReturnType" : "javax.management.Descriptor",
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotification",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.modelmbean.ModelMBeanNotificationInfo getNotification(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+    "genericReturnType" : "javax.management.modelmbean.ModelMBeanNotificationInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotifications",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanNotificationInfo[] getNotifications()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOperation",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.modelmbean.ModelMBeanOperationInfo getOperation(java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "javax.management.modelmbean.ModelMBeanOperationInfo",
+    "genericReturnType" : "javax.management.modelmbean.ModelMBeanOperationInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOperations",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanOperationInfo[] getOperations()",
+    "returnType" : "javax.management.MBeanOperationInfo[]",
+    "genericReturnType" : "javax.management.MBeanOperationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDescriptor(javax.management.Descriptor, java.lang.String) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDescriptors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDescriptors(javax.management.Descriptor[]) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Descriptor[]",
+      "genericType" : "javax.management.Descriptor[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanDescriptor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMBeanDescriptor(javax.management.Descriptor) throws javax.management.MBeanException, javax.management.RuntimeOperationsException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.MBeanException", "javax.management.RuntimeOperationsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

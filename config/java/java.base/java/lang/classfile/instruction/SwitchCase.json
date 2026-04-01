@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.SwitchCase",
+  "canonicalName" : "java.lang.classfile.instruction.SwitchCase",
+  "simpleName" : "SwitchCase",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "caseValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int caseValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.SwitchCase of(int, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.instruction.SwitchCase",
+    "genericReturnType" : "java.lang.classfile.instruction.SwitchCase",
+    "parameters" : [ {
+      "name" : "caseValue",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "target",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label target()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

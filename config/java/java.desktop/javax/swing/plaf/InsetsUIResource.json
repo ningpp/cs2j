@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.InsetsUIResource",
+  "canonicalName" : "javax.swing.plaf.InsetsUIResource",
+  "simpleName" : "InsetsUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.Insets",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.InsetsUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.InsetsUIResource(int, int, int, int)",
+    "parameters" : [ {
+      "name" : "top",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "left",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bottom",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "right",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,108 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.SimpleFileVisitor",
+  "canonicalName" : "java.nio.file.SimpleFileVisitor",
+  "simpleName" : "SimpleFileVisitor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.nio.file.FileVisitor" ],
+  "declaredPublicMethods" : [ {
+    "name" : "postVisitDirectory",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileVisitResult postVisitDirectory(java.lang.Object, java.io.IOException) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileVisitResult",
+    "genericReturnType" : "java.nio.file.FileVisitResult",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exc",
+      "type" : "java.io.IOException",
+      "genericType" : "java.io.IOException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preVisitDirectory",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileVisitResult preVisitDirectory(java.lang.Object, java.nio.file.attribute.BasicFileAttributes) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileVisitResult",
+    "genericReturnType" : "java.nio.file.FileVisitResult",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.BasicFileAttributes",
+      "genericType" : "java.nio.file.attribute.BasicFileAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitFile",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileVisitResult visitFile(java.lang.Object, java.nio.file.attribute.BasicFileAttributes) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileVisitResult",
+    "genericReturnType" : "java.nio.file.FileVisitResult",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "java.nio.file.attribute.BasicFileAttributes",
+      "genericType" : "java.nio.file.attribute.BasicFileAttributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitFileFailed",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileVisitResult visitFileFailed(java.lang.Object, java.io.IOException) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileVisitResult",
+    "genericReturnType" : "java.nio.file.FileVisitResult",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exc",
+      "type" : "java.io.IOException",
+      "genericType" : "java.io.IOException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

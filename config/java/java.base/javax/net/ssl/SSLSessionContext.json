@@ -1,0 +1,91 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLSessionContext",
+  "canonicalName" : "javax.net.ssl.SSLSessionContext",
+  "simpleName" : "SSLSessionContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getIds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Enumeration getIds()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSession",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLSession getSession(byte[])",
+    "returnType" : "javax.net.ssl.SSLSession",
+    "genericReturnType" : "javax.net.ssl.SSLSession",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSessionCacheSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getSessionCacheSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSessionTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getSessionTimeout()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSessionCacheSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSessionCacheSize(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSessionTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setSessionTimeout(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

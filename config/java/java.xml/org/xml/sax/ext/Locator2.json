@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax.ext",
+  "binaryName" : "org.xml.sax.ext.Locator2",
+  "canonicalName" : "org.xml.sax.ext.Locator2",
+  "simpleName" : "Locator2",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.xml.sax.Locator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getEncoding",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getEncoding()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getXMLVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RMIClientSocketFactory",
+  "canonicalName" : "java.rmi.server.RMIClientSocketFactory",
+  "simpleName" : "RMIClientSocketFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createSocket",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.Socket createSocket(java.lang.String, int) throws java.io.IOException",
+    "returnType" : "java.net.Socket",
+    "genericReturnType" : "java.net.Socket",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

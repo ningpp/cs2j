@@ -1,0 +1,112 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.dom",
+  "binaryName" : "javax.xml.transform.dom.DOMSource",
+  "canonicalName" : "javax.xml.transform.dom.DOMSource",
+  "simpleName" : "DOMSource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.transform.Source" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.transform.dom.DOMSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.dom.DOMSource()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.dom.DOMSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.dom.DOMSource(org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.dom.DOMSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.dom.DOMSource(org.w3c.dom.Node, java.lang.String)",
+    "parameters" : [ {
+      "name" : "node",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "systemID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNode",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.Node getNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setNode",
+    "modifiers" : "public",
+    "signature" : "public void setNode(org.w3c.dom.Node)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "node",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemID",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

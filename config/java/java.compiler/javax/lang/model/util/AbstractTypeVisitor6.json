@@ -1,0 +1,121 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.AbstractTypeVisitor6",
+  "canonicalName" : "javax.lang.model.util.AbstractTypeVisitor6",
+  "simpleName" : "AbstractTypeVisitor6",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.lang.model.type.TypeVisitor" ],
+  "declaredPublicMethods" : [ {
+    "name" : "visit",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object visit(javax.lang.model.type.TypeMirror)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.TypeMirror",
+      "genericType" : "javax.lang.model.type.TypeMirror",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visit",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object visit(javax.lang.model.type.TypeMirror, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.TypeMirror",
+      "genericType" : "javax.lang.model.type.TypeMirror",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitIntersection",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitIntersection(javax.lang.model.type.IntersectionType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.IntersectionType",
+      "genericType" : "javax.lang.model.type.IntersectionType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitUnion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitUnion(javax.lang.model.type.UnionType, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.UnionType",
+      "genericType" : "javax.lang.model.type.UnionType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "visitUnknown",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitUnknown(javax.lang.model.type.TypeMirror, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "javax.lang.model.type.TypeMirror",
+      "genericType" : "javax.lang.model.type.TypeMirror",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.smartcardio",
+  "packageName" : "javax.smartcardio",
+  "binaryName" : "javax.smartcardio.CardNotPresentException",
+  "canonicalName" : "javax.smartcardio.CardNotPresentException",
+  "simpleName" : "CardNotPresentException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.smartcardio.CardException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.smartcardio.CardNotPresentException",
+    "modifiers" : "public",
+    "signature" : "public javax.smartcardio.CardNotPresentException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.smartcardio.CardNotPresentException",
+    "modifiers" : "public",
+    "signature" : "public javax.smartcardio.CardNotPresentException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.smartcardio.CardNotPresentException",
+    "modifiers" : "public",
+    "signature" : "public javax.smartcardio.CardNotPresentException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

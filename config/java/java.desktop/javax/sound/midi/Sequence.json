@@ -1,0 +1,143 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.Sequence",
+  "canonicalName" : "javax.sound.midi.Sequence",
+  "simpleName" : "Sequence",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.midi.Sequence",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.Sequence(float, int) throws javax.sound.midi.InvalidMidiDataException",
+    "parameters" : [ {
+      "name" : "divisionType",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "resolution",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.midi.Sequence",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.Sequence(float, int, int) throws javax.sound.midi.InvalidMidiDataException",
+    "parameters" : [ {
+      "name" : "divisionType",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "resolution",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "numTracks",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createTrack",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.Track createTrack()",
+    "returnType" : "javax.sound.midi.Track",
+    "genericReturnType" : "javax.sound.midi.Track",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteTrack",
+    "modifiers" : "public",
+    "signature" : "public boolean deleteTrack(javax.sound.midi.Track)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "track",
+      "type" : "javax.sound.midi.Track",
+      "genericType" : "javax.sound.midi.Track",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDivisionType",
+    "modifiers" : "public",
+    "signature" : "public float getDivisionType()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMicrosecondLength",
+    "modifiers" : "public",
+    "signature" : "public long getMicrosecondLength()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPatchList",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.Patch[] getPatchList()",
+    "returnType" : "javax.sound.midi.Patch[]",
+    "genericReturnType" : "javax.sound.midi.Patch[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResolution",
+    "modifiers" : "public",
+    "signature" : "public int getResolution()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTickLength",
+    "modifiers" : "public",
+    "signature" : "public long getTickLength()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTracks",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.Track[] getTracks()",
+    "returnType" : "javax.sound.midi.Track[]",
+    "genericReturnType" : "javax.sound.midi.Track[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

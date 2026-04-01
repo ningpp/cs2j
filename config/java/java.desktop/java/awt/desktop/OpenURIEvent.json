@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.OpenURIEvent",
+  "canonicalName" : "java.awt.desktop.OpenURIEvent",
+  "simpleName" : "OpenURIEvent",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.desktop.AppEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.desktop.OpenURIEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.desktop.OpenURIEvent(java.net.URI)",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getURI",
+    "modifiers" : "public",
+    "signature" : "public java.net.URI getURI()",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

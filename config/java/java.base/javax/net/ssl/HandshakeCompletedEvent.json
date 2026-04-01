@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.HandshakeCompletedEvent",
+  "canonicalName" : "javax.net.ssl.HandshakeCompletedEvent",
+  "simpleName" : "HandshakeCompletedEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.HandshakeCompletedEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.HandshakeCompletedEvent(javax.net.ssl.SSLSocket, javax.net.ssl.SSLSession)",
+    "parameters" : [ {
+      "name" : "sock",
+      "type" : "javax.net.ssl.SSLSocket",
+      "genericType" : "javax.net.ssl.SSLSocket",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.net.ssl.SSLSession",
+      "genericType" : "javax.net.ssl.SSLSession",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCipherSuite",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getCipherSuite()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalCertificates",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.Certificate[] getLocalCertificates()",
+    "returnType" : "java.security.cert.Certificate[]",
+    "genericReturnType" : "java.security.cert.Certificate[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalPrincipal",
+    "modifiers" : "public",
+    "signature" : "public java.security.Principal getLocalPrincipal()",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerCertificateChain",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.X509Certificate[] getPeerCertificateChain() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "javax.security.cert.X509Certificate[]",
+    "genericReturnType" : "javax.security.cert.X509Certificate[]",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerCertificates",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.Certificate[] getPeerCertificates() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "java.security.cert.Certificate[]",
+    "genericReturnType" : "java.security.cert.Certificate[]",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerPrincipal",
+    "modifiers" : "public",
+    "signature" : "public java.security.Principal getPeerPrincipal() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSession",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLSession getSession()",
+    "returnType" : "javax.net.ssl.SSLSession",
+    "genericReturnType" : "javax.net.ssl.SSLSession",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSocket",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLSocket getSocket()",
+    "returnType" : "javax.net.ssl.SSLSocket",
+    "genericReturnType" : "javax.net.ssl.SSLSocket",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

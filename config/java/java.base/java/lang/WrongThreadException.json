@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.WrongThreadException",
+  "canonicalName" : "java.lang.WrongThreadException",
+  "simpleName" : "WrongThreadException",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.WrongThreadException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.WrongThreadException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.WrongThreadException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.WrongThreadException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.WrongThreadException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.WrongThreadException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.WrongThreadException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.WrongThreadException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

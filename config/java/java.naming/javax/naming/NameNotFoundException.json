@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.NameNotFoundException",
+  "canonicalName" : "javax.naming.NameNotFoundException",
+  "simpleName" : "NameNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.NameNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NameNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.NameNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NameNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

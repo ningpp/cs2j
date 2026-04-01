@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.MidiEvent",
+  "canonicalName" : "javax.sound.midi.MidiEvent",
+  "simpleName" : "MidiEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.midi.MidiEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.MidiEvent(javax.sound.midi.MidiMessage, long)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "javax.sound.midi.MidiMessage",
+      "genericType" : "javax.sound.midi.MidiMessage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tick",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.MidiMessage getMessage()",
+    "returnType" : "javax.sound.midi.MidiMessage",
+    "genericReturnType" : "javax.sound.midi.MidiMessage",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTick",
+    "modifiers" : "public",
+    "signature" : "public long getTick()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTick",
+    "modifiers" : "public",
+    "signature" : "public void setTick(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tick",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

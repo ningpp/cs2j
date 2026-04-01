@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.CacheResponse",
+  "canonicalName" : "java.net.CacheResponse",
+  "simpleName" : "CacheResponse",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.CacheResponse",
+    "modifiers" : "public",
+    "signature" : "public java.net.CacheResponse()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBody",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.InputStream getBody() throws java.io.IOException",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeaders",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getHeaders() throws java.io.IOException",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

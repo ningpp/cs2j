@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Spliterators$AbstractIntSpliterator",
+  "canonicalName" : "java.util.Spliterators.AbstractIntSpliterator",
+  "simpleName" : "AbstractIntSpliterator",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "java.util.Spliterators",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.Spliterator$OfInt" ],
+  "declaredPublicMethods" : [ {
+    "name" : "characteristics",
+    "modifiers" : "public",
+    "signature" : "public int characteristics()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "estimateSize",
+    "modifiers" : "public",
+    "signature" : "public long estimateSize()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "trySplit",
+    "modifiers" : "public",
+    "signature" : "public java.util.Spliterator$OfInt trySplit()",
+    "returnType" : "java.util.Spliterator$OfInt",
+    "genericReturnType" : "java.util.Spliterator$OfInt",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

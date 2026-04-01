@@ -1,0 +1,371 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.DefaultStyledDocument",
+  "canonicalName" : "javax.swing.text.DefaultStyledDocument",
+  "simpleName" : "DefaultStyledDocument",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.AbstractDocument",
+  "interfaces" : [ "javax.swing.text.StyledDocument" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.DefaultStyledDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultStyledDocument()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.DefaultStyledDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultStyledDocument(javax.swing.text.AbstractDocument$Content, javax.swing.text.StyleContext)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.text.AbstractDocument$Content",
+      "genericType" : "javax.swing.text.AbstractDocument$Content",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "styles",
+      "type" : "javax.swing.text.StyleContext",
+      "genericType" : "javax.swing.text.StyleContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.DefaultStyledDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DefaultStyledDocument(javax.swing.text.StyleContext)",
+    "parameters" : [ {
+      "name" : "styles",
+      "type" : "javax.swing.text.StyleContext",
+      "genericType" : "javax.swing.text.StyleContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addDocumentListener",
+    "modifiers" : "public",
+    "signature" : "public void addDocumentListener(javax.swing.event.DocumentListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.swing.event.DocumentListener",
+      "genericType" : "javax.swing.event.DocumentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addStyle",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Style addStyle(java.lang.String, javax.swing.text.Style)",
+    "returnType" : "javax.swing.text.Style",
+    "genericReturnType" : "javax.swing.text.Style",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parent",
+      "type" : "javax.swing.text.Style",
+      "genericType" : "javax.swing.text.Style",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBackground",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getBackground(javax.swing.text.AttributeSet)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getCharacterElement(int)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultRootElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getDefaultRootElement()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFont",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Font getFont(javax.swing.text.AttributeSet)",
+    "returnType" : "java.awt.Font",
+    "genericReturnType" : "java.awt.Font",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getForeground",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Color getForeground(javax.swing.text.AttributeSet)",
+    "returnType" : "java.awt.Color",
+    "genericReturnType" : "java.awt.Color",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogicalStyle",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Style getLogicalStyle(int)",
+    "returnType" : "javax.swing.text.Style",
+    "genericReturnType" : "javax.swing.text.Style",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParagraphElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getParagraphElement(int)",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyle",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Style getStyle(java.lang.String)",
+    "returnType" : "javax.swing.text.Style",
+    "genericReturnType" : "javax.swing.text.Style",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStyleNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration getStyleNames()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeDocumentListener",
+    "modifiers" : "public",
+    "signature" : "public void removeDocumentListener(javax.swing.event.DocumentListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.swing.event.DocumentListener",
+      "genericType" : "javax.swing.event.DocumentListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeElement",
+    "modifiers" : "public",
+    "signature" : "public void removeElement(javax.swing.text.Element)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeStyle",
+    "modifiers" : "public",
+    "signature" : "public void removeStyle(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCharacterAttributes",
+    "modifiers" : "public",
+    "signature" : "public void setCharacterAttributes(int, int, javax.swing.text.AttributeSet, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "replace",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLogicalStyle",
+    "modifiers" : "public",
+    "signature" : "public void setLogicalStyle(int, javax.swing.text.Style)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "pos",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.swing.text.Style",
+      "genericType" : "javax.swing.text.Style",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParagraphAttributes",
+    "modifiers" : "public",
+    "signature" : "public void setParagraphAttributes(int, int, javax.swing.text.AttributeSet, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "replace",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

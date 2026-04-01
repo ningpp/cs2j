@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+  "canonicalName" : "javax.crypto.spec.HKDFParameterSpec.Builder",
+  "simpleName" : "Builder",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.crypto.spec.HKDFParameterSpec",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addIKM",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.HKDFParameterSpec$Builder addIKM(byte[])",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "parameters" : [ {
+      "name" : "ikm",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addIKM",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.HKDFParameterSpec$Builder addIKM(javax.crypto.SecretKey)",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "parameters" : [ {
+      "name" : "ikm",
+      "type" : "javax.crypto.SecretKey",
+      "genericType" : "javax.crypto.SecretKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addSalt",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.HKDFParameterSpec$Builder addSalt(byte[])",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "parameters" : [ {
+      "name" : "salt",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addSalt",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.HKDFParameterSpec$Builder addSalt(javax.crypto.SecretKey)",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "parameters" : [ {
+      "name" : "salt",
+      "type" : "javax.crypto.SecretKey",
+      "genericType" : "javax.crypto.SecretKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "extractOnly",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.HKDFParameterSpec$Extract extractOnly()",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$Extract",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$Extract",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenExpand",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.HKDFParameterSpec$ExtractThenExpand thenExpand(byte[], int)",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$ExtractThenExpand",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$ExtractThenExpand",
+    "parameters" : [ {
+      "name" : "info",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.spec",
+  "binaryName" : "javax.xml.crypto.dsig.spec.ExcC14NParameterSpec",
+  "canonicalName" : "javax.xml.crypto.dsig.spec.ExcC14NParameterSpec",
+  "simpleName" : "ExcC14NParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.crypto.dsig.spec.C14NMethodParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dsig.spec.ExcC14NParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.ExcC14NParameterSpec()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.dsig.spec.ExcC14NParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dsig.spec.ExcC14NParameterSpec(java.util.List)",
+    "parameters" : [ {
+      "name" : "prefixList",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPrefixList",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getPrefixList()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

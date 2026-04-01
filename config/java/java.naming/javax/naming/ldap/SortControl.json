@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.SortControl",
+  "canonicalName" : "javax.naming.ldap.SortControl",
+  "simpleName" : "SortControl",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.naming.ldap.BasicControl",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.SortControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.SortControl(java.lang.String, boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "sortBy",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.SortControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.SortControl(java.lang.String[], boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "sortBy",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ldap.SortControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.SortControl(javax.naming.ldap.SortKey[], boolean) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "sortBy",
+      "type" : "javax.naming.ldap.SortKey[]",
+      "genericType" : "javax.naming.ldap.SortKey[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ]
+}

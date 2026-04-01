@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.UnsupportedFlavorException",
+  "canonicalName" : "java.awt.datatransfer.UnsupportedFlavorException",
+  "simpleName" : "UnsupportedFlavorException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.datatransfer.UnsupportedFlavorException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.UnsupportedFlavorException(java.awt.datatransfer.DataFlavor)",
+    "parameters" : [ {
+      "name" : "flavor",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

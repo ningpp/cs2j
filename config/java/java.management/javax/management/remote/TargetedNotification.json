@@ -1,0 +1,61 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.TargetedNotification",
+  "canonicalName" : "javax.management.remote.TargetedNotification",
+  "simpleName" : "TargetedNotification",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.TargetedNotification",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.TargetedNotification(javax.management.Notification, java.lang.Integer)",
+    "parameters" : [ {
+      "name" : "notification",
+      "type" : "javax.management.Notification",
+      "genericType" : "javax.management.Notification",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerID",
+      "type" : "java.lang.Integer",
+      "genericType" : "java.lang.Integer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getListenerID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Integer getListenerID()",
+    "returnType" : "java.lang.Integer",
+    "genericReturnType" : "java.lang.Integer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotification",
+    "modifiers" : "public",
+    "signature" : "public javax.management.Notification getNotification()",
+    "returnType" : "javax.management.Notification",
+    "genericReturnType" : "javax.management.Notification",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

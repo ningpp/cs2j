@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.NullCipher",
+  "canonicalName" : "javax.crypto.NullCipher",
+  "simpleName" : "NullCipher",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.crypto.Cipher",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.NullCipher",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.NullCipher()",
+    "varArgs" : false
+  } ]
+}

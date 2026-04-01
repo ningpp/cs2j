@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.CompoundControl",
+  "canonicalName" : "javax.sound.sampled.CompoundControl",
+  "simpleName" : "CompoundControl",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.sound.sampled.Control",
+  "declaredPublicMethods" : [ {
+    "name" : "getMemberControls",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.Control[] getMemberControls()",
+    "returnType" : "javax.sound.sampled.Control[]",
+    "genericReturnType" : "javax.sound.sampled.Control[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

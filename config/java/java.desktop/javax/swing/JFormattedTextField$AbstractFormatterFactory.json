@@ -1,0 +1,29 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JFormattedTextField$AbstractFormatterFactory",
+  "canonicalName" : "javax.swing.JFormattedTextField.AbstractFormatterFactory",
+  "simpleName" : "AbstractFormatterFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "javax.swing.JFormattedTextField",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getFormatter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.JFormattedTextField$AbstractFormatter getFormatter(javax.swing.JFormattedTextField)",
+    "returnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "genericReturnType" : "javax.swing.JFormattedTextField$AbstractFormatter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JFormattedTextField",
+      "genericType" : "javax.swing.JFormattedTextField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

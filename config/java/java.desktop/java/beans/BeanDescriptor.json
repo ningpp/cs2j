@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.BeanDescriptor",
+  "canonicalName" : "java.beans.BeanDescriptor",
+  "simpleName" : "BeanDescriptor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.FeatureDescriptor",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.BeanDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.BeanDescriptor(java.lang.Class)",
+    "parameters" : [ {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.BeanDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.BeanDescriptor(java.lang.Class, java.lang.Class)",
+    "parameters" : [ {
+      "name" : "beanClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "customizerClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBeanClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getBeanClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCustomizerClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getCustomizerClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

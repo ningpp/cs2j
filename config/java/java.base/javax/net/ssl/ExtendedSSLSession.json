@@ -1,0 +1,124 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.ExtendedSSLSession",
+  "canonicalName" : "javax.net.ssl.ExtendedSSLSession",
+  "simpleName" : "ExtendedSSLSession",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.net.ssl.SSLSession" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.ExtendedSSLSession",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.ExtendedSSLSession()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "exportKeyingMaterialData",
+    "modifiers" : "public",
+    "signature" : "public byte[] exportKeyingMaterialData(java.lang.String, byte[], int) throws javax.net.ssl.SSLKeyException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "label",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportKeyingMaterialKey",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.SecretKey exportKeyingMaterialKey(java.lang.String, java.lang.String, byte[], int) throws javax.net.ssl.SSLKeyException",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "parameters" : [ {
+      "name" : "keyAlg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "label",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.net.ssl.SSLKeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalSupportedSignatureAlgorithms",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getLocalSupportedSignatureAlgorithms()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerSupportedSignatureAlgorithms",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getPeerSupportedSignatureAlgorithms()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRequestedServerNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getRequestedServerNames()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStatusResponses",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getStatusResponses()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

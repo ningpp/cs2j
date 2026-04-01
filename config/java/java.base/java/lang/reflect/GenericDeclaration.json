@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.GenericDeclaration",
+  "canonicalName" : "java.lang.reflect.GenericDeclaration",
+  "simpleName" : "GenericDeclaration",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.reflect.AnnotatedElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getTypeParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.TypeVariable[] getTypeParameters()",
+    "returnType" : "java.lang.reflect.TypeVariable[]",
+    "genericReturnType" : "java.lang.reflect.TypeVariable[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

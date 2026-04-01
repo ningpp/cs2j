@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.StandardSocketOptions",
+  "canonicalName" : "java.net.StandardSocketOptions",
+  "simpleName" : "StandardSocketOptions",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

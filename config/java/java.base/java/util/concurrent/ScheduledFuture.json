@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ScheduledFuture",
+  "canonicalName" : "java.util.concurrent.ScheduledFuture",
+  "simpleName" : "ScheduledFuture",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.concurrent.Delayed", "java.util.concurrent.Future" ]
+}

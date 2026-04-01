@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.ManagerFactoryParameters",
+  "canonicalName" : "javax.net.ssl.ManagerFactoryParameters",
+  "simpleName" : "ManagerFactoryParameters",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

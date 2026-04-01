@@ -1,0 +1,83 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectInputFilter$Config",
+  "canonicalName" : "java.io.ObjectInputFilter.Config",
+  "simpleName" : "Config",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.io.ObjectInputFilter",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createFilter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter createFilter(java.lang.String)",
+    "returnType" : "java.io.ObjectInputFilter",
+    "genericReturnType" : "java.io.ObjectInputFilter",
+    "parameters" : [ {
+      "name" : "pattern",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSerialFilter",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter getSerialFilter()",
+    "returnType" : "java.io.ObjectInputFilter",
+    "genericReturnType" : "java.io.ObjectInputFilter",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSerialFilterFactory",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.BinaryOperator getSerialFilterFactory()",
+    "returnType" : "java.util.function.BinaryOperator",
+    "genericReturnType" : "java.util.function.BinaryOperator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSerialFilter",
+    "modifiers" : "public static",
+    "signature" : "public static void setSerialFilter(java.io.ObjectInputFilter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "filter",
+      "type" : "java.io.ObjectInputFilter",
+      "genericType" : "java.io.ObjectInputFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSerialFilterFactory",
+    "modifiers" : "public static",
+    "signature" : "public static void setSerialFilterFactory(java.util.function.BinaryOperator)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "filterFactory",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

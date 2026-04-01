@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.SimpleElementVisitor7",
+  "canonicalName" : "javax.lang.model.util.SimpleElementVisitor7",
+  "simpleName" : "SimpleElementVisitor7",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.util.SimpleElementVisitor6",
+  "declaredPublicMethods" : [ {
+    "name" : "visitVariable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object visitVariable(javax.lang.model.element.VariableElement, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.lang.model.element.VariableElement",
+      "genericType" : "javax.lang.model.element.VariableElement",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "p",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

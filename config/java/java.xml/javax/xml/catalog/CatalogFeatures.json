@@ -1,0 +1,48 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.catalog",
+  "binaryName" : "javax.xml.catalog.CatalogFeatures",
+  "canonicalName" : "javax.xml.catalog.CatalogFeatures",
+  "simpleName" : "CatalogFeatures",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "builder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogFeatures$Builder builder()",
+    "returnType" : "javax.xml.catalog.CatalogFeatures$Builder",
+    "genericReturnType" : "javax.xml.catalog.CatalogFeatures$Builder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaults",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.CatalogFeatures defaults()",
+    "returnType" : "javax.xml.catalog.CatalogFeatures",
+    "genericReturnType" : "javax.xml.catalog.CatalogFeatures",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String get(javax.xml.catalog.CatalogFeatures$Feature)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "cf",
+      "type" : "javax.xml.catalog.CatalogFeatures$Feature",
+      "genericType" : "javax.xml.catalog.CatalogFeatures$Feature",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,96 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.random",
+  "binaryName" : "java.util.random.RandomGenerator$LeapableGenerator",
+  "canonicalName" : "java.util.random.RandomGenerator.LeapableGenerator",
+  "simpleName" : "LeapableGenerator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.random.RandomGenerator",
+  "interfaces" : [ "java.util.random.RandomGenerator$JumpableGenerator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "copy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.random.RandomGenerator$LeapableGenerator copy()",
+    "returnType" : "java.util.random.RandomGenerator$LeapableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$LeapableGenerator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "copyAndLeap",
+    "modifiers" : "public",
+    "signature" : "public java.util.random.RandomGenerator$JumpableGenerator copyAndLeap()",
+    "returnType" : "java.util.random.RandomGenerator$JumpableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$JumpableGenerator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "leap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void leap()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "leapDistance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double leapDistance()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "leaps",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream leaps()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "leaps",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Stream leaps(long)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "streamSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.random.RandomGenerator$LeapableGenerator of(java.lang.String)",
+    "returnType" : "java.util.random.RandomGenerator$LeapableGenerator",
+    "genericReturnType" : "java.util.random.RandomGenerator$LeapableGenerator",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

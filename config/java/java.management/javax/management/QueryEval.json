@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.QueryEval",
+  "canonicalName" : "javax.management.QueryEval",
+  "simpleName" : "QueryEval",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.QueryEval",
+    "modifiers" : "public",
+    "signature" : "public javax.management.QueryEval()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMBeanServer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.MBeanServer getMBeanServer()",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServer",
+    "modifiers" : "public",
+    "signature" : "public void setMBeanServer(javax.management.MBeanServer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

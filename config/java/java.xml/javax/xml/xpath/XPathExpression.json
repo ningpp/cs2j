@@ -1,0 +1,178 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathExpression",
+  "canonicalName" : "javax.xml.xpath.XPathExpression",
+  "simpleName" : "XPathExpression",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String evaluate(java.lang.Object) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object evaluate(java.lang.Object, javax.xml.namespace.QName) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String evaluate(org.xml.sax.InputSource) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object evaluate(org.xml.sax.InputSource, javax.xml.namespace.QName) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathEvaluationResult evaluateExpression(java.lang.Object) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "genericReturnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "parameters" : [ {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object evaluateExpression(java.lang.Object, java.lang.Class) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "item",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.xpath.XPathEvaluationResult evaluateExpression(org.xml.sax.InputSource) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "genericReturnType" : "javax.xml.xpath.XPathEvaluationResult",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "evaluateExpression",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object evaluateExpression(org.xml.sax.InputSource, java.lang.Class) throws javax.xml.xpath.XPathExpressionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.xpath.XPathExpressionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

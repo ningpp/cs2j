@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.security.sasl",
+  "packageName" : "javax.security.sasl",
+  "binaryName" : "javax.security.sasl.RealmChoiceCallback",
+  "canonicalName" : "javax.security.sasl.RealmChoiceCallback",
+  "simpleName" : "RealmChoiceCallback",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.security.auth.callback.ChoiceCallback",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.sasl.RealmChoiceCallback",
+    "modifiers" : "public",
+    "signature" : "public javax.security.sasl.RealmChoiceCallback(java.lang.String, java.lang.String[], int, boolean)",
+    "parameters" : [ {
+      "name" : "prompt",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "choices",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultChoice",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "multiple",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

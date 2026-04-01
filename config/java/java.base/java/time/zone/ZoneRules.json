@@ -1,0 +1,313 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.zone",
+  "binaryName" : "java.time.zone.ZoneRules",
+  "canonicalName" : "java.time.zone.ZoneRules",
+  "simpleName" : "ZoneRules",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "otherRules",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDaylightSavings",
+    "modifiers" : "public",
+    "signature" : "public java.time.Duration getDaylightSavings(java.time.Instant)",
+    "returnType" : "java.time.Duration",
+    "genericReturnType" : "java.time.Duration",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneOffset getOffset(java.time.Instant)",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneOffset getOffset(java.time.LocalDateTime)",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStandardOffset",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneOffset getStandardOffset(java.time.Instant)",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransition",
+    "modifiers" : "public",
+    "signature" : "public java.time.zone.ZoneOffsetTransition getTransition(java.time.LocalDateTime)",
+    "returnType" : "java.time.zone.ZoneOffsetTransition",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransition",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransitionRules",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getTransitionRules()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransitions",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getTransitions()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValidOffsets",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getValidOffsets(java.time.LocalDateTime)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDaylightSavings",
+    "modifiers" : "public",
+    "signature" : "public boolean isDaylightSavings(java.time.Instant)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFixedOffset",
+    "modifiers" : "public",
+    "signature" : "public boolean isFixedOffset()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValidOffset",
+    "modifiers" : "public",
+    "signature" : "public boolean isValidOffset(java.time.LocalDateTime, java.time.ZoneOffset)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextTransition",
+    "modifiers" : "public",
+    "signature" : "public java.time.zone.ZoneOffsetTransition nextTransition(java.time.Instant)",
+    "returnType" : "java.time.zone.ZoneOffsetTransition",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransition",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.zone.ZoneRules of(java.time.ZoneOffset)",
+    "returnType" : "java.time.zone.ZoneRules",
+    "genericReturnType" : "java.time.zone.ZoneRules",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.zone.ZoneRules of(java.time.ZoneOffset, java.time.ZoneOffset, java.util.List, java.util.List, java.util.List)",
+    "returnType" : "java.time.zone.ZoneRules",
+    "genericReturnType" : "java.time.zone.ZoneRules",
+    "parameters" : [ {
+      "name" : "baseStandardOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "baseWallOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "standardOffsetTransitionList",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "transitionList",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lastRules",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousTransition",
+    "modifiers" : "public",
+    "signature" : "public java.time.zone.ZoneOffsetTransition previousTransition(java.time.Instant)",
+    "returnType" : "java.time.zone.ZoneOffsetTransition",
+    "genericReturnType" : "java.time.zone.ZoneOffsetTransition",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

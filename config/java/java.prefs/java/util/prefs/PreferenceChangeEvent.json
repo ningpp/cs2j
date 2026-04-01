@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.prefs",
+  "packageName" : "java.util.prefs",
+  "binaryName" : "java.util.prefs.PreferenceChangeEvent",
+  "canonicalName" : "java.util.prefs.PreferenceChangeEvent",
+  "simpleName" : "PreferenceChangeEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.prefs.PreferenceChangeEvent",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.PreferenceChangeEvent(java.util.prefs.Preferences, java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "node",
+      "type" : "java.util.prefs.Preferences",
+      "genericType" : "java.util.prefs.Preferences",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getKey",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getKey()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNewValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getNewValue()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNode",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.Preferences getNode()",
+    "returnType" : "java.util.prefs.Preferences",
+    "genericReturnType" : "java.util.prefs.Preferences",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.spi",
+  "binaryName" : "javax.sql.rowset.spi.TransactionalWriter",
+  "canonicalName" : "javax.sql.rowset.spi.TransactionalWriter",
+  "simpleName" : "TransactionalWriter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sql.RowSetWriter" ],
+  "declaredPublicMethods" : [ {
+    "name" : "commit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void commit() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rollback",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rollback() throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rollback",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rollback(java.sql.Savepoint) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.sql.Savepoint",
+      "genericType" : "java.sql.Savepoint",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

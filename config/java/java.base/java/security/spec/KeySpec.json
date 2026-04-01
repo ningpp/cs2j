@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.KeySpec",
+  "canonicalName" : "java.security.spec.KeySpec",
+  "simpleName" : "KeySpec",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

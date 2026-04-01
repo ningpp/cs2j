@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.zone",
+  "binaryName" : "java.time.zone.ZoneRulesException",
+  "canonicalName" : "java.time.zone.ZoneRulesException",
+  "simpleName" : "ZoneRulesException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.time.DateTimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.time.zone.ZoneRulesException",
+    "modifiers" : "public",
+    "signature" : "public java.time.zone.ZoneRulesException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.time.zone.ZoneRulesException",
+    "modifiers" : "public",
+    "signature" : "public java.time.zone.ZoneRulesException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

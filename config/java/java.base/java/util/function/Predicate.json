@@ -1,0 +1,105 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.Predicate",
+  "canonicalName" : "java.util.function.Predicate",
+  "simpleName" : "Predicate",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "and",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.Predicate and(java.util.function.Predicate)",
+    "returnType" : "java.util.function.Predicate",
+    "genericReturnType" : "java.util.function.Predicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isEqual",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.Predicate isEqual(java.lang.Object)",
+    "returnType" : "java.util.function.Predicate",
+    "genericReturnType" : "java.util.function.Predicate",
+    "parameters" : [ {
+      "name" : "targetRef",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negate",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.Predicate negate()",
+    "returnType" : "java.util.function.Predicate",
+    "genericReturnType" : "java.util.function.Predicate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "not",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.Predicate not(java.util.function.Predicate)",
+    "returnType" : "java.util.function.Predicate",
+    "genericReturnType" : "java.util.function.Predicate",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "or",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.Predicate or(java.util.function.Predicate)",
+    "returnType" : "java.util.function.Predicate",
+    "genericReturnType" : "java.util.function.Predicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "test",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean test(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

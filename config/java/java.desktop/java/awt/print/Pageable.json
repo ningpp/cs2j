@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.print",
+  "binaryName" : "java.awt.print.Pageable",
+  "canonicalName" : "java.awt.print.Pageable",
+  "simpleName" : "Pageable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getNumberOfPages",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getNumberOfPages()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPageFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.print.PageFormat getPageFormat(int) throws java.lang.IndexOutOfBoundsException",
+    "returnType" : "java.awt.print.PageFormat",
+    "genericReturnType" : "java.awt.print.PageFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IndexOutOfBoundsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.print.Printable getPrintable(int) throws java.lang.IndexOutOfBoundsException",
+    "returnType" : "java.awt.print.Printable",
+    "genericReturnType" : "java.awt.print.Printable",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IndexOutOfBoundsException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

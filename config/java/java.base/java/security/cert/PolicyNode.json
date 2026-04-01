@@ -1,0 +1,80 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.PolicyNode",
+  "canonicalName" : "java.security.cert.PolicyNode",
+  "simpleName" : "PolicyNode",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getChildren",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator getChildren()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDepth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDepth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExpectedPolicies",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getExpectedPolicies()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.PolicyNode getParent()",
+    "returnType" : "java.security.cert.PolicyNode",
+    "genericReturnType" : "java.security.cert.PolicyNode",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPolicyQualifiers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getPolicyQualifiers()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValidPolicy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getValidPolicy()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCritical",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCritical()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

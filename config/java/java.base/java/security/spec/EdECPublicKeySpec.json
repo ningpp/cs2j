@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.EdECPublicKeySpec",
+  "canonicalName" : "java.security.spec.EdECPublicKeySpec",
+  "simpleName" : "EdECPublicKeySpec",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.KeySpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.EdECPublicKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.EdECPublicKeySpec(java.security.spec.NamedParameterSpec, java.security.spec.EdECPoint)",
+    "parameters" : [ {
+      "name" : "params",
+      "type" : "java.security.spec.NamedParameterSpec",
+      "genericType" : "java.security.spec.NamedParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "point",
+      "type" : "java.security.spec.EdECPoint",
+      "genericType" : "java.security.spec.EdECPoint",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParams",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.NamedParameterSpec getParams()",
+    "returnType" : "java.security.spec.NamedParameterSpec",
+    "genericReturnType" : "java.security.spec.NamedParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoint",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.EdECPoint getPoint()",
+    "returnType" : "java.security.spec.EdECPoint",
+    "genericReturnType" : "java.security.spec.EdECPoint",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

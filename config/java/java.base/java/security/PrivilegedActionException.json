@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.PrivilegedActionException",
+  "canonicalName" : "java.security.PrivilegedActionException",
+  "simpleName" : "PrivilegedActionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.PrivilegedActionException",
+    "modifiers" : "public",
+    "signature" : "public java.security.PrivilegedActionException(java.lang.Exception)",
+    "parameters" : [ {
+      "name" : "exception",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Exception getException()",
+    "returnType" : "java.lang.Exception",
+    "genericReturnType" : "java.lang.Exception",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

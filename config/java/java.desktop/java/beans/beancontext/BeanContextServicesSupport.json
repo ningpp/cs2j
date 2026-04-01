@@ -1,0 +1,357 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextServicesSupport",
+  "canonicalName" : "java.beans.beancontext.BeanContextServicesSupport",
+  "simpleName" : "BeanContextServicesSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.beancontext.BeanContextSupport",
+  "interfaces" : [ "java.beans.beancontext.BeanContextServices" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.beancontext.BeanContextServicesSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServicesSupport()",
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.beancontext.BeanContextServicesSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServicesSupport(java.beans.beancontext.BeanContextServices)",
+    "parameters" : [ {
+      "name" : "peer",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.beancontext.BeanContextServicesSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServicesSupport(java.beans.beancontext.BeanContextServices, java.util.Locale)",
+    "parameters" : [ {
+      "name" : "peer",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lcle",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.beancontext.BeanContextServicesSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServicesSupport(java.beans.beancontext.BeanContextServices, java.util.Locale, boolean)",
+    "parameters" : [ {
+      "name" : "peer",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lcle",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dtime",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.beancontext.BeanContextServicesSupport",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServicesSupport(java.beans.beancontext.BeanContextServices, java.util.Locale, boolean, boolean)",
+    "parameters" : [ {
+      "name" : "peer",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lcle",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dTime",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "visible",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addBeanContextServicesListener",
+    "modifiers" : "public",
+    "signature" : "public void addBeanContextServicesListener(java.beans.beancontext.BeanContextServicesListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcsl",
+      "type" : "java.beans.beancontext.BeanContextServicesListener",
+      "genericType" : "java.beans.beancontext.BeanContextServicesListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addService",
+    "modifiers" : "public",
+    "signature" : "public boolean addService(java.lang.Class, java.beans.beancontext.BeanContextServiceProvider)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "serviceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bcsp",
+      "type" : "java.beans.beancontext.BeanContextServiceProvider",
+      "genericType" : "java.beans.beancontext.BeanContextServiceProvider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBeanContextServicesPeer",
+    "modifiers" : "public",
+    "signature" : "public java.beans.beancontext.BeanContextServices getBeanContextServicesPeer()",
+    "returnType" : "java.beans.beancontext.BeanContextServices",
+    "genericReturnType" : "java.beans.beancontext.BeanContextServices",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentServiceClasses",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator getCurrentServiceClasses()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentServiceSelectors",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator getCurrentServiceSelectors(java.lang.Class)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "serviceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getService",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getService(java.beans.beancontext.BeanContextChild, java.lang.Object, java.lang.Class, java.lang.Object, java.beans.beancontext.BeanContextServiceRevokedListener) throws java.util.TooManyListenersException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "child",
+      "type" : "java.beans.beancontext.BeanContextChild",
+      "genericType" : "java.beans.beancontext.BeanContextChild",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requestor",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "serviceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "serviceSelector",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bcsrl",
+      "type" : "java.beans.beancontext.BeanContextServiceRevokedListener",
+      "genericType" : "java.beans.beancontext.BeanContextServiceRevokedListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.util.TooManyListenersException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasService",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized boolean hasService(java.lang.Class)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "serviceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initialize",
+    "modifiers" : "public",
+    "signature" : "public void initialize()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseService",
+    "modifiers" : "public",
+    "signature" : "public void releaseService(java.beans.beancontext.BeanContextChild, java.lang.Object, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "child",
+      "type" : "java.beans.beancontext.BeanContextChild",
+      "genericType" : "java.beans.beancontext.BeanContextChild",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requestor",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "service",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeBeanContextServicesListener",
+    "modifiers" : "public",
+    "signature" : "public void removeBeanContextServicesListener(java.beans.beancontext.BeanContextServicesListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcsl",
+      "type" : "java.beans.beancontext.BeanContextServicesListener",
+      "genericType" : "java.beans.beancontext.BeanContextServicesListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "revokeService",
+    "modifiers" : "public",
+    "signature" : "public void revokeService(java.lang.Class, java.beans.beancontext.BeanContextServiceProvider, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "serviceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bcsp",
+      "type" : "java.beans.beancontext.BeanContextServiceProvider",
+      "genericType" : "java.beans.beancontext.BeanContextServiceProvider",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "revokeCurrentServicesNow",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "serviceAvailable",
+    "modifiers" : "public",
+    "signature" : "public void serviceAvailable(java.beans.beancontext.BeanContextServiceAvailableEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcssae",
+      "type" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+      "genericType" : "java.beans.beancontext.BeanContextServiceAvailableEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "serviceRevoked",
+    "modifiers" : "public",
+    "signature" : "public void serviceRevoked(java.beans.beancontext.BeanContextServiceRevokedEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcssre",
+      "type" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "genericType" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

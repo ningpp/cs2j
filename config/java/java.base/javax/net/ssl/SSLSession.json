@@ -1,0 +1,250 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLSession",
+  "canonicalName" : "javax.net.ssl.SSLSession",
+  "simpleName" : "SSLSession",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getApplicationBufferSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getApplicationBufferSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCipherSuite",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getCipherSuite()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCreationTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getCreationTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getId()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastAccessedTime",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long getLastAccessedTime()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalCertificates",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.Certificate[] getLocalCertificates()",
+    "returnType" : "java.security.cert.Certificate[]",
+    "genericReturnType" : "java.security.cert.Certificate[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalPrincipal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getLocalPrincipal()",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPacketBufferSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getPacketBufferSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerCertificateChain",
+    "modifiers" : "public",
+    "signature" : "public javax.security.cert.X509Certificate[] getPeerCertificateChain() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "javax.security.cert.X509Certificate[]",
+    "genericReturnType" : "javax.security.cert.X509Certificate[]",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerCertificates",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.Certificate[] getPeerCertificates() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "java.security.cert.Certificate[]",
+    "genericReturnType" : "java.security.cert.Certificate[]",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerHost",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getPeerHost()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerPort",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getPeerPort()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPeerPrincipal",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getPeerPrincipal() throws javax.net.ssl.SSLPeerUnverifiedException",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "exceptions" : [ "javax.net.ssl.SSLPeerUnverifiedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProtocol",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getProtocol()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSessionContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.net.ssl.SSLSessionContext getSessionContext()",
+    "returnType" : "javax.net.ssl.SSLSessionContext",
+    "genericReturnType" : "javax.net.ssl.SSLSessionContext",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getValue(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getValueNames",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getValueNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invalidate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void invalidate()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void putValue(java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "removeValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void removeValue(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

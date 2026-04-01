@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.InstantiationError",
+  "canonicalName" : "java.lang.InstantiationError",
+  "simpleName" : "InstantiationError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IncompatibleClassChangeError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.InstantiationError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.InstantiationError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.InstantiationError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.InstantiationError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

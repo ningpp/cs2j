@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.Port",
+  "canonicalName" : "javax.sound.sampled.Port",
+  "simpleName" : "Port",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sound.sampled.Line" ]
+}

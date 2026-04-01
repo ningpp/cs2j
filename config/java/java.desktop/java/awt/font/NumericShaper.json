@@ -1,0 +1,292 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.font",
+  "binaryName" : "java.awt.font.NumericShaper",
+  "canonicalName" : "java.awt.font.NumericShaper",
+  "simpleName" : "NumericShaper",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContextualShaper",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper getContextualShaper(int)",
+    "returnType" : "java.awt.font.NumericShaper",
+    "genericReturnType" : "java.awt.font.NumericShaper",
+    "parameters" : [ {
+      "name" : "ranges",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContextualShaper",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper getContextualShaper(int, int)",
+    "returnType" : "java.awt.font.NumericShaper",
+    "genericReturnType" : "java.awt.font.NumericShaper",
+    "parameters" : [ {
+      "name" : "ranges",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultContext",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContextualShaper",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper getContextualShaper(java.util.Set)",
+    "returnType" : "java.awt.font.NumericShaper",
+    "genericReturnType" : "java.awt.font.NumericShaper",
+    "parameters" : [ {
+      "name" : "ranges",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getContextualShaper",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper getContextualShaper(java.util.Set, java.awt.font.NumericShaper$Range)",
+    "returnType" : "java.awt.font.NumericShaper",
+    "genericReturnType" : "java.awt.font.NumericShaper",
+    "parameters" : [ {
+      "name" : "ranges",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "defaultContext",
+      "type" : "java.awt.font.NumericShaper$Range",
+      "genericType" : "java.awt.font.NumericShaper$Range",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRangeSet",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set getRangeSet()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRanges",
+    "modifiers" : "public",
+    "signature" : "public int getRanges()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getShaper",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper getShaper(int)",
+    "returnType" : "java.awt.font.NumericShaper",
+    "genericReturnType" : "java.awt.font.NumericShaper",
+    "parameters" : [ {
+      "name" : "singleRange",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getShaper",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.font.NumericShaper getShaper(java.awt.font.NumericShaper$Range)",
+    "returnType" : "java.awt.font.NumericShaper",
+    "genericReturnType" : "java.awt.font.NumericShaper",
+    "parameters" : [ {
+      "name" : "singleRange",
+      "type" : "java.awt.font.NumericShaper$Range",
+      "genericType" : "java.awt.font.NumericShaper$Range",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isContextual",
+    "modifiers" : "public",
+    "signature" : "public boolean isContextual()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shape",
+    "modifiers" : "public",
+    "signature" : "public void shape(char[], int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shape",
+    "modifiers" : "public",
+    "signature" : "public void shape(char[], int, int, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shape",
+    "modifiers" : "public",
+    "signature" : "public void shape(char[], int, int, java.awt.font.NumericShaper$Range)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "java.awt.font.NumericShaper$Range",
+      "genericType" : "java.awt.font.NumericShaper$Range",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

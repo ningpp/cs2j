@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.SkeletonMismatchException",
+  "canonicalName" : "java.rmi.server.SkeletonMismatchException",
+  "simpleName" : "SkeletonMismatchException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.rmi.RemoteException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.server.SkeletonMismatchException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.SkeletonMismatchException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

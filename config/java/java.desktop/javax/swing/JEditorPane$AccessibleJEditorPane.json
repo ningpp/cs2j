@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JEditorPane$AccessibleJEditorPane",
+  "canonicalName" : "javax.swing.JEditorPane.AccessibleJEditorPane",
+  "simpleName" : "AccessibleJEditorPane",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JEditorPane",
+  "superClass" : "javax.swing.text.JTextComponent$AccessibleJTextComponent",
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessibleDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleStateSet",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleStateSet getAccessibleStateSet()",
+    "returnType" : "javax.accessibility.AccessibleStateSet",
+    "genericReturnType" : "javax.accessibility.AccessibleStateSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectInputValidation",
+  "canonicalName" : "java.io.ObjectInputValidation",
+  "simpleName" : "ObjectInputValidation",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "validateObject",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void validateObject() throws java.io.InvalidObjectException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.InvalidObjectException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

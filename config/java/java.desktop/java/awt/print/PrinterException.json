@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.print",
+  "binaryName" : "java.awt.print.PrinterException",
+  "canonicalName" : "java.awt.print.PrinterException",
+  "simpleName" : "PrinterException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.print.PrinterException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PrinterException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.print.PrinterException",
+    "modifiers" : "public",
+    "signature" : "public java.awt.print.PrinterException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

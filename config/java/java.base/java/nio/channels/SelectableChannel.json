@@ -1,0 +1,151 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.SelectableChannel",
+  "canonicalName" : "java.nio.channels.SelectableChannel",
+  "simpleName" : "SelectableChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.nio.channels.spi.AbstractInterruptibleChannel",
+  "interfaces" : [ "java.nio.channels.Channel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "blockingLock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object blockingLock()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "configureBlocking",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SelectableChannel configureBlocking(boolean) throws java.io.IOException",
+    "returnType" : "java.nio.channels.SelectableChannel",
+    "genericReturnType" : "java.nio.channels.SelectableChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBlocking",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isBlocking()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRegistered",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isRegistered()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "keyFor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SelectionKey keyFor(java.nio.channels.Selector)",
+    "returnType" : "java.nio.channels.SelectionKey",
+    "genericReturnType" : "java.nio.channels.SelectionKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.channels.Selector",
+      "genericType" : "java.nio.channels.Selector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.spi.SelectorProvider provider()",
+    "returnType" : "java.nio.channels.spi.SelectorProvider",
+    "genericReturnType" : "java.nio.channels.spi.SelectorProvider",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "register",
+    "modifiers" : "public final",
+    "signature" : "public final java.nio.channels.SelectionKey register(java.nio.channels.Selector, int) throws java.nio.channels.ClosedChannelException",
+    "returnType" : "java.nio.channels.SelectionKey",
+    "genericReturnType" : "java.nio.channels.SelectionKey",
+    "parameters" : [ {
+      "name" : "sel",
+      "type" : "java.nio.channels.Selector",
+      "genericType" : "java.nio.channels.Selector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ops",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.nio.channels.ClosedChannelException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "register",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.SelectionKey register(java.nio.channels.Selector, int, java.lang.Object) throws java.nio.channels.ClosedChannelException",
+    "returnType" : "java.nio.channels.SelectionKey",
+    "genericReturnType" : "java.nio.channels.SelectionKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.channels.Selector",
+      "genericType" : "java.nio.channels.Selector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.nio.channels.ClosedChannelException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "validOps",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int validOps()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

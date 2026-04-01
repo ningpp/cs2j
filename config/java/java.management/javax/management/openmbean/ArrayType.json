@@ -1,0 +1,169 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.ArrayType",
+  "canonicalName" : "javax.management.openmbean.ArrayType",
+  "simpleName" : "ArrayType",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.openmbean.OpenType",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.ArrayType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.ArrayType(int, javax.management.openmbean.OpenType) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "dimension",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elementType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.ArrayType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.ArrayType(javax.management.openmbean.SimpleType, boolean) throws javax.management.openmbean.OpenDataException",
+    "parameters" : [ {
+      "name" : "elementType",
+      "type" : "javax.management.openmbean.SimpleType",
+      "genericType" : "javax.management.openmbean.SimpleType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "primitiveArray",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getArrayType",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.openmbean.ArrayType getArrayType(javax.management.openmbean.OpenType) throws javax.management.openmbean.OpenDataException",
+    "returnType" : "javax.management.openmbean.ArrayType",
+    "genericReturnType" : "javax.management.openmbean.ArrayType",
+    "parameters" : [ {
+      "name" : "elementType",
+      "type" : "javax.management.openmbean.OpenType",
+      "genericType" : "javax.management.openmbean.OpenType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.management.openmbean.OpenDataException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDimension",
+    "modifiers" : "public",
+    "signature" : "public int getDimension()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementOpenType",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenType getElementOpenType()",
+    "returnType" : "javax.management.openmbean.OpenType",
+    "genericReturnType" : "javax.management.openmbean.OpenType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimitiveArrayType",
+    "modifiers" : "public static",
+    "signature" : "public static javax.management.openmbean.ArrayType getPrimitiveArrayType(java.lang.Class)",
+    "returnType" : "javax.management.openmbean.ArrayType",
+    "genericReturnType" : "javax.management.openmbean.ArrayType",
+    "parameters" : [ {
+      "name" : "arrayClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPrimitiveArray",
+    "modifiers" : "public",
+    "signature" : "public boolean isPrimitiveArray()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValue",
+    "modifiers" : "public",
+    "signature" : "public boolean isValue(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

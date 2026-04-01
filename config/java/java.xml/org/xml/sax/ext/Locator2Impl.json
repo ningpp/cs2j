@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.xml.sax.ext",
+  "binaryName" : "org.xml.sax.ext.Locator2Impl",
+  "canonicalName" : "org.xml.sax.ext.Locator2Impl",
+  "simpleName" : "Locator2Impl",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "org.xml.sax.helpers.LocatorImpl",
+  "interfaces" : [ "org.xml.sax.ext.Locator2" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "org.xml.sax.ext.Locator2Impl",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.ext.Locator2Impl()",
+    "varArgs" : false
+  }, {
+    "name" : "org.xml.sax.ext.Locator2Impl",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.ext.Locator2Impl(org.xml.sax.Locator)",
+    "parameters" : [ {
+      "name" : "locator",
+      "type" : "org.xml.sax.Locator",
+      "genericType" : "org.xml.sax.Locator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getEncoding",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getEncoding()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLVersion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getXMLVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEncoding",
+    "modifiers" : "public",
+    "signature" : "public void setEncoding(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "encoding",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXMLVersion",
+    "modifiers" : "public",
+    "signature" : "public void setXMLVersion(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "version",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.login",
+  "binaryName" : "javax.security.auth.login.AppConfigurationEntry",
+  "canonicalName" : "javax.security.auth.login.AppConfigurationEntry",
+  "simpleName" : "AppConfigurationEntry",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.login.AppConfigurationEntry",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.AppConfigurationEntry(java.lang.String, javax.security.auth.login.AppConfigurationEntry$LoginModuleControlFlag, java.util.Map)",
+    "parameters" : [ {
+      "name" : "loginModuleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "controlFlag",
+      "type" : "javax.security.auth.login.AppConfigurationEntry$LoginModuleControlFlag",
+      "genericType" : "javax.security.auth.login.AppConfigurationEntry$LoginModuleControlFlag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "options",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getControlFlag",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.AppConfigurationEntry$LoginModuleControlFlag getControlFlag()",
+    "returnType" : "javax.security.auth.login.AppConfigurationEntry$LoginModuleControlFlag",
+    "genericReturnType" : "javax.security.auth.login.AppConfigurationEntry$LoginModuleControlFlag",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoginModuleName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getLoginModuleName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOptions",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map getOptions()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

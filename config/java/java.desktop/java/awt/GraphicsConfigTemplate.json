@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.GraphicsConfigTemplate",
+  "canonicalName" : "java.awt.GraphicsConfigTemplate",
+  "simpleName" : "GraphicsConfigTemplate",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.GraphicsConfigTemplate",
+    "modifiers" : "public",
+    "signature" : "public java.awt.GraphicsConfigTemplate()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getBestConfiguration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.GraphicsConfiguration getBestConfiguration(java.awt.GraphicsConfiguration[])",
+    "returnType" : "java.awt.GraphicsConfiguration",
+    "genericReturnType" : "java.awt.GraphicsConfiguration",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.GraphicsConfiguration[]",
+      "genericType" : "java.awt.GraphicsConfiguration[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isGraphicsConfigSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isGraphicsConfigSupported(java.awt.GraphicsConfiguration)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.GraphicsConfiguration",
+      "genericType" : "java.awt.GraphicsConfiguration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

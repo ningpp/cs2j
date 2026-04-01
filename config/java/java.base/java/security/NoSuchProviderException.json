@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.NoSuchProviderException",
+  "canonicalName" : "java.security.NoSuchProviderException",
+  "simpleName" : "NoSuchProviderException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.NoSuchProviderException",
+    "modifiers" : "public",
+    "signature" : "public java.security.NoSuchProviderException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.NoSuchProviderException",
+    "modifiers" : "public",
+    "signature" : "public java.security.NoSuchProviderException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

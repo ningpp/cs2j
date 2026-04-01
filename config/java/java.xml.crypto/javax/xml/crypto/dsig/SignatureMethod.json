@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig",
+  "binaryName" : "javax.xml.crypto.dsig.SignatureMethod",
+  "canonicalName" : "javax.xml.crypto.dsig.SignatureMethod",
+  "simpleName" : "SignatureMethod",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.AlgorithmMethod", "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParameterSpec",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.spec.AlgorithmParameterSpec getParameterSpec()",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

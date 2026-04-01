@@ -1,0 +1,1282 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time",
+  "binaryName" : "java.time.ZonedDateTime",
+  "canonicalName" : "java.time.ZonedDateTime",
+  "simpleName" : "ZonedDateTime",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.time.chrono.ChronoZonedDateTime", "java.time.temporal.Temporal" ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "format",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String format(java.time.format.DateTimeFormatter)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "formatter",
+      "type" : "java.time.format.DateTimeFormatter",
+      "genericType" : "java.time.format.DateTimeFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "from",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime from(java.time.temporal.TemporalAccessor)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "temporal",
+      "type" : "java.time.temporal.TemporalAccessor",
+      "genericType" : "java.time.temporal.TemporalAccessor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public int get(java.time.temporal.TemporalField)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDayOfMonth",
+    "modifiers" : "public",
+    "signature" : "public int getDayOfMonth()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDayOfWeek",
+    "modifiers" : "public",
+    "signature" : "public java.time.DayOfWeek getDayOfWeek()",
+    "returnType" : "java.time.DayOfWeek",
+    "genericReturnType" : "java.time.DayOfWeek",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDayOfYear",
+    "modifiers" : "public",
+    "signature" : "public int getDayOfYear()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHour",
+    "modifiers" : "public",
+    "signature" : "public int getHour()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLong",
+    "modifiers" : "public",
+    "signature" : "public long getLong(java.time.temporal.TemporalField)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinute",
+    "modifiers" : "public",
+    "signature" : "public int getMinute()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMonth",
+    "modifiers" : "public",
+    "signature" : "public java.time.Month getMonth()",
+    "returnType" : "java.time.Month",
+    "genericReturnType" : "java.time.Month",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMonthValue",
+    "modifiers" : "public",
+    "signature" : "public int getMonthValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNano",
+    "modifiers" : "public",
+    "signature" : "public int getNano()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneOffset getOffset()",
+    "returnType" : "java.time.ZoneOffset",
+    "genericReturnType" : "java.time.ZoneOffset",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSecond",
+    "modifiers" : "public",
+    "signature" : "public int getSecond()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getYear",
+    "modifiers" : "public",
+    "signature" : "public int getYear()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getZone",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZoneId getZone()",
+    "returnType" : "java.time.ZoneId",
+    "genericReturnType" : "java.time.ZoneId",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.time.temporal.TemporalField)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupported(java.time.temporal.TemporalUnit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "amountToSubtract",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusDays",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusDays(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "days",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusHours",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusHours(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "hours",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusMinutes",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusMinutes(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "minutes",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusMonths",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusMonths(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "months",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusNanos",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusNanos(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "nanos",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusSeconds",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusSeconds(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "seconds",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusWeeks",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusWeeks(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "weeks",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minusYears",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime minusYears(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "years",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "now",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime now()",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "now",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime now(java.time.Clock)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "clock",
+      "type" : "java.time.Clock",
+      "genericType" : "java.time.Clock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "now",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime now(java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime of(int, int, int, int, int, int, int, java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hour",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nanoOfSecond",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime of(java.time.LocalDate, java.time.LocalTime, java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "date",
+      "type" : "java.time.LocalDate",
+      "genericType" : "java.time.LocalDate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "time",
+      "type" : "java.time.LocalTime",
+      "genericType" : "java.time.LocalTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime of(java.time.LocalDateTime, java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInstant",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime ofInstant(java.time.Instant, java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "instant",
+      "type" : "java.time.Instant",
+      "genericType" : "java.time.Instant",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInstant",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime ofInstant(java.time.LocalDateTime, java.time.ZoneOffset, java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocal",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime ofLocal(java.time.LocalDateTime, java.time.ZoneId, java.time.ZoneOffset)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "preferredOffset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofStrict",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime ofStrict(java.time.LocalDateTime, java.time.ZoneOffset, java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "localDateTime",
+      "type" : "java.time.LocalDateTime",
+      "genericType" : "java.time.LocalDateTime",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "java.time.ZoneOffset",
+      "genericType" : "java.time.ZoneOffset",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime parse(java.lang.CharSequence)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "parse",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.ZonedDateTime parse(java.lang.CharSequence, java.time.format.DateTimeFormatter)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "text",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatter",
+      "type" : "java.time.format.DateTimeFormatter",
+      "genericType" : "java.time.format.DateTimeFormatter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "amountToAdd",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plus(long, java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "amountToAdd",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusDays",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusDays(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "days",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusHours",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusHours(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "hours",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusMinutes",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusMinutes(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "minutes",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusMonths",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusMonths(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "months",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusNanos",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusNanos(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "nanos",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusSeconds",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusSeconds(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "seconds",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusWeeks",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusWeeks(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "weeks",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plusYears",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime plusYears(long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "years",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "query",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object query(java.time.temporal.TemporalQuery)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "query",
+      "type" : "java.time.temporal.TemporalQuery",
+      "genericType" : "java.time.temporal.TemporalQuery",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "range",
+    "modifiers" : "public",
+    "signature" : "public java.time.temporal.ValueRange range(java.time.temporal.TemporalField)",
+    "returnType" : "java.time.temporal.ValueRange",
+    "genericReturnType" : "java.time.temporal.ValueRange",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalDate",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalDate toLocalDate()",
+    "returnType" : "java.time.LocalDate",
+    "genericReturnType" : "java.time.LocalDate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalDateTime toLocalDateTime()",
+    "returnType" : "java.time.LocalDateTime",
+    "genericReturnType" : "java.time.LocalDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toLocalTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.LocalTime toLocalTime()",
+    "returnType" : "java.time.LocalTime",
+    "genericReturnType" : "java.time.LocalTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toOffsetDateTime",
+    "modifiers" : "public",
+    "signature" : "public java.time.OffsetDateTime toOffsetDateTime()",
+    "returnType" : "java.time.OffsetDateTime",
+    "genericReturnType" : "java.time.OffsetDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "truncatedTo",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime truncatedTo(java.time.temporal.TemporalUnit)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "until",
+    "modifiers" : "public",
+    "signature" : "public long until(java.time.temporal.Temporal, java.time.temporal.TemporalUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "endExclusive",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime with(java.time.temporal.TemporalAdjuster)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "adjuster",
+      "type" : "java.time.temporal.TemporalAdjuster",
+      "genericType" : "java.time.temporal.TemporalAdjuster",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "with",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime with(java.time.temporal.TemporalField, long)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "field",
+      "type" : "java.time.temporal.TemporalField",
+      "genericType" : "java.time.temporal.TemporalField",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newValue",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withDayOfMonth",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withDayOfMonth(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "dayOfMonth",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withDayOfYear",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withDayOfYear(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "dayOfYear",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withEarlierOffsetAtOverlap",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withEarlierOffsetAtOverlap()",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withFixedOffsetZone",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withFixedOffsetZone()",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withHour",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withHour(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "hour",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withLaterOffsetAtOverlap",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withLaterOffsetAtOverlap()",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withMinute",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withMinute(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "minute",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withMonth",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withMonth(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "month",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withNano",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withNano(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "nanoOfSecond",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withSecond",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withSecond(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "second",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withYear",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withYear(int)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "year",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZoneSameInstant",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withZoneSameInstant(java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZoneSameLocal",
+    "modifiers" : "public",
+    "signature" : "public java.time.ZonedDateTime withZoneSameLocal(java.time.ZoneId)",
+    "returnType" : "java.time.ZonedDateTime",
+    "genericReturnType" : "java.time.ZonedDateTime",
+    "parameters" : [ {
+      "name" : "zone",
+      "type" : "java.time.ZoneId",
+      "genericType" : "java.time.ZoneId",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

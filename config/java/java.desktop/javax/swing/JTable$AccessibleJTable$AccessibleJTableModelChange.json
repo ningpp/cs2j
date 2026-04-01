@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTable$AccessibleJTable$AccessibleJTableModelChange",
+  "canonicalName" : "javax.swing.JTable.AccessibleJTable.AccessibleJTableModelChange",
+  "simpleName" : "AccessibleJTableModelChange",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JTable$AccessibleJTable",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.accessibility.AccessibleTableModelChange" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFirstColumn",
+    "modifiers" : "public",
+    "signature" : "public int getFirstColumn()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFirstRow",
+    "modifiers" : "public",
+    "signature" : "public int getFirstRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastColumn",
+    "modifiers" : "public",
+    "signature" : "public int getLastColumn()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLastRow",
+    "modifiers" : "public",
+    "signature" : "public int getLastRow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

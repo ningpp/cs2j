@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig",
+  "binaryName" : "javax.xml.crypto.dsig.XMLSignContext",
+  "canonicalName" : "javax.xml.crypto.dsig.XMLSignContext",
+  "simpleName" : "XMLSignContext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLCryptoContext" ]
+}

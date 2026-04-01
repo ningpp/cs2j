@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.StoreInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.StoreInstruction",
+  "simpleName" : "StoreInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.StoreInstruction of(java.lang.classfile.Opcode, int)",
+    "returnType" : "java.lang.classfile.instruction.StoreInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.StoreInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.StoreInstruction of(java.lang.classfile.TypeKind, int)",
+    "returnType" : "java.lang.classfile.instruction.StoreInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.StoreInstruction",
+    "parameters" : [ {
+      "name" : "kind",
+      "type" : "java.lang.classfile.TypeKind",
+      "genericType" : "java.lang.classfile.TypeKind",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int slot()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeKind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeKind typeKind()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

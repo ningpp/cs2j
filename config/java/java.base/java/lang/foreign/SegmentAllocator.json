@@ -1,0 +1,550 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.SegmentAllocator",
+  "canonicalName" : "java.lang.foreign.SegmentAllocator",
+  "simpleName" : "SegmentAllocator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "allocate",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocate(java.lang.foreign.MemoryLayout)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocate",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocate(java.lang.foreign.MemoryLayout, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "count",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocate",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocate(long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "byteSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment allocate(long, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.String)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.String, java.nio.charset.Charset)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "str",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.AddressLayout, java.lang.foreign.MemorySegment)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.AddressLayout",
+      "genericType" : "java.lang.foreign.AddressLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfByte, byte)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.ValueLayout$OfByte",
+      "genericType" : "java.lang.foreign.ValueLayout$OfByte",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfByte, byte...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout$OfByte",
+      "genericType" : "java.lang.foreign.ValueLayout$OfByte",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfChar, char)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.ValueLayout$OfChar",
+      "genericType" : "java.lang.foreign.ValueLayout$OfChar",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfChar, char...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout$OfChar",
+      "genericType" : "java.lang.foreign.ValueLayout$OfChar",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfDouble, double)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.ValueLayout$OfDouble",
+      "genericType" : "java.lang.foreign.ValueLayout$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfDouble, double...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout$OfDouble",
+      "genericType" : "java.lang.foreign.ValueLayout$OfDouble",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "double[]",
+      "genericType" : "double[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfFloat, float)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.ValueLayout$OfFloat",
+      "genericType" : "java.lang.foreign.ValueLayout$OfFloat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfFloat, float...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout$OfFloat",
+      "genericType" : "java.lang.foreign.ValueLayout$OfFloat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "float[]",
+      "genericType" : "float[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfInt, int)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.ValueLayout$OfInt",
+      "genericType" : "java.lang.foreign.ValueLayout$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfInt, int...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout$OfInt",
+      "genericType" : "java.lang.foreign.ValueLayout$OfInt",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfLong, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.ValueLayout$OfLong",
+      "genericType" : "java.lang.foreign.ValueLayout$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfLong, long...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout$OfLong",
+      "genericType" : "java.lang.foreign.ValueLayout$OfLong",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "long[]",
+      "genericType" : "long[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfShort, short)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "layout",
+      "type" : "java.lang.foreign.ValueLayout$OfShort",
+      "genericType" : "java.lang.foreign.ValueLayout$OfShort",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout$OfShort, short...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout$OfShort",
+      "genericType" : "java.lang.foreign.ValueLayout$OfShort",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elements",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : true
+  }, {
+    "name" : "allocateFrom",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment allocateFrom(java.lang.foreign.ValueLayout, java.lang.foreign.MemorySegment, java.lang.foreign.ValueLayout, long, long)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.ValueLayout",
+      "genericType" : "java.lang.foreign.ValueLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "source",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceElementLayout",
+      "type" : "java.lang.foreign.ValueLayout",
+      "genericType" : "java.lang.foreign.ValueLayout",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sourceOffset",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elementCount",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "prefixAllocator",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.SegmentAllocator prefixAllocator(java.lang.foreign.MemorySegment)",
+    "returnType" : "java.lang.foreign.SegmentAllocator",
+    "genericReturnType" : "java.lang.foreign.SegmentAllocator",
+    "parameters" : [ {
+      "name" : "segment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slicingAllocator",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.SegmentAllocator slicingAllocator(java.lang.foreign.MemorySegment)",
+    "returnType" : "java.lang.foreign.SegmentAllocator",
+    "genericReturnType" : "java.lang.foreign.SegmentAllocator",
+    "parameters" : [ {
+      "name" : "segment",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

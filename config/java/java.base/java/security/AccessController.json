@@ -1,0 +1,274 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.AccessController",
+  "canonicalName" : "java.security.AccessController",
+  "simpleName" : "AccessController",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "checkPermission",
+    "modifiers" : "public static",
+    "signature" : "public static void checkPermission(java.security.Permission) throws java.security.AccessControlException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "perm",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.AccessControlException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivileged(java.security.PrivilegedAction)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivileged(java.security.PrivilegedAction, java.security.AccessControlContext)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivileged(java.security.PrivilegedAction, java.security.AccessControlContext, java.security.Permission...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "perms",
+      "type" : "java.security.Permission[]",
+      "genericType" : "java.security.Permission[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "doPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivileged(java.security.PrivilegedExceptionAction) throws java.security.PrivilegedActionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.PrivilegedActionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivileged(java.security.PrivilegedExceptionAction, java.security.AccessControlContext) throws java.security.PrivilegedActionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.PrivilegedActionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doPrivileged",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivileged(java.security.PrivilegedExceptionAction, java.security.AccessControlContext, java.security.Permission...) throws java.security.PrivilegedActionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "perms",
+      "type" : "java.security.Permission[]",
+      "genericType" : "java.security.Permission[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.PrivilegedActionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "doPrivilegedWithCombiner",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivilegedWithCombiner(java.security.PrivilegedAction)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doPrivilegedWithCombiner",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivilegedWithCombiner(java.security.PrivilegedAction, java.security.AccessControlContext, java.security.Permission...)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedAction",
+      "genericType" : "java.security.PrivilegedAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "perms",
+      "type" : "java.security.Permission[]",
+      "genericType" : "java.security.Permission[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "doPrivilegedWithCombiner",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivilegedWithCombiner(java.security.PrivilegedExceptionAction) throws java.security.PrivilegedActionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.PrivilegedActionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doPrivilegedWithCombiner",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.Object doPrivilegedWithCombiner(java.security.PrivilegedExceptionAction, java.security.AccessControlContext, java.security.Permission...) throws java.security.PrivilegedActionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "action",
+      "type" : "java.security.PrivilegedExceptionAction",
+      "genericType" : "java.security.PrivilegedExceptionAction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "context",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "perms",
+      "type" : "java.security.Permission[]",
+      "genericType" : "java.security.Permission[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.PrivilegedActionException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "getContext",
+    "modifiers" : "public static",
+    "signature" : "public static java.security.AccessControlContext getContext()",
+    "returnType" : "java.security.AccessControlContext",
+    "genericReturnType" : "java.security.AccessControlContext",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

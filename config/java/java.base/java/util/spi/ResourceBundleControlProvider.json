@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.spi",
+  "binaryName" : "java.util.spi.ResourceBundleControlProvider",
+  "canonicalName" : "java.util.spi.ResourceBundleControlProvider",
+  "simpleName" : "ResourceBundleControlProvider",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getControl",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.ResourceBundle$Control getControl(java.lang.String)",
+    "returnType" : "java.util.ResourceBundle$Control",
+    "genericReturnType" : "java.util.ResourceBundle$Control",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

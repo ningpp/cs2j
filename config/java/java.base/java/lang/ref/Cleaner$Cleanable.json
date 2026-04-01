@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.ref",
+  "binaryName" : "java.lang.ref.Cleaner$Cleanable",
+  "canonicalName" : "java.lang.ref.Cleaner.Cleanable",
+  "simpleName" : "Cleanable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.ref.Cleaner",
+  "declaredPublicMethods" : [ {
+    "name" : "clean",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void clean()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

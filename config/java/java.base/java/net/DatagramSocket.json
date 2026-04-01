@@ -1,0 +1,571 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.DatagramSocket",
+  "canonicalName" : "java.net.DatagramSocket",
+  "simpleName" : "DatagramSocket",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Closeable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.DatagramSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.DatagramSocket() throws java.net.SocketException",
+    "exceptions" : [ "java.net.SocketException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.DatagramSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.DatagramSocket(int) throws java.net.SocketException",
+    "parameters" : [ {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.DatagramSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.DatagramSocket(int, java.net.InetAddress) throws java.net.SocketException",
+    "parameters" : [ {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "laddr",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.net.DatagramSocket",
+    "modifiers" : "public",
+    "signature" : "public java.net.DatagramSocket(java.net.SocketAddress) throws java.net.SocketException",
+    "parameters" : [ {
+      "name" : "bindaddr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "bind",
+    "modifiers" : "public",
+    "signature" : "public void bind(java.net.SocketAddress) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "addr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connect",
+    "modifiers" : "public",
+    "signature" : "public void connect(java.net.InetAddress, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "address",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connect",
+    "modifiers" : "public",
+    "signature" : "public void connect(java.net.SocketAddress) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "addr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "disconnect",
+    "modifiers" : "public",
+    "signature" : "public void disconnect()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBroadcast",
+    "modifiers" : "public",
+    "signature" : "public boolean getBroadcast() throws java.net.SocketException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChannel",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.DatagramChannel getChannel()",
+    "returnType" : "java.nio.channels.DatagramChannel",
+    "genericReturnType" : "java.nio.channels.DatagramChannel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInetAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.InetAddress getInetAddress()",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.InetAddress getLocalAddress()",
+    "returnType" : "java.net.InetAddress",
+    "genericReturnType" : "java.net.InetAddress",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalPort",
+    "modifiers" : "public",
+    "signature" : "public int getLocalPort()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocalSocketAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketAddress getLocalSocketAddress()",
+    "returnType" : "java.net.SocketAddress",
+    "genericReturnType" : "java.net.SocketAddress",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOption",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getOption(java.net.SocketOption) throws java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.net.SocketOption",
+      "genericType" : "java.net.SocketOption",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPort",
+    "modifiers" : "public",
+    "signature" : "public int getPort()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReceiveBufferSize",
+    "modifiers" : "public",
+    "signature" : "public int getReceiveBufferSize() throws java.net.SocketException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRemoteSocketAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketAddress getRemoteSocketAddress()",
+    "returnType" : "java.net.SocketAddress",
+    "genericReturnType" : "java.net.SocketAddress",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReuseAddress",
+    "modifiers" : "public",
+    "signature" : "public boolean getReuseAddress() throws java.net.SocketException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSendBufferSize",
+    "modifiers" : "public",
+    "signature" : "public int getSendBufferSize() throws java.net.SocketException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSoTimeout",
+    "modifiers" : "public",
+    "signature" : "public int getSoTimeout() throws java.net.SocketException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTrafficClass",
+    "modifiers" : "public",
+    "signature" : "public int getTrafficClass() throws java.net.SocketException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBound",
+    "modifiers" : "public",
+    "signature" : "public boolean isBound()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isClosed",
+    "modifiers" : "public",
+    "signature" : "public boolean isClosed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isConnected",
+    "modifiers" : "public",
+    "signature" : "public boolean isConnected()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "joinGroup",
+    "modifiers" : "public",
+    "signature" : "public void joinGroup(java.net.SocketAddress, java.net.NetworkInterface) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mcastaddr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "netIf",
+      "type" : "java.net.NetworkInterface",
+      "genericType" : "java.net.NetworkInterface",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "leaveGroup",
+    "modifiers" : "public",
+    "signature" : "public void leaveGroup(java.net.SocketAddress, java.net.NetworkInterface) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mcastaddr",
+      "type" : "java.net.SocketAddress",
+      "genericType" : "java.net.SocketAddress",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "netIf",
+      "type" : "java.net.NetworkInterface",
+      "genericType" : "java.net.NetworkInterface",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "receive",
+    "modifiers" : "public",
+    "signature" : "public void receive(java.net.DatagramPacket) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.net.DatagramPacket",
+      "genericType" : "java.net.DatagramPacket",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "send",
+    "modifiers" : "public",
+    "signature" : "public void send(java.net.DatagramPacket) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "java.net.DatagramPacket",
+      "genericType" : "java.net.DatagramPacket",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setBroadcast",
+    "modifiers" : "public",
+    "signature" : "public void setBroadcast(boolean) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "on",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDatagramSocketImplFactory",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized void setDatagramSocketImplFactory(java.net.DatagramSocketImplFactory) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "fac",
+      "type" : "java.net.DatagramSocketImplFactory",
+      "genericType" : "java.net.DatagramSocketImplFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setOption",
+    "modifiers" : "public",
+    "signature" : "public java.net.DatagramSocket setOption(java.net.SocketOption, java.lang.Object) throws java.io.IOException",
+    "returnType" : "java.net.DatagramSocket",
+    "genericReturnType" : "java.net.DatagramSocket",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.net.SocketOption",
+      "genericType" : "java.net.SocketOption",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setReceiveBufferSize",
+    "modifiers" : "public",
+    "signature" : "public void setReceiveBufferSize(int) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setReuseAddress",
+    "modifiers" : "public",
+    "signature" : "public void setReuseAddress(boolean) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "on",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSendBufferSize",
+    "modifiers" : "public",
+    "signature" : "public void setSendBufferSize(int) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSoTimeout",
+    "modifiers" : "public",
+    "signature" : "public void setSoTimeout(int) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTrafficClass",
+    "modifiers" : "public",
+    "signature" : "public void setTrafficClass(int) throws java.net.SocketException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "tc",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.net.SocketException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportedOptions",
+    "modifiers" : "public",
+    "signature" : "public java.util.Set supportedOptions()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

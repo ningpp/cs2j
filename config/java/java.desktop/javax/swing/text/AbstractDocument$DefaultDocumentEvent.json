@@ -1,0 +1,190 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+  "canonicalName" : "javax.swing.text.AbstractDocument.DefaultDocumentEvent",
+  "simpleName" : "DefaultDocumentEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.AbstractDocument",
+  "superClass" : "javax.swing.undo.CompoundEdit",
+  "interfaces" : [ "javax.swing.event.DocumentEvent" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.AbstractDocument$DefaultDocumentEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AbstractDocument$DefaultDocumentEvent(javax.swing.text.AbstractDocument, int, int, javax.swing.event.DocumentEvent$EventType)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.AbstractDocument",
+      "genericType" : "javax.swing.text.AbstractDocument",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "offs",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "javax.swing.event.DocumentEvent$EventType",
+      "genericType" : "javax.swing.event.DocumentEvent$EventType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "addEdit",
+    "modifiers" : "public",
+    "signature" : "public boolean addEdit(javax.swing.undo.UndoableEdit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "anEdit",
+      "type" : "javax.swing.undo.UndoableEdit",
+      "genericType" : "javax.swing.undo.UndoableEdit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChange",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.DocumentEvent$ElementChange getChange(javax.swing.text.Element)",
+    "returnType" : "javax.swing.event.DocumentEvent$ElementChange",
+    "genericReturnType" : "javax.swing.event.DocumentEvent$ElementChange",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Document getDocument()",
+    "returnType" : "javax.swing.text.Document",
+    "genericReturnType" : "javax.swing.text.Document",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLength",
+    "modifiers" : "public",
+    "signature" : "public int getLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public",
+    "signature" : "public int getOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPresentationName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPresentationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRedoPresentationName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getRedoPresentationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.DocumentEvent$EventType getType()",
+    "returnType" : "javax.swing.event.DocumentEvent$EventType",
+    "genericReturnType" : "javax.swing.event.DocumentEvent$EventType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUndoPresentationName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUndoPresentationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSignificant",
+    "modifiers" : "public",
+    "signature" : "public boolean isSignificant()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redo",
+    "modifiers" : "public",
+    "signature" : "public void redo() throws javax.swing.undo.CannotRedoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotRedoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "undo",
+    "modifiers" : "public",
+    "signature" : "public void undo() throws javax.swing.undo.CannotUndoException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.swing.undo.CannotUndoException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,137 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.CannotProceedException",
+  "canonicalName" : "javax.naming.CannotProceedException",
+  "simpleName" : "CannotProceedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.CannotProceedException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.CannotProceedException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.CannotProceedException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.CannotProceedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAltName",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Name getAltName()",
+    "returnType" : "javax.naming.Name",
+    "genericReturnType" : "javax.naming.Name",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAltNameCtx",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Context getAltNameCtx()",
+    "returnType" : "javax.naming.Context",
+    "genericReturnType" : "javax.naming.Context",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEnvironment",
+    "modifiers" : "public",
+    "signature" : "public java.util.Hashtable getEnvironment()",
+    "returnType" : "java.util.Hashtable",
+    "genericReturnType" : "java.util.Hashtable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRemainingNewName",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Name getRemainingNewName()",
+    "returnType" : "javax.naming.Name",
+    "genericReturnType" : "javax.naming.Name",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAltName",
+    "modifiers" : "public",
+    "signature" : "public void setAltName(javax.naming.Name)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "altName",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAltNameCtx",
+    "modifiers" : "public",
+    "signature" : "public void setAltNameCtx(javax.naming.Context)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "altNameCtx",
+      "type" : "javax.naming.Context",
+      "genericType" : "javax.naming.Context",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnvironment",
+    "modifiers" : "public",
+    "signature" : "public void setEnvironment(java.util.Hashtable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "environment",
+      "type" : "java.util.Hashtable",
+      "genericType" : "java.util.Hashtable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setRemainingNewName",
+    "modifiers" : "public",
+    "signature" : "public void setRemainingNewName(javax.naming.Name)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "newName",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

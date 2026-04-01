@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpResponse",
+  "canonicalName" : "java.net.http.HttpResponse",
+  "simpleName" : "HttpResponse",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "body",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object body()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connectionLabel",
+    "modifiers" : "public",
+    "signature" : "public java.util.Optional connectionLabel()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "headers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpHeaders headers()",
+    "returnType" : "java.net.http.HttpHeaders",
+    "genericReturnType" : "java.net.http.HttpHeaders",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousResponse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional previousResponse()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "request",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpRequest request()",
+    "returnType" : "java.net.http.HttpRequest",
+    "genericReturnType" : "java.net.http.HttpRequest",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sslSession",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional sslSession()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "statusCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int statusCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "uri",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.URI uri()",
+    "returnType" : "java.net.URI",
+    "genericReturnType" : "java.net.URI",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Version version()",
+    "returnType" : "java.net.http.HttpClient$Version",
+    "genericReturnType" : "java.net.http.HttpClient$Version",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

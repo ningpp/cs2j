@@ -1,0 +1,135 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.SysexMessage",
+  "canonicalName" : "javax.sound.midi.SysexMessage",
+  "simpleName" : "SysexMessage",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.sound.midi.MidiMessage",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.midi.SysexMessage",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.SysexMessage()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.midi.SysexMessage",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.SysexMessage(byte[], int) throws javax.sound.midi.InvalidMidiDataException",
+    "parameters" : [ {
+      "name" : "data",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException" ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.midi.SysexMessage",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.SysexMessage(int, byte[], int) throws javax.sound.midi.InvalidMidiDataException",
+    "parameters" : [ {
+      "name" : "status",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public byte[] getData()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMessage",
+    "modifiers" : "public",
+    "signature" : "public void setMessage(byte[], int) throws javax.sound.midi.InvalidMidiDataException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "data",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMessage",
+    "modifiers" : "public",
+    "signature" : "public void setMessage(int, byte[], int) throws javax.sound.midi.InvalidMidiDataException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "status",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

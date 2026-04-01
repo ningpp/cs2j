@@ -1,0 +1,160 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.KeyStroke",
+  "canonicalName" : "javax.swing.KeyStroke",
+  "simpleName" : "KeyStroke",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.AWTKeyStroke",
+  "declaredPublicMethods" : [ {
+    "name" : "getKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.KeyStroke getKeyStroke(char)",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "parameters" : [ {
+      "name" : "keyChar",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.KeyStroke getKeyStroke(char, boolean)",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "parameters" : [ {
+      "name" : "keyChar",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "onKeyRelease",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.KeyStroke getKeyStroke(int, int)",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "parameters" : [ {
+      "name" : "keyCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.KeyStroke getKeyStroke(int, int, boolean)",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "parameters" : [ {
+      "name" : "keyCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "onKeyRelease",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.KeyStroke getKeyStroke(java.lang.Character, int)",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "parameters" : [ {
+      "name" : "keyChar",
+      "type" : "java.lang.Character",
+      "genericType" : "java.lang.Character",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.KeyStroke getKeyStroke(java.lang.String)",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyStrokeForEvent",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.KeyStroke getKeyStrokeForEvent(java.awt.event.KeyEvent)",
+    "returnType" : "javax.swing.KeyStroke",
+    "genericReturnType" : "javax.swing.KeyStroke",
+    "parameters" : [ {
+      "name" : "anEvent",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

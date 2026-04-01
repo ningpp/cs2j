@@ -1,0 +1,148 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.FieldInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.FieldInstruction",
+  "simpleName" : "FieldInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "field",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.FieldRefEntry field()",
+    "returnType" : "java.lang.classfile.constantpool.FieldRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.FieldRefEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry name()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.FieldInstruction of(java.lang.classfile.Opcode, java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.NameAndTypeEntry)",
+    "returnType" : "java.lang.classfile.instruction.FieldInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.FieldInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameAndType",
+      "type" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "genericType" : "java.lang.classfile.constantpool.NameAndTypeEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.FieldInstruction of(java.lang.classfile.Opcode, java.lang.classfile.constantpool.ClassEntry, java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.instruction.FieldInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.FieldInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "owner",
+      "type" : "java.lang.classfile.constantpool.ClassEntry",
+      "genericType" : "java.lang.classfile.constantpool.ClassEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.FieldInstruction of(java.lang.classfile.Opcode, java.lang.classfile.constantpool.FieldRefEntry)",
+    "returnType" : "java.lang.classfile.instruction.FieldInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.FieldInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "field",
+      "type" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "genericType" : "java.lang.classfile.constantpool.FieldRefEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "owner",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.ClassEntry owner()",
+    "returnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ClassEntry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "type",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.constantpool.Utf8Entry type()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "typeSymbol",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ClassDesc typeSymbol()",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

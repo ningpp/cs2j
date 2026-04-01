@@ -1,0 +1,196 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.UnicastRemoteObject",
+  "canonicalName" : "java.rmi.server.UnicastRemoteObject",
+  "simpleName" : "UnicastRemoteObject",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.rmi.server.RemoteServer",
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone() throws java.lang.CloneNotSupportedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.CloneNotSupportedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportObject",
+    "modifiers" : "public static",
+    "signature" : "public static java.rmi.server.RemoteStub exportObject(java.rmi.Remote) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.server.RemoteStub",
+    "genericReturnType" : "java.rmi.server.RemoteStub",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportObject",
+    "modifiers" : "public static",
+    "signature" : "public static java.rmi.Remote exportObject(java.rmi.Remote, int) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportObject",
+    "modifiers" : "public static",
+    "signature" : "public static java.rmi.Remote exportObject(java.rmi.Remote, int, java.io.ObjectInputFilter) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.io.ObjectInputFilter",
+      "genericType" : "java.io.ObjectInputFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportObject",
+    "modifiers" : "public static",
+    "signature" : "public static java.rmi.Remote exportObject(java.rmi.Remote, int, java.rmi.server.RMIClientSocketFactory, java.rmi.server.RMIServerSocketFactory) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csf",
+      "type" : "java.rmi.server.RMIClientSocketFactory",
+      "genericType" : "java.rmi.server.RMIClientSocketFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ssf",
+      "type" : "java.rmi.server.RMIServerSocketFactory",
+      "genericType" : "java.rmi.server.RMIServerSocketFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exportObject",
+    "modifiers" : "public static",
+    "signature" : "public static java.rmi.Remote exportObject(java.rmi.Remote, int, java.rmi.server.RMIClientSocketFactory, java.rmi.server.RMIServerSocketFactory, java.io.ObjectInputFilter) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.Remote",
+    "genericReturnType" : "java.rmi.Remote",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "port",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "csf",
+      "type" : "java.rmi.server.RMIClientSocketFactory",
+      "genericType" : "java.rmi.server.RMIClientSocketFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ssf",
+      "type" : "java.rmi.server.RMIServerSocketFactory",
+      "genericType" : "java.rmi.server.RMIServerSocketFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filter",
+      "type" : "java.io.ObjectInputFilter",
+      "genericType" : "java.io.ObjectInputFilter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unexportObject",
+    "modifiers" : "public static",
+    "signature" : "public static boolean unexportObject(java.rmi.Remote, boolean) throws java.rmi.NoSuchObjectException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.rmi.Remote",
+      "genericType" : "java.rmi.Remote",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "force",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.NoSuchObjectException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.prefs",
+  "packageName" : "java.util.prefs",
+  "binaryName" : "java.util.prefs.InvalidPreferencesFormatException",
+  "canonicalName" : "java.util.prefs.InvalidPreferencesFormatException",
+  "simpleName" : "InvalidPreferencesFormatException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.prefs.InvalidPreferencesFormatException",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.InvalidPreferencesFormatException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.prefs.InvalidPreferencesFormatException",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.InvalidPreferencesFormatException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.prefs.InvalidPreferencesFormatException",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.InvalidPreferencesFormatException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

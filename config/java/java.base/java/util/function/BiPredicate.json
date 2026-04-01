@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.BiPredicate",
+  "canonicalName" : "java.util.function.BiPredicate",
+  "simpleName" : "BiPredicate",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "and",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.BiPredicate and(java.util.function.BiPredicate)",
+    "returnType" : "java.util.function.BiPredicate",
+    "genericReturnType" : "java.util.function.BiPredicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.BiPredicate",
+      "genericType" : "java.util.function.BiPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "negate",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.BiPredicate negate()",
+    "returnType" : "java.util.function.BiPredicate",
+    "genericReturnType" : "java.util.function.BiPredicate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "or",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.BiPredicate or(java.util.function.BiPredicate)",
+    "returnType" : "java.util.function.BiPredicate",
+    "genericReturnType" : "java.util.function.BiPredicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.BiPredicate",
+      "genericType" : "java.util.function.BiPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "test",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean test(java.lang.Object, java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

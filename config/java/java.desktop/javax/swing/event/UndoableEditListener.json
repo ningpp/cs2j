@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.UndoableEditListener",
+  "canonicalName" : "javax.swing.event.UndoableEditListener",
+  "simpleName" : "UndoableEditListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "undoableEditHappened",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void undoableEditHappened(javax.swing.event.UndoableEditEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.UndoableEditEvent",
+      "genericType" : "javax.swing.event.UndoableEditEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

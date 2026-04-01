@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.interfaces",
+  "binaryName" : "javax.crypto.interfaces.PBEKey",
+  "canonicalName" : "javax.crypto.interfaces.PBEKey",
+  "simpleName" : "PBEKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.crypto.SecretKey" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getIterationCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getIterationCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPassword",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract char[] getPassword()",
+    "returnType" : "char[]",
+    "genericReturnType" : "char[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSalt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getSalt()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

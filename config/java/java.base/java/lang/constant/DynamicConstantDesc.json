@@ -1,0 +1,227 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.constant",
+  "binaryName" : "java.lang.constant.DynamicConstantDesc",
+  "canonicalName" : "java.lang.constant.DynamicConstantDesc",
+  "simpleName" : "DynamicConstantDesc",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.constant.ConstantDesc" ],
+  "declaredPublicMethods" : [ {
+    "name" : "bootstrapArgs",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ConstantDesc[] bootstrapArgs()",
+    "returnType" : "java.lang.constant.ConstantDesc[]",
+    "genericReturnType" : "java.lang.constant.ConstantDesc[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bootstrapArgsList",
+    "modifiers" : "public",
+    "signature" : "public java.util.List bootstrapArgsList()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "bootstrapMethod",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.DirectMethodHandleDesc bootstrapMethod()",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constantName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String constantName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constantType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ClassDesc constantType()",
+    "returnType" : "java.lang.constant.ClassDesc",
+    "genericReturnType" : "java.lang.constant.ClassDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public final",
+    "signature" : "public final boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "o",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public final",
+    "signature" : "public final int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DynamicConstantDesc of(java.lang.constant.DirectMethodHandleDesc)",
+    "returnType" : "java.lang.constant.DynamicConstantDesc",
+    "genericReturnType" : "java.lang.constant.DynamicConstantDesc",
+    "parameters" : [ {
+      "name" : "bootstrapMethod",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DynamicConstantDesc of(java.lang.constant.DirectMethodHandleDesc, java.lang.constant.ConstantDesc...)",
+    "returnType" : "java.lang.constant.DynamicConstantDesc",
+    "genericReturnType" : "java.lang.constant.DynamicConstantDesc",
+    "parameters" : [ {
+      "name" : "bootstrapMethod",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bootstrapArgs",
+      "type" : "java.lang.constant.ConstantDesc[]",
+      "genericType" : "java.lang.constant.ConstantDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofCanonical",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.ConstantDesc ofCanonical(java.lang.constant.DirectMethodHandleDesc, java.lang.String, java.lang.constant.ClassDesc, java.lang.constant.ConstantDesc[])",
+    "returnType" : "java.lang.constant.ConstantDesc",
+    "genericReturnType" : "java.lang.constant.ConstantDesc",
+    "parameters" : [ {
+      "name" : "bootstrapMethod",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constantName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constantType",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bootstrapArgs",
+      "type" : "java.lang.constant.ConstantDesc[]",
+      "genericType" : "java.lang.constant.ConstantDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofNamed",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.constant.DynamicConstantDesc ofNamed(java.lang.constant.DirectMethodHandleDesc, java.lang.String, java.lang.constant.ClassDesc, java.lang.constant.ConstantDesc...)",
+    "returnType" : "java.lang.constant.DynamicConstantDesc",
+    "genericReturnType" : "java.lang.constant.DynamicConstantDesc",
+    "parameters" : [ {
+      "name" : "bootstrapMethod",
+      "type" : "java.lang.constant.DirectMethodHandleDesc",
+      "genericType" : "java.lang.constant.DirectMethodHandleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constantName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constantType",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bootstrapArgs",
+      "type" : "java.lang.constant.ConstantDesc[]",
+      "genericType" : "java.lang.constant.ConstantDesc[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "resolveConstantDesc",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object resolveConstantDesc(java.lang.invoke.MethodHandles$Lookup) throws java.lang.ReflectiveOperationException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ReflectiveOperationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

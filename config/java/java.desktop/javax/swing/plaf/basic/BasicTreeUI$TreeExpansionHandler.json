@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicTreeUI$TreeExpansionHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicTreeUI.TreeExpansionHandler",
+  "simpleName" : "TreeExpansionHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicTreeUI",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.event.TreeExpansionListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicTreeUI$TreeExpansionHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicTreeUI$TreeExpansionHandler(javax.swing.plaf.basic.BasicTreeUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicTreeUI",
+      "genericType" : "javax.swing.plaf.basic.BasicTreeUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "treeCollapsed",
+    "modifiers" : "public",
+    "signature" : "public void treeCollapsed(javax.swing.event.TreeExpansionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "javax.swing.event.TreeExpansionEvent",
+      "genericType" : "javax.swing.event.TreeExpansionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "treeExpanded",
+    "modifiers" : "public",
+    "signature" : "public void treeExpanded(javax.swing.event.TreeExpansionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "javax.swing.event.TreeExpansionEvent",
+      "genericType" : "javax.swing.event.TreeExpansionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,107 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.FactoryConfigurationError",
+  "canonicalName" : "javax.xml.stream.FactoryConfigurationError",
+  "simpleName" : "FactoryConfigurationError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.stream.FactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.FactoryConfigurationError()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.FactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.FactoryConfigurationError(java.lang.Exception)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.FactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.FactoryConfigurationError(java.lang.Exception, java.lang.String)",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.FactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.FactoryConfigurationError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.stream.FactoryConfigurationError",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.FactoryConfigurationError(java.lang.String, java.lang.Exception)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "java.lang.Exception",
+      "genericType" : "java.lang.Exception",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCause",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Throwable getCause()",
+    "returnType" : "java.lang.Throwable",
+    "genericReturnType" : "java.lang.Throwable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Exception getException()",
+    "returnType" : "java.lang.Exception",
+    "genericReturnType" : "java.lang.Exception",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

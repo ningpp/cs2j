@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicTabbedPaneUI$MouseHandler",
+  "canonicalName" : "javax.swing.plaf.basic.BasicTabbedPaneUI.MouseHandler",
+  "simpleName" : "MouseHandler",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicTabbedPaneUI",
+  "superClass" : "java.awt.event.MouseAdapter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicTabbedPaneUI$MouseHandler",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicTabbedPaneUI$MouseHandler(javax.swing.plaf.basic.BasicTabbedPaneUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicTabbedPaneUI",
+      "genericType" : "javax.swing.plaf.basic.BasicTabbedPaneUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "mousePressed",
+    "modifiers" : "public",
+    "signature" : "public void mousePressed(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

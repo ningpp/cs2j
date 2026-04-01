@@ -1,0 +1,126 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.StructuredTaskScope",
+  "canonicalName" : "java.util.concurrent.StructuredTaskScope",
+  "simpleName" : "StructuredTaskScope",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.AutoCloseable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fork",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.StructuredTaskScope$Subtask fork(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Subtask",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Subtask",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fork",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.StructuredTaskScope$Subtask fork(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope$Subtask",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope$Subtask",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isCancelled",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isCancelled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "join",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object join() throws java.lang.InterruptedException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope open()",
+    "returnType" : "java.util.concurrent.StructuredTaskScope",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope open(java.util.concurrent.StructuredTaskScope$Joiner)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope",
+    "parameters" : [ {
+      "name" : "joiner",
+      "type" : "java.util.concurrent.StructuredTaskScope$Joiner",
+      "genericType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "open",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.StructuredTaskScope open(java.util.concurrent.StructuredTaskScope$Joiner, java.util.function.Function)",
+    "returnType" : "java.util.concurrent.StructuredTaskScope",
+    "genericReturnType" : "java.util.concurrent.StructuredTaskScope",
+    "parameters" : [ {
+      "name" : "joiner",
+      "type" : "java.util.concurrent.StructuredTaskScope$Joiner",
+      "genericType" : "java.util.concurrent.StructuredTaskScope$Joiner",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "configFunction",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

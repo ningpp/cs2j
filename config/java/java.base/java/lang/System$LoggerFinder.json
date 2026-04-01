@@ -1,0 +1,74 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.System$LoggerFinder",
+  "canonicalName" : "java.lang.System.LoggerFinder",
+  "simpleName" : "LoggerFinder",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "java.lang.System",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getLocalizedLogger",
+    "modifiers" : "public",
+    "signature" : "public java.lang.System$Logger getLocalizedLogger(java.lang.String, java.util.ResourceBundle, java.lang.Module)",
+    "returnType" : "java.lang.System$Logger",
+    "genericReturnType" : "java.lang.System$Logger",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bundle",
+      "type" : "java.util.ResourceBundle",
+      "genericType" : "java.util.ResourceBundle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "module",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLogger",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.System$Logger getLogger(java.lang.String, java.lang.Module)",
+    "returnType" : "java.lang.System$Logger",
+    "genericReturnType" : "java.lang.System$Logger",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLoggerFinder",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.System$LoggerFinder getLoggerFinder()",
+    "returnType" : "java.lang.System$LoggerFinder",
+    "genericReturnType" : "java.lang.System$LoggerFinder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

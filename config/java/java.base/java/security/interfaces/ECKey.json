@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.interfaces",
+  "binaryName" : "java.security.interfaces.ECKey",
+  "canonicalName" : "java.security.interfaces.ECKey",
+  "simpleName" : "ECKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getParams",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.spec.ECParameterSpec getParams()",
+    "returnType" : "java.security.spec.ECParameterSpec",
+    "genericReturnType" : "java.security.spec.ECParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,101 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.RootPaneContainer",
+  "canonicalName" : "javax.swing.RootPaneContainer",
+  "simpleName" : "RootPaneContainer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getContentPane",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Container getContentPane()",
+    "returnType" : "java.awt.Container",
+    "genericReturnType" : "java.awt.Container",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGlassPane",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.awt.Component getGlassPane()",
+    "returnType" : "java.awt.Component",
+    "genericReturnType" : "java.awt.Component",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayeredPane",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.JLayeredPane getLayeredPane()",
+    "returnType" : "javax.swing.JLayeredPane",
+    "genericReturnType" : "javax.swing.JLayeredPane",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRootPane",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.JRootPane getRootPane()",
+    "returnType" : "javax.swing.JRootPane",
+    "genericReturnType" : "javax.swing.JRootPane",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setContentPane",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setContentPane(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setGlassPane",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setGlassPane(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLayeredPane",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setLayeredPane(javax.swing.JLayeredPane)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.JLayeredPane",
+      "genericType" : "javax.swing.JLayeredPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

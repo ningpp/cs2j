@@ -1,0 +1,143 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.AudioFileFormat",
+  "canonicalName" : "javax.sound.sampled.AudioFileFormat",
+  "simpleName" : "AudioFileFormat",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.sampled.AudioFileFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFileFormat(javax.sound.sampled.AudioFileFormat$Type, javax.sound.sampled.AudioFormat, int)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "javax.sound.sampled.AudioFileFormat$Type",
+      "genericType" : "javax.sound.sampled.AudioFileFormat$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frameLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sound.sampled.AudioFileFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFileFormat(javax.sound.sampled.AudioFileFormat$Type, javax.sound.sampled.AudioFormat, int, java.util.Map)",
+    "parameters" : [ {
+      "name" : "type",
+      "type" : "javax.sound.sampled.AudioFileFormat$Type",
+      "genericType" : "javax.sound.sampled.AudioFileFormat$Type",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "format",
+      "type" : "javax.sound.sampled.AudioFormat",
+      "genericType" : "javax.sound.sampled.AudioFormat",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "frameLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "properties",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getByteLength",
+    "modifiers" : "public",
+    "signature" : "public int getByteLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFormat getFormat()",
+    "returnType" : "javax.sound.sampled.AudioFormat",
+    "genericReturnType" : "javax.sound.sampled.AudioFormat",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFrameLength",
+    "modifiers" : "public",
+    "signature" : "public int getFrameLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.sampled.AudioFileFormat$Type getType()",
+    "returnType" : "javax.sound.sampled.AudioFileFormat$Type",
+    "genericReturnType" : "javax.sound.sampled.AudioFileFormat$Type",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "properties",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map properties()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

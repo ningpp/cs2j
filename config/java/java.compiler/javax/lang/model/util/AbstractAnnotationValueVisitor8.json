@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.AbstractAnnotationValueVisitor8",
+  "canonicalName" : "javax.lang.model.util.AbstractAnnotationValueVisitor8",
+  "simpleName" : "AbstractAnnotationValueVisitor8",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.lang.model.util.AbstractAnnotationValueVisitor7"
+}

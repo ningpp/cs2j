@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.StackOverflowError",
+  "canonicalName" : "java.lang.StackOverflowError",
+  "simpleName" : "StackOverflowError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.VirtualMachineError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.StackOverflowError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StackOverflowError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.StackOverflowError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.StackOverflowError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.LineNumber",
+  "canonicalName" : "java.lang.classfile.instruction.LineNumber",
+  "simpleName" : "LineNumber",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.PseudoInstruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "line",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int line()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.LineNumber of(int)",
+    "returnType" : "java.lang.classfile.instruction.LineNumber",
+    "genericReturnType" : "java.lang.classfile.instruction.LineNumber",
+    "parameters" : [ {
+      "name" : "line",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

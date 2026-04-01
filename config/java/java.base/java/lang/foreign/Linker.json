@@ -1,0 +1,127 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.Linker",
+  "canonicalName" : "java.lang.foreign.Linker",
+  "simpleName" : "Linker",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "canonicalLayouts",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map canonicalLayouts()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defaultLookup",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.SymbolLookup defaultLookup()",
+    "returnType" : "java.lang.foreign.SymbolLookup",
+    "genericReturnType" : "java.lang.foreign.SymbolLookup",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "downcallHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle downcallHandle(java.lang.foreign.FunctionDescriptor, java.lang.foreign.Linker$Option...)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.FunctionDescriptor",
+      "genericType" : "java.lang.foreign.FunctionDescriptor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.foreign.Linker$Option[]",
+      "genericType" : "java.lang.foreign.Linker$Option[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "downcallHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle downcallHandle(java.lang.foreign.MemorySegment, java.lang.foreign.FunctionDescriptor, java.lang.foreign.Linker$Option...)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemorySegment",
+      "genericType" : "java.lang.foreign.MemorySegment",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.foreign.FunctionDescriptor",
+      "genericType" : "java.lang.foreign.FunctionDescriptor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.foreign.Linker$Option[]",
+      "genericType" : "java.lang.foreign.Linker$Option[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "nativeLinker",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Linker nativeLinker()",
+    "returnType" : "java.lang.foreign.Linker",
+    "genericReturnType" : "java.lang.foreign.Linker",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "upcallStub",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemorySegment upcallStub(java.lang.invoke.MethodHandle, java.lang.foreign.FunctionDescriptor, java.lang.foreign.Arena, java.lang.foreign.Linker$Option...)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.invoke.MethodHandle",
+      "genericType" : "java.lang.invoke.MethodHandle",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.foreign.FunctionDescriptor",
+      "genericType" : "java.lang.foreign.FunctionDescriptor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.foreign.Arena",
+      "genericType" : "java.lang.foreign.Arena",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.foreign.Linker$Option[]",
+      "genericType" : "java.lang.foreign.Linker$Option[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

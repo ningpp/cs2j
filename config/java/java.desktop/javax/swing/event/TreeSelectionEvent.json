@@ -1,0 +1,185 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.TreeSelectionEvent",
+  "canonicalName" : "javax.swing.event.TreeSelectionEvent",
+  "simpleName" : "TreeSelectionEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.event.TreeSelectionEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TreeSelectionEvent(java.lang.Object, javax.swing.tree.TreePath, boolean, javax.swing.tree.TreePath, javax.swing.tree.TreePath)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isNew",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldLeadSelectionPath",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newLeadSelectionPath",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.event.TreeSelectionEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.event.TreeSelectionEvent(java.lang.Object, javax.swing.tree.TreePath[], boolean[], javax.swing.tree.TreePath, javax.swing.tree.TreePath)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paths",
+      "type" : "javax.swing.tree.TreePath[]",
+      "genericType" : "javax.swing.tree.TreePath[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "areNew",
+      "type" : "boolean[]",
+      "genericType" : "boolean[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldLeadSelectionPath",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newLeadSelectionPath",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "cloneWithSource",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object cloneWithSource(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "newSource",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNewLeadSelectionPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getNewLeadSelectionPath()",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOldLeadSelectionPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getOldLeadSelectionPath()",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPath",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath getPath()",
+    "returnType" : "javax.swing.tree.TreePath",
+    "genericReturnType" : "javax.swing.tree.TreePath",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPaths",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreePath[] getPaths()",
+    "returnType" : "javax.swing.tree.TreePath[]",
+    "genericReturnType" : "javax.swing.tree.TreePath[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAddedPath",
+    "modifiers" : "public",
+    "signature" : "public boolean isAddedPath()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAddedPath",
+    "modifiers" : "public",
+    "signature" : "public boolean isAddedPath(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isAddedPath",
+    "modifiers" : "public",
+    "signature" : "public boolean isAddedPath(javax.swing.tree.TreePath)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "javax.swing.tree.TreePath",
+      "genericType" : "javax.swing.tree.TreePath",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.StandardConstants",
+  "canonicalName" : "javax.net.ssl.StandardConstants",
+  "simpleName" : "StandardConstants",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

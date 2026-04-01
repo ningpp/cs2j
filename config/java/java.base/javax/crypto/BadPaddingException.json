@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.BadPaddingException",
+  "canonicalName" : "javax.crypto.BadPaddingException",
+  "simpleName" : "BadPaddingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.BadPaddingException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.BadPaddingException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.BadPaddingException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.BadPaddingException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

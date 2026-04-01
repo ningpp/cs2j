@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dom",
+  "binaryName" : "javax.xml.crypto.dom.DOMStructure",
+  "canonicalName" : "javax.xml.crypto.dom.DOMStructure",
+  "simpleName" : "DOMStructure",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.dom.DOMStructure",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.dom.DOMStructure(org.w3c.dom.Node)",
+    "parameters" : [ {
+      "name" : "node",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getNode",
+    "modifiers" : "public",
+    "signature" : "public org.w3c.dom.Node getNode()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFeatureSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isFeatureSupported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "feature",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

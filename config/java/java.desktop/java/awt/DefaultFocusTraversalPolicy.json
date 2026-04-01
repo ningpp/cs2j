@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.DefaultFocusTraversalPolicy",
+  "canonicalName" : "java.awt.DefaultFocusTraversalPolicy",
+  "simpleName" : "DefaultFocusTraversalPolicy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.ContainerOrderFocusTraversalPolicy",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.DefaultFocusTraversalPolicy",
+    "modifiers" : "public",
+    "signature" : "public java.awt.DefaultFocusTraversalPolicy()",
+    "varArgs" : false
+  } ]
+}

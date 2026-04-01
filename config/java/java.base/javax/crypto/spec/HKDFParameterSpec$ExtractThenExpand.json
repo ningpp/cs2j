@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.HKDFParameterSpec$ExtractThenExpand",
+  "canonicalName" : "javax.crypto.spec.HKDFParameterSpec.ExtractThenExpand",
+  "simpleName" : "ExtractThenExpand",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.crypto.spec.HKDFParameterSpec",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.crypto.spec.HKDFParameterSpec" ],
+  "declaredPublicMethods" : [ {
+    "name" : "ikms",
+    "modifiers" : "public",
+    "signature" : "public java.util.List ikms()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "info",
+    "modifiers" : "public",
+    "signature" : "public byte[] info()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "length",
+    "modifiers" : "public",
+    "signature" : "public int length()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "salts",
+    "modifiers" : "public",
+    "signature" : "public java.util.List salts()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,104 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.ByteLookupTable",
+  "canonicalName" : "java.awt.image.ByteLookupTable",
+  "simpleName" : "ByteLookupTable",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.image.LookupTable",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.ByteLookupTable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ByteLookupTable(int, byte[])",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.ByteLookupTable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ByteLookupTable(int, byte[][])",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "byte[][]",
+      "genericType" : "byte[][]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getTable",
+    "modifiers" : "public final",
+    "signature" : "public final byte[][] getTable()",
+    "returnType" : "byte[][]",
+    "genericReturnType" : "byte[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupPixel",
+    "modifiers" : "public",
+    "signature" : "public byte[] lookupPixel(byte[], byte[])",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupPixel",
+    "modifiers" : "public",
+    "signature" : "public int[] lookupPixel(int[], int[])",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

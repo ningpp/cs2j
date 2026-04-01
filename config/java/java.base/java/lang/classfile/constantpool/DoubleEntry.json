@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.DoubleEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.DoubleEntry",
+  "simpleName" : "DoubleEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.AnnotationConstantValueEntry", "java.lang.classfile.constantpool.ConstantValueEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "doubleValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double doubleValue()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "typeKind",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.TypeKind typeKind()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

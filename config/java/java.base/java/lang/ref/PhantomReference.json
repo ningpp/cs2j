@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.ref",
+  "binaryName" : "java.lang.ref.PhantomReference",
+  "canonicalName" : "java.lang.ref.PhantomReference",
+  "simpleName" : "PhantomReference",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ref.Reference",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ref.PhantomReference",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ref.PhantomReference(java.lang.Object, java.lang.ref.ReferenceQueue)",
+    "parameters" : [ {
+      "name" : "referent",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "q",
+      "type" : "java.lang.ref.ReferenceQueue",
+      "genericType" : "java.lang.ref.ReferenceQueue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "get",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object get()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

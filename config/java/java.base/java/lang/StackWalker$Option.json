@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.StackWalker$Option",
+  "canonicalName" : "java.lang.StackWalker.Option",
+  "simpleName" : "Option",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.StackWalker",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.StackWalker$Option valueOf(java.lang.String)",
+    "returnType" : "java.lang.StackWalker$Option",
+    "genericReturnType" : "java.lang.StackWalker$Option",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.StackWalker$Option[] values()",
+    "returnType" : "java.lang.StackWalker$Option[]",
+    "genericReturnType" : "java.lang.StackWalker$Option[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

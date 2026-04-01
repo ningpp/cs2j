@@ -1,0 +1,24 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.StyledEditorKit$StyledTextAction",
+  "canonicalName" : "javax.swing.text.StyledEditorKit.StyledTextAction",
+  "simpleName" : "StyledTextAction",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "javax.swing.text.StyledEditorKit",
+  "superClass" : "javax.swing.text.TextAction",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.StyledEditorKit$StyledTextAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.StyledEditorKit$StyledTextAction(java.lang.String)",
+    "parameters" : [ {
+      "name" : "nm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

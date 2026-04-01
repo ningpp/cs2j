@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Label",
+  "canonicalName" : "java.lang.classfile.Label",
+  "simpleName" : "Label",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

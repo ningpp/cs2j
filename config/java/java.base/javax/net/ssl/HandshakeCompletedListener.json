@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.HandshakeCompletedListener",
+  "canonicalName" : "javax.net.ssl.HandshakeCompletedListener",
+  "simpleName" : "HandshakeCompletedListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "handshakeCompleted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void handshakeCompleted(javax.net.ssl.HandshakeCompletedEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.net.ssl.HandshakeCompletedEvent",
+      "genericType" : "javax.net.ssl.HandshakeCompletedEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

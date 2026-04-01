@@ -1,0 +1,83 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.OAEPParameterSpec",
+  "canonicalName" : "javax.crypto.spec.OAEPParameterSpec",
+  "simpleName" : "OAEPParameterSpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.spec.OAEPParameterSpec",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.OAEPParameterSpec(java.lang.String, java.lang.String, java.security.spec.AlgorithmParameterSpec, javax.crypto.spec.PSource)",
+    "parameters" : [ {
+      "name" : "mdName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mgfName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mgfSpec",
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "genericType" : "java.security.spec.AlgorithmParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pSrc",
+      "type" : "javax.crypto.spec.PSource",
+      "genericType" : "javax.crypto.spec.PSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDigestAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDigestAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMGFAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMGFAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMGFParameters",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.AlgorithmParameterSpec getMGFParameters()",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPSource",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.PSource getPSource()",
+    "returnType" : "javax.crypto.spec.PSource",
+    "genericReturnType" : "javax.crypto.spec.PSource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.attribute",
+  "binaryName" : "java.nio.file.attribute.GroupPrincipal",
+  "canonicalName" : "java.nio.file.attribute.GroupPrincipal",
+  "simpleName" : "GroupPrincipal",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.nio.file.attribute.UserPrincipal" ]
+}

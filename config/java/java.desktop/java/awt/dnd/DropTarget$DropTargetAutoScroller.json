@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DropTarget$DropTargetAutoScroller",
+  "canonicalName" : "java.awt.dnd.DropTarget.DropTargetAutoScroller",
+  "simpleName" : "DropTargetAutoScroller",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.dnd.DropTarget",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.event.ActionListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

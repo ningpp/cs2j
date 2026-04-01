@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.MultipleGradientPaint",
+  "canonicalName" : "java.awt.MultipleGradientPaint",
+  "simpleName" : "MultipleGradientPaint",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.Paint" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getColorSpace",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.MultipleGradientPaint$ColorSpaceType getColorSpace()",
+    "returnType" : "java.awt.MultipleGradientPaint$ColorSpaceType",
+    "genericReturnType" : "java.awt.MultipleGradientPaint$ColorSpaceType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColors",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.Color[] getColors()",
+    "returnType" : "java.awt.Color[]",
+    "genericReturnType" : "java.awt.Color[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCycleMethod",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.MultipleGradientPaint$CycleMethod getCycleMethod()",
+    "returnType" : "java.awt.MultipleGradientPaint$CycleMethod",
+    "genericReturnType" : "java.awt.MultipleGradientPaint$CycleMethod",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFractions",
+    "modifiers" : "public final",
+    "signature" : "public final float[] getFractions()",
+    "returnType" : "float[]",
+    "genericReturnType" : "float[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransform",
+    "modifiers" : "public final",
+    "signature" : "public final java.awt.geom.AffineTransform getTransform()",
+    "returnType" : "java.awt.geom.AffineTransform",
+    "genericReturnType" : "java.awt.geom.AffineTransform",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransparency",
+    "modifiers" : "public final",
+    "signature" : "public final int getTransparency()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,81 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.runtime",
+  "binaryName" : "java.lang.runtime.SwitchBootstraps",
+  "canonicalName" : "java.lang.runtime.SwitchBootstraps",
+  "simpleName" : "SwitchBootstraps",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "enumSwitch",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.CallSite enumSwitch(java.lang.invoke.MethodHandles$Lookup, java.lang.String, java.lang.invoke.MethodType, java.lang.Object...)",
+    "returnType" : "java.lang.invoke.CallSite",
+    "genericReturnType" : "java.lang.invoke.CallSite",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationType",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "labels",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "typeSwitch",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.CallSite typeSwitch(java.lang.invoke.MethodHandles$Lookup, java.lang.String, java.lang.invoke.MethodType, java.lang.Object...)",
+    "returnType" : "java.lang.invoke.CallSite",
+    "genericReturnType" : "java.lang.invoke.CallSite",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "invocationType",
+      "type" : "java.lang.invoke.MethodType",
+      "genericType" : "java.lang.invoke.MethodType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "labels",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

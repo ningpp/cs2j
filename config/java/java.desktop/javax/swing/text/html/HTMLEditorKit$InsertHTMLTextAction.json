@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLEditorKit$InsertHTMLTextAction",
+  "canonicalName" : "javax.swing.text.html.HTMLEditorKit.InsertHTMLTextAction",
+  "simpleName" : "InsertHTMLTextAction",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.html.HTMLEditorKit",
+  "superClass" : "javax.swing.text.html.HTMLEditorKit$HTMLTextAction",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLEditorKit$InsertHTMLTextAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$InsertHTMLTextAction(java.lang.String, java.lang.String, javax.swing.text.html.HTML$Tag, javax.swing.text.html.HTML$Tag)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "html",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentTag",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addTag",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.html.HTMLEditorKit$InsertHTMLTextAction",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$InsertHTMLTextAction(java.lang.String, java.lang.String, javax.swing.text.html.HTML$Tag, javax.swing.text.html.HTML$Tag, javax.swing.text.html.HTML$Tag, javax.swing.text.html.HTML$Tag)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "html",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parentTag",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addTag",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "alternateParentTag",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "alternateAddTag",
+      "type" : "javax.swing.text.html.HTML$Tag",
+      "genericType" : "javax.swing.text.html.HTML$Tag",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "actionPerformed",
+    "modifiers" : "public",
+    "signature" : "public void actionPerformed(java.awt.event.ActionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ae",
+      "type" : "java.awt.event.ActionEvent",
+      "genericType" : "java.awt.event.ActionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

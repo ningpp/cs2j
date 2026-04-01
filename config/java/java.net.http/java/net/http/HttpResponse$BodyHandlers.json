@@ -1,0 +1,318 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpResponse$BodyHandlers",
+  "canonicalName" : "java.net.http.HttpResponse.BodyHandlers",
+  "simpleName" : "BodyHandlers",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpResponse",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "buffering",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler buffering(java.net.http.HttpResponse$BodyHandler, int)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "downstreamHandler",
+      "type" : "java.net.http.HttpResponse$BodyHandler",
+      "genericType" : "java.net.http.HttpResponse$BodyHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "bufferSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "discarding",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler discarding()",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromLineSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler fromLineSubscriber(java.util.concurrent.Flow$Subscriber)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromLineSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler fromLineSubscriber(java.util.concurrent.Flow$Subscriber, java.util.function.Function, java.lang.String)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lineSeparator",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler fromSubscriber(java.util.concurrent.Flow$Subscriber)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "fromSubscriber",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler fromSubscriber(java.util.concurrent.Flow$Subscriber, java.util.function.Function)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "subscriber",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limiting",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler limiting(java.net.http.HttpResponse$BodyHandler, long)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "downstreamHandler",
+      "type" : "java.net.http.HttpResponse$BodyHandler",
+      "genericType" : "java.net.http.HttpResponse$BodyHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "capacity",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByteArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofByteArray()",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByteArrayConsumer",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofByteArrayConsumer(java.util.function.Consumer)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "consumer",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofFile(java.nio.file.Path)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFile",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofFile(java.nio.file.Path, java.nio.file.OpenOption...)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openOptions",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofFileDownload",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofFileDownload(java.nio.file.Path, java.nio.file.OpenOption...)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "directory",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openOptions",
+      "type" : "java.nio.file.OpenOption[]",
+      "genericType" : "java.nio.file.OpenOption[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofInputStream",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofInputStream()",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLines",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofLines()",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofPublisher",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofPublisher()",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofString()",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler ofString(java.nio.charset.Charset)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "replacing",
+    "modifiers" : "public static",
+    "signature" : "public static java.net.http.HttpResponse$BodyHandler replacing(java.lang.Object)",
+    "returnType" : "java.net.http.HttpResponse$BodyHandler",
+    "genericReturnType" : "java.net.http.HttpResponse$BodyHandler",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

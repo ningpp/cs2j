@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextServiceProviderBeanInfo",
+  "canonicalName" : "java.beans.beancontext.BeanContextServiceProviderBeanInfo",
+  "simpleName" : "BeanContextServiceProviderBeanInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.beans.BeanInfo" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getServicesBeanInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.BeanInfo[] getServicesBeanInfo()",
+    "returnType" : "java.beans.BeanInfo[]",
+    "genericReturnType" : "java.beans.BeanInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

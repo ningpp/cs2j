@@ -1,0 +1,138 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.TrustAnchor",
+  "canonicalName" : "java.security.cert.TrustAnchor",
+  "simpleName" : "TrustAnchor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.TrustAnchor",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.TrustAnchor(java.lang.String, java.security.PublicKey, byte[])",
+    "parameters" : [ {
+      "name" : "caName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pubKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameConstraints",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.TrustAnchor",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.TrustAnchor(java.security.cert.X509Certificate, byte[])",
+    "parameters" : [ {
+      "name" : "trustedCert",
+      "type" : "java.security.cert.X509Certificate",
+      "genericType" : "java.security.cert.X509Certificate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameConstraints",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.cert.TrustAnchor",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.TrustAnchor(javax.security.auth.x500.X500Principal, java.security.PublicKey, byte[])",
+    "parameters" : [ {
+      "name" : "caPrincipal",
+      "type" : "javax.security.auth.x500.X500Principal",
+      "genericType" : "javax.security.auth.x500.X500Principal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pubKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nameConstraints",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCA",
+    "modifiers" : "public final",
+    "signature" : "public final javax.security.auth.x500.X500Principal getCA()",
+    "returnType" : "javax.security.auth.x500.X500Principal",
+    "genericReturnType" : "javax.security.auth.x500.X500Principal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCAName",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.String getCAName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCAPublicKey",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.PublicKey getCAPublicKey()",
+    "returnType" : "java.security.PublicKey",
+    "genericReturnType" : "java.security.PublicKey",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNameConstraints",
+    "modifiers" : "public final",
+    "signature" : "public final byte[] getNameConstraints()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTrustedCert",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.cert.X509Certificate getTrustedCert()",
+    "returnType" : "java.security.cert.X509Certificate",
+    "genericReturnType" : "java.security.cert.X509Certificate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.HostnameVerifier",
+  "canonicalName" : "javax.net.ssl.HostnameVerifier",
+  "simpleName" : "HostnameVerifier",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "verify",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean verify(java.lang.String, javax.net.ssl.SSLSession)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.net.ssl.SSLSession",
+      "genericType" : "javax.net.ssl.SSLSession",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

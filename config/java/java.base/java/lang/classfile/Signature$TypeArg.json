@@ -1,0 +1,95 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Signature$TypeArg",
+  "canonicalName" : "java.lang.classfile.Signature.TypeArg",
+  "simpleName" : "TypeArg",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.Signature",
+  "declaredPublicMethods" : [ {
+    "name" : "bounded",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeArg$Bounded bounded(java.lang.classfile.Signature$TypeArg$Bounded$WildcardIndicator, java.lang.classfile.Signature$RefTypeSig)",
+    "returnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "parameters" : [ {
+      "name" : "wildcard",
+      "type" : "java.lang.classfile.Signature$TypeArg$Bounded$WildcardIndicator",
+      "genericType" : "java.lang.classfile.Signature$TypeArg$Bounded$WildcardIndicator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "boundType",
+      "type" : "java.lang.classfile.Signature$RefTypeSig",
+      "genericType" : "java.lang.classfile.Signature$RefTypeSig",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "extendsOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeArg$Bounded extendsOf(java.lang.classfile.Signature$RefTypeSig)",
+    "returnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "parameters" : [ {
+      "name" : "boundType",
+      "type" : "java.lang.classfile.Signature$RefTypeSig",
+      "genericType" : "java.lang.classfile.Signature$RefTypeSig",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeArg$Bounded of(java.lang.classfile.Signature$RefTypeSig)",
+    "returnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "parameters" : [ {
+      "name" : "boundType",
+      "type" : "java.lang.classfile.Signature$RefTypeSig",
+      "genericType" : "java.lang.classfile.Signature$RefTypeSig",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeArg$Bounded superOf(java.lang.classfile.Signature$RefTypeSig)",
+    "returnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeArg$Bounded",
+    "parameters" : [ {
+      "name" : "boundType",
+      "type" : "java.lang.classfile.Signature$RefTypeSig",
+      "genericType" : "java.lang.classfile.Signature$RefTypeSig",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unbounded",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.Signature$TypeArg$Unbounded unbounded()",
+    "returnType" : "java.lang.classfile.Signature$TypeArg$Unbounded",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeArg$Unbounded",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

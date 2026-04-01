@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DropTargetContext$TransferableProxy",
+  "canonicalName" : "java.awt.dnd.DropTargetContext.TransferableProxy",
+  "simpleName" : "TransferableProxy",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.awt.dnd.DropTargetContext",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.datatransfer.Transferable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getTransferData",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getTransferData(java.awt.datatransfer.DataFlavor) throws java.awt.datatransfer.UnsupportedFlavorException, java.io.IOException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "df",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.awt.datatransfer.UnsupportedFlavorException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransferDataFlavors",
+    "modifiers" : "public",
+    "signature" : "public java.awt.datatransfer.DataFlavor[] getTransferDataFlavors()",
+    "returnType" : "java.awt.datatransfer.DataFlavor[]",
+    "genericReturnType" : "java.awt.datatransfer.DataFlavor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDataFlavorSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isDataFlavorSupported(java.awt.datatransfer.DataFlavor)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "flavor",
+      "type" : "java.awt.datatransfer.DataFlavor",
+      "genericType" : "java.awt.datatransfer.DataFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

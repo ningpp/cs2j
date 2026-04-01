@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.CertPathValidatorSpi",
+  "canonicalName" : "java.security.cert.CertPathValidatorSpi",
+  "simpleName" : "CertPathValidatorSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.CertPathValidatorSpi",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPathValidatorSpi()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "engineGetRevocationChecker",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPathChecker engineGetRevocationChecker()",
+    "returnType" : "java.security.cert.CertPathChecker",
+    "genericReturnType" : "java.security.cert.CertPathChecker",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "engineValidate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.cert.CertPathValidatorResult engineValidate(java.security.cert.CertPath, java.security.cert.CertPathParameters) throws java.security.cert.CertPathValidatorException, java.security.InvalidAlgorithmParameterException",
+    "returnType" : "java.security.cert.CertPathValidatorResult",
+    "genericReturnType" : "java.security.cert.CertPathValidatorResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.security.cert.CertPath",
+      "genericType" : "java.security.cert.CertPath",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.security.cert.CertPathParameters",
+      "genericType" : "java.security.cert.CertPathParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertPathValidatorException", "java.security.InvalidAlgorithmParameterException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

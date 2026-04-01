@@ -1,0 +1,253 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.ImageReaderWriterSpi",
+  "canonicalName" : "javax.imageio.spi.ImageReaderWriterSpi",
+  "simpleName" : "ImageReaderWriterSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.imageio.spi.IIOServiceProvider",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.spi.ImageReaderWriterSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.ImageReaderWriterSpi()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.spi.ImageReaderWriterSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.ImageReaderWriterSpi(java.lang.String, java.lang.String, java.lang.String[], java.lang.String[], java.lang.String[], java.lang.String, boolean, java.lang.String, java.lang.String, java.lang.String[], java.lang.String[], boolean, java.lang.String, java.lang.String, java.lang.String[], java.lang.String[])",
+    "parameters" : [ {
+      "name" : "vendorName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "names",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "suffixes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "MIMETypes",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pluginClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "supportsStandardStreamMetadataFormat",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeStreamMetadataFormatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeStreamMetadataFormatClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraStreamMetadataFormatNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraStreamMetadataFormatClassNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "supportsStandardImageMetadataFormat",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeImageMetadataFormatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "nativeImageMetadataFormatClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraImageMetadataFormatNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extraImageMetadataFormatClassNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getExtraImageMetadataFormatNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getExtraImageMetadataFormatNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtraStreamMetadataFormatNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getExtraStreamMetadataFormatNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileSuffixes",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getFileSuffixes()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFormatNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getFormatNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImageMetadataFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.metadata.IIOMetadataFormat getImageMetadataFormat(java.lang.String)",
+    "returnType" : "javax.imageio.metadata.IIOMetadataFormat",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadataFormat",
+    "parameters" : [ {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMIMETypes",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getMIMETypes()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNativeImageMetadataFormatName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getNativeImageMetadataFormatName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNativeStreamMetadataFormatName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getNativeStreamMetadataFormatName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPluginClassName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getPluginClassName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStreamMetadataFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.metadata.IIOMetadataFormat getStreamMetadataFormat(java.lang.String)",
+    "returnType" : "javax.imageio.metadata.IIOMetadataFormat",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadataFormat",
+    "parameters" : [ {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStandardImageMetadataFormatSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isStandardImageMetadataFormatSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStandardStreamMetadataFormatSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isStandardStreamMetadataFormatSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

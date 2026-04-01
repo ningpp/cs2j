@@ -1,0 +1,142 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.AsyncBoxView$ChildState",
+  "canonicalName" : "javax.swing.text.AsyncBoxView.ChildState",
+  "simpleName" : "ChildState",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.AsyncBoxView",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.lang.Runnable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.AsyncBoxView$ChildState",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.AsyncBoxView$ChildState(javax.swing.text.AsyncBoxView, javax.swing.text.View)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.text.AsyncBoxView",
+      "genericType" : "javax.swing.text.AsyncBoxView",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "v",
+      "type" : "javax.swing.text.View",
+      "genericType" : "javax.swing.text.View",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getChildView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.View getChildView()",
+    "returnType" : "javax.swing.text.View",
+    "genericReturnType" : "javax.swing.text.View",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMajorOffset",
+    "modifiers" : "public",
+    "signature" : "public float getMajorOffset()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMajorSpan",
+    "modifiers" : "public",
+    "signature" : "public float getMajorSpan()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinorOffset",
+    "modifiers" : "public",
+    "signature" : "public float getMinorOffset()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinorSpan",
+    "modifiers" : "public",
+    "signature" : "public float getMinorSpan()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLayoutValid",
+    "modifiers" : "public",
+    "signature" : "public boolean isLayoutValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preferenceChanged",
+    "modifiers" : "public",
+    "signature" : "public void preferenceChanged(boolean, boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "run",
+    "modifiers" : "public",
+    "signature" : "public void run()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMajorOffset",
+    "modifiers" : "public",
+    "signature" : "public void setMajorOffset(float)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "offs",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

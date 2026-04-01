@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DragGestureListener",
+  "canonicalName" : "java.awt.dnd.DragGestureListener",
+  "simpleName" : "DragGestureListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "dragGestureRecognized",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void dragGestureRecognized(java.awt.dnd.DragGestureEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.dnd.DragGestureEvent",
+      "genericType" : "java.awt.dnd.DragGestureEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

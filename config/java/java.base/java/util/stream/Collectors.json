@@ -1,0 +1,915 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Collectors",
+  "canonicalName" : "java.util.stream.Collectors",
+  "simpleName" : "Collectors",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "averagingDouble",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector averagingDouble(java.util.function.ToDoubleFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToDoubleFunction",
+      "genericType" : "java.util.function.ToDoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "averagingInt",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector averagingInt(java.util.function.ToIntFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToIntFunction",
+      "genericType" : "java.util.function.ToIntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "averagingLong",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector averagingLong(java.util.function.ToLongFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToLongFunction",
+      "genericType" : "java.util.function.ToLongFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "collectingAndThen",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector collectingAndThen(java.util.stream.Collector, java.util.function.Function)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "finisher",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "counting",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector counting()",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "filtering",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector filtering(java.util.function.Predicate, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flatMapping",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector flatMapping(java.util.function.Function, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupingBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector groupingBy(java.util.function.Function)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "classifier",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupingBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector groupingBy(java.util.function.Function, java.util.function.Supplier, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "classifier",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mapFactory",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupingBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector groupingBy(java.util.function.Function, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "classifier",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupingByConcurrent",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector groupingByConcurrent(java.util.function.Function)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "classifier",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupingByConcurrent",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector groupingByConcurrent(java.util.function.Function, java.util.function.Supplier, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "classifier",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mapFactory",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "groupingByConcurrent",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector groupingByConcurrent(java.util.function.Function, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "classifier",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "joining",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector joining()",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "joining",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector joining(java.lang.CharSequence)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "delimiter",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "joining",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector joining(java.lang.CharSequence, java.lang.CharSequence, java.lang.CharSequence)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "delimiter",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "prefix",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "suffix",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapping",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector mapping(java.util.function.Function, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "maxBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector maxBy(java.util.Comparator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "comparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "minBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector minBy(java.util.Comparator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "comparator",
+      "type" : "java.util.Comparator",
+      "genericType" : "java.util.Comparator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "partitioningBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector partitioningBy(java.util.function.Predicate)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "partitioningBy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector partitioningBy(java.util.function.Predicate, java.util.stream.Collector)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reducing",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector reducing(java.lang.Object, java.util.function.BinaryOperator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "identity",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "op",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reducing",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector reducing(java.lang.Object, java.util.function.Function, java.util.function.BinaryOperator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "identity",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "op",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reducing",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector reducing(java.util.function.BinaryOperator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summarizingDouble",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector summarizingDouble(java.util.function.ToDoubleFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToDoubleFunction",
+      "genericType" : "java.util.function.ToDoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summarizingInt",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector summarizingInt(java.util.function.ToIntFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToIntFunction",
+      "genericType" : "java.util.function.ToIntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summarizingLong",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector summarizingLong(java.util.function.ToLongFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToLongFunction",
+      "genericType" : "java.util.function.ToLongFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summingDouble",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector summingDouble(java.util.function.ToDoubleFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToDoubleFunction",
+      "genericType" : "java.util.function.ToDoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summingInt",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector summingInt(java.util.function.ToIntFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToIntFunction",
+      "genericType" : "java.util.function.ToIntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summingLong",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector summingLong(java.util.function.ToLongFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.function.ToLongFunction",
+      "genericType" : "java.util.function.ToLongFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "teeing",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector teeing(java.util.stream.Collector, java.util.stream.Collector, java.util.function.BiFunction)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "downstream1",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "downstream2",
+      "type" : "java.util.stream.Collector",
+      "genericType" : "java.util.stream.Collector",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "merger",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toCollection",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toCollection(java.util.function.Supplier)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "collectionFactory",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toConcurrentMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toConcurrentMap(java.util.function.Function, java.util.function.Function)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toConcurrentMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toConcurrentMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mergeFunction",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toConcurrentMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toConcurrentMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator, java.util.function.Supplier)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mergeFunction",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mapFactory",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toList",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toList()",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toMap(java.util.function.Function, java.util.function.Function)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mergeFunction",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator, java.util.function.Supplier)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mergeFunction",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mapFactory",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toSet()",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toUnmodifiableList",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toUnmodifiableList()",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toUnmodifiableMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toUnmodifiableMap(java.util.function.Function, java.util.function.Function)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toUnmodifiableMap",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toUnmodifiableMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "parameters" : [ {
+      "name" : "keyMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "valueMapper",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mergeFunction",
+      "type" : "java.util.function.BinaryOperator",
+      "genericType" : "java.util.function.BinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toUnmodifiableSet",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Collector toUnmodifiableSet()",
+    "returnType" : "java.util.stream.Collector",
+    "genericReturnType" : "java.util.stream.Collector",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

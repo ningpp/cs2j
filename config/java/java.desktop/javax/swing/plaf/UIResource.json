@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.UIResource",
+  "canonicalName" : "javax.swing.plaf.UIResource",
+  "simpleName" : "UIResource",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

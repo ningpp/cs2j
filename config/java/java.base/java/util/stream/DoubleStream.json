@@ -1,0 +1,675 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.DoubleStream",
+  "canonicalName" : "java.util.stream.DoubleStream",
+  "simpleName" : "DoubleStream",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.stream.BaseStream" ],
+  "declaredPublicMethods" : [ {
+    "name" : "allMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean allMatch(java.util.function.DoublePredicate)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "anyMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean anyMatch(java.util.function.DoublePredicate)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "average",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalDouble average()",
+    "returnType" : "java.util.OptionalDouble",
+    "genericReturnType" : "java.util.OptionalDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "boxed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream boxed()",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "builder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream$Builder builder()",
+    "returnType" : "java.util.stream.DoubleStream$Builder",
+    "genericReturnType" : "java.util.stream.DoubleStream$Builder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "collect",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object collect(java.util.function.Supplier, java.util.function.ObjDoubleConsumer, java.util.function.BiConsumer)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.ObjDoubleConsumer",
+      "genericType" : "java.util.function.ObjDoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "concat",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream concat(java.util.stream.DoubleStream, java.util.stream.DoubleStream)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "a",
+      "type" : "java.util.stream.DoubleStream",
+      "genericType" : "java.util.stream.DoubleStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "b",
+      "type" : "java.util.stream.DoubleStream",
+      "genericType" : "java.util.stream.DoubleStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "count",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long count()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "distinct",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream distinct()",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dropWhile",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.DoubleStream dropWhile(java.util.function.DoublePredicate)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "empty",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream empty()",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "filter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream filter(java.util.function.DoublePredicate)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findAny",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalDouble findAny()",
+    "returnType" : "java.util.OptionalDouble",
+    "genericReturnType" : "java.util.OptionalDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findFirst",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalDouble findFirst()",
+    "returnType" : "java.util.OptionalDouble",
+    "genericReturnType" : "java.util.OptionalDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flatMap",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream flatMap(java.util.function.DoubleFunction)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleFunction",
+      "genericType" : "java.util.function.DoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forEach",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void forEach(java.util.function.DoubleConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "forEachOrdered",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void forEachOrdered(java.util.function.DoubleConsumer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "generate",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream generate(java.util.function.DoubleSupplier)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.util.function.DoubleSupplier",
+      "genericType" : "java.util.function.DoubleSupplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterate",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream iterate(double, java.util.function.DoublePredicate, java.util.function.DoubleUnaryOperator)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "seed",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hasNext",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "next",
+      "type" : "java.util.function.DoubleUnaryOperator",
+      "genericType" : "java.util.function.DoubleUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterate",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream iterate(double, java.util.function.DoubleUnaryOperator)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "seed",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "f",
+      "type" : "java.util.function.DoubleUnaryOperator",
+      "genericType" : "java.util.function.DoubleUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "iterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.PrimitiveIterator$OfDouble iterator()",
+    "returnType" : "java.util.PrimitiveIterator$OfDouble",
+    "genericReturnType" : "java.util.PrimitiveIterator$OfDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "limit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream limit(long)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "map",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream map(java.util.function.DoubleUnaryOperator)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleUnaryOperator",
+      "genericType" : "java.util.function.DoubleUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapMulti",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.DoubleStream mapMulti(java.util.stream.DoubleStream$DoubleMapMultiConsumer)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "mapper",
+      "type" : "java.util.stream.DoubleStream$DoubleMapMultiConsumer",
+      "genericType" : "java.util.stream.DoubleStream$DoubleMapMultiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "mapToInt",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.IntStream mapToInt(java.util.function.DoubleToIntFunction)",
+    "returnType" : "java.util.stream.IntStream",
+    "genericReturnType" : "java.util.stream.IntStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleToIntFunction",
+      "genericType" : "java.util.function.DoubleToIntFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapToLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.LongStream mapToLong(java.util.function.DoubleToLongFunction)",
+    "returnType" : "java.util.stream.LongStream",
+    "genericReturnType" : "java.util.stream.LongStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleToLongFunction",
+      "genericType" : "java.util.function.DoubleToLongFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mapToObj",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Stream mapToObj(java.util.function.DoubleFunction)",
+    "returnType" : "java.util.stream.Stream",
+    "genericReturnType" : "java.util.stream.Stream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleFunction",
+      "genericType" : "java.util.function.DoubleFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "max",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalDouble max()",
+    "returnType" : "java.util.OptionalDouble",
+    "genericReturnType" : "java.util.OptionalDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "min",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalDouble min()",
+    "returnType" : "java.util.OptionalDouble",
+    "genericReturnType" : "java.util.OptionalDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "noneMatch",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean noneMatch(java.util.function.DoublePredicate)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream of(double)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "t",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.DoubleStream of(double...)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "values",
+      "type" : "double[]",
+      "genericType" : "double[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "parallel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream parallel()",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "peek",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream peek(java.util.function.DoubleConsumer)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleConsumer",
+      "genericType" : "java.util.function.DoubleConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reduce",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double reduce(double, java.util.function.DoubleBinaryOperator)",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.DoubleBinaryOperator",
+      "genericType" : "java.util.function.DoubleBinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reduce",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.OptionalDouble reduce(java.util.function.DoubleBinaryOperator)",
+    "returnType" : "java.util.OptionalDouble",
+    "genericReturnType" : "java.util.OptionalDouble",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.DoubleBinaryOperator",
+      "genericType" : "java.util.function.DoubleBinaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sequential",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream sequential()",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "skip",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream skip(long)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sorted",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.DoubleStream sorted()",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "spliterator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Spliterator$OfDouble spliterator()",
+    "returnType" : "java.util.Spliterator$OfDouble",
+    "genericReturnType" : "java.util.Spliterator$OfDouble",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sum",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double sum()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "summaryStatistics",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.DoubleSummaryStatistics summaryStatistics()",
+    "returnType" : "java.util.DoubleSummaryStatistics",
+    "genericReturnType" : "java.util.DoubleSummaryStatistics",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "takeWhile",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.DoubleStream takeWhile(java.util.function.DoublePredicate)",
+    "returnType" : "java.util.stream.DoubleStream",
+    "genericReturnType" : "java.util.stream.DoubleStream",
+    "parameters" : [ {
+      "name" : "predicate",
+      "type" : "java.util.function.DoublePredicate",
+      "genericType" : "java.util.function.DoublePredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "toArray",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract double[] toArray()",
+    "returnType" : "double[]",
+    "genericReturnType" : "double[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

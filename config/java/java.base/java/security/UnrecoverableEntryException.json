@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.UnrecoverableEntryException",
+  "canonicalName" : "java.security.UnrecoverableEntryException",
+  "simpleName" : "UnrecoverableEntryException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.UnrecoverableEntryException",
+    "modifiers" : "public",
+    "signature" : "public java.security.UnrecoverableEntryException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.UnrecoverableEntryException",
+    "modifiers" : "public",
+    "signature" : "public java.security.UnrecoverableEntryException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

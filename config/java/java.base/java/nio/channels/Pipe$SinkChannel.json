@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.Pipe$SinkChannel",
+  "canonicalName" : "java.nio.channels.Pipe.SinkChannel",
+  "simpleName" : "SinkChannel",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "java.nio.channels.Pipe",
+  "superClass" : "java.nio.channels.spi.AbstractSelectableChannel",
+  "interfaces" : [ "java.nio.channels.GatheringByteChannel", "java.nio.channels.WritableByteChannel" ],
+  "declaredPublicMethods" : [ {
+    "name" : "validOps",
+    "modifiers" : "public final",
+    "signature" : "public final int validOps()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,74 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Gatherer$Integrator",
+  "canonicalName" : "java.util.stream.Gatherer.Integrator",
+  "simpleName" : "Integrator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Gatherer",
+  "declaredPublicMethods" : [ {
+    "name" : "integrate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean integrate(java.lang.Object, java.lang.Object, java.util.stream.Gatherer$Downstream)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.stream.Gatherer$Downstream",
+      "genericType" : "java.util.stream.Gatherer$Downstream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer$Integrator of(java.util.stream.Gatherer$Integrator)",
+    "returnType" : "java.util.stream.Gatherer$Integrator",
+    "genericReturnType" : "java.util.stream.Gatherer$Integrator",
+    "parameters" : [ {
+      "name" : "integrator",
+      "type" : "java.util.stream.Gatherer$Integrator",
+      "genericType" : "java.util.stream.Gatherer$Integrator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofGreedy",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.stream.Gatherer$Integrator$Greedy ofGreedy(java.util.stream.Gatherer$Integrator$Greedy)",
+    "returnType" : "java.util.stream.Gatherer$Integrator$Greedy",
+    "genericReturnType" : "java.util.stream.Gatherer$Integrator$Greedy",
+    "parameters" : [ {
+      "name" : "greedy",
+      "type" : "java.util.stream.Gatherer$Integrator$Greedy",
+      "genericType" : "java.util.stream.Gatherer$Integrator$Greedy",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

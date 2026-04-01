@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.CharacterRange",
+  "canonicalName" : "java.lang.classfile.instruction.CharacterRange",
+  "simpleName" : "CharacterRange",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.PseudoInstruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "characterRangeEnd",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int characterRangeEnd()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "characterRangeStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int characterRangeStart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "endScope",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label endScope()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "flags",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int flags()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.CharacterRange of(java.lang.classfile.Label, java.lang.classfile.Label, int, int, int)",
+    "returnType" : "java.lang.classfile.instruction.CharacterRange",
+    "genericReturnType" : "java.lang.classfile.instruction.CharacterRange",
+    "parameters" : [ {
+      "name" : "startScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endScope",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characterRangeStart",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "characterRangeEnd",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "flags",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startScope",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label startScope()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

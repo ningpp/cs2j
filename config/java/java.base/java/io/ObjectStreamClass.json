@@ -1,0 +1,113 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectStreamClass",
+  "canonicalName" : "java.io.ObjectStreamClass",
+  "simpleName" : "ObjectStreamClass",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "forClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class forClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getField",
+    "modifiers" : "public",
+    "signature" : "public java.io.ObjectStreamField getField(java.lang.String)",
+    "returnType" : "java.io.ObjectStreamField",
+    "genericReturnType" : "java.io.ObjectStreamField",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFields",
+    "modifiers" : "public",
+    "signature" : "public java.io.ObjectStreamField[] getFields()",
+    "returnType" : "java.io.ObjectStreamField[]",
+    "genericReturnType" : "java.io.ObjectStreamField[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSerialVersionUID",
+    "modifiers" : "public",
+    "signature" : "public long getSerialVersionUID()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookup",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectStreamClass lookup(java.lang.Class)",
+    "returnType" : "java.io.ObjectStreamClass",
+    "genericReturnType" : "java.io.ObjectStreamClass",
+    "parameters" : [ {
+      "name" : "cl",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupAny",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectStreamClass lookupAny(java.lang.Class)",
+    "returnType" : "java.io.ObjectStreamClass",
+    "genericReturnType" : "java.io.ObjectStreamClass",
+    "parameters" : [ {
+      "name" : "cl",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

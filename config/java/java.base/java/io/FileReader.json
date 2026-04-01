@@ -1,0 +1,87 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.FileReader",
+  "canonicalName" : "java.io.FileReader",
+  "simpleName" : "FileReader",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.InputStreamReader",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.FileReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.FileReader(java.io.File) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.FileReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.FileReader(java.io.File, java.nio.charset.Charset) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.FileReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.FileReader(java.io.FileDescriptor)",
+    "parameters" : [ {
+      "name" : "fd",
+      "type" : "java.io.FileDescriptor",
+      "genericType" : "java.io.FileDescriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.FileReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.FileReader(java.lang.String) throws java.io.FileNotFoundException",
+    "parameters" : [ {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.io.FileReader",
+    "modifiers" : "public",
+    "signature" : "public java.io.FileReader(java.lang.String, java.nio.charset.Charset) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "charset",
+      "type" : "java.nio.charset.Charset",
+      "genericType" : "java.nio.charset.Charset",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ]
+}

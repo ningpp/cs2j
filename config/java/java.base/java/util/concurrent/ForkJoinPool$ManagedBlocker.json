@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ForkJoinPool$ManagedBlocker",
+  "canonicalName" : "java.util.concurrent.ForkJoinPool.ManagedBlocker",
+  "simpleName" : "ManagedBlocker",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.ForkJoinPool",
+  "declaredPublicMethods" : [ {
+    "name" : "block",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean block() throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReleasable",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isReleasable()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

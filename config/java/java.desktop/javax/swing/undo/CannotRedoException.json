@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.undo",
+  "binaryName" : "javax.swing.undo.CannotRedoException",
+  "canonicalName" : "javax.swing.undo.CannotRedoException",
+  "simpleName" : "CannotRedoException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.undo.CannotRedoException",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.undo.CannotRedoException()",
+    "varArgs" : false
+  } ]
+}

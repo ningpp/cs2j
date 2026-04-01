@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.AccessControlContext",
+  "canonicalName" : "java.security.AccessControlContext",
+  "simpleName" : "AccessControlContext",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.AccessControlContext",
+    "modifiers" : "public",
+    "signature" : "public java.security.AccessControlContext(java.security.AccessControlContext, java.security.DomainCombiner)",
+    "parameters" : [ {
+      "name" : "acc",
+      "type" : "java.security.AccessControlContext",
+      "genericType" : "java.security.AccessControlContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "combiner",
+      "type" : "java.security.DomainCombiner",
+      "genericType" : "java.security.DomainCombiner",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.AccessControlContext",
+    "modifiers" : "public",
+    "signature" : "public java.security.AccessControlContext(java.security.ProtectionDomain[])",
+    "parameters" : [ {
+      "name" : "context",
+      "type" : "java.security.ProtectionDomain[]",
+      "genericType" : "java.security.ProtectionDomain[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "checkPermission",
+    "modifiers" : "public",
+    "signature" : "public void checkPermission(java.security.Permission) throws java.security.AccessControlException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "perm",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.AccessControlException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDomainCombiner",
+    "modifiers" : "public",
+    "signature" : "public java.security.DomainCombiner getDomainCombiner()",
+    "returnType" : "java.security.DomainCombiner",
+    "genericReturnType" : "java.security.DomainCombiner",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.IllegalFormatConversionException",
+  "canonicalName" : "java.util.IllegalFormatConversionException",
+  "simpleName" : "IllegalFormatConversionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.IllegalFormatException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.IllegalFormatConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.util.IllegalFormatConversionException(char, java.lang.Class)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getArgumentClass",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getArgumentClass()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getConversion",
+    "modifiers" : "public",
+    "signature" : "public char getConversion()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.Highlighter$Highlight",
+  "canonicalName" : "javax.swing.text.Highlighter.Highlight",
+  "simpleName" : "Highlight",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.Highlighter",
+  "declaredPublicMethods" : [ {
+    "name" : "getEndOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getEndOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPainter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.Highlighter$HighlightPainter getPainter()",
+    "returnType" : "javax.swing.text.Highlighter$HighlightPainter",
+    "genericReturnType" : "javax.swing.text.Highlighter$HighlightPainter",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getStartOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextProxy",
+  "canonicalName" : "java.beans.beancontext.BeanContextProxy",
+  "simpleName" : "BeanContextProxy",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getBeanContextProxy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.beans.beancontext.BeanContextChild getBeanContextProxy()",
+    "returnType" : "java.beans.beancontext.BeanContextChild",
+    "genericReturnType" : "java.beans.beancontext.BeanContextChild",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

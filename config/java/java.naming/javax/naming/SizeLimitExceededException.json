@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.SizeLimitExceededException",
+  "canonicalName" : "javax.naming.SizeLimitExceededException",
+  "simpleName" : "SizeLimitExceededException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.LimitExceededException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.SizeLimitExceededException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.SizeLimitExceededException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.SizeLimitExceededException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.SizeLimitExceededException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

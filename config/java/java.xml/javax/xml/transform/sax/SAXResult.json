@@ -1,0 +1,111 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.sax",
+  "binaryName" : "javax.xml.transform.sax.SAXResult",
+  "canonicalName" : "javax.xml.transform.sax.SAXResult",
+  "simpleName" : "SAXResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.transform.Result" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.transform.sax.SAXResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.sax.SAXResult()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.sax.SAXResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.sax.SAXResult(org.xml.sax.ContentHandler)",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "org.xml.sax.ContentHandler",
+      "genericType" : "org.xml.sax.ContentHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getHandler",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.ContentHandler getHandler()",
+    "returnType" : "org.xml.sax.ContentHandler",
+    "genericReturnType" : "org.xml.sax.ContentHandler",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLexicalHandler",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.ext.LexicalHandler getLexicalHandler()",
+    "returnType" : "org.xml.sax.ext.LexicalHandler",
+    "genericReturnType" : "org.xml.sax.ext.LexicalHandler",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHandler",
+    "modifiers" : "public",
+    "signature" : "public void setHandler(org.xml.sax.ContentHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "org.xml.sax.ContentHandler",
+      "genericType" : "org.xml.sax.ContentHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setLexicalHandler",
+    "modifiers" : "public",
+    "signature" : "public void setLexicalHandler(org.xml.sax.ext.LexicalHandler)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "org.xml.sax.ext.LexicalHandler",
+      "genericType" : "org.xml.sax.ext.LexicalHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

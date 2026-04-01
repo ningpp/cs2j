@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.spec",
+  "binaryName" : "java.security.spec.ECPrivateKeySpec",
+  "canonicalName" : "java.security.spec.ECPrivateKeySpec",
+  "simpleName" : "ECPrivateKeySpec",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.spec.KeySpec" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.spec.ECPrivateKeySpec",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.ECPrivateKeySpec(java.math.BigInteger, java.security.spec.ECParameterSpec)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "params",
+      "type" : "java.security.spec.ECParameterSpec",
+      "genericType" : "java.security.spec.ECParameterSpec",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParams",
+    "modifiers" : "public",
+    "signature" : "public java.security.spec.ECParameterSpec getParams()",
+    "returnType" : "java.security.spec.ECParameterSpec",
+    "genericReturnType" : "java.security.spec.ECParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getS",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger getS()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

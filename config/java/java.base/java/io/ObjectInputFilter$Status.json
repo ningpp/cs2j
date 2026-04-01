@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectInputFilter$Status",
+  "canonicalName" : "java.io.ObjectInputFilter.Status",
+  "simpleName" : "Status",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.io.ObjectInputFilter",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter$Status valueOf(java.lang.String)",
+    "returnType" : "java.io.ObjectInputFilter$Status",
+    "genericReturnType" : "java.io.ObjectInputFilter$Status",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.io.ObjectInputFilter$Status[] values()",
+    "returnType" : "java.io.ObjectInputFilter$Status[]",
+    "genericReturnType" : "java.io.ObjectInputFilter$Status[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.RemoteCall",
+  "canonicalName" : "java.rmi.server.RemoteCall",
+  "simpleName" : "RemoteCall",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "done",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void done() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "executeCall",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void executeCall() throws java.lang.Exception",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.ObjectInput getInputStream() throws java.io.IOException",
+    "returnType" : "java.io.ObjectInput",
+    "genericReturnType" : "java.io.ObjectInput",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOutputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.ObjectOutput getOutputStream() throws java.io.IOException",
+    "returnType" : "java.io.ObjectOutput",
+    "genericReturnType" : "java.io.ObjectOutput",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResultStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.ObjectOutput getResultStream(boolean) throws java.io.IOException, java.io.StreamCorruptedException",
+    "returnType" : "java.io.ObjectOutput",
+    "genericReturnType" : "java.io.ObjectOutput",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.io.StreamCorruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void releaseInputStream() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseOutputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void releaseOutputStream() throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

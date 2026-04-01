@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.spi",
+  "binaryName" : "javax.imageio.spi.IIOServiceProvider",
+  "canonicalName" : "javax.imageio.spi.IIOServiceProvider",
+  "simpleName" : "IIOServiceProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.imageio.spi.RegisterableService" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.spi.IIOServiceProvider",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.IIOServiceProvider()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.spi.IIOServiceProvider",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.spi.IIOServiceProvider(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "vendorName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "version",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDescription",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getDescription(java.util.Locale)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVendorName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getVendorName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onDeregistration",
+    "modifiers" : "public",
+    "signature" : "public void onDeregistration(javax.imageio.spi.ServiceRegistry, java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "registry",
+      "type" : "javax.imageio.spi.ServiceRegistry",
+      "genericType" : "javax.imageio.spi.ServiceRegistry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "onRegistration",
+    "modifiers" : "public",
+    "signature" : "public void onRegistration(javax.imageio.spi.ServiceRegistry, java.lang.Class)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "registry",
+      "type" : "javax.imageio.spi.ServiceRegistry",
+      "genericType" : "javax.imageio.spi.ServiceRegistry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "category",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

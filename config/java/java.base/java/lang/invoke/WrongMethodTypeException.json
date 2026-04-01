@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.WrongMethodTypeException",
+  "canonicalName" : "java.lang.invoke.WrongMethodTypeException",
+  "simpleName" : "WrongMethodTypeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.invoke.WrongMethodTypeException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.WrongMethodTypeException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.invoke.WrongMethodTypeException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.invoke.WrongMethodTypeException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

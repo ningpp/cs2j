@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.FileLockInterruptionException",
+  "canonicalName" : "java.nio.channels.FileLockInterruptionException",
+  "simpleName" : "FileLockInterruptionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.FileLockInterruptionException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.FileLockInterruptionException()",
+    "varArgs" : false
+  } ]
+}

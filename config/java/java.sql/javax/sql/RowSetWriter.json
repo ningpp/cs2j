@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.RowSetWriter",
+  "canonicalName" : "javax.sql.RowSetWriter",
+  "simpleName" : "RowSetWriter",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "writeData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean writeData(javax.sql.RowSetInternal) throws java.sql.SQLException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetInternal",
+      "genericType" : "javax.sql.RowSetInternal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

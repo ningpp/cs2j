@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.JobAttributes$DestinationType",
+  "canonicalName" : "java.awt.JobAttributes.DestinationType",
+  "simpleName" : "DestinationType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.JobAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

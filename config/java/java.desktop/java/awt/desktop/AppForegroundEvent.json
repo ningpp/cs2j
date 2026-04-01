@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.AppForegroundEvent",
+  "canonicalName" : "java.awt.desktop.AppForegroundEvent",
+  "simpleName" : "AppForegroundEvent",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.awt.desktop.AppEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.desktop.AppForegroundEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.desktop.AppForegroundEvent()",
+    "varArgs" : false
+  } ]
+}

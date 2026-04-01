@@ -1,0 +1,46 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.DateFormatter",
+  "canonicalName" : "javax.swing.text.DateFormatter",
+  "simpleName" : "DateFormatter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.InternationalFormatter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.DateFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DateFormatter()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.text.DateFormatter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.DateFormatter(java.text.DateFormat)",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "java.text.DateFormat",
+      "genericType" : "java.text.DateFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "setFormat",
+    "modifiers" : "public",
+    "signature" : "public void setFormat(java.text.DateFormat)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "format",
+      "type" : "java.text.DateFormat",
+      "genericType" : "java.text.DateFormat",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,55 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleHypertext",
+  "canonicalName" : "javax.accessibility.AccessibleHypertext",
+  "simpleName" : "AccessibleHypertext",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.accessibility.AccessibleText" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLink",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.accessibility.AccessibleHyperlink getLink(int)",
+    "returnType" : "javax.accessibility.AccessibleHyperlink",
+    "genericReturnType" : "javax.accessibility.AccessibleHyperlink",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkCount",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLinkCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkIndex",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLinkIndex(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

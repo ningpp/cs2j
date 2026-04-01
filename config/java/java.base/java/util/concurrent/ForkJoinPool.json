@@ -1,0 +1,873 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ForkJoinPool",
+  "canonicalName" : "java.util.concurrent.ForkJoinPool",
+  "simpleName" : "ForkJoinPool",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.concurrent.AbstractExecutorService",
+  "interfaces" : [ "java.util.concurrent.ScheduledExecutorService" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.ForkJoinPool",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinPool()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ForkJoinPool",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinPool(int)",
+    "parameters" : [ {
+      "name" : "parallelism",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ForkJoinPool",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinPool(int, java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory, java.lang.Thread$UncaughtExceptionHandler, boolean)",
+    "parameters" : [ {
+      "name" : "parallelism",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factory",
+      "type" : "java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory",
+      "genericType" : "java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.lang.Thread$UncaughtExceptionHandler",
+      "genericType" : "java.lang.Thread$UncaughtExceptionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "asyncMode",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ForkJoinPool",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinPool(int, java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory, java.lang.Thread$UncaughtExceptionHandler, boolean, int, int, int, java.util.function.Predicate, long, java.util.concurrent.TimeUnit)",
+    "parameters" : [ {
+      "name" : "parallelism",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "factory",
+      "type" : "java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory",
+      "genericType" : "java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "handler",
+      "type" : "java.lang.Thread$UncaughtExceptionHandler",
+      "genericType" : "java.lang.Thread$UncaughtExceptionHandler",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "asyncMode",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "corePoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maximumPoolSize",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "minimumRunnable",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "saturate",
+      "type" : "java.util.function.Predicate",
+      "genericType" : "java.util.function.Predicate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "keepAliveTime",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "awaitQuiescence",
+    "modifiers" : "public",
+    "signature" : "public boolean awaitQuiescence(long, java.util.concurrent.TimeUnit)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "awaitTermination",
+    "modifiers" : "public",
+    "signature" : "public boolean awaitTermination(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cancelDelayedTasksOnShutdown",
+    "modifiers" : "public",
+    "signature" : "public void cancelDelayedTasksOnShutdown()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "close",
+    "modifiers" : "public",
+    "signature" : "public void close()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "commonPool",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.concurrent.ForkJoinPool commonPool()",
+    "returnType" : "java.util.concurrent.ForkJoinPool",
+    "genericReturnType" : "java.util.concurrent.ForkJoinPool",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "execute",
+    "modifiers" : "public",
+    "signature" : "public void execute(java.lang.Runnable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "execute",
+    "modifiers" : "public",
+    "signature" : "public void execute(java.util.concurrent.ForkJoinTask)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.ForkJoinTask",
+      "genericType" : "java.util.concurrent.ForkJoinTask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "externalSubmit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask externalSubmit(java.util.concurrent.ForkJoinTask)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.ForkJoinTask",
+      "genericType" : "java.util.concurrent.ForkJoinTask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getActiveThreadCount",
+    "modifiers" : "public",
+    "signature" : "public int getActiveThreadCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsyncMode",
+    "modifiers" : "public",
+    "signature" : "public boolean getAsyncMode()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCommonPoolParallelism",
+    "modifiers" : "public static",
+    "signature" : "public static int getCommonPoolParallelism()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDelayedTaskCount",
+    "modifiers" : "public",
+    "signature" : "public long getDelayedTaskCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFactory",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory getFactory()",
+    "returnType" : "java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory",
+    "genericReturnType" : "java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParallelism",
+    "modifiers" : "public",
+    "signature" : "public int getParallelism()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPoolSize",
+    "modifiers" : "public",
+    "signature" : "public int getPoolSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueuedSubmissionCount",
+    "modifiers" : "public",
+    "signature" : "public int getQueuedSubmissionCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getQueuedTaskCount",
+    "modifiers" : "public",
+    "signature" : "public long getQueuedTaskCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRunningThreadCount",
+    "modifiers" : "public",
+    "signature" : "public int getRunningThreadCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStealCount",
+    "modifiers" : "public",
+    "signature" : "public long getStealCount()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUncaughtExceptionHandler",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Thread$UncaughtExceptionHandler getUncaughtExceptionHandler()",
+    "returnType" : "java.lang.Thread$UncaughtExceptionHandler",
+    "genericReturnType" : "java.lang.Thread$UncaughtExceptionHandler",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasQueuedSubmissions",
+    "modifiers" : "public",
+    "signature" : "public boolean hasQueuedSubmissions()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invoke",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invoke(java.util.concurrent.ForkJoinTask)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.ForkJoinTask",
+      "genericType" : "java.util.concurrent.ForkJoinTask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAll",
+    "modifiers" : "public",
+    "signature" : "public java.util.List invokeAll(java.util.Collection) throws java.lang.InterruptedException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAll",
+    "modifiers" : "public",
+    "signature" : "public java.util.List invokeAll(java.util.Collection, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAllUninterruptibly",
+    "modifiers" : "public",
+    "signature" : "public java.util.List invokeAllUninterruptibly(java.util.Collection)",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAny",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invokeAny(java.util.Collection) throws java.lang.InterruptedException, java.util.concurrent.ExecutionException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.ExecutionException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "invokeAny",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object invokeAny(java.util.Collection, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException, java.util.concurrent.ExecutionException, java.util.concurrent.TimeoutException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "tasks",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException", "java.util.concurrent.ExecutionException", "java.util.concurrent.TimeoutException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isQuiescent",
+    "modifiers" : "public",
+    "signature" : "public boolean isQuiescent()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isShutdown",
+    "modifiers" : "public",
+    "signature" : "public boolean isShutdown()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTerminated",
+    "modifiers" : "public",
+    "signature" : "public boolean isTerminated()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTerminating",
+    "modifiers" : "public",
+    "signature" : "public boolean isTerminating()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lazySubmit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask lazySubmit(java.util.concurrent.ForkJoinTask)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.ForkJoinTask",
+      "genericType" : "java.util.concurrent.ForkJoinTask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "managedBlock",
+    "modifiers" : "public static",
+    "signature" : "public static void managedBlock(java.util.concurrent.ForkJoinPool$ManagedBlocker) throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "blocker",
+      "type" : "java.util.concurrent.ForkJoinPool$ManagedBlocker",
+      "genericType" : "java.util.concurrent.ForkJoinPool$ManagedBlocker",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture schedule(java.lang.Runnable, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "schedule",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture schedule(java.util.concurrent.Callable, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "callable",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleAtFixedRate",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture scheduleAtFixedRate(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialDelay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "period",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scheduleWithFixedDelay",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ScheduledFuture scheduleWithFixedDelay(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)",
+    "returnType" : "java.util.concurrent.ScheduledFuture",
+    "genericReturnType" : "java.util.concurrent.ScheduledFuture",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "initialDelay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delay",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParallelism",
+    "modifiers" : "public",
+    "signature" : "public int setParallelism(int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdown",
+    "modifiers" : "public",
+    "signature" : "public void shutdown()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shutdownNow",
+    "modifiers" : "public",
+    "signature" : "public java.util.List shutdownNow()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask submit(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask submit(java.lang.Runnable, java.lang.Object)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask submit(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask submit(java.util.concurrent.ForkJoinTask)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.ForkJoinTask",
+      "genericType" : "java.util.concurrent.ForkJoinTask",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submitWithTimeout",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ForkJoinTask submitWithTimeout(java.util.concurrent.Callable, long, java.util.concurrent.TimeUnit, java.util.function.Consumer)",
+    "returnType" : "java.util.concurrent.ForkJoinTask",
+    "genericReturnType" : "java.util.concurrent.ForkJoinTask",
+    "parameters" : [ {
+      "name" : "callable",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "timeoutAction",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

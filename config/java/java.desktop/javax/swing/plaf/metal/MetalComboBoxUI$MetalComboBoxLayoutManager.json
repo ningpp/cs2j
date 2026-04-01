@@ -1,0 +1,59 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalComboBoxUI$MetalComboBoxLayoutManager",
+  "canonicalName" : "javax.swing.plaf.metal.MetalComboBoxUI.MetalComboBoxLayoutManager",
+  "simpleName" : "MetalComboBoxLayoutManager",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.metal.MetalComboBoxUI",
+  "superClass" : "javax.swing.plaf.basic.BasicComboBoxUI$ComboBoxLayoutManager",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalComboBoxUI$MetalComboBoxLayoutManager",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalComboBoxUI$MetalComboBoxLayoutManager(javax.swing.plaf.metal.MetalComboBoxUI)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.metal.MetalComboBoxUI",
+      "genericType" : "javax.swing.plaf.metal.MetalComboBoxUI",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "layoutContainer",
+    "modifiers" : "public",
+    "signature" : "public void layoutContainer(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "superLayout",
+    "modifiers" : "public",
+    "signature" : "public void superLayout(java.awt.Container)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.awt.Container",
+      "genericType" : "java.awt.Container",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

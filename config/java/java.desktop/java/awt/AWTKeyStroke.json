@@ -1,0 +1,225 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.AWTKeyStroke",
+  "canonicalName" : "java.awt.AWTKeyStroke",
+  "simpleName" : "AWTKeyStroke",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public final",
+    "signature" : "public final boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "anObject",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AWTKeyStroke getAWTKeyStroke(char)",
+    "returnType" : "java.awt.AWTKeyStroke",
+    "genericReturnType" : "java.awt.AWTKeyStroke",
+    "parameters" : [ {
+      "name" : "keyChar",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AWTKeyStroke getAWTKeyStroke(int, int)",
+    "returnType" : "java.awt.AWTKeyStroke",
+    "genericReturnType" : "java.awt.AWTKeyStroke",
+    "parameters" : [ {
+      "name" : "keyCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AWTKeyStroke getAWTKeyStroke(int, int, boolean)",
+    "returnType" : "java.awt.AWTKeyStroke",
+    "genericReturnType" : "java.awt.AWTKeyStroke",
+    "parameters" : [ {
+      "name" : "keyCode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "onKeyRelease",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AWTKeyStroke getAWTKeyStroke(java.lang.Character, int)",
+    "returnType" : "java.awt.AWTKeyStroke",
+    "genericReturnType" : "java.awt.AWTKeyStroke",
+    "parameters" : [ {
+      "name" : "keyChar",
+      "type" : "java.lang.Character",
+      "genericType" : "java.lang.Character",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTKeyStroke",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AWTKeyStroke getAWTKeyStroke(java.lang.String)",
+    "returnType" : "java.awt.AWTKeyStroke",
+    "genericReturnType" : "java.awt.AWTKeyStroke",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAWTKeyStrokeForEvent",
+    "modifiers" : "public static",
+    "signature" : "public static java.awt.AWTKeyStroke getAWTKeyStrokeForEvent(java.awt.event.KeyEvent)",
+    "returnType" : "java.awt.AWTKeyStroke",
+    "genericReturnType" : "java.awt.AWTKeyStroke",
+    "parameters" : [ {
+      "name" : "anEvent",
+      "type" : "java.awt.event.KeyEvent",
+      "genericType" : "java.awt.event.KeyEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyChar",
+    "modifiers" : "public final",
+    "signature" : "public final char getKeyChar()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyCode",
+    "modifiers" : "public final",
+    "signature" : "public final int getKeyCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyEventType",
+    "modifiers" : "public final",
+    "signature" : "public final int getKeyEventType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getModifiers",
+    "modifiers" : "public final",
+    "signature" : "public final int getModifiers()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isOnKeyRelease",
+    "modifiers" : "public final",
+    "signature" : "public final boolean isOnKeyRelease()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

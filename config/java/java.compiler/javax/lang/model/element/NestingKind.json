@@ -1,0 +1,48 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.NestingKind",
+  "canonicalName" : "javax.lang.model.element.NestingKind",
+  "simpleName" : "NestingKind",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "isNested",
+    "modifiers" : "public",
+    "signature" : "public boolean isNested()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.element.NestingKind valueOf(java.lang.String)",
+    "returnType" : "javax.lang.model.element.NestingKind",
+    "genericReturnType" : "javax.lang.model.element.NestingKind",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.lang.model.element.NestingKind[] values()",
+    "returnType" : "javax.lang.model.element.NestingKind[]",
+    "genericReturnType" : "javax.lang.model.element.NestingKind[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

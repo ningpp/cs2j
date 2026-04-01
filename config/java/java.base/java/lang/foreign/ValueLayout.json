@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.ValueLayout",
+  "canonicalName" : "java.lang.foreign.ValueLayout",
+  "simpleName" : "ValueLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.foreign.MemoryLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "carrier",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class carrier()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "order",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.ByteOrder order()",
+    "returnType" : "java.nio.ByteOrder",
+    "genericReturnType" : "java.nio.ByteOrder",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "varHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.VarHandle varHandle()",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.ValueLayout",
+    "genericReturnType" : "java.lang.foreign.ValueLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.ValueLayout",
+    "genericReturnType" : "java.lang.foreign.ValueLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withOrder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout withOrder(java.nio.ByteOrder)",
+    "returnType" : "java.lang.foreign.ValueLayout",
+    "genericReturnType" : "java.lang.foreign.ValueLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteOrder",
+      "genericType" : "java.nio.ByteOrder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.ValueLayout withoutName()",
+    "returnType" : "java.lang.foreign.ValueLayout",
+    "genericReturnType" : "java.lang.foreign.ValueLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

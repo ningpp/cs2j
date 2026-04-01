@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.FileSystemAlreadyExistsException",
+  "canonicalName" : "java.nio.file.FileSystemAlreadyExistsException",
+  "simpleName" : "FileSystemAlreadyExistsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.FileSystemAlreadyExistsException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileSystemAlreadyExistsException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.nio.file.FileSystemAlreadyExistsException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.FileSystemAlreadyExistsException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

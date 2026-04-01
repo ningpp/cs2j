@@ -1,0 +1,607 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.metal",
+  "binaryName" : "javax.swing.plaf.metal.MetalLookAndFeel",
+  "canonicalName" : "javax.swing.plaf.metal.MetalLookAndFeel",
+  "simpleName" : "MetalLookAndFeel",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.plaf.basic.BasicLookAndFeel",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.metal.MetalLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.metal.MetalLookAndFeel()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAcceleratorForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getAcceleratorForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAcceleratorSelectedForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getAcceleratorSelectedForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBlack",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getBlack()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControl",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getControl()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlDarkShadow",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getControlDarkShadow()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlDisabled",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getControlDisabled()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlHighlight",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getControlHighlight()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlInfo",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getControlInfo()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlShadow",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getControlShadow()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlTextColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getControlTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getControlTextFont",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.FontUIResource getControlTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrentTheme",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.metal.MetalTheme getCurrentTheme()",
+    "returnType" : "javax.swing.plaf.metal.MetalTheme",
+    "genericReturnType" : "javax.swing.plaf.metal.MetalTheme",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaults",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults getDefaults()",
+    "returnType" : "javax.swing.UIDefaults",
+    "genericReturnType" : "javax.swing.UIDefaults",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDesktopColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getDesktopColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisabledIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getDisabledIcon(javax.swing.JComponent, javax.swing.Icon)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "icon",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDisabledSelectedIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getDisabledSelectedIcon(javax.swing.JComponent, javax.swing.Icon)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "javax.swing.JComponent",
+      "genericType" : "javax.swing.JComponent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "icon",
+      "type" : "javax.swing.Icon",
+      "genericType" : "javax.swing.Icon",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFocusColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getFocusColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHighlightedTextColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getHighlightedTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInactiveControlTextColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getInactiveControlTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInactiveSystemTextColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getInactiveSystemTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLayoutStyle",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.LayoutStyle getLayoutStyle()",
+    "returnType" : "javax.swing.LayoutStyle",
+    "genericReturnType" : "javax.swing.LayoutStyle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuBackground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getMenuBackground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuDisabledForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getMenuDisabledForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getMenuForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuSelectedBackground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getMenuSelectedBackground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuSelectedForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getMenuSelectedForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuTextFont",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.FontUIResource getMenuTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimaryControl",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getPrimaryControl()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimaryControlDarkShadow",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getPrimaryControlDarkShadow()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimaryControlHighlight",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getPrimaryControlHighlight()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimaryControlInfo",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getPrimaryControlInfo()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimaryControlShadow",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getPrimaryControlShadow()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeparatorBackground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getSeparatorBackground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSeparatorForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getSeparatorForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubTextFont",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.FontUIResource getSubTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSupportsWindowDecorations",
+    "modifiers" : "public",
+    "signature" : "public boolean getSupportsWindowDecorations()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemTextColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getSystemTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemTextFont",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.FontUIResource getSystemTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextHighlightColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getTextHighlightColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserTextColor",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getUserTextColor()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserTextFont",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.FontUIResource getUserTextFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWhite",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getWhite()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindowBackground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getWindowBackground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindowTitleBackground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getWindowTitleBackground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindowTitleFont",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.FontUIResource getWindowTitleFont()",
+    "returnType" : "javax.swing.plaf.FontUIResource",
+    "genericReturnType" : "javax.swing.plaf.FontUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindowTitleForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getWindowTitleForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindowTitleInactiveBackground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getWindowTitleInactiveBackground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWindowTitleInactiveForeground",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.ColorUIResource getWindowTitleInactiveForeground()",
+    "returnType" : "javax.swing.plaf.ColorUIResource",
+    "genericReturnType" : "javax.swing.plaf.ColorUIResource",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNativeLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public boolean isNativeLookAndFeel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSupportedLookAndFeel",
+    "modifiers" : "public",
+    "signature" : "public boolean isSupportedLookAndFeel()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provideErrorFeedback",
+    "modifiers" : "public",
+    "signature" : "public void provideErrorFeedback(java.awt.Component)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "component",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setCurrentTheme",
+    "modifiers" : "public static",
+    "signature" : "public static void setCurrentTheme(javax.swing.plaf.metal.MetalTheme)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "theme",
+      "type" : "javax.swing.plaf.metal.MetalTheme",
+      "genericType" : "javax.swing.plaf.metal.MetalTheme",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

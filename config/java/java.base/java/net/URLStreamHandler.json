@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.URLStreamHandler",
+  "canonicalName" : "java.net.URLStreamHandler",
+  "simpleName" : "URLStreamHandler",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.URLStreamHandler",
+    "modifiers" : "public",
+    "signature" : "public java.net.URLStreamHandler()",
+    "varArgs" : false
+  } ]
+}

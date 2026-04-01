@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.DiscontinuedInstruction$RetInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.DiscontinuedInstruction.RetInstruction",
+  "simpleName" : "RetInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.instruction.DiscontinuedInstruction",
+  "interfaces" : [ "java.lang.classfile.instruction.DiscontinuedInstruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.DiscontinuedInstruction$RetInstruction of(int)",
+    "returnType" : "java.lang.classfile.instruction.DiscontinuedInstruction$RetInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.DiscontinuedInstruction$RetInstruction",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.DiscontinuedInstruction$RetInstruction of(java.lang.classfile.Opcode, int)",
+    "returnType" : "java.lang.classfile.instruction.DiscontinuedInstruction$RetInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.DiscontinuedInstruction$RetInstruction",
+    "parameters" : [ {
+      "name" : "op",
+      "type" : "java.lang.classfile.Opcode",
+      "genericType" : "java.lang.classfile.Opcode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int slot()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

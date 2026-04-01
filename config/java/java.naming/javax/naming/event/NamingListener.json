@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.event",
+  "binaryName" : "javax.naming.event.NamingListener",
+  "canonicalName" : "javax.naming.event.NamingListener",
+  "simpleName" : "NamingListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "namingExceptionThrown",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void namingExceptionThrown(javax.naming.event.NamingExceptionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.event.NamingExceptionEvent",
+      "genericType" : "javax.naming.event.NamingExceptionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

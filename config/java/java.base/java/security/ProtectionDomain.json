@@ -1,0 +1,137 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.ProtectionDomain",
+  "canonicalName" : "java.security.ProtectionDomain",
+  "simpleName" : "ProtectionDomain",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.ProtectionDomain",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProtectionDomain(java.security.CodeSource, java.security.PermissionCollection)",
+    "parameters" : [ {
+      "name" : "codesource",
+      "type" : "java.security.CodeSource",
+      "genericType" : "java.security.CodeSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "permissions",
+      "type" : "java.security.PermissionCollection",
+      "genericType" : "java.security.PermissionCollection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.security.ProtectionDomain",
+    "modifiers" : "public",
+    "signature" : "public java.security.ProtectionDomain(java.security.CodeSource, java.security.PermissionCollection, java.lang.ClassLoader, java.security.Principal[])",
+    "parameters" : [ {
+      "name" : "codesource",
+      "type" : "java.security.CodeSource",
+      "genericType" : "java.security.CodeSource",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "permissions",
+      "type" : "java.security.PermissionCollection",
+      "genericType" : "java.security.PermissionCollection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classloader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "principals",
+      "type" : "java.security.Principal[]",
+      "genericType" : "java.security.Principal[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getClassLoader",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.ClassLoader getClassLoader()",
+    "returnType" : "java.lang.ClassLoader",
+    "genericReturnType" : "java.lang.ClassLoader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCodeSource",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.CodeSource getCodeSource()",
+    "returnType" : "java.security.CodeSource",
+    "genericReturnType" : "java.security.CodeSource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPermissions",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.PermissionCollection getPermissions()",
+    "returnType" : "java.security.PermissionCollection",
+    "genericReturnType" : "java.security.PermissionCollection",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrincipals",
+    "modifiers" : "public final",
+    "signature" : "public final java.security.Principal[] getPrincipals()",
+    "returnType" : "java.security.Principal[]",
+    "genericReturnType" : "java.security.Principal[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "implies",
+    "modifiers" : "public",
+    "signature" : "public boolean implies(java.security.Permission)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "perm",
+      "type" : "java.security.Permission",
+      "genericType" : "java.security.Permission",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "staticPermissionsOnly",
+    "modifiers" : "public final",
+    "signature" : "public final boolean staticPermissionsOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,269 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.X509Certificate",
+  "canonicalName" : "java.security.cert.X509Certificate",
+  "simpleName" : "X509Certificate",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.security.cert.Certificate",
+  "interfaces" : [ "java.security.DEREncodable", "java.security.cert.X509Extension" ],
+  "declaredPublicMethods" : [ {
+    "name" : "checkValidity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void checkValidity() throws java.security.cert.CertificateExpiredException, java.security.cert.CertificateNotYetValidException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.security.cert.CertificateExpiredException", "java.security.cert.CertificateNotYetValidException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "checkValidity",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void checkValidity(java.util.Date) throws java.security.cert.CertificateExpiredException, java.security.cert.CertificateNotYetValidException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Date",
+      "genericType" : "java.util.Date",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateExpiredException", "java.security.cert.CertificateNotYetValidException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBasicConstraints",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getBasicConstraints()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtendedKeyUsage",
+    "modifiers" : "public",
+    "signature" : "public java.util.List getExtendedKeyUsage() throws java.security.cert.CertificateParsingException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "exceptions" : [ "java.security.cert.CertificateParsingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIssuerAlternativeNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Collection getIssuerAlternativeNames() throws java.security.cert.CertificateParsingException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "exceptions" : [ "java.security.cert.CertificateParsingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIssuerDN",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getIssuerDN()",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIssuerUniqueID",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean[] getIssuerUniqueID()",
+    "returnType" : "boolean[]",
+    "genericReturnType" : "boolean[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIssuerX500Principal",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.x500.X500Principal getIssuerX500Principal()",
+    "returnType" : "javax.security.auth.x500.X500Principal",
+    "genericReturnType" : "javax.security.auth.x500.X500Principal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeyUsage",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean[] getKeyUsage()",
+    "returnType" : "boolean[]",
+    "genericReturnType" : "boolean[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotAfter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Date getNotAfter()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotBefore",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Date getNotBefore()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSerialNumber",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getSerialNumber()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSigAlgName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSigAlgName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSigAlgOID",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSigAlgOID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSigAlgParams",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getSigAlgParams()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSignature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getSignature()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubjectAlternativeNames",
+    "modifiers" : "public",
+    "signature" : "public java.util.Collection getSubjectAlternativeNames() throws java.security.cert.CertificateParsingException",
+    "returnType" : "java.util.Collection",
+    "genericReturnType" : "java.util.Collection",
+    "exceptions" : [ "java.security.cert.CertificateParsingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubjectDN",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.Principal getSubjectDN()",
+    "returnType" : "java.security.Principal",
+    "genericReturnType" : "java.security.Principal",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubjectUniqueID",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean[] getSubjectUniqueID()",
+    "returnType" : "boolean[]",
+    "genericReturnType" : "boolean[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSubjectX500Principal",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.x500.X500Principal getSubjectX500Principal()",
+    "returnType" : "javax.security.auth.x500.X500Principal",
+    "genericReturnType" : "javax.security.auth.x500.X500Principal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTBSCertificate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getTBSCertificate() throws java.security.cert.CertificateEncodingException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "java.security.cert.CertificateEncodingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getVersion()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verify",
+    "modifiers" : "public",
+    "signature" : "public void verify(java.security.PublicKey, java.security.Provider) throws java.security.cert.CertificateException, java.security.NoSuchAlgorithmException, java.security.InvalidKeyException, java.security.SignatureException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sigProvider",
+      "type" : "java.security.Provider",
+      "genericType" : "java.security.Provider",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.cert.CertificateException", "java.security.NoSuchAlgorithmException", "java.security.InvalidKeyException", "java.security.SignatureException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

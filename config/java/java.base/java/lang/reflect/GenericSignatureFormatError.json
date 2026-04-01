@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.GenericSignatureFormatError",
+  "canonicalName" : "java.lang.reflect.GenericSignatureFormatError",
+  "simpleName" : "GenericSignatureFormatError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.ClassFormatError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.reflect.GenericSignatureFormatError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.GenericSignatureFormatError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.reflect.GenericSignatureFormatError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.reflect.GenericSignatureFormatError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

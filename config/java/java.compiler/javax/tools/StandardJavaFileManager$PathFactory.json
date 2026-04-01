@@ -1,0 +1,34 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.StandardJavaFileManager$PathFactory",
+  "canonicalName" : "javax.tools.StandardJavaFileManager.PathFactory",
+  "simpleName" : "PathFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.tools.StandardJavaFileManager",
+  "declaredPublicMethods" : [ {
+    "name" : "getPath",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.Path getPath(java.lang.String, java.lang.String...)",
+    "returnType" : "java.nio.file.Path",
+    "genericReturnType" : "java.nio.file.Path",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

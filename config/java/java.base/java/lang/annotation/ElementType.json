@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.annotation",
+  "binaryName" : "java.lang.annotation.ElementType",
+  "canonicalName" : "java.lang.annotation.ElementType",
+  "simpleName" : "ElementType",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.annotation.ElementType valueOf(java.lang.String)",
+    "returnType" : "java.lang.annotation.ElementType",
+    "genericReturnType" : "java.lang.annotation.ElementType",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.annotation.ElementType[] values()",
+    "returnType" : "java.lang.annotation.ElementType[]",
+    "genericReturnType" : "java.lang.annotation.ElementType[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

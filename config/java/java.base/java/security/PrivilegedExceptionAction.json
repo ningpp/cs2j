@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.PrivilegedExceptionAction",
+  "canonicalName" : "java.security.PrivilegedExceptionAction",
+  "simpleName" : "PrivilegedExceptionAction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "run",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object run() throws java.lang.Exception",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

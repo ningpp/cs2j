@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.RecursiveAction",
+  "canonicalName" : "java.util.concurrent.RecursiveAction",
+  "simpleName" : "RecursiveAction",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.concurrent.ForkJoinTask",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.RecursiveAction",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.RecursiveAction()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getRawResult",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Void getRawResult()",
+    "returnType" : "java.lang.Void",
+    "genericReturnType" : "java.lang.Void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,118 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent.locks",
+  "binaryName" : "java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock",
+  "canonicalName" : "java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock",
+  "simpleName" : "WriteLock",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.locks.ReentrantReadWriteLock",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.util.concurrent.locks.Lock" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getHoldCount",
+    "modifiers" : "public",
+    "signature" : "public int getHoldCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHeldByCurrentThread",
+    "modifiers" : "public",
+    "signature" : "public boolean isHeldByCurrentThread()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lock",
+    "modifiers" : "public",
+    "signature" : "public void lock()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lockInterruptibly",
+    "modifiers" : "public",
+    "signature" : "public void lockInterruptibly() throws java.lang.InterruptedException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newCondition",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.locks.Condition newCondition()",
+    "returnType" : "java.util.concurrent.locks.Condition",
+    "genericReturnType" : "java.util.concurrent.locks.Condition",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryLock",
+    "modifiers" : "public",
+    "signature" : "public boolean tryLock()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryLock",
+    "modifiers" : "public",
+    "signature" : "public boolean tryLock(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unlock",
+    "modifiers" : "public",
+    "signature" : "public void unlock()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

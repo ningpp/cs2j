@@ -1,0 +1,167 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.PrintServiceLookup",
+  "canonicalName" : "javax.print.PrintServiceLookup",
+  "simpleName" : "PrintServiceLookup",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getDefaultPrintService",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.PrintService getDefaultPrintService()",
+    "returnType" : "javax.print.PrintService",
+    "genericReturnType" : "javax.print.PrintService",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMultiDocPrintServices",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.MultiDocPrintService[] getMultiDocPrintServices(javax.print.DocFlavor[], javax.print.attribute.AttributeSet)",
+    "returnType" : "javax.print.MultiDocPrintService[]",
+    "genericReturnType" : "javax.print.MultiDocPrintService[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.DocFlavor[]",
+      "genericType" : "javax.print.DocFlavor[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintServices",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.PrintService[] getPrintServices()",
+    "returnType" : "javax.print.PrintService[]",
+    "genericReturnType" : "javax.print.PrintService[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintServices",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.PrintService[] getPrintServices(javax.print.DocFlavor, javax.print.attribute.AttributeSet)",
+    "returnType" : "javax.print.PrintService[]",
+    "genericReturnType" : "javax.print.PrintService[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupDefaultPrintService",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.print.PrintService lookupDefaultPrintService()",
+    "returnType" : "javax.print.PrintService",
+    "genericReturnType" : "javax.print.PrintService",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupMultiDocPrintServices",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.print.MultiDocPrintService[] lookupMultiDocPrintServices(javax.print.DocFlavor[], javax.print.attribute.AttributeSet)",
+    "returnType" : "javax.print.MultiDocPrintService[]",
+    "genericReturnType" : "javax.print.MultiDocPrintService[]",
+    "parameters" : [ {
+      "name" : "flavors",
+      "type" : "javax.print.DocFlavor[]",
+      "genericType" : "javax.print.DocFlavor[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupPrintServices",
+    "modifiers" : "public static final",
+    "signature" : "public static final javax.print.PrintService[] lookupPrintServices(javax.print.DocFlavor, javax.print.attribute.AttributeSet)",
+    "returnType" : "javax.print.PrintService[]",
+    "genericReturnType" : "javax.print.PrintService[]",
+    "parameters" : [ {
+      "name" : "flavor",
+      "type" : "javax.print.DocFlavor",
+      "genericType" : "javax.print.DocFlavor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerService",
+    "modifiers" : "public static",
+    "signature" : "public static boolean registerService(javax.print.PrintService)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "service",
+      "type" : "javax.print.PrintService",
+      "genericType" : "javax.print.PrintService",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "registerServiceProvider",
+    "modifiers" : "public static",
+    "signature" : "public static boolean registerServiceProvider(javax.print.PrintServiceLookup)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "sp",
+      "type" : "javax.print.PrintServiceLookup",
+      "genericType" : "javax.print.PrintServiceLookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

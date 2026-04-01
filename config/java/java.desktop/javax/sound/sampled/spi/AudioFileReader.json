@@ -1,0 +1,119 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled.spi",
+  "binaryName" : "javax.sound.sampled.spi.AudioFileReader",
+  "canonicalName" : "javax.sound.sampled.spi.AudioFileReader",
+  "simpleName" : "AudioFileReader",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAudioFileFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFileFormat getAudioFileFormat(java.io.File) throws javax.sound.sampled.UnsupportedAudioFileException, java.io.IOException",
+    "returnType" : "javax.sound.sampled.AudioFileFormat",
+    "genericReturnType" : "javax.sound.sampled.AudioFileFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.sampled.UnsupportedAudioFileException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAudioFileFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFileFormat getAudioFileFormat(java.io.InputStream) throws javax.sound.sampled.UnsupportedAudioFileException, java.io.IOException",
+    "returnType" : "javax.sound.sampled.AudioFileFormat",
+    "genericReturnType" : "javax.sound.sampled.AudioFileFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.sampled.UnsupportedAudioFileException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAudioFileFormat",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioFileFormat getAudioFileFormat(java.net.URL) throws javax.sound.sampled.UnsupportedAudioFileException, java.io.IOException",
+    "returnType" : "javax.sound.sampled.AudioFileFormat",
+    "genericReturnType" : "javax.sound.sampled.AudioFileFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.sampled.UnsupportedAudioFileException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAudioInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioInputStream getAudioInputStream(java.io.File) throws javax.sound.sampled.UnsupportedAudioFileException, java.io.IOException",
+    "returnType" : "javax.sound.sampled.AudioInputStream",
+    "genericReturnType" : "javax.sound.sampled.AudioInputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.sampled.UnsupportedAudioFileException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAudioInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioInputStream getAudioInputStream(java.io.InputStream) throws javax.sound.sampled.UnsupportedAudioFileException, java.io.IOException",
+    "returnType" : "javax.sound.sampled.AudioInputStream",
+    "genericReturnType" : "javax.sound.sampled.AudioInputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.sampled.UnsupportedAudioFileException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAudioInputStream",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.AudioInputStream getAudioInputStream(java.net.URL) throws javax.sound.sampled.UnsupportedAudioFileException, java.io.IOException",
+    "returnType" : "javax.sound.sampled.AudioInputStream",
+    "genericReturnType" : "javax.sound.sampled.AudioInputStream",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.sampled.UnsupportedAudioFileException", "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

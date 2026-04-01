@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassFile$ConstantPoolSharingOption",
+  "canonicalName" : "java.lang.classfile.ClassFile.ConstantPoolSharingOption",
+  "simpleName" : "ConstantPoolSharingOption",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.classfile.ClassFile",
+  "superClass" : "java.lang.Enum",
+  "interfaces" : [ "java.lang.classfile.ClassFile$Option" ],
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassFile$ConstantPoolSharingOption valueOf(java.lang.String)",
+    "returnType" : "java.lang.classfile.ClassFile$ConstantPoolSharingOption",
+    "genericReturnType" : "java.lang.classfile.ClassFile$ConstantPoolSharingOption",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassFile$ConstantPoolSharingOption[] values()",
+    "returnType" : "java.lang.classfile.ClassFile$ConstantPoolSharingOption[]",
+    "genericReturnType" : "java.lang.classfile.ClassFile$ConstantPoolSharingOption[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

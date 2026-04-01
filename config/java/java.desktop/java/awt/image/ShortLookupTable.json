@@ -1,0 +1,104 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image",
+  "binaryName" : "java.awt.image.ShortLookupTable",
+  "canonicalName" : "java.awt.image.ShortLookupTable",
+  "simpleName" : "ShortLookupTable",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.image.LookupTable",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.ShortLookupTable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ShortLookupTable(int, short[])",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.image.ShortLookupTable",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.ShortLookupTable(int, short[][])",
+    "parameters" : [ {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "short[][]",
+      "genericType" : "short[][]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getTable",
+    "modifiers" : "public final",
+    "signature" : "public final short[][] getTable()",
+    "returnType" : "short[][]",
+    "genericReturnType" : "short[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupPixel",
+    "modifiers" : "public",
+    "signature" : "public int[] lookupPixel(int[], int[])",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "int[]",
+      "genericType" : "int[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "lookupPixel",
+    "modifiers" : "public",
+    "signature" : "public short[] lookupPixel(short[], short[])",
+    "returnType" : "short[]",
+    "genericReturnType" : "short[]",
+    "parameters" : [ {
+      "name" : "src",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dst",
+      "type" : "short[]",
+      "genericType" : "short[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

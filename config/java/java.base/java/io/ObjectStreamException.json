@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.ObjectStreamException",
+  "canonicalName" : "java.io.ObjectStreamException",
+  "simpleName" : "ObjectStreamException",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.io.IOException"
+}

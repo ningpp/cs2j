@@ -1,0 +1,172 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.ClassHierarchyResolver",
+  "canonicalName" : "java.lang.classfile.ClassHierarchyResolver",
+  "simpleName" : "ClassHierarchyResolver",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "cached",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassHierarchyResolver cached()",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "cached",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassHierarchyResolver cached(java.util.function.Supplier)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "parameters" : [ {
+      "name" : "cacheFactory",
+      "type" : "java.util.function.Supplier",
+      "genericType" : "java.util.function.Supplier",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "defaultResolver",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver defaultResolver()",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getClassInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo getClassInfo(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver$ClassHierarchyInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver of(java.util.Collection, java.util.Map)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "parameters" : [ {
+      "name" : "interfaces",
+      "type" : "java.util.Collection",
+      "genericType" : "java.util.Collection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classToSuperClass",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClassLoading",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver ofClassLoading(java.lang.ClassLoader)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "parameters" : [ {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClassLoading",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver ofClassLoading(java.lang.invoke.MethodHandles$Lookup)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "parameters" : [ {
+      "name" : "lookup",
+      "type" : "java.lang.invoke.MethodHandles$Lookup",
+      "genericType" : "java.lang.invoke.MethodHandles$Lookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofResourceParsing",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver ofResourceParsing(java.lang.ClassLoader)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "parameters" : [ {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofResourceParsing",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.ClassHierarchyResolver ofResourceParsing(java.util.function.Function)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "parameters" : [ {
+      "name" : "classStreamResolver",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "orElse",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.ClassHierarchyResolver orElse(java.lang.classfile.ClassHierarchyResolver)",
+    "returnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "genericReturnType" : "java.lang.classfile.ClassHierarchyResolver",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.classfile.ClassHierarchyResolver",
+      "genericType" : "java.lang.classfile.ClassHierarchyResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.UnsolicitedNotification",
+  "canonicalName" : "javax.naming.ldap.UnsolicitedNotification",
+  "simpleName" : "UnsolicitedNotification",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.naming.ldap.ExtendedResponse", "javax.naming.ldap.HasControls" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getException",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.naming.NamingException getException()",
+    "returnType" : "javax.naming.NamingException",
+    "genericReturnType" : "javax.naming.NamingException",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReferrals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String[] getReferrals()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

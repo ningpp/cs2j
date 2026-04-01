@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.InvalidOpenTypeException",
+  "canonicalName" : "javax.management.openmbean.InvalidOpenTypeException",
+  "simpleName" : "InvalidOpenTypeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalArgumentException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.InvalidOpenTypeException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.InvalidOpenTypeException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.InvalidOpenTypeException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.InvalidOpenTypeException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.server",
+  "binaryName" : "java.rmi.server.ServerNotActiveException",
+  "canonicalName" : "java.rmi.server.ServerNotActiveException",
+  "simpleName" : "ServerNotActiveException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.server.ServerNotActiveException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.ServerNotActiveException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.rmi.server.ServerNotActiveException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.server.ServerNotActiveException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

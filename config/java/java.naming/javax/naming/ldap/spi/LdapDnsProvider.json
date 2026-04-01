@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap.spi",
+  "binaryName" : "javax.naming.ldap.spi.LdapDnsProvider",
+  "canonicalName" : "javax.naming.ldap.spi.LdapDnsProvider",
+  "simpleName" : "LdapDnsProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "lookupEndpoints",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional lookupEndpoints(java.lang.String, java.util.Map) throws javax.naming.NamingException",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

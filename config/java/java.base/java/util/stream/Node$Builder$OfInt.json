@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Node$Builder$OfInt",
+  "canonicalName" : "java.util.stream.Node.Builder.OfInt",
+  "simpleName" : "OfInt",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.stream.Node$Builder",
+  "interfaces" : [ "java.util.stream.Node$Builder", "java.util.stream.Sink$OfInt" ],
+  "declaredPublicMethods" : [ {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.stream.Node$OfInt build()",
+    "returnType" : "java.util.stream.Node$OfInt",
+    "genericReturnType" : "java.util.stream.Node$OfInt",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

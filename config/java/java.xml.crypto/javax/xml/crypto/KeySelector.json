@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.KeySelector",
+  "canonicalName" : "javax.xml.crypto.KeySelector",
+  "simpleName" : "KeySelector",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "select",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.KeySelectorResult select(javax.xml.crypto.dsig.keyinfo.KeyInfo, javax.xml.crypto.KeySelector$Purpose, javax.xml.crypto.AlgorithmMethod, javax.xml.crypto.XMLCryptoContext) throws javax.xml.crypto.KeySelectorException",
+    "returnType" : "javax.xml.crypto.KeySelectorResult",
+    "genericReturnType" : "javax.xml.crypto.KeySelectorResult",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+      "genericType" : "javax.xml.crypto.dsig.keyinfo.KeyInfo",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.crypto.KeySelector$Purpose",
+      "genericType" : "javax.xml.crypto.KeySelector$Purpose",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "javax.xml.crypto.AlgorithmMethod",
+      "genericType" : "javax.xml.crypto.AlgorithmMethod",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "javax.xml.crypto.XMLCryptoContext",
+      "genericType" : "javax.xml.crypto.XMLCryptoContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.KeySelectorException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "singletonKeySelector",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.crypto.KeySelector singletonKeySelector(java.security.Key)",
+    "returnType" : "javax.xml.crypto.KeySelector",
+    "genericReturnType" : "javax.xml.crypto.KeySelector",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.security.Key",
+      "genericType" : "java.security.Key",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

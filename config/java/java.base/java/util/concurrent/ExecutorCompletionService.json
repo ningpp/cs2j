@@ -1,0 +1,128 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.ExecutorCompletionService",
+  "canonicalName" : "java.util.concurrent.ExecutorCompletionService",
+  "simpleName" : "ExecutorCompletionService",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.concurrent.CompletionService" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.ExecutorCompletionService",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ExecutorCompletionService(java.util.concurrent.Executor)",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.ExecutorCompletionService",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.ExecutorCompletionService(java.util.concurrent.Executor, java.util.concurrent.BlockingQueue)",
+    "parameters" : [ {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "completionQueue",
+      "type" : "java.util.concurrent.BlockingQueue",
+      "genericType" : "java.util.concurrent.BlockingQueue",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "poll",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future poll()",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "poll",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future poll(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "timeout",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "unit",
+      "type" : "java.util.concurrent.TimeUnit",
+      "genericType" : "java.util.concurrent.TimeUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.lang.Runnable, java.lang.Object)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "result",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "submit",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future submit(java.util.concurrent.Callable)",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "parameters" : [ {
+      "name" : "task",
+      "type" : "java.util.concurrent.Callable",
+      "genericType" : "java.util.concurrent.Callable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "take",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.Future take() throws java.lang.InterruptedException",
+    "returnType" : "java.util.concurrent.Future",
+    "genericReturnType" : "java.util.concurrent.Future",
+    "exceptions" : [ "java.lang.InterruptedException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

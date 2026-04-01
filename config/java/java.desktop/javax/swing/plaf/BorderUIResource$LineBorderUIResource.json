@@ -1,0 +1,43 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.BorderUIResource$LineBorderUIResource",
+  "canonicalName" : "javax.swing.plaf.BorderUIResource.LineBorderUIResource",
+  "simpleName" : "LineBorderUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.BorderUIResource",
+  "superClass" : "javax.swing.border.LineBorder",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.BorderUIResource$LineBorderUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.BorderUIResource$LineBorderUIResource(java.awt.Color)",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.BorderUIResource$LineBorderUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.BorderUIResource$LineBorderUIResource(java.awt.Color, int)",
+    "parameters" : [ {
+      "name" : "color",
+      "type" : "java.awt.Color",
+      "genericType" : "java.awt.Color",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "thickness",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

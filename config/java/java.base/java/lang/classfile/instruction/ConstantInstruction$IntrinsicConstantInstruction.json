@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.ConstantInstruction$IntrinsicConstantInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.ConstantInstruction.IntrinsicConstantInstruction",
+  "simpleName" : "IntrinsicConstantInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.instruction.ConstantInstruction",
+  "interfaces" : [ "java.lang.classfile.instruction.ConstantInstruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "typeKind",
+    "modifiers" : "public",
+    "signature" : "public java.lang.classfile.TypeKind typeKind()",
+    "returnType" : "java.lang.classfile.TypeKind",
+    "genericReturnType" : "java.lang.classfile.TypeKind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

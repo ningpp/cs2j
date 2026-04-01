@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.FlavorMap",
+  "canonicalName" : "java.awt.datatransfer.FlavorMap",
+  "simpleName" : "FlavorMap",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getFlavorsForNatives",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getFlavorsForNatives(java.lang.String[])",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNativesForFlavors",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getNativesForFlavors(java.awt.datatransfer.DataFlavor[])",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.datatransfer.DataFlavor[]",
+      "genericType" : "java.awt.datatransfer.DataFlavor[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

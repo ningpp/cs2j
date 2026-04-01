@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.UnsupportedEncodingException",
+  "canonicalName" : "java.io.UnsupportedEncodingException",
+  "simpleName" : "UnsupportedEncodingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.UnsupportedEncodingException",
+    "modifiers" : "public",
+    "signature" : "public java.io.UnsupportedEncodingException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.UnsupportedEncodingException",
+    "modifiers" : "public",
+    "signature" : "public java.io.UnsupportedEncodingException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

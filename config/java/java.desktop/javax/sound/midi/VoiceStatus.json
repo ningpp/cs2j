@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.VoiceStatus",
+  "canonicalName" : "javax.sound.midi.VoiceStatus",
+  "simpleName" : "VoiceStatus",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sound.midi.VoiceStatus",
+    "modifiers" : "public",
+    "signature" : "public javax.sound.midi.VoiceStatus()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,42 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.ModuleElement$RequiresDirective",
+  "canonicalName" : "javax.lang.model.element.ModuleElement.RequiresDirective",
+  "simpleName" : "RequiresDirective",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "javax.lang.model.element.ModuleElement",
+  "interfaces" : [ "javax.lang.model.element.ModuleElement$Directive" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDependency",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.ModuleElement getDependency()",
+    "returnType" : "javax.lang.model.element.ModuleElement",
+    "genericReturnType" : "javax.lang.model.element.ModuleElement",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStatic",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isStatic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTransitive",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isTransitive()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MBeanServerBuilder",
+  "canonicalName" : "javax.management.MBeanServerBuilder",
+  "simpleName" : "MBeanServerBuilder",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.MBeanServerBuilder",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanServerBuilder()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "newMBeanServer",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanServer newMBeanServer(java.lang.String, javax.management.MBeanServer, javax.management.MBeanServerDelegate)",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "parameters" : [ {
+      "name" : "defaultDomain",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "outer",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "delegate",
+      "type" : "javax.management.MBeanServerDelegate",
+      "genericType" : "javax.management.MBeanServerDelegate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newMBeanServerDelegate",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanServerDelegate newMBeanServerDelegate()",
+    "returnType" : "javax.management.MBeanServerDelegate",
+    "genericReturnType" : "javax.management.MBeanServerDelegate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.NotYetConnectedException",
+  "canonicalName" : "java.nio.channels.NotYetConnectedException",
+  "simpleName" : "NotYetConnectedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.NotYetConnectedException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.NotYetConnectedException()",
+    "varArgs" : false
+  } ]
+}

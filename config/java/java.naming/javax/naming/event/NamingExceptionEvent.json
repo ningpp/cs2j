@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.event",
+  "binaryName" : "javax.naming.event.NamingExceptionEvent",
+  "canonicalName" : "javax.naming.event.NamingExceptionEvent",
+  "simpleName" : "NamingExceptionEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.event.NamingExceptionEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.event.NamingExceptionEvent(javax.naming.event.EventContext, javax.naming.NamingException)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.naming.event.EventContext",
+      "genericType" : "javax.naming.event.EventContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exc",
+      "type" : "javax.naming.NamingException",
+      "genericType" : "javax.naming.NamingException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "dispatch",
+    "modifiers" : "public",
+    "signature" : "public void dispatch(javax.naming.event.NamingListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEventContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.event.EventContext getEventContext()",
+    "returnType" : "javax.naming.event.EventContext",
+    "genericReturnType" : "javax.naming.event.EventContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingException getException()",
+    "returnType" : "javax.naming.NamingException",
+    "genericReturnType" : "javax.naming.NamingException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

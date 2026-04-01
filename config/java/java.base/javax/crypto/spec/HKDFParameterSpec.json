@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.HKDFParameterSpec",
+  "canonicalName" : "javax.crypto.spec.HKDFParameterSpec",
+  "simpleName" : "HKDFParameterSpec",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.spec.AlgorithmParameterSpec" ],
+  "declaredPublicMethods" : [ {
+    "name" : "expandOnly",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.spec.HKDFParameterSpec$Expand expandOnly(javax.crypto.SecretKey, byte[], int)",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$Expand",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$Expand",
+    "parameters" : [ {
+      "name" : "prk",
+      "type" : "javax.crypto.SecretKey",
+      "genericType" : "javax.crypto.SecretKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "info",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "length",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofExtract",
+    "modifiers" : "public static",
+    "signature" : "public static javax.crypto.spec.HKDFParameterSpec$Builder ofExtract()",
+    "returnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "genericReturnType" : "javax.crypto.spec.HKDFParameterSpec$Builder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

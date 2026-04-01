@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi.dgc",
+  "binaryName" : "java.rmi.dgc.DGC",
+  "canonicalName" : "java.rmi.dgc.DGC",
+  "simpleName" : "DGC",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.rmi.Remote" ],
+  "declaredPublicMethods" : [ {
+    "name" : "clean",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void clean(java.rmi.server.ObjID[], long, java.rmi.dgc.VMID, boolean) throws java.rmi.RemoteException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.server.ObjID[]",
+      "genericType" : "java.rmi.server.ObjID[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.rmi.dgc.VMID",
+      "genericType" : "java.rmi.dgc.VMID",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "dirty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.rmi.dgc.Lease dirty(java.rmi.server.ObjID[], long, java.rmi.dgc.Lease) throws java.rmi.RemoteException",
+    "returnType" : "java.rmi.dgc.Lease",
+    "genericReturnType" : "java.rmi.dgc.Lease",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.rmi.server.ObjID[]",
+      "genericType" : "java.rmi.server.ObjID[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.rmi.dgc.Lease",
+      "genericType" : "java.rmi.dgc.Lease",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.rmi.RemoteException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

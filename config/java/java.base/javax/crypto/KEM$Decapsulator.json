@@ -1,0 +1,96 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KEM$Decapsulator",
+  "canonicalName" : "javax.crypto.KEM.Decapsulator",
+  "simpleName" : "Decapsulator",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.crypto.KEM",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "decapsulate",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.SecretKey decapsulate(byte[]) throws javax.crypto.DecapsulateException",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "parameters" : [ {
+      "name" : "encapsulation",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.DecapsulateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "decapsulate",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.SecretKey decapsulate(byte[], int, int, java.lang.String) throws javax.crypto.DecapsulateException",
+    "returnType" : "javax.crypto.SecretKey",
+    "genericReturnType" : "javax.crypto.SecretKey",
+    "parameters" : [ {
+      "name" : "encapsulation",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "to",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.crypto.DecapsulateException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "encapsulationSize",
+    "modifiers" : "public",
+    "signature" : "public int encapsulationSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "providerName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String providerName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "secretSize",
+    "modifiers" : "public",
+    "signature" : "public int secretSize()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

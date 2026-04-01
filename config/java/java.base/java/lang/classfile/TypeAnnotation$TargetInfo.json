@@ -1,0 +1,570 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.TypeAnnotation$TargetInfo",
+  "canonicalName" : "java.lang.classfile.TypeAnnotation.TargetInfo",
+  "simpleName" : "TargetInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.TypeAnnotation",
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$EmptyTarget of(java.lang.classfile.TypeAnnotation$TargetType)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofCastExpr",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeArgumentTarget ofCastExpr(java.lang.classfile.Label, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeArgumentIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClassExtends",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$SupertypeTarget ofClassExtends(int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$SupertypeTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$SupertypeTarget",
+    "parameters" : [ {
+      "name" : "supertypeIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClassTypeParameter",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeParameterTarget ofClassTypeParameter(int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeParameterTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeParameterTarget",
+    "parameters" : [ {
+      "name" : "typeParameterIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClassTypeParameterBound",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget ofClassTypeParameterBound(int, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget",
+    "parameters" : [ {
+      "name" : "typeParameterIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "boundIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofConstructorInvocationTypeArgument",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeArgumentTarget ofConstructorInvocationTypeArgument(java.lang.classfile.Label, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeArgumentIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofConstructorReference",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$OffsetTarget ofConstructorReference(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofConstructorReferenceTypeArgument",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeArgumentTarget ofConstructorReferenceTypeArgument(java.lang.classfile.Label, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeArgumentIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofExceptionParameter",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$CatchTarget ofExceptionParameter(int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$CatchTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$CatchTarget",
+    "parameters" : [ {
+      "name" : "exceptionTableIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofField",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$EmptyTarget ofField()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInstanceofExpr",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$OffsetTarget ofInstanceofExpr(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLocalVariable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$LocalVarTarget ofLocalVariable(java.util.List)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$LocalVarTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$LocalVarTarget",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodFormalParameter",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$FormalParameterTarget ofMethodFormalParameter(int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$FormalParameterTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$FormalParameterTarget",
+    "parameters" : [ {
+      "name" : "formalParameterIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodInvocationTypeArgument",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeArgumentTarget ofMethodInvocationTypeArgument(java.lang.classfile.Label, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeArgumentIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodReceiver",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$EmptyTarget ofMethodReceiver()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodReference",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$OffsetTarget ofMethodReference(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodReferenceTypeArgument",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeArgumentTarget ofMethodReferenceTypeArgument(java.lang.classfile.Label, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeArgumentIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodReturn",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$EmptyTarget ofMethodReturn()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$EmptyTarget",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodTypeParameter",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeParameterTarget ofMethodTypeParameter(int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeParameterTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeParameterTarget",
+    "parameters" : [ {
+      "name" : "typeParameterIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofMethodTypeParameterBound",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget ofMethodTypeParameterBound(int, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget",
+    "parameters" : [ {
+      "name" : "typeParameterIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "boundIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofNewExpr",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$OffsetTarget ofNewExpr(java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofOffset",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$OffsetTarget ofOffset(java.lang.classfile.TypeAnnotation$TargetType, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$OffsetTarget",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofResourceVariable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$LocalVarTarget ofResourceVariable(java.util.List)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$LocalVarTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$LocalVarTarget",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofThrows",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$ThrowsTarget ofThrows(int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$ThrowsTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$ThrowsTarget",
+    "parameters" : [ {
+      "name" : "throwsTargetIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofTypeArgument",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeArgumentTarget ofTypeArgument(java.lang.classfile.TypeAnnotation$TargetType, java.lang.classfile.Label, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeArgumentTarget",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeArgumentIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofTypeParameter",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeParameterTarget ofTypeParameter(java.lang.classfile.TypeAnnotation$TargetType, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeParameterTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeParameterTarget",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeParameterIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofTypeParameterBound",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget ofTypeParameterBound(java.lang.classfile.TypeAnnotation$TargetType, int, int)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TypeParameterBoundTarget",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "typeParameterIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "boundIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofVariable",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.TypeAnnotation$LocalVarTarget ofVariable(java.lang.classfile.TypeAnnotation$TargetType, java.util.List)",
+    "returnType" : "java.lang.classfile.TypeAnnotation$LocalVarTarget",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$LocalVarTarget",
+    "parameters" : [ {
+      "name" : "targetType",
+      "type" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "genericType" : "java.lang.classfile.TypeAnnotation$TargetType",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "table",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "size",
+    "modifiers" : "public",
+    "signature" : "public int size()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "targetType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.TypeAnnotation$TargetType targetType()",
+    "returnType" : "java.lang.classfile.TypeAnnotation$TargetType",
+    "genericReturnType" : "java.lang.classfile.TypeAnnotation$TargetType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

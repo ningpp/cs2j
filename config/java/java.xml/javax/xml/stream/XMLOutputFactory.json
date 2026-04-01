@@ -1,0 +1,306 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.XMLOutputFactory",
+  "canonicalName" : "javax.xml.stream.XMLOutputFactory",
+  "simpleName" : "XMLOutputFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "createXMLEventWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLEventWriter createXMLEventWriter(java.io.OutputStream) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLEventWriter",
+    "genericReturnType" : "javax.xml.stream.XMLEventWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createXMLEventWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLEventWriter createXMLEventWriter(java.io.OutputStream, java.lang.String) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLEventWriter",
+    "genericReturnType" : "javax.xml.stream.XMLEventWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createXMLEventWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLEventWriter createXMLEventWriter(java.io.Writer) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLEventWriter",
+    "genericReturnType" : "javax.xml.stream.XMLEventWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createXMLEventWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLEventWriter createXMLEventWriter(javax.xml.transform.Result) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLEventWriter",
+    "genericReturnType" : "javax.xml.stream.XMLEventWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Result",
+      "genericType" : "javax.xml.transform.Result",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createXMLStreamWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLStreamWriter createXMLStreamWriter(java.io.OutputStream) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLStreamWriter",
+    "genericReturnType" : "javax.xml.stream.XMLStreamWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createXMLStreamWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLStreamWriter createXMLStreamWriter(java.io.OutputStream, java.lang.String) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLStreamWriter",
+    "genericReturnType" : "javax.xml.stream.XMLStreamWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createXMLStreamWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLStreamWriter createXMLStreamWriter(java.io.Writer) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLStreamWriter",
+    "genericReturnType" : "javax.xml.stream.XMLStreamWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.Writer",
+      "genericType" : "java.io.Writer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createXMLStreamWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.XMLStreamWriter createXMLStreamWriter(javax.xml.transform.Result) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.XMLStreamWriter",
+    "genericReturnType" : "javax.xml.stream.XMLStreamWriter",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Result",
+      "genericType" : "javax.xml.transform.Result",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getProperty(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPropertySupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isPropertySupported(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLOutputFactory newDefaultFactory()",
+    "returnType" : "javax.xml.stream.XMLOutputFactory",
+    "genericReturnType" : "javax.xml.stream.XMLOutputFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLOutputFactory newFactory() throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLOutputFactory",
+    "genericReturnType" : "javax.xml.stream.XMLOutputFactory",
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFactory",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLOutputFactory newFactory(java.lang.String, java.lang.ClassLoader) throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLOutputFactory",
+    "genericReturnType" : "javax.xml.stream.XMLOutputFactory",
+    "parameters" : [ {
+      "name" : "factoryId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLOutputFactory newInstance() throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLOutputFactory",
+    "genericReturnType" : "javax.xml.stream.XMLOutputFactory",
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.stream.XMLInputFactory newInstance(java.lang.String, java.lang.ClassLoader) throws javax.xml.stream.FactoryConfigurationError",
+    "returnType" : "javax.xml.stream.XMLInputFactory",
+    "genericReturnType" : "javax.xml.stream.XMLInputFactory",
+    "parameters" : [ {
+      "name" : "factoryId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.FactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setProperty(java.lang.String, java.lang.Object) throws java.lang.IllegalArgumentException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

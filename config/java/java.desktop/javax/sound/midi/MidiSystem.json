@@ -1,0 +1,390 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.midi",
+  "binaryName" : "javax.sound.midi.MidiSystem",
+  "canonicalName" : "javax.sound.midi.MidiSystem",
+  "simpleName" : "MidiSystem",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getMidiDevice",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.MidiDevice getMidiDevice(javax.sound.midi.MidiDevice$Info) throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.MidiDevice",
+    "genericReturnType" : "javax.sound.midi.MidiDevice",
+    "parameters" : [ {
+      "name" : "info",
+      "type" : "javax.sound.midi.MidiDevice$Info",
+      "genericType" : "javax.sound.midi.MidiDevice$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiDeviceInfo",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.MidiDevice$Info[] getMidiDeviceInfo()",
+    "returnType" : "javax.sound.midi.MidiDevice$Info[]",
+    "genericReturnType" : "javax.sound.midi.MidiDevice$Info[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiFileFormat",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.MidiFileFormat getMidiFileFormat(java.io.File) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.MidiFileFormat",
+    "genericReturnType" : "javax.sound.midi.MidiFileFormat",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiFileFormat",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.MidiFileFormat getMidiFileFormat(java.io.InputStream) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.MidiFileFormat",
+    "genericReturnType" : "javax.sound.midi.MidiFileFormat",
+    "parameters" : [ {
+      "name" : "stream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiFileFormat",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.MidiFileFormat getMidiFileFormat(java.net.URL) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.MidiFileFormat",
+    "genericReturnType" : "javax.sound.midi.MidiFileFormat",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiFileTypes",
+    "modifiers" : "public static",
+    "signature" : "public static int[] getMidiFileTypes()",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMidiFileTypes",
+    "modifiers" : "public static",
+    "signature" : "public static int[] getMidiFileTypes(javax.sound.midi.Sequence)",
+    "returnType" : "int[]",
+    "genericReturnType" : "int[]",
+    "parameters" : [ {
+      "name" : "sequence",
+      "type" : "javax.sound.midi.Sequence",
+      "genericType" : "javax.sound.midi.Sequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReceiver",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Receiver getReceiver() throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.Receiver",
+    "genericReturnType" : "javax.sound.midi.Receiver",
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequence",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Sequence getSequence(java.io.File) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Sequence",
+    "genericReturnType" : "javax.sound.midi.Sequence",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequence",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Sequence getSequence(java.io.InputStream) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Sequence",
+    "genericReturnType" : "javax.sound.midi.Sequence",
+    "parameters" : [ {
+      "name" : "stream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequence",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Sequence getSequence(java.net.URL) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Sequence",
+    "genericReturnType" : "javax.sound.midi.Sequence",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequencer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Sequencer getSequencer() throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.Sequencer",
+    "genericReturnType" : "javax.sound.midi.Sequencer",
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSequencer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Sequencer getSequencer(boolean) throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.Sequencer",
+    "genericReturnType" : "javax.sound.midi.Sequencer",
+    "parameters" : [ {
+      "name" : "connected",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSoundbank",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Soundbank getSoundbank(java.io.File) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Soundbank",
+    "genericReturnType" : "javax.sound.midi.Soundbank",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSoundbank",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Soundbank getSoundbank(java.io.InputStream) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Soundbank",
+    "genericReturnType" : "javax.sound.midi.Soundbank",
+    "parameters" : [ {
+      "name" : "stream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSoundbank",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Soundbank getSoundbank(java.net.URL) throws javax.sound.midi.InvalidMidiDataException, java.io.IOException",
+    "returnType" : "javax.sound.midi.Soundbank",
+    "genericReturnType" : "javax.sound.midi.Soundbank",
+    "parameters" : [ {
+      "name" : "url",
+      "type" : "java.net.URL",
+      "genericType" : "java.net.URL",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.midi.InvalidMidiDataException", "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSynthesizer",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Synthesizer getSynthesizer() throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.Synthesizer",
+    "genericReturnType" : "javax.sound.midi.Synthesizer",
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTransmitter",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.midi.Transmitter getTransmitter() throws javax.sound.midi.MidiUnavailableException",
+    "returnType" : "javax.sound.midi.Transmitter",
+    "genericReturnType" : "javax.sound.midi.Transmitter",
+    "exceptions" : [ "javax.sound.midi.MidiUnavailableException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFileTypeSupported",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isFileTypeSupported(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "fileType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFileTypeSupported",
+    "modifiers" : "public static",
+    "signature" : "public static boolean isFileTypeSupported(int, javax.sound.midi.Sequence)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "fileType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "sequence",
+      "type" : "javax.sound.midi.Sequence",
+      "genericType" : "javax.sound.midi.Sequence",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static int write(javax.sound.midi.Sequence, int, java.io.File) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "javax.sound.midi.Sequence",
+      "genericType" : "javax.sound.midi.Sequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "out",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "write",
+    "modifiers" : "public static",
+    "signature" : "public static int write(javax.sound.midi.Sequence, int, java.io.OutputStream) throws java.io.IOException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "javax.sound.midi.Sequence",
+      "genericType" : "javax.sound.midi.Sequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fileType",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "out",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

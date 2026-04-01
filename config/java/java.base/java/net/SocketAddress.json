@@ -1,0 +1,17 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.SocketAddress",
+  "canonicalName" : "java.net.SocketAddress",
+  "simpleName" : "SocketAddress",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.SocketAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.SocketAddress()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.UnsolicitedNotificationListener",
+  "canonicalName" : "javax.naming.ldap.UnsolicitedNotificationListener",
+  "simpleName" : "UnsolicitedNotificationListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.naming.event.NamingListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "notificationReceived",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void notificationReceived(javax.naming.ldap.UnsolicitedNotificationEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.ldap.UnsolicitedNotificationEvent",
+      "genericType" : "javax.naming.ldap.UnsolicitedNotificationEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

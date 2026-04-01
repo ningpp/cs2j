@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.ServiceUnavailableException",
+  "canonicalName" : "javax.naming.ServiceUnavailableException",
+  "simpleName" : "ServiceUnavailableException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ServiceUnavailableException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ServiceUnavailableException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.ServiceUnavailableException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ServiceUnavailableException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

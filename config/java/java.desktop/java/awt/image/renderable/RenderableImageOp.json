@@ -1,0 +1,201 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.image.renderable",
+  "binaryName" : "java.awt.image.renderable.RenderableImageOp",
+  "canonicalName" : "java.awt.image.renderable.RenderableImageOp",
+  "simpleName" : "RenderableImageOp",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.awt.image.renderable.RenderableImage" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.image.renderable.RenderableImageOp",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.renderable.RenderableImageOp(java.awt.image.renderable.ContextualRenderedImageFactory, java.awt.image.renderable.ParameterBlock)",
+    "parameters" : [ {
+      "name" : "CRIF",
+      "type" : "java.awt.image.renderable.ContextualRenderedImageFactory",
+      "genericType" : "java.awt.image.renderable.ContextualRenderedImageFactory",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "paramBlock",
+      "type" : "java.awt.image.renderable.ParameterBlock",
+      "genericType" : "java.awt.image.renderable.ParameterBlock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createDefaultRendering",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.RenderedImage createDefaultRendering()",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createRendering",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.RenderedImage createRendering(java.awt.image.renderable.RenderContext)",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "parameters" : [ {
+      "name" : "renderContext",
+      "type" : "java.awt.image.renderable.RenderContext",
+      "genericType" : "java.awt.image.renderable.RenderContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createScaledRendering",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.RenderedImage createScaledRendering(int, int, java.awt.RenderingHints)",
+    "returnType" : "java.awt.image.RenderedImage",
+    "genericReturnType" : "java.awt.image.RenderedImage",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "h",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hints",
+      "type" : "java.awt.RenderingHints",
+      "genericType" : "java.awt.RenderingHints",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public",
+    "signature" : "public float getHeight()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinX",
+    "modifiers" : "public",
+    "signature" : "public float getMinX()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMinY",
+    "modifiers" : "public",
+    "signature" : "public float getMinY()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParameterBlock",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.renderable.ParameterBlock getParameterBlock()",
+    "returnType" : "java.awt.image.renderable.ParameterBlock",
+    "genericReturnType" : "java.awt.image.renderable.ParameterBlock",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getProperty(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPropertyNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getPropertyNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSources",
+    "modifiers" : "public",
+    "signature" : "public java.util.Vector getSources()",
+    "returnType" : "java.util.Vector",
+    "genericReturnType" : "java.util.Vector",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public",
+    "signature" : "public float getWidth()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDynamic",
+    "modifiers" : "public",
+    "signature" : "public boolean isDynamic()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setParameterBlock",
+    "modifiers" : "public",
+    "signature" : "public java.awt.image.renderable.ParameterBlock setParameterBlock(java.awt.image.renderable.ParameterBlock)",
+    "returnType" : "java.awt.image.renderable.ParameterBlock",
+    "genericReturnType" : "java.awt.image.renderable.ParameterBlock",
+    "parameters" : [ {
+      "name" : "paramBlock",
+      "type" : "java.awt.image.renderable.ParameterBlock",
+      "genericType" : "java.awt.image.renderable.ParameterBlock",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

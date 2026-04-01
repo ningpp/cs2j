@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.accessibility",
+  "binaryName" : "javax.accessibility.AccessibleResourceBundle",
+  "canonicalName" : "javax.accessibility.AccessibleResourceBundle",
+  "simpleName" : "AccessibleResourceBundle",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.ListResourceBundle",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.accessibility.AccessibleResourceBundle",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleResourceBundle()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getContents",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object[][] getContents()",
+    "returnType" : "java.lang.Object[][]",
+    "genericReturnType" : "java.lang.Object[][]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

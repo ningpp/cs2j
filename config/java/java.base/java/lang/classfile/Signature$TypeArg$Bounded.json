@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.Signature$TypeArg$Bounded",
+  "canonicalName" : "java.lang.classfile.Signature.TypeArg.Bounded",
+  "simpleName" : "Bounded",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.classfile.Signature$TypeArg",
+  "interfaces" : [ "java.lang.classfile.Signature$TypeArg" ],
+  "declaredPublicMethods" : [ {
+    "name" : "boundType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Signature$RefTypeSig boundType()",
+    "returnType" : "java.lang.classfile.Signature$RefTypeSig",
+    "genericReturnType" : "java.lang.classfile.Signature$RefTypeSig",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "wildcardIndicator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Signature$TypeArg$Bounded$WildcardIndicator wildcardIndicator()",
+    "returnType" : "java.lang.classfile.Signature$TypeArg$Bounded$WildcardIndicator",
+    "genericReturnType" : "java.lang.classfile.Signature$TypeArg$Bounded$WildcardIndicator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

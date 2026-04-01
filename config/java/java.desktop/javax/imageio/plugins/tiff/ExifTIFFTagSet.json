@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.tiff",
+  "binaryName" : "javax.imageio.plugins.tiff.ExifTIFFTagSet",
+  "canonicalName" : "javax.imageio.plugins.tiff.ExifTIFFTagSet",
+  "simpleName" : "ExifTIFFTagSet",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.imageio.plugins.tiff.TIFFTagSet",
+  "declaredPublicMethods" : [ {
+    "name" : "getInstance",
+    "modifiers" : "public static synchronized",
+    "signature" : "public static synchronized javax.imageio.plugins.tiff.ExifTIFFTagSet getInstance()",
+    "returnType" : "javax.imageio.plugins.tiff.ExifTIFFTagSet",
+    "genericReturnType" : "javax.imageio.plugins.tiff.ExifTIFFTagSet",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

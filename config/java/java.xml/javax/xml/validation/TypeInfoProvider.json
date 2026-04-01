@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.validation",
+  "binaryName" : "javax.xml.validation.TypeInfoProvider",
+  "canonicalName" : "javax.xml.validation.TypeInfoProvider",
+  "simpleName" : "TypeInfoProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributeTypeInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.TypeInfo getAttributeTypeInfo(int)",
+    "returnType" : "org.w3c.dom.TypeInfo",
+    "genericReturnType" : "org.w3c.dom.TypeInfo",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementTypeInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.TypeInfo getElementTypeInfo()",
+    "returnType" : "org.w3c.dom.TypeInfo",
+    "genericReturnType" : "org.w3c.dom.TypeInfo",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isIdAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isIdAttribute(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSpecified",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSpecified(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

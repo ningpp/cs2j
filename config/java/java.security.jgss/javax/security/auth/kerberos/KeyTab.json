@@ -1,0 +1,189 @@
+{
+  "moduleName" : "java.security.jgss",
+  "packageName" : "javax.security.auth.kerberos",
+  "binaryName" : "javax.security.auth.kerberos.KeyTab",
+  "canonicalName" : "javax.security.auth.kerberos.KeyTab",
+  "simpleName" : "KeyTab",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exists",
+    "modifiers" : "public",
+    "signature" : "public boolean exists()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.kerberos.KeyTab getInstance()",
+    "returnType" : "javax.security.auth.kerberos.KeyTab",
+    "genericReturnType" : "javax.security.auth.kerberos.KeyTab",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.kerberos.KeyTab getInstance(java.io.File)",
+    "returnType" : "javax.security.auth.kerberos.KeyTab",
+    "genericReturnType" : "javax.security.auth.kerberos.KeyTab",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.kerberos.KeyTab getInstance(javax.security.auth.kerberos.KerberosPrincipal)",
+    "returnType" : "javax.security.auth.kerberos.KeyTab",
+    "genericReturnType" : "javax.security.auth.kerberos.KeyTab",
+    "parameters" : [ {
+      "name" : "princ",
+      "type" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "genericType" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.kerberos.KeyTab getInstance(javax.security.auth.kerberos.KerberosPrincipal, java.io.File)",
+    "returnType" : "javax.security.auth.kerberos.KeyTab",
+    "genericReturnType" : "javax.security.auth.kerberos.KeyTab",
+    "parameters" : [ {
+      "name" : "princ",
+      "type" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "genericType" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKeys",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.kerberos.KerberosKey[] getKeys(javax.security.auth.kerberos.KerberosPrincipal)",
+    "returnType" : "javax.security.auth.kerberos.KerberosKey[]",
+    "genericReturnType" : "javax.security.auth.kerberos.KerberosKey[]",
+    "parameters" : [ {
+      "name" : "principal",
+      "type" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "genericType" : "javax.security.auth.kerberos.KerberosPrincipal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrincipal",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.kerberos.KerberosPrincipal getPrincipal()",
+    "returnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "genericReturnType" : "javax.security.auth.kerberos.KerberosPrincipal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnboundInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.kerberos.KeyTab getUnboundInstance()",
+    "returnType" : "javax.security.auth.kerberos.KeyTab",
+    "genericReturnType" : "javax.security.auth.kerberos.KeyTab",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnboundInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.security.auth.kerberos.KeyTab getUnboundInstance(java.io.File)",
+    "returnType" : "javax.security.auth.kerberos.KeyTab",
+    "genericReturnType" : "javax.security.auth.kerberos.KeyTab",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isBound",
+    "modifiers" : "public",
+    "signature" : "public boolean isBound()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

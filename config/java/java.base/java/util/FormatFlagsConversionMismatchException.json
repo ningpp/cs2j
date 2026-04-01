@@ -1,0 +1,60 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.FormatFlagsConversionMismatchException",
+  "canonicalName" : "java.util.FormatFlagsConversionMismatchException",
+  "simpleName" : "FormatFlagsConversionMismatchException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.IllegalFormatException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.FormatFlagsConversionMismatchException",
+    "modifiers" : "public",
+    "signature" : "public java.util.FormatFlagsConversionMismatchException(java.lang.String, char)",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "c",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getConversion",
+    "modifiers" : "public",
+    "signature" : "public char getConversion()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFlags()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

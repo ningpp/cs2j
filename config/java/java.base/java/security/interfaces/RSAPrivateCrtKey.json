@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.interfaces",
+  "binaryName" : "java.security.interfaces.RSAPrivateCrtKey",
+  "canonicalName" : "java.security.interfaces.RSAPrivateCrtKey",
+  "simpleName" : "RSAPrivateCrtKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.interfaces.RSAPrivateKey" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCrtCoefficient",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getCrtCoefficient()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeExponentP",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getPrimeExponentP()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeExponentQ",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getPrimeExponentQ()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeP",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getPrimeP()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrimeQ",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getPrimeQ()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublicExponent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getPublicExponent()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

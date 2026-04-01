@@ -1,0 +1,70 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.X509ExtendedKeyManager",
+  "canonicalName" : "javax.net.ssl.X509ExtendedKeyManager",
+  "simpleName" : "X509ExtendedKeyManager",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.net.ssl.X509KeyManager" ],
+  "declaredPublicMethods" : [ {
+    "name" : "chooseEngineClientAlias",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String chooseEngineClientAlias(java.lang.String[], java.security.Principal[], javax.net.ssl.SSLEngine)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "keyType",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "issuers",
+      "type" : "java.security.Principal[]",
+      "genericType" : "java.security.Principal[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "engine",
+      "type" : "javax.net.ssl.SSLEngine",
+      "genericType" : "javax.net.ssl.SSLEngine",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "chooseEngineServerAlias",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String chooseEngineServerAlias(java.lang.String, java.security.Principal[], javax.net.ssl.SSLEngine)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "keyType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "issuers",
+      "type" : "java.security.Principal[]",
+      "genericType" : "java.security.Principal[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "engine",
+      "type" : "javax.net.ssl.SSLEngine",
+      "genericType" : "javax.net.ssl.SSLEngine",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

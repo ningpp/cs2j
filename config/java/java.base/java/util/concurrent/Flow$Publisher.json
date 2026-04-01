@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.Flow$Publisher",
+  "canonicalName" : "java.util.concurrent.Flow.Publisher",
+  "simpleName" : "Publisher",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.util.concurrent.Flow",
+  "declaredPublicMethods" : [ {
+    "name" : "subscribe",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void subscribe(java.util.concurrent.Flow$Subscriber)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.Flow$Subscriber",
+      "genericType" : "java.util.concurrent.Flow$Subscriber",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

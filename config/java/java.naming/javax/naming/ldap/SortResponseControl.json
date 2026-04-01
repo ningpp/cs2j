@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.ldap",
+  "binaryName" : "javax.naming.ldap.SortResponseControl",
+  "canonicalName" : "javax.naming.ldap.SortResponseControl",
+  "simpleName" : "SortResponseControl",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.naming.ldap.BasicControl",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.ldap.SortResponseControl",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.ldap.SortResponseControl(java.lang.String, boolean, byte[]) throws java.io.IOException",
+    "parameters" : [ {
+      "name" : "id",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "criticality",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "value",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributeID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAttributeID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.NamingException getException()",
+    "returnType" : "javax.naming.NamingException",
+    "genericReturnType" : "javax.naming.NamingException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResultCode",
+    "modifiers" : "public",
+    "signature" : "public int getResultCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSorted",
+    "modifiers" : "public",
+    "signature" : "public boolean isSorted()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

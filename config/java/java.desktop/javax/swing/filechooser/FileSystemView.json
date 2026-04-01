@@ -1,0 +1,472 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.filechooser",
+  "binaryName" : "javax.swing.filechooser.FileSystemView",
+  "canonicalName" : "javax.swing.filechooser.FileSystemView",
+  "simpleName" : "FileSystemView",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.filechooser.FileSystemView",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.filechooser.FileSystemView()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createFileObject",
+    "modifiers" : "public",
+    "signature" : "public java.io.File createFileObject(java.io.File, java.lang.String)",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "filename",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createFileObject",
+    "modifiers" : "public",
+    "signature" : "public java.io.File createFileObject(java.lang.String)",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createNewFolder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.io.File createNewFolder(java.io.File) throws java.io.IOException",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChild",
+    "modifiers" : "public",
+    "signature" : "public java.io.File getChild(java.io.File, java.lang.String)",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "fileName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChooserComboBoxFiles",
+    "modifiers" : "public",
+    "signature" : "public java.io.File[] getChooserComboBoxFiles()",
+    "returnType" : "java.io.File[]",
+    "genericReturnType" : "java.io.File[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChooserShortcutPanelFiles",
+    "modifiers" : "public final",
+    "signature" : "public final java.io.File[] getChooserShortcutPanelFiles()",
+    "returnType" : "java.io.File[]",
+    "genericReturnType" : "java.io.File[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultDirectory",
+    "modifiers" : "public",
+    "signature" : "public java.io.File getDefaultDirectory()",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileSystemView",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.filechooser.FileSystemView getFileSystemView()",
+    "returnType" : "javax.swing.filechooser.FileSystemView",
+    "genericReturnType" : "javax.swing.filechooser.FileSystemView",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFiles",
+    "modifiers" : "public",
+    "signature" : "public java.io.File[] getFiles(java.io.File, boolean)",
+    "returnType" : "java.io.File[]",
+    "genericReturnType" : "java.io.File[]",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "useFileHiding",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHomeDirectory",
+    "modifiers" : "public",
+    "signature" : "public java.io.File getHomeDirectory()",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLinkLocation",
+    "modifiers" : "public",
+    "signature" : "public java.io.File getLinkLocation(java.io.File) throws java.io.FileNotFoundException",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.FileNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParentDirectory",
+    "modifiers" : "public",
+    "signature" : "public java.io.File getParentDirectory(java.io.File)",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoots",
+    "modifiers" : "public",
+    "signature" : "public java.io.File[] getRoots()",
+    "returnType" : "java.io.File[]",
+    "genericReturnType" : "java.io.File[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemDisplayName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemDisplayName(java.io.File)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getSystemIcon(java.io.File)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemIcon",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Icon getSystemIcon(java.io.File, int, int)",
+    "returnType" : "javax.swing.Icon",
+    "genericReturnType" : "javax.swing.Icon",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemTypeDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemTypeDescription(java.io.File)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isComputerNode",
+    "modifiers" : "public",
+    "signature" : "public boolean isComputerNode(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isDrive",
+    "modifiers" : "public",
+    "signature" : "public boolean isDrive(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFileSystem",
+    "modifiers" : "public",
+    "signature" : "public boolean isFileSystem(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFileSystemRoot",
+    "modifiers" : "public",
+    "signature" : "public boolean isFileSystemRoot(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isFloppyDrive",
+    "modifiers" : "public",
+    "signature" : "public boolean isFloppyDrive(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "dir",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isHiddenFile",
+    "modifiers" : "public",
+    "signature" : "public boolean isHiddenFile(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLink",
+    "modifiers" : "public",
+    "signature" : "public boolean isLink(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isParent",
+    "modifiers" : "public",
+    "signature" : "public boolean isParent(java.io.File, java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "folder",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isRoot",
+    "modifiers" : "public",
+    "signature" : "public boolean isRoot(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isTraversable",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Boolean isTraversable(java.io.File)",
+    "returnType" : "java.lang.Boolean",
+    "genericReturnType" : "java.lang.Boolean",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

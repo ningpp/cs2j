@@ -1,0 +1,32 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.MultiDoc",
+  "canonicalName" : "javax.print.MultiDoc",
+  "simpleName" : "MultiDoc",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getDoc",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.Doc getDoc() throws java.io.IOException",
+    "returnType" : "javax.print.Doc",
+    "genericReturnType" : "javax.print.Doc",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "next",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.MultiDoc next() throws java.io.IOException",
+    "returnType" : "javax.print.MultiDoc",
+    "genericReturnType" : "javax.print.MultiDoc",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

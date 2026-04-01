@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.DuplicateFormatFlagsException",
+  "canonicalName" : "java.util.DuplicateFormatFlagsException",
+  "simpleName" : "DuplicateFormatFlagsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.IllegalFormatException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.DuplicateFormatFlagsException",
+    "modifiers" : "public",
+    "signature" : "public java.util.DuplicateFormatFlagsException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getFlags",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getFlags()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessage",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMessage()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

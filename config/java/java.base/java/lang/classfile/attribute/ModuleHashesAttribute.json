@@ -1,0 +1,123 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+  "canonicalName" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+  "simpleName" : "ModuleHashesAttribute",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Attribute", "java.lang.classfile.ClassElement" ],
+  "declaredPublicMethods" : [ {
+    "name" : "algorithm",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.Utf8Entry algorithm()",
+    "returnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "genericReturnType" : "java.lang.classfile.constantpool.Utf8Entry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List hashes()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleHashesAttribute of(java.lang.String, java.lang.classfile.attribute.ModuleHashInfo...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hashes",
+      "type" : "java.lang.classfile.attribute.ModuleHashInfo[]",
+      "genericType" : "java.lang.classfile.attribute.ModuleHashInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleHashesAttribute of(java.lang.String, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hashes",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleHashesAttribute of(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.attribute.ModuleHashInfo...)",
+    "returnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hashes",
+      "type" : "java.lang.classfile.attribute.ModuleHashInfo[]",
+      "genericType" : "java.lang.classfile.attribute.ModuleHashInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleHashesAttribute of(java.lang.classfile.constantpool.Utf8Entry, java.util.List)",
+    "returnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleHashesAttribute",
+    "parameters" : [ {
+      "name" : "algorithm",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hashes",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.StandardWatchEventKinds",
+  "canonicalName" : "java.nio.file.StandardWatchEventKinds",
+  "simpleName" : "StandardWatchEventKinds",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

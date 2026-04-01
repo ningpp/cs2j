@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.Base64",
+  "canonicalName" : "java.util.Base64",
+  "simpleName" : "Base64",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getDecoder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Base64$Decoder getDecoder()",
+    "returnType" : "java.util.Base64$Decoder",
+    "genericReturnType" : "java.util.Base64$Decoder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Base64$Encoder getEncoder()",
+    "returnType" : "java.util.Base64$Encoder",
+    "genericReturnType" : "java.util.Base64$Encoder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMimeDecoder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Base64$Decoder getMimeDecoder()",
+    "returnType" : "java.util.Base64$Decoder",
+    "genericReturnType" : "java.util.Base64$Decoder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMimeEncoder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Base64$Encoder getMimeEncoder()",
+    "returnType" : "java.util.Base64$Encoder",
+    "genericReturnType" : "java.util.Base64$Encoder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMimeEncoder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Base64$Encoder getMimeEncoder(int, byte[])",
+    "returnType" : "java.util.Base64$Encoder",
+    "genericReturnType" : "java.util.Base64$Encoder",
+    "parameters" : [ {
+      "name" : "lineLength",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "lineSeparator",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUrlDecoder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Base64$Decoder getUrlDecoder()",
+    "returnType" : "java.util.Base64$Decoder",
+    "genericReturnType" : "java.util.Base64$Decoder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUrlEncoder",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Base64$Encoder getUrlEncoder()",
+    "returnType" : "java.util.Base64$Encoder",
+    "genericReturnType" : "java.util.Base64$Encoder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

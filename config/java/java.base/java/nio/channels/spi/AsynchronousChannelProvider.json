@@ -1,0 +1,105 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels.spi",
+  "binaryName" : "java.nio.channels.spi.AsynchronousChannelProvider",
+  "canonicalName" : "java.nio.channels.spi.AsynchronousChannelProvider",
+  "simpleName" : "AsynchronousChannelProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "openAsynchronousChannelGroup",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.AsynchronousChannelGroup openAsynchronousChannelGroup(int, java.util.concurrent.ThreadFactory) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "genericReturnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.ThreadFactory",
+      "genericType" : "java.util.concurrent.ThreadFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openAsynchronousChannelGroup",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.AsynchronousChannelGroup openAsynchronousChannelGroup(java.util.concurrent.ExecutorService, int) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "genericReturnType" : "java.nio.channels.AsynchronousChannelGroup",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.ExecutorService",
+      "genericType" : "java.util.concurrent.ExecutorService",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openAsynchronousServerSocketChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.AsynchronousServerSocketChannel openAsynchronousServerSocketChannel(java.nio.channels.AsynchronousChannelGroup) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "genericReturnType" : "java.nio.channels.AsynchronousServerSocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.channels.AsynchronousChannelGroup",
+      "genericType" : "java.nio.channels.AsynchronousChannelGroup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "openAsynchronousSocketChannel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.channels.AsynchronousSocketChannel openAsynchronousSocketChannel(java.nio.channels.AsynchronousChannelGroup) throws java.io.IOException",
+    "returnType" : "java.nio.channels.AsynchronousSocketChannel",
+    "genericReturnType" : "java.nio.channels.AsynchronousSocketChannel",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.channels.AsynchronousChannelGroup",
+      "genericType" : "java.nio.channels.AsynchronousChannelGroup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "provider",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.channels.spi.AsynchronousChannelProvider provider()",
+    "returnType" : "java.nio.channels.spi.AsynchronousChannelProvider",
+    "genericReturnType" : "java.nio.channels.spi.AsynchronousChannelProvider",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

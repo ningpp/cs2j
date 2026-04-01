@@ -1,0 +1,74 @@
+{
+  "moduleName" : "java.scripting",
+  "packageName" : "javax.script",
+  "binaryName" : "javax.script.CompiledScript",
+  "canonicalName" : "javax.script.CompiledScript",
+  "simpleName" : "CompiledScript",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.script.CompiledScript",
+    "modifiers" : "public",
+    "signature" : "public javax.script.CompiledScript()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "eval",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object eval() throws javax.script.ScriptException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eval",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object eval(javax.script.Bindings) throws javax.script.ScriptException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "bindings",
+      "type" : "javax.script.Bindings",
+      "genericType" : "javax.script.Bindings",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "eval",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object eval(javax.script.ScriptContext) throws javax.script.ScriptException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.script.ScriptContext",
+      "genericType" : "javax.script.ScriptContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.script.ScriptException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEngine",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.script.ScriptEngine getEngine()",
+    "returnType" : "javax.script.ScriptEngine",
+    "genericReturnType" : "javax.script.ScriptEngine",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

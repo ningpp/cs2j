@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.SocketImplFactory",
+  "canonicalName" : "java.net.SocketImplFactory",
+  "simpleName" : "SocketImplFactory",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "createSocketImpl",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.SocketImpl createSocketImpl()",
+    "returnType" : "java.net.SocketImpl",
+    "genericReturnType" : "java.net.SocketImpl",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

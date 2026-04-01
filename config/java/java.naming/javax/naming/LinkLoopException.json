@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.LinkLoopException",
+  "canonicalName" : "javax.naming.LinkLoopException",
+  "simpleName" : "LinkLoopException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.LinkException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.LinkLoopException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.LinkLoopException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.LinkLoopException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.LinkLoopException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

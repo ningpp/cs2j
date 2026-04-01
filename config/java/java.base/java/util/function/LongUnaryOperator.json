@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.LongUnaryOperator",
+  "canonicalName" : "java.util.function.LongUnaryOperator",
+  "simpleName" : "LongUnaryOperator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.LongUnaryOperator andThen(java.util.function.LongUnaryOperator)",
+    "returnType" : "java.util.function.LongUnaryOperator",
+    "genericReturnType" : "java.util.function.LongUnaryOperator",
+    "parameters" : [ {
+      "name" : "after",
+      "type" : "java.util.function.LongUnaryOperator",
+      "genericType" : "java.util.function.LongUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "applyAsLong",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long applyAsLong(long)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compose",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.LongUnaryOperator compose(java.util.function.LongUnaryOperator)",
+    "returnType" : "java.util.function.LongUnaryOperator",
+    "genericReturnType" : "java.util.function.LongUnaryOperator",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.util.function.LongUnaryOperator",
+      "genericType" : "java.util.function.LongUnaryOperator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "identity",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.LongUnaryOperator identity()",
+    "returnType" : "java.util.function.LongUnaryOperator",
+    "genericReturnType" : "java.util.function.LongUnaryOperator",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

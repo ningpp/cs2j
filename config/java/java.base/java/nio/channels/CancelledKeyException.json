@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.CancelledKeyException",
+  "canonicalName" : "java.nio.channels.CancelledKeyException",
+  "simpleName" : "CancelledKeyException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.CancelledKeyException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.CancelledKeyException()",
+    "varArgs" : false
+  } ]
+}

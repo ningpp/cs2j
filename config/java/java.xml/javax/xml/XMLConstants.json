@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml",
+  "binaryName" : "javax.xml.XMLConstants",
+  "canonicalName" : "javax.xml.XMLConstants",
+  "simpleName" : "XMLConstants",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object"
+}

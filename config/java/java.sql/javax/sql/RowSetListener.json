@@ -1,0 +1,62 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.RowSetListener",
+  "canonicalName" : "javax.sql.RowSetListener",
+  "simpleName" : "RowSetListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "cursorMoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void cursorMoved(javax.sql.RowSetEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetEvent",
+      "genericType" : "javax.sql.RowSetEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rowChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rowChanged(javax.sql.RowSetEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetEvent",
+      "genericType" : "javax.sql.RowSetEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "rowSetChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rowSetChanged(javax.sql.RowSetEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetEvent",
+      "genericType" : "javax.sql.RowSetEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

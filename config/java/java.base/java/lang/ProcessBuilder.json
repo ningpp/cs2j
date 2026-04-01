@@ -1,0 +1,315 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ProcessBuilder",
+  "canonicalName" : "java.lang.ProcessBuilder",
+  "simpleName" : "ProcessBuilder",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ProcessBuilder",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder(java.lang.String...)",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : true
+  }, {
+    "name" : "java.lang.ProcessBuilder",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder(java.util.List)",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "command",
+    "modifiers" : "public",
+    "signature" : "public java.util.List command()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "command",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder command(java.lang.String...)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "command",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder command(java.util.List)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "command",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "directory",
+    "modifiers" : "public",
+    "signature" : "public java.io.File directory()",
+    "returnType" : "java.io.File",
+    "genericReturnType" : "java.io.File",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "directory",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder directory(java.io.File)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "directory",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "environment",
+    "modifiers" : "public",
+    "signature" : "public java.util.Map environment()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "inheritIO",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder inheritIO()",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder$Redirect redirectError()",
+    "returnType" : "java.lang.ProcessBuilder$Redirect",
+    "genericReturnType" : "java.lang.ProcessBuilder$Redirect",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder redirectError(java.io.File)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder redirectError(java.lang.ProcessBuilder$Redirect)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "destination",
+      "type" : "java.lang.ProcessBuilder$Redirect",
+      "genericType" : "java.lang.ProcessBuilder$Redirect",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectErrorStream",
+    "modifiers" : "public",
+    "signature" : "public boolean redirectErrorStream()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectErrorStream",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder redirectErrorStream(boolean)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "redirectErrorStream",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectInput",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder$Redirect redirectInput()",
+    "returnType" : "java.lang.ProcessBuilder$Redirect",
+    "genericReturnType" : "java.lang.ProcessBuilder$Redirect",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectInput",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder redirectInput(java.io.File)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectInput",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder redirectInput(java.lang.ProcessBuilder$Redirect)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.ProcessBuilder$Redirect",
+      "genericType" : "java.lang.ProcessBuilder$Redirect",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectOutput",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder$Redirect redirectOutput()",
+    "returnType" : "java.lang.ProcessBuilder$Redirect",
+    "genericReturnType" : "java.lang.ProcessBuilder$Redirect",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectOutput",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder redirectOutput(java.io.File)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "redirectOutput",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ProcessBuilder redirectOutput(java.lang.ProcessBuilder$Redirect)",
+    "returnType" : "java.lang.ProcessBuilder",
+    "genericReturnType" : "java.lang.ProcessBuilder",
+    "parameters" : [ {
+      "name" : "destination",
+      "type" : "java.lang.ProcessBuilder$Redirect",
+      "genericType" : "java.lang.ProcessBuilder$Redirect",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "start",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Process start() throws java.io.IOException",
+    "returnType" : "java.lang.Process",
+    "genericReturnType" : "java.lang.Process",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "startPipeline",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.List startPipeline(java.util.List) throws java.io.IOException",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "parameters" : [ {
+      "name" : "builders",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

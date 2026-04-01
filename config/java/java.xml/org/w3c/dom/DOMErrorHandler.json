@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.DOMErrorHandler",
+  "canonicalName" : "org.w3c.dom.DOMErrorHandler",
+  "simpleName" : "DOMErrorHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "handleError",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean handleError(org.w3c.dom.DOMError)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.DOMError",
+      "genericType" : "org.w3c.dom.DOMError",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

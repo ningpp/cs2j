@@ -1,0 +1,156 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.sax",
+  "binaryName" : "javax.xml.transform.sax.SAXSource",
+  "canonicalName" : "javax.xml.transform.sax.SAXSource",
+  "simpleName" : "SAXSource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.transform.Source" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.transform.sax.SAXSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.sax.SAXSource()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.sax.SAXSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.sax.SAXSource(org.xml.sax.InputSource)",
+    "parameters" : [ {
+      "name" : "inputSource",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.sax.SAXSource",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.sax.SAXSource(org.xml.sax.XMLReader, org.xml.sax.InputSource)",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "org.xml.sax.XMLReader",
+      "genericType" : "org.xml.sax.XMLReader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inputSource",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getInputSource",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.InputSource getInputSource()",
+    "returnType" : "org.xml.sax.InputSource",
+    "genericReturnType" : "org.xml.sax.InputSource",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLReader",
+    "modifiers" : "public",
+    "signature" : "public org.xml.sax.XMLReader getXMLReader()",
+    "returnType" : "org.xml.sax.XMLReader",
+    "genericReturnType" : "org.xml.sax.XMLReader",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isEmpty",
+    "modifiers" : "public",
+    "signature" : "public boolean isEmpty()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInputSource",
+    "modifiers" : "public",
+    "signature" : "public void setInputSource(org.xml.sax.InputSource)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inputSource",
+      "type" : "org.xml.sax.InputSource",
+      "genericType" : "org.xml.sax.InputSource",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setXMLReader",
+    "modifiers" : "public",
+    "signature" : "public void setXMLReader(org.xml.sax.XMLReader)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "reader",
+      "type" : "org.xml.sax.XMLReader",
+      "genericType" : "org.xml.sax.XMLReader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sourceToInputSource",
+    "modifiers" : "public static",
+    "signature" : "public static org.xml.sax.InputSource sourceToInputSource(javax.xml.transform.Source)",
+    "returnType" : "org.xml.sax.InputSource",
+    "genericReturnType" : "org.xml.sax.InputSource",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

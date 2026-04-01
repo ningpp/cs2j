@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.QuitHandler",
+  "canonicalName" : "java.awt.desktop.QuitHandler",
+  "simpleName" : "QuitHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "handleQuitRequestWith",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void handleQuitRequestWith(java.awt.desktop.QuitEvent, java.awt.desktop.QuitResponse)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.QuitEvent",
+      "genericType" : "java.awt.desktop.QuitEvent",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.desktop.QuitResponse",
+      "genericType" : "java.awt.desktop.QuitResponse",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,116 @@
+{
+  "moduleName" : "java.sql.rowset",
+  "packageName" : "javax.sql.rowset.spi",
+  "binaryName" : "javax.sql.rowset.spi.SyncProvider",
+  "canonicalName" : "javax.sql.rowset.spi.SyncProvider",
+  "simpleName" : "SyncProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.rowset.spi.SyncProvider",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.rowset.spi.SyncProvider()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDataSourceLock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDataSourceLock() throws javax.sql.rowset.spi.SyncProviderException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "javax.sql.rowset.spi.SyncProviderException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProviderGrade",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getProviderGrade()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProviderID",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getProviderID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowSetReader",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.RowSetReader getRowSetReader()",
+    "returnType" : "javax.sql.RowSetReader",
+    "genericReturnType" : "javax.sql.RowSetReader",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRowSetWriter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sql.RowSetWriter getRowSetWriter()",
+    "returnType" : "javax.sql.RowSetWriter",
+    "genericReturnType" : "javax.sql.RowSetWriter",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVendor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVendor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDataSourceLock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setDataSourceLock(int) throws javax.sql.rowset.spi.SyncProviderException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sql.rowset.spi.SyncProviderException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "supportsUpdatableView",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int supportsUpdatableView()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

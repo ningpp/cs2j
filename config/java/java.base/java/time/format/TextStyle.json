@@ -1,0 +1,68 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.format",
+  "binaryName" : "java.time.format.TextStyle",
+  "canonicalName" : "java.time.format.TextStyle",
+  "simpleName" : "TextStyle",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "asNormal",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.TextStyle asNormal()",
+    "returnType" : "java.time.format.TextStyle",
+    "genericReturnType" : "java.time.format.TextStyle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "asStandalone",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.TextStyle asStandalone()",
+    "returnType" : "java.time.format.TextStyle",
+    "genericReturnType" : "java.time.format.TextStyle",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStandalone",
+    "modifiers" : "public",
+    "signature" : "public boolean isStandalone()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.TextStyle valueOf(java.lang.String)",
+    "returnType" : "java.time.format.TextStyle",
+    "genericReturnType" : "java.time.format.TextStyle",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.TextStyle[] values()",
+    "returnType" : "java.time.format.TextStyle[]",
+    "genericReturnType" : "java.time.format.TextStyle[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

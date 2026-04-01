@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.KeyManagerFactorySpi",
+  "canonicalName" : "javax.net.ssl.KeyManagerFactorySpi",
+  "simpleName" : "KeyManagerFactorySpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.KeyManagerFactorySpi",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.KeyManagerFactorySpi()",
+    "varArgs" : false
+  } ]
+}

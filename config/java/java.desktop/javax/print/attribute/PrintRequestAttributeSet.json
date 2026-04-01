@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.PrintRequestAttributeSet",
+  "canonicalName" : "javax.print.attribute.PrintRequestAttributeSet",
+  "simpleName" : "PrintRequestAttributeSet",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.print.attribute.AttributeSet" ],
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean add(javax.print.attribute.Attribute)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.attribute.Attribute",
+      "genericType" : "javax.print.attribute.Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addAll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean addAll(javax.print.attribute.AttributeSet)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.print.attribute.AttributeSet",
+      "genericType" : "javax.print.attribute.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

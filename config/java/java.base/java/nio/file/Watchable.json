@@ -1,0 +1,64 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.Watchable",
+  "canonicalName" : "java.nio.file.Watchable",
+  "simpleName" : "Watchable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "register",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.WatchKey register(java.nio.file.WatchService, java.nio.file.WatchEvent$Kind...) throws java.io.IOException",
+    "returnType" : "java.nio.file.WatchKey",
+    "genericReturnType" : "java.nio.file.WatchKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.file.WatchService",
+      "genericType" : "java.nio.file.WatchService",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.nio.file.WatchEvent$Kind[]",
+      "genericType" : "java.nio.file.WatchEvent$Kind[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "register",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.file.WatchKey register(java.nio.file.WatchService, java.nio.file.WatchEvent$Kind[], java.nio.file.WatchEvent$Modifier...) throws java.io.IOException",
+    "returnType" : "java.nio.file.WatchKey",
+    "genericReturnType" : "java.nio.file.WatchKey",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.file.WatchService",
+      "genericType" : "java.nio.file.WatchService",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.nio.file.WatchEvent$Kind[]",
+      "genericType" : "java.nio.file.WatchEvent$Kind[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.nio.file.WatchEvent$Modifier[]",
+      "genericType" : "java.nio.file.WatchEvent$Modifier[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  } ]
+}

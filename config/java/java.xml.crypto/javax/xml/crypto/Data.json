@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.Data",
+  "canonicalName" : "javax.xml.crypto.Data",
+  "simpleName" : "Data",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

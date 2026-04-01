@@ -1,0 +1,233 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.chrono",
+  "binaryName" : "java.time.chrono.ChronoPeriod",
+  "canonicalName" : "java.time.chrono.ChronoPeriod",
+  "simpleName" : "ChronoPeriod",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.time.temporal.TemporalAmount" ],
+  "declaredPublicMethods" : [ {
+    "name" : "addTo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.temporal.Temporal addTo(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "between",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.chrono.ChronoPeriod between(java.time.chrono.ChronoLocalDate, java.time.chrono.ChronoLocalDate)",
+    "returnType" : "java.time.chrono.ChronoPeriod",
+    "genericReturnType" : "java.time.chrono.ChronoPeriod",
+    "parameters" : [ {
+      "name" : "startDateInclusive",
+      "type" : "java.time.chrono.ChronoLocalDate",
+      "genericType" : "java.time.chrono.ChronoLocalDate",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "endDateExclusive",
+      "type" : "java.time.chrono.ChronoLocalDate",
+      "genericType" : "java.time.chrono.ChronoLocalDate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "get",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long get(java.time.temporal.TemporalUnit)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalUnit",
+      "genericType" : "java.time.temporal.TemporalUnit",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChronology",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.Chronology getChronology()",
+    "returnType" : "java.time.chrono.Chronology",
+    "genericReturnType" : "java.time.chrono.Chronology",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUnits",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.List getUnits()",
+    "returnType" : "java.util.List",
+    "genericReturnType" : "java.util.List",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNegative",
+    "modifiers" : "public",
+    "signature" : "public boolean isNegative()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "isZero",
+    "modifiers" : "public",
+    "signature" : "public boolean isZero()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "minus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoPeriod minus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.chrono.ChronoPeriod",
+    "genericReturnType" : "java.time.chrono.ChronoPeriod",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "multipliedBy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoPeriod multipliedBy(int)",
+    "returnType" : "java.time.chrono.ChronoPeriod",
+    "genericReturnType" : "java.time.chrono.ChronoPeriod",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negated",
+    "modifiers" : "public",
+    "signature" : "public java.time.chrono.ChronoPeriod negated()",
+    "returnType" : "java.time.chrono.ChronoPeriod",
+    "genericReturnType" : "java.time.chrono.ChronoPeriod",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "normalized",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoPeriod normalized()",
+    "returnType" : "java.time.chrono.ChronoPeriod",
+    "genericReturnType" : "java.time.chrono.ChronoPeriod",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.chrono.ChronoPeriod plus(java.time.temporal.TemporalAmount)",
+    "returnType" : "java.time.chrono.ChronoPeriod",
+    "genericReturnType" : "java.time.chrono.ChronoPeriod",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.TemporalAmount",
+      "genericType" : "java.time.temporal.TemporalAmount",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subtractFrom",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.time.temporal.Temporal subtractFrom(java.time.temporal.Temporal)",
+    "returnType" : "java.time.temporal.Temporal",
+    "genericReturnType" : "java.time.temporal.Temporal",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.temporal.Temporal",
+      "genericType" : "java.time.temporal.Temporal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,97 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.JarURLConnection",
+  "canonicalName" : "java.net.JarURLConnection",
+  "simpleName" : "JarURLConnection",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.net.URLConnection",
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.Attributes getAttributes() throws java.io.IOException",
+    "returnType" : "java.util.jar.Attributes",
+    "genericReturnType" : "java.util.jar.Attributes",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCertificates",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.Certificate[] getCertificates() throws java.io.IOException",
+    "returnType" : "java.security.cert.Certificate[]",
+    "genericReturnType" : "java.security.cert.Certificate[]",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEntryName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getEntryName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJarEntry",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.JarEntry getJarEntry() throws java.io.IOException",
+    "returnType" : "java.util.jar.JarEntry",
+    "genericReturnType" : "java.util.jar.JarEntry",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJarFile",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.jar.JarFile getJarFile() throws java.io.IOException",
+    "returnType" : "java.util.jar.JarFile",
+    "genericReturnType" : "java.util.jar.JarFile",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getJarFileURL",
+    "modifiers" : "public",
+    "signature" : "public java.net.URL getJarFileURL()",
+    "returnType" : "java.net.URL",
+    "genericReturnType" : "java.net.URL",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMainAttributes",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.Attributes getMainAttributes() throws java.io.IOException",
+    "returnType" : "java.util.jar.Attributes",
+    "genericReturnType" : "java.util.jar.Attributes",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getManifest",
+    "modifiers" : "public",
+    "signature" : "public java.util.jar.Manifest getManifest() throws java.io.IOException",
+    "returnType" : "java.util.jar.Manifest",
+    "genericReturnType" : "java.util.jar.Manifest",
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

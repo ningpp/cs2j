@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.element",
+  "binaryName" : "javax.lang.model.element.QualifiedNameable",
+  "canonicalName" : "javax.lang.model.element.QualifiedNameable",
+  "simpleName" : "QualifiedNameable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.lang.model.element.Element" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getQualifiedName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.element.Name getQualifiedName()",
+    "returnType" : "javax.lang.model.element.Name",
+    "genericReturnType" : "javax.lang.model.element.Name",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

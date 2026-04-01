@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.table",
+  "binaryName" : "javax.swing.table.TableRowSorter",
+  "canonicalName" : "javax.swing.table.TableRowSorter",
+  "simpleName" : "TableRowSorter",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.DefaultRowSorter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.table.TableRowSorter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableRowSorter()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.table.TableRowSorter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableRowSorter(javax.swing.table.TableModel)",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "javax.swing.table.TableModel",
+      "genericType" : "javax.swing.table.TableModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getComparator",
+    "modifiers" : "public",
+    "signature" : "public java.util.Comparator getComparator(int)",
+    "returnType" : "java.util.Comparator",
+    "genericReturnType" : "java.util.Comparator",
+    "parameters" : [ {
+      "name" : "column",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStringConverter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableStringConverter getStringConverter()",
+    "returnType" : "javax.swing.table.TableStringConverter",
+    "genericReturnType" : "javax.swing.table.TableStringConverter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setModel",
+    "modifiers" : "public",
+    "signature" : "public void setModel(javax.swing.table.TableModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "model",
+      "type" : "javax.swing.table.TableModel",
+      "genericType" : "javax.swing.table.TableModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStringConverter",
+    "modifiers" : "public",
+    "signature" : "public void setStringConverter(javax.swing.table.TableStringConverter)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "stringConverter",
+      "type" : "javax.swing.table.TableStringConverter",
+      "genericType" : "javax.swing.table.TableStringConverter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

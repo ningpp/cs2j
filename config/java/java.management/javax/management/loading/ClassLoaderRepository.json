@@ -1,0 +1,76 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.loading",
+  "binaryName" : "javax.management.loading.ClassLoaderRepository",
+  "canonicalName" : "javax.management.loading.ClassLoaderRepository",
+  "simpleName" : "ClassLoaderRepository",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "loadClass",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class loadClass(java.lang.String) throws java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadClassBefore",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class loadClassBefore(java.lang.ClassLoader, java.lang.String) throws java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loadClassWithout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Class loadClassWithout(java.lang.ClassLoader, java.lang.String) throws java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

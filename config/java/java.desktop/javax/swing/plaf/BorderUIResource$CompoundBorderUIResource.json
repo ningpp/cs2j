@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf",
+  "binaryName" : "javax.swing.plaf.BorderUIResource$CompoundBorderUIResource",
+  "canonicalName" : "javax.swing.plaf.BorderUIResource.CompoundBorderUIResource",
+  "simpleName" : "CompoundBorderUIResource",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.BorderUIResource",
+  "superClass" : "javax.swing.border.CompoundBorder",
+  "interfaces" : [ "javax.swing.plaf.UIResource" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.BorderUIResource$CompoundBorderUIResource",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.BorderUIResource$CompoundBorderUIResource(javax.swing.border.Border, javax.swing.border.Border)",
+    "parameters" : [ {
+      "name" : "outsideBorder",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "insideBorder",
+      "type" : "javax.swing.border.Border",
+      "genericType" : "javax.swing.border.Border",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

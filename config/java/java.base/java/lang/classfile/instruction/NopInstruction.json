@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.NopInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.NopInstruction",
+  "simpleName" : "NopInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.NopInstruction of()",
+    "returnType" : "java.lang.classfile.instruction.NopInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.NopInstruction",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

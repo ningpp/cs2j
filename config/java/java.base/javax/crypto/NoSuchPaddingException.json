@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.NoSuchPaddingException",
+  "canonicalName" : "javax.crypto.NoSuchPaddingException",
+  "simpleName" : "NoSuchPaddingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.GeneralSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.NoSuchPaddingException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.NoSuchPaddingException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.NoSuchPaddingException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.NoSuchPaddingException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

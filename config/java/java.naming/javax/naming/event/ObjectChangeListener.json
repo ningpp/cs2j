@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.event",
+  "binaryName" : "javax.naming.event.ObjectChangeListener",
+  "canonicalName" : "javax.naming.event.ObjectChangeListener",
+  "simpleName" : "ObjectChangeListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.naming.event.NamingListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "objectChanged",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void objectChanged(javax.naming.event.NamingEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.naming.event.NamingEvent",
+      "genericType" : "javax.naming.event.NamingEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

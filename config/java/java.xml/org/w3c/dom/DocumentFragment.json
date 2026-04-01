@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom",
+  "binaryName" : "org.w3c.dom.DocumentFragment",
+  "canonicalName" : "org.w3c.dom.DocumentFragment",
+  "simpleName" : "DocumentFragment",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.Node" ]
+}

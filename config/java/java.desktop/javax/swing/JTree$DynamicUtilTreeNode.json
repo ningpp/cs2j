@@ -1,0 +1,101 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JTree$DynamicUtilTreeNode",
+  "canonicalName" : "javax.swing.JTree.DynamicUtilTreeNode",
+  "simpleName" : "DynamicUtilTreeNode",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JTree",
+  "superClass" : "javax.swing.tree.DefaultMutableTreeNode",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JTree$DynamicUtilTreeNode",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTree$DynamicUtilTreeNode(java.lang.Object, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "children",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "children",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration children()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createChildren",
+    "modifiers" : "public static",
+    "signature" : "public static void createChildren(javax.swing.tree.DefaultMutableTreeNode, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "javax.swing.tree.DefaultMutableTreeNode",
+      "genericType" : "javax.swing.tree.DefaultMutableTreeNode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "children",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChildAt",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.tree.TreeNode getChildAt(int)",
+    "returnType" : "javax.swing.tree.TreeNode",
+    "genericReturnType" : "javax.swing.tree.TreeNode",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChildCount",
+    "modifiers" : "public",
+    "signature" : "public int getChildCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLeaf",
+    "modifiers" : "public",
+    "signature" : "public boolean isLeaf()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

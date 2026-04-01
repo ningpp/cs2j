@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.ParameterDescriptor",
+  "canonicalName" : "java.beans.ParameterDescriptor",
+  "simpleName" : "ParameterDescriptor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.FeatureDescriptor",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.ParameterDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.ParameterDescriptor()",
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.HyperlinkEvent$EventType",
+  "canonicalName" : "javax.swing.event.HyperlinkEvent.EventType",
+  "simpleName" : "EventType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.event.HyperlinkEvent",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.BooleanSupplier",
+  "canonicalName" : "java.util.function.BooleanSupplier",
+  "simpleName" : "BooleanSupplier",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getAsBoolean",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getAsBoolean()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

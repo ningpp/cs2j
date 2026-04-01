@@ -1,0 +1,76 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.attribute",
+  "binaryName" : "java.lang.classfile.attribute.ModuleHashInfo",
+  "canonicalName" : "java.lang.classfile.attribute.ModuleHashInfo",
+  "simpleName" : "ModuleHashInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "hash",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] hash()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "moduleName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.ModuleEntry moduleName()",
+    "returnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.ModuleEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleHashInfo of(java.lang.classfile.constantpool.ModuleEntry, byte[])",
+    "returnType" : "java.lang.classfile.attribute.ModuleHashInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleHashInfo",
+    "parameters" : [ {
+      "name" : "moduleName",
+      "type" : "java.lang.classfile.constantpool.ModuleEntry",
+      "genericType" : "java.lang.classfile.constantpool.ModuleEntry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hash",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.attribute.ModuleHashInfo of(java.lang.constant.ModuleDesc, byte[])",
+    "returnType" : "java.lang.classfile.attribute.ModuleHashInfo",
+    "genericReturnType" : "java.lang.classfile.attribute.ModuleHashInfo",
+    "parameters" : [ {
+      "name" : "moduleDesc",
+      "type" : "java.lang.constant.ModuleDesc",
+      "genericType" : "java.lang.constant.ModuleDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "hash",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

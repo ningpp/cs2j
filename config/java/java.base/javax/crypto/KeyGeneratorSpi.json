@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.KeyGeneratorSpi",
+  "canonicalName" : "javax.crypto.KeyGeneratorSpi",
+  "simpleName" : "KeyGeneratorSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.KeyGeneratorSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.KeyGeneratorSpi()",
+    "varArgs" : false
+  } ]
+}

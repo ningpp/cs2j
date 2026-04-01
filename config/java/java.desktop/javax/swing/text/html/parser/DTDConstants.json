@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.DTDConstants",
+  "canonicalName" : "javax.swing.text.html.parser.DTDConstants",
+  "simpleName" : "DTDConstants",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

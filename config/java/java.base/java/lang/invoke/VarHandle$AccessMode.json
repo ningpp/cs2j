@@ -1,0 +1,66 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.invoke",
+  "binaryName" : "java.lang.invoke.VarHandle$AccessMode",
+  "canonicalName" : "java.lang.invoke.VarHandle.AccessMode",
+  "simpleName" : "AccessMode",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.invoke.VarHandle",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "methodName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String methodName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueFromMethodName",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.VarHandle$AccessMode valueFromMethodName(java.lang.String)",
+    "returnType" : "java.lang.invoke.VarHandle$AccessMode",
+    "genericReturnType" : "java.lang.invoke.VarHandle$AccessMode",
+    "parameters" : [ {
+      "name" : "methodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.VarHandle$AccessMode valueOf(java.lang.String)",
+    "returnType" : "java.lang.invoke.VarHandle$AccessMode",
+    "genericReturnType" : "java.lang.invoke.VarHandle$AccessMode",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.invoke.VarHandle$AccessMode[] values()",
+    "returnType" : "java.lang.invoke.VarHandle$AccessMode[]",
+    "genericReturnType" : "java.lang.invoke.VarHandle$AccessMode[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

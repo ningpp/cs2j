@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.event",
+  "binaryName" : "javax.print.event.PrintServiceAttributeEvent",
+  "canonicalName" : "javax.print.event.PrintServiceAttributeEvent",
+  "simpleName" : "PrintServiceAttributeEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.event.PrintEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.event.PrintServiceAttributeEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.print.event.PrintServiceAttributeEvent(javax.print.PrintService, javax.print.attribute.PrintServiceAttributeSet)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.print.PrintService",
+      "genericType" : "javax.print.PrintService",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.PrintServiceAttributeSet",
+      "genericType" : "javax.print.attribute.PrintServiceAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.PrintServiceAttributeSet getAttributes()",
+    "returnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "genericReturnType" : "javax.print.attribute.PrintServiceAttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPrintService",
+    "modifiers" : "public",
+    "signature" : "public javax.print.PrintService getPrintService()",
+    "returnType" : "javax.print.PrintService",
+    "genericReturnType" : "javax.print.PrintService",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

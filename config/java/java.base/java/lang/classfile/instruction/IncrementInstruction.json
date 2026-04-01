@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.IncrementInstruction",
+  "canonicalName" : "java.lang.classfile.instruction.IncrementInstruction",
+  "simpleName" : "IncrementInstruction",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.Instruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constant",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int constant()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.IncrementInstruction of(int, int)",
+    "returnType" : "java.lang.classfile.instruction.IncrementInstruction",
+    "genericReturnType" : "java.lang.classfile.instruction.IncrementInstruction",
+    "parameters" : [ {
+      "name" : "slot",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constant",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "slot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int slot()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

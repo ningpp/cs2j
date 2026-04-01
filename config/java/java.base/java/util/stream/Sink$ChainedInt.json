@@ -1,0 +1,63 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.stream",
+  "binaryName" : "java.util.stream.Sink$ChainedInt",
+  "canonicalName" : "java.util.stream.Sink.ChainedInt",
+  "simpleName" : "ChainedInt",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "declaringType" : "java.util.stream.Sink",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.util.stream.Sink$OfInt" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.stream.Sink$ChainedInt",
+    "modifiers" : "public",
+    "signature" : "public java.util.stream.Sink$ChainedInt(java.util.stream.Sink)",
+    "parameters" : [ {
+      "name" : "downstream",
+      "type" : "java.util.stream.Sink",
+      "genericType" : "java.util.stream.Sink",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "begin",
+    "modifiers" : "public",
+    "signature" : "public void begin(long)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "size",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cancellationRequested",
+    "modifiers" : "public",
+    "signature" : "public boolean cancellationRequested()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "end",
+    "modifiers" : "public",
+    "signature" : "public void end()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

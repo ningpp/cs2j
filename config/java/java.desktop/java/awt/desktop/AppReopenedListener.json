@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.AppReopenedListener",
+  "canonicalName" : "java.awt.desktop.AppReopenedListener",
+  "simpleName" : "AppReopenedListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.desktop.SystemEventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "appReopened",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void appReopened(java.awt.desktop.AppReopenedEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.AppReopenedEvent",
+      "genericType" : "java.awt.desktop.AppReopenedEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

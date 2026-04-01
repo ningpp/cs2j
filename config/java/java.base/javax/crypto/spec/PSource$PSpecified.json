@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto.spec",
+  "binaryName" : "javax.crypto.spec.PSource$PSpecified",
+  "canonicalName" : "javax.crypto.spec.PSource.PSpecified",
+  "simpleName" : "PSpecified",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "javax.crypto.spec.PSource",
+  "superClass" : "javax.crypto.spec.PSource",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.spec.PSource$PSpecified",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.spec.PSource$PSpecified(byte[])",
+    "parameters" : [ {
+      "name" : "p",
+      "type" : "byte[]",
+      "genericType" : "byte[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getValue",
+    "modifiers" : "public",
+    "signature" : "public byte[] getValue()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

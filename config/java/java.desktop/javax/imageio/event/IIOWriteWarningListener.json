@@ -1,0 +1,40 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.event",
+  "binaryName" : "javax.imageio.event.IIOWriteWarningListener",
+  "canonicalName" : "javax.imageio.event.IIOWriteWarningListener",
+  "simpleName" : "IIOWriteWarningListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "warningOccurred",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void warningOccurred(javax.imageio.ImageWriter, int, java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.ImageWriter",
+      "genericType" : "javax.imageio.ImageWriter",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

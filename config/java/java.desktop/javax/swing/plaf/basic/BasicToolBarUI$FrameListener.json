@@ -1,0 +1,29 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicToolBarUI$FrameListener",
+  "canonicalName" : "javax.swing.plaf.basic.BasicToolBarUI.FrameListener",
+  "simpleName" : "FrameListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicToolBarUI",
+  "superClass" : "java.awt.event.WindowAdapter",
+  "declaredPublicMethods" : [ {
+    "name" : "windowClosing",
+    "modifiers" : "public",
+    "signature" : "public void windowClosing(java.awt.event.WindowEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "w",
+      "type" : "java.awt.event.WindowEvent",
+      "genericType" : "java.awt.event.WindowEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

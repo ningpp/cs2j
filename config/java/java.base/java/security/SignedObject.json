@@ -1,0 +1,93 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.SignedObject",
+  "canonicalName" : "java.security.SignedObject",
+  "simpleName" : "SignedObject",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.SignedObject",
+    "modifiers" : "public",
+    "signature" : "public java.security.SignedObject(java.io.Serializable, java.security.PrivateKey, java.security.Signature) throws java.io.IOException, java.security.InvalidKeyException, java.security.SignatureException",
+    "parameters" : [ {
+      "name" : "object",
+      "type" : "java.io.Serializable",
+      "genericType" : "java.io.Serializable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signingKey",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "signingEngine",
+      "type" : "java.security.Signature",
+      "genericType" : "java.security.Signature",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException", "java.security.InvalidKeyException", "java.security.SignatureException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAlgorithm",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAlgorithm()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getObject() throws java.io.IOException, java.lang.ClassNotFoundException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "exceptions" : [ "java.io.IOException", "java.lang.ClassNotFoundException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSignature",
+    "modifiers" : "public",
+    "signature" : "public byte[] getSignature()",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "verify",
+    "modifiers" : "public",
+    "signature" : "public boolean verify(java.security.PublicKey, java.security.Signature) throws java.security.InvalidKeyException, java.security.SignatureException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "verificationKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "verificationEngine",
+      "type" : "java.security.Signature",
+      "genericType" : "java.security.Signature",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.security.InvalidKeyException", "java.security.SignatureException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

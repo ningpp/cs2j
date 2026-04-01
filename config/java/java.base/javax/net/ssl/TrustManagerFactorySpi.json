@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.TrustManagerFactorySpi",
+  "canonicalName" : "javax.net.ssl.TrustManagerFactorySpi",
+  "simpleName" : "TrustManagerFactorySpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.TrustManagerFactorySpi",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.TrustManagerFactorySpi()",
+    "varArgs" : false
+  } ]
+}

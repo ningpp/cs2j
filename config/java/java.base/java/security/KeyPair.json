@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.KeyPair",
+  "canonicalName" : "java.security.KeyPair",
+  "simpleName" : "KeyPair",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.io.Serializable", "java.security.DEREncodable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.KeyPair",
+    "modifiers" : "public",
+    "signature" : "public java.security.KeyPair(java.security.PublicKey, java.security.PrivateKey)",
+    "parameters" : [ {
+      "name" : "publicKey",
+      "type" : "java.security.PublicKey",
+      "genericType" : "java.security.PublicKey",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "privateKey",
+      "type" : "java.security.PrivateKey",
+      "genericType" : "java.security.PrivateKey",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPrivate",
+    "modifiers" : "public",
+    "signature" : "public java.security.PrivateKey getPrivate()",
+    "returnType" : "java.security.PrivateKey",
+    "genericReturnType" : "java.security.PrivateKey",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPublic",
+    "modifiers" : "public",
+    "signature" : "public java.security.PublicKey getPublic()",
+    "returnType" : "java.security.PublicKey",
+    "genericReturnType" : "java.security.PublicKey",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

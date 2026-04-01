@@ -1,0 +1,376 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.ranges",
+  "binaryName" : "org.w3c.dom.ranges.Range",
+  "canonicalName" : "org.w3c.dom.ranges.Range",
+  "simpleName" : "Range",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "cloneContents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.DocumentFragment cloneContents() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.DocumentFragment",
+    "genericReturnType" : "org.w3c.dom.DocumentFragment",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cloneRange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.ranges.Range cloneRange() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.ranges.Range",
+    "genericReturnType" : "org.w3c.dom.ranges.Range",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "collapse",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void collapse(boolean) throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareBoundaryPoints",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract short compareBoundaryPoints(short, org.w3c.dom.ranges.Range) throws org.w3c.dom.DOMException",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.w3c.dom.ranges.Range",
+      "genericType" : "org.w3c.dom.ranges.Range",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deleteContents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void deleteContents() throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "detach",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void detach() throws org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "extractContents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.DocumentFragment extractContents() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.DocumentFragment",
+    "genericReturnType" : "org.w3c.dom.DocumentFragment",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCollapsed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getCollapsed() throws org.w3c.dom.DOMException",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCommonAncestorContainer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getCommonAncestorContainer() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndContainer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getEndContainer() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getEndOffset() throws org.w3c.dom.DOMException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartContainer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getStartContainer() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getStartOffset() throws org.w3c.dom.DOMException",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "insertNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void insertNode(org.w3c.dom.Node) throws org.w3c.dom.DOMException, org.w3c.dom.ranges.RangeException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException", "org.w3c.dom.ranges.RangeException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void selectNode(org.w3c.dom.Node) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "selectNodeContents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void selectNodeContents(org.w3c.dom.Node) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEnd",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEnd(org.w3c.dom.Node, int) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEndAfter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEndAfter(org.w3c.dom.Node) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setEndBefore",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setEndBefore(org.w3c.dom.Node) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setStart(org.w3c.dom.Node, int) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStartAfter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setStartAfter(org.w3c.dom.Node) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setStartBefore",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setStartBefore(org.w3c.dom.Node) throws org.w3c.dom.ranges.RangeException, org.w3c.dom.DOMException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.ranges.RangeException", "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "surroundContents",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void surroundContents(org.w3c.dom.Node) throws org.w3c.dom.DOMException, org.w3c.dom.ranges.RangeException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "org.w3c.dom.DOMException", "org.w3c.dom.ranges.RangeException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString() throws org.w3c.dom.DOMException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

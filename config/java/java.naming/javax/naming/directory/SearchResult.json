@@ -1,0 +1,169 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.directory",
+  "binaryName" : "javax.naming.directory.SearchResult",
+  "canonicalName" : "javax.naming.directory.SearchResult",
+  "simpleName" : "SearchResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.Binding",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.directory.SearchResult",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.SearchResult(java.lang.String, java.lang.Object, javax.naming.directory.Attributes)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.SearchResult",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.SearchResult(java.lang.String, java.lang.Object, javax.naming.directory.Attributes, boolean)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isRelative",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.SearchResult",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.SearchResult(java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.directory.SearchResult",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.SearchResult(java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes, boolean)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "isRelative",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.directory.Attributes getAttributes()",
+    "returnType" : "javax.naming.directory.Attributes",
+    "genericReturnType" : "javax.naming.directory.Attributes",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttributes",
+    "modifiers" : "public",
+    "signature" : "public void setAttributes(javax.naming.directory.Attributes)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "attrs",
+      "type" : "javax.naming.directory.Attributes",
+      "genericType" : "javax.naming.directory.Attributes",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,210 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.metadata",
+  "binaryName" : "javax.imageio.metadata.IIOMetadata",
+  "canonicalName" : "javax.imageio.metadata.IIOMetadata",
+  "simpleName" : "IIOMetadata",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "activateController",
+    "modifiers" : "public",
+    "signature" : "public boolean activateController()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAsTree",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getAsTree(java.lang.String)",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getController",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.metadata.IIOMetadataController getController()",
+    "returnType" : "javax.imageio.metadata.IIOMetadataController",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadataController",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultController",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.metadata.IIOMetadataController getDefaultController()",
+    "returnType" : "javax.imageio.metadata.IIOMetadataController",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadataController",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtraMetadataFormatNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getExtraMetadataFormatNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMetadataFormat",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.metadata.IIOMetadataFormat getMetadataFormat(java.lang.String)",
+    "returnType" : "javax.imageio.metadata.IIOMetadataFormat",
+    "genericReturnType" : "javax.imageio.metadata.IIOMetadataFormat",
+    "parameters" : [ {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMetadataFormatNames",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getMetadataFormatNames()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNativeMetadataFormatName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getNativeMetadataFormatName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasController",
+    "modifiers" : "public",
+    "signature" : "public boolean hasController()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isReadOnly",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isReadOnly()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isStandardMetadataFormatSupported",
+    "modifiers" : "public",
+    "signature" : "public boolean isStandardMetadataFormatSupported()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mergeTree",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void mergeTree(java.lang.String, org.w3c.dom.Node) throws javax.imageio.metadata.IIOInvalidTreeException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.imageio.metadata.IIOInvalidTreeException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void reset()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setController",
+    "modifiers" : "public",
+    "signature" : "public void setController(javax.imageio.metadata.IIOMetadataController)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "controller",
+      "type" : "javax.imageio.metadata.IIOMetadataController",
+      "genericType" : "javax.imageio.metadata.IIOMetadataController",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFromTree",
+    "modifiers" : "public",
+    "signature" : "public void setFromTree(java.lang.String, org.w3c.dom.Node) throws javax.imageio.metadata.IIOInvalidTreeException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "formatName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "root",
+      "type" : "org.w3c.dom.Node",
+      "genericType" : "org.w3c.dom.Node",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.imageio.metadata.IIOInvalidTreeException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

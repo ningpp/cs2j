@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.loading",
+  "binaryName" : "javax.management.loading.PrivateClassLoader",
+  "canonicalName" : "javax.management.loading.PrivateClassLoader",
+  "simpleName" : "PrivateClassLoader",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

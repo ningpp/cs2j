@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.PrivateKey",
+  "canonicalName" : "java.security.PrivateKey",
+  "simpleName" : "PrivateKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.security.AsymmetricKey", "javax.security.auth.Destroyable" ]
+}

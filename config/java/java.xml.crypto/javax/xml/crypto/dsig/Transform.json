@@ -1,0 +1,75 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig",
+  "binaryName" : "javax.xml.crypto.dsig.Transform",
+  "canonicalName" : "javax.xml.crypto.dsig.Transform",
+  "simpleName" : "Transform",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.AlgorithmMethod", "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParameterSpec",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.spec.AlgorithmParameterSpec getParameterSpec()",
+    "returnType" : "java.security.spec.AlgorithmParameterSpec",
+    "genericReturnType" : "java.security.spec.AlgorithmParameterSpec",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transform",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.Data transform(javax.xml.crypto.Data, javax.xml.crypto.XMLCryptoContext) throws javax.xml.crypto.dsig.TransformException",
+    "returnType" : "javax.xml.crypto.Data",
+    "genericReturnType" : "javax.xml.crypto.Data",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.Data",
+      "genericType" : "javax.xml.crypto.Data",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.crypto.XMLCryptoContext",
+      "genericType" : "javax.xml.crypto.XMLCryptoContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.dsig.TransformException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "transform",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.crypto.Data transform(javax.xml.crypto.Data, javax.xml.crypto.XMLCryptoContext, java.io.OutputStream) throws javax.xml.crypto.dsig.TransformException",
+    "returnType" : "javax.xml.crypto.Data",
+    "genericReturnType" : "javax.xml.crypto.Data",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.crypto.Data",
+      "genericType" : "javax.xml.crypto.Data",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "javax.xml.crypto.XMLCryptoContext",
+      "genericType" : "javax.xml.crypto.XMLCryptoContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.io.OutputStream",
+      "genericType" : "java.io.OutputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.crypto.dsig.TransformException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

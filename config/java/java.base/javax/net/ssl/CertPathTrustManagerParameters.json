@@ -1,0 +1,35 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.CertPathTrustManagerParameters",
+  "canonicalName" : "javax.net.ssl.CertPathTrustManagerParameters",
+  "simpleName" : "CertPathTrustManagerParameters",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.net.ssl.ManagerFactoryParameters" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.CertPathTrustManagerParameters",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.CertPathTrustManagerParameters(java.security.cert.CertPathParameters)",
+    "parameters" : [ {
+      "name" : "parameters",
+      "type" : "java.security.cert.CertPathParameters",
+      "genericType" : "java.security.cert.CertPathParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getParameters",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CertPathParameters getParameters()",
+    "returnType" : "java.security.cert.CertPathParameters",
+    "genericReturnType" : "java.security.cert.CertPathParameters",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

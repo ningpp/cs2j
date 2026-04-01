@@ -1,0 +1,9 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.synth",
+  "binaryName" : "javax.swing.plaf.synth.SynthConstants",
+  "canonicalName" : "javax.swing.plaf.synth.SynthConstants",
+  "simpleName" : "SynthConstants",
+  "kind" : "interface",
+  "modifiers" : "public"
+}

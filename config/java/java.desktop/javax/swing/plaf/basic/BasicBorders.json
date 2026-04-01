@@ -1,0 +1,107 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicBorders",
+  "canonicalName" : "javax.swing.plaf.basic.BasicBorders",
+  "simpleName" : "BasicBorders",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicBorders",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicBorders()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getButtonBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getButtonBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInternalFrameBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getInternalFrameBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMenuBarBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getMenuBarBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProgressBarBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getProgressBarBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRadioButtonBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getRadioButtonBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSplitPaneBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getSplitPaneBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSplitPaneDividerBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getSplitPaneDividerBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTextFieldBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getTextFieldBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToggleButtonBorder",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.border.Border getToggleButtonBorder()",
+    "returnType" : "javax.swing.border.Border",
+    "genericReturnType" : "javax.swing.border.Border",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

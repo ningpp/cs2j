@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.Linker$Option",
+  "canonicalName" : "java.lang.foreign.Linker.Option",
+  "simpleName" : "Option",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.lang.foreign.Linker",
+  "declaredPublicMethods" : [ {
+    "name" : "captureCallState",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Linker$Option captureCallState(java.lang.String...)",
+    "returnType" : "java.lang.foreign.Linker$Option",
+    "genericReturnType" : "java.lang.foreign.Linker$Option",
+    "parameters" : [ {
+      "name" : "capturedState",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "captureStateLayout",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.StructLayout captureStateLayout()",
+    "returnType" : "java.lang.foreign.StructLayout",
+    "genericReturnType" : "java.lang.foreign.StructLayout",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "critical",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Linker$Option critical(boolean)",
+    "returnType" : "java.lang.foreign.Linker$Option",
+    "genericReturnType" : "java.lang.foreign.Linker$Option",
+    "parameters" : [ {
+      "name" : "allowHeapAccess",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "firstVariadicArg",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.Linker$Option firstVariadicArg(int)",
+    "returnType" : "java.lang.foreign.Linker$Option",
+    "genericReturnType" : "java.lang.foreign.Linker$Option",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

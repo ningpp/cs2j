@@ -1,0 +1,44 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util",
+  "binaryName" : "java.util.ListResourceBundle",
+  "canonicalName" : "java.util.ListResourceBundle",
+  "simpleName" : "ListResourceBundle",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.ResourceBundle",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.ListResourceBundle",
+    "modifiers" : "public",
+    "signature" : "public java.util.ListResourceBundle()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getKeys",
+    "modifiers" : "public",
+    "signature" : "public java.util.Enumeration getKeys()",
+    "returnType" : "java.util.Enumeration",
+    "genericReturnType" : "java.util.Enumeration",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleGetObject",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object handleGetObject(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "key",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

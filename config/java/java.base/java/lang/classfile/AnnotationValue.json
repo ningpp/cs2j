@@ -1,0 +1,474 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile",
+  "binaryName" : "java.lang.classfile.AnnotationValue",
+  "canonicalName" : "java.lang.classfile.AnnotationValue",
+  "simpleName" : "AnnotationValue",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue of(java.lang.Object)",
+    "returnType" : "java.lang.classfile.AnnotationValue",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofAnnotation",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfAnnotation ofAnnotation(java.lang.classfile.Annotation)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfAnnotation",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfAnnotation",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.Annotation",
+      "genericType" : "java.lang.classfile.Annotation",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfArray ofArray(java.lang.classfile.AnnotationValue...)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfArray",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfArray",
+    "parameters" : [ {
+      "name" : "values",
+      "type" : "java.lang.classfile.AnnotationValue[]",
+      "genericType" : "java.lang.classfile.AnnotationValue[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofArray",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfArray ofArray(java.util.List)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfArray",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfArray",
+    "parameters" : [ {
+      "name" : "values",
+      "type" : "java.util.List",
+      "genericType" : "java.util.List",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofBoolean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfBoolean ofBoolean(boolean)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfBoolean",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfBoolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofBoolean",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfBoolean ofBoolean(java.lang.classfile.constantpool.IntegerEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfBoolean",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfBoolean",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.IntegerEntry",
+      "genericType" : "java.lang.classfile.constantpool.IntegerEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByte",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfByte ofByte(byte)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfByte",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfByte",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "byte",
+      "genericType" : "byte",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofByte",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfByte ofByte(java.lang.classfile.constantpool.IntegerEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfByte",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfByte",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.IntegerEntry",
+      "genericType" : "java.lang.classfile.constantpool.IntegerEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofChar",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfChar ofChar(char)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfChar",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfChar",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofChar",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfChar ofChar(java.lang.classfile.constantpool.IntegerEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfChar",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfChar",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.IntegerEntry",
+      "genericType" : "java.lang.classfile.constantpool.IntegerEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClass",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfClass ofClass(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfClass",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfClass",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofClass",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfClass ofClass(java.lang.constant.ClassDesc)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfClass",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfClass",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDouble",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfDouble ofDouble(double)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfDouble",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfDouble",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDouble",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfDouble ofDouble(java.lang.classfile.constantpool.DoubleEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfDouble",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfDouble",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.DoubleEntry",
+      "genericType" : "java.lang.classfile.constantpool.DoubleEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofEnum",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfEnum ofEnum(java.lang.classfile.constantpool.Utf8Entry, java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfEnum",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfEnum",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constantName",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofEnum",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfEnum ofEnum(java.lang.constant.ClassDesc, java.lang.String)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfEnum",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfEnum",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.constant.ClassDesc",
+      "genericType" : "java.lang.constant.ClassDesc",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "constantName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFloat",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfFloat ofFloat(float)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfFloat",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfFloat",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "float",
+      "genericType" : "float",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofFloat",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfFloat ofFloat(java.lang.classfile.constantpool.FloatEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfFloat",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfFloat",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.FloatEntry",
+      "genericType" : "java.lang.classfile.constantpool.FloatEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInt",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfInt ofInt(int)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfInt",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfInt",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofInt",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfInt ofInt(java.lang.classfile.constantpool.IntegerEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfInt",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfInt",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.IntegerEntry",
+      "genericType" : "java.lang.classfile.constantpool.IntegerEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLong",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfLong ofLong(java.lang.classfile.constantpool.LongEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfLong",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfLong",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.LongEntry",
+      "genericType" : "java.lang.classfile.constantpool.LongEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofLong",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfLong ofLong(long)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfLong",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfLong",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofShort",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfShort ofShort(java.lang.classfile.constantpool.IntegerEntry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfShort",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfShort",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.IntegerEntry",
+      "genericType" : "java.lang.classfile.constantpool.IntegerEntry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofShort",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfShort ofShort(short)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfShort",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfShort",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "short",
+      "genericType" : "short",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfString ofString(java.lang.String)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfString",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfString",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofString",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.AnnotationValue$OfString ofString(java.lang.classfile.constantpool.Utf8Entry)",
+    "returnType" : "java.lang.classfile.AnnotationValue$OfString",
+    "genericReturnType" : "java.lang.classfile.AnnotationValue$OfString",
+    "parameters" : [ {
+      "name" : "value",
+      "type" : "java.lang.classfile.constantpool.Utf8Entry",
+      "genericType" : "java.lang.classfile.constantpool.Utf8Entry",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tag",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int tag()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

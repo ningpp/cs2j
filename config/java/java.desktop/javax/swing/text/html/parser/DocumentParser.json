@@ -1,0 +1,54 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.DocumentParser",
+  "canonicalName" : "javax.swing.text.html.parser.DocumentParser",
+  "simpleName" : "DocumentParser",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.html.parser.Parser",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.parser.DocumentParser",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.DocumentParser(javax.swing.text.html.parser.DTD)",
+    "parameters" : [ {
+      "name" : "dtd",
+      "type" : "javax.swing.text.html.parser.DTD",
+      "genericType" : "javax.swing.text.html.parser.DTD",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "parse",
+    "modifiers" : "public",
+    "signature" : "public void parse(java.io.Reader, javax.swing.text.html.HTMLEditorKit$ParserCallback, boolean) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.Reader",
+      "genericType" : "java.io.Reader",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "callback",
+      "type" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+      "genericType" : "javax.swing.text.html.HTMLEditorKit$ParserCallback",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ignoreCharSet",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

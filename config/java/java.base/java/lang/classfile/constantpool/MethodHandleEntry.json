@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.MethodHandleEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.MethodHandleEntry",
+  "simpleName" : "MethodHandleEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.LoadableConstantEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "asSymbol",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.DirectMethodHandleDesc asSymbol()",
+    "returnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "genericReturnType" : "java.lang.constant.DirectMethodHandleDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "constantValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.constant.ConstantDesc constantValue()",
+    "returnType" : "java.lang.constant.ConstantDesc",
+    "genericReturnType" : "java.lang.constant.ConstantDesc",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "kind",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int kind()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "reference",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.constantpool.MemberRefEntry reference()",
+    "returnType" : "java.lang.classfile.constantpool.MemberRefEntry",
+    "genericReturnType" : "java.lang.classfile.constantpool.MemberRefEntry",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

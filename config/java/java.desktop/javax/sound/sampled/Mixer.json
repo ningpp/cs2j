@@ -1,0 +1,210 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.Mixer",
+  "canonicalName" : "javax.sound.sampled.Mixer",
+  "simpleName" : "Mixer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.sound.sampled.Line" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLine",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line getLine(javax.sound.sampled.Line$Info) throws javax.sound.sampled.LineUnavailableException",
+    "returnType" : "javax.sound.sampled.Line",
+    "genericReturnType" : "javax.sound.sampled.Line",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line$Info",
+      "genericType" : "javax.sound.sampled.Line$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.sound.sampled.LineUnavailableException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMaxLines",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getMaxLines(javax.sound.sampled.Line$Info)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line$Info",
+      "genericType" : "javax.sound.sampled.Line$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMixerInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Mixer$Info getMixerInfo()",
+    "returnType" : "javax.sound.sampled.Mixer$Info",
+    "genericReturnType" : "javax.sound.sampled.Mixer$Info",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceLineInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line$Info[] getSourceLineInfo()",
+    "returnType" : "javax.sound.sampled.Line$Info[]",
+    "genericReturnType" : "javax.sound.sampled.Line$Info[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceLineInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line$Info[] getSourceLineInfo(javax.sound.sampled.Line$Info)",
+    "returnType" : "javax.sound.sampled.Line$Info[]",
+    "genericReturnType" : "javax.sound.sampled.Line$Info[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line$Info",
+      "genericType" : "javax.sound.sampled.Line$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceLines",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line[] getSourceLines()",
+    "returnType" : "javax.sound.sampled.Line[]",
+    "genericReturnType" : "javax.sound.sampled.Line[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetLineInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line$Info[] getTargetLineInfo()",
+    "returnType" : "javax.sound.sampled.Line$Info[]",
+    "genericReturnType" : "javax.sound.sampled.Line$Info[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetLineInfo",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line$Info[] getTargetLineInfo(javax.sound.sampled.Line$Info)",
+    "returnType" : "javax.sound.sampled.Line$Info[]",
+    "genericReturnType" : "javax.sound.sampled.Line$Info[]",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line$Info",
+      "genericType" : "javax.sound.sampled.Line$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetLines",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.sound.sampled.Line[] getTargetLines()",
+    "returnType" : "javax.sound.sampled.Line[]",
+    "genericReturnType" : "javax.sound.sampled.Line[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isLineSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isLineSupported(javax.sound.sampled.Line$Info)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line$Info",
+      "genericType" : "javax.sound.sampled.Line$Info",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isSynchronizationSupported",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean isSynchronizationSupported(javax.sound.sampled.Line[], boolean)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line[]",
+      "genericType" : "javax.sound.sampled.Line[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "synchronize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void synchronize(javax.sound.sampled.Line[], boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line[]",
+      "genericType" : "javax.sound.sampled.Line[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unsynchronize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void unsynchronize(javax.sound.sampled.Line[])",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sound.sampled.Line[]",
+      "genericType" : "javax.sound.sampled.Line[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

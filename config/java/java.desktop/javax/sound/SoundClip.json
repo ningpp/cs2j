@@ -1,0 +1,79 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound",
+  "binaryName" : "javax.sound.SoundClip",
+  "canonicalName" : "javax.sound.SoundClip",
+  "simpleName" : "SoundClip",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "canPlay",
+    "modifiers" : "public",
+    "signature" : "public boolean canPlay()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createSoundClip",
+    "modifiers" : "public static",
+    "signature" : "public static javax.sound.SoundClip createSoundClip(java.io.File) throws java.io.IOException",
+    "returnType" : "javax.sound.SoundClip",
+    "genericReturnType" : "javax.sound.SoundClip",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPlaying",
+    "modifiers" : "public",
+    "signature" : "public boolean isPlaying()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loop",
+    "modifiers" : "public",
+    "signature" : "public void loop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "play",
+    "modifiers" : "public",
+    "signature" : "public void play()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stop",
+    "modifiers" : "public",
+    "signature" : "public void stop()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

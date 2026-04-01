@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.catalog",
+  "binaryName" : "javax.xml.catalog.GroupEntry$PreferType",
+  "canonicalName" : "javax.xml.catalog.GroupEntry.PreferType",
+  "simpleName" : "PreferType",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.xml.catalog.GroupEntry",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "prefer",
+    "modifiers" : "public",
+    "signature" : "public boolean prefer(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "prefer",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.GroupEntry$PreferType valueOf(java.lang.String)",
+    "returnType" : "javax.xml.catalog.GroupEntry$PreferType",
+    "genericReturnType" : "javax.xml.catalog.GroupEntry$PreferType",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.catalog.GroupEntry$PreferType[] values()",
+    "returnType" : "javax.xml.catalog.GroupEntry$PreferType[]",
+    "genericReturnType" : "javax.xml.catalog.GroupEntry$PreferType[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

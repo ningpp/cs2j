@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.RejectedExecutionException",
+  "canonicalName" : "java.util.concurrent.RejectedExecutionException",
+  "simpleName" : "RejectedExecutionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.RejectedExecutionException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.RejectedExecutionException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.RejectedExecutionException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.RejectedExecutionException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.RejectedExecutionException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.RejectedExecutionException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.util.concurrent.RejectedExecutionException",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.RejectedExecutionException(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

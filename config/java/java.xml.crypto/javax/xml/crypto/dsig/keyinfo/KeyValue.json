@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto.dsig.keyinfo",
+  "binaryName" : "javax.xml.crypto.dsig.keyinfo.KeyValue",
+  "canonicalName" : "javax.xml.crypto.dsig.keyinfo.KeyValue",
+  "simpleName" : "KeyValue",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.crypto.XMLStructure" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPublicKey",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.PublicKey getPublicKey() throws java.security.KeyException",
+    "returnType" : "java.security.PublicKey",
+    "genericReturnType" : "java.security.PublicKey",
+    "exceptions" : [ "java.security.KeyException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

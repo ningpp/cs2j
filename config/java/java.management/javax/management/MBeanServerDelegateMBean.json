@@ -1,0 +1,80 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.MBeanServerDelegateMBean",
+  "canonicalName" : "javax.management.MBeanServerDelegateMBean",
+  "simpleName" : "MBeanServerDelegateMBean",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getImplementationName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getImplementationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImplementationVendor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getImplementationVendor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getImplementationVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getImplementationVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanServerId",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getMBeanServerId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSpecificationName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSpecificationName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSpecificationVendor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSpecificationVendor()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSpecificationVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getSpecificationVersion()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

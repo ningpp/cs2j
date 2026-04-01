@@ -1,0 +1,134 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DragSourceDragEvent",
+  "canonicalName" : "java.awt.dnd.DragSourceDragEvent",
+  "simpleName" : "DragSourceDragEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.awt.dnd.DragSourceEvent",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.dnd.DragSourceDragEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSourceDragEvent(java.awt.dnd.DragSourceContext, int, int, int)",
+    "parameters" : [ {
+      "name" : "dsc",
+      "type" : "java.awt.dnd.DragSourceContext",
+      "genericType" : "java.awt.dnd.DragSourceContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dropAction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.DragSourceDragEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSourceDragEvent(java.awt.dnd.DragSourceContext, int, int, int, int, int)",
+    "parameters" : [ {
+      "name" : "dsc",
+      "type" : "java.awt.dnd.DragSourceContext",
+      "genericType" : "java.awt.dnd.DragSourceContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dropAction",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "action",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "modifiers",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDropAction",
+    "modifiers" : "public",
+    "signature" : "public int getDropAction()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGestureModifiers",
+    "modifiers" : "public",
+    "signature" : "public int getGestureModifiers()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGestureModifiersEx",
+    "modifiers" : "public",
+    "signature" : "public int getGestureModifiersEx()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTargetActions",
+    "modifiers" : "public",
+    "signature" : "public int getTargetActions()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUserAction",
+    "modifiers" : "public",
+    "signature" : "public int getUserAction()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.lang.model.util",
+  "binaryName" : "javax.lang.model.util.ElementKindVisitorPreview",
+  "canonicalName" : "javax.lang.model.util.ElementKindVisitorPreview",
+  "simpleName" : "ElementKindVisitorPreview",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.lang.model.util.ElementKindVisitor14"
+}

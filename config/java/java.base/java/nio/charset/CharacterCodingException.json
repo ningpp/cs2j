@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset",
+  "binaryName" : "java.nio.charset.CharacterCodingException",
+  "canonicalName" : "java.nio.charset.CharacterCodingException",
+  "simpleName" : "CharacterCodingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.charset.CharacterCodingException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.charset.CharacterCodingException()",
+    "varArgs" : false
+  } ]
+}

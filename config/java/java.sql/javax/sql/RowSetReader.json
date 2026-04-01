@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.RowSetReader",
+  "canonicalName" : "javax.sql.RowSetReader",
+  "simpleName" : "RowSetReader",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "readData",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void readData(javax.sql.RowSetInternal) throws java.sql.SQLException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.sql.RowSetInternal",
+      "genericType" : "javax.sql.RowSetInternal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.sql.SQLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,115 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming.event",
+  "binaryName" : "javax.naming.event.NamingEvent",
+  "canonicalName" : "javax.naming.event.NamingEvent",
+  "simpleName" : "NamingEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.event.NamingEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.event.NamingEvent(javax.naming.event.EventContext, int, javax.naming.Binding, javax.naming.Binding, java.lang.Object)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.naming.event.EventContext",
+      "genericType" : "javax.naming.event.EventContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "newBd",
+      "type" : "javax.naming.Binding",
+      "genericType" : "javax.naming.Binding",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "oldBd",
+      "type" : "javax.naming.Binding",
+      "genericType" : "javax.naming.Binding",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "changeInfo",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "dispatch",
+    "modifiers" : "public",
+    "signature" : "public void dispatch(javax.naming.event.NamingListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "listener",
+      "type" : "javax.naming.event.NamingListener",
+      "genericType" : "javax.naming.event.NamingListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getChangeInfo",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getChangeInfo()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEventContext",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.event.EventContext getEventContext()",
+    "returnType" : "javax.naming.event.EventContext",
+    "genericReturnType" : "javax.naming.event.EventContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNewBinding",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Binding getNewBinding()",
+    "returnType" : "javax.naming.Binding",
+    "genericReturnType" : "javax.naming.Binding",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOldBinding",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.Binding getOldBinding()",
+    "returnType" : "javax.naming.Binding",
+    "genericReturnType" : "javax.naming.Binding",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public",
+    "signature" : "public int getType()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

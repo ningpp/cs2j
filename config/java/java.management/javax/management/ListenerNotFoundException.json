@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.ListenerNotFoundException",
+  "canonicalName" : "javax.management.ListenerNotFoundException",
+  "simpleName" : "ListenerNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.OperationsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.ListenerNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ListenerNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.ListenerNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ListenerNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

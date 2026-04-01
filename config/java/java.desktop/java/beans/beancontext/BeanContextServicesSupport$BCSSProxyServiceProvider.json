@@ -1,0 +1,117 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans.beancontext",
+  "binaryName" : "java.beans.beancontext.BeanContextServicesSupport$BCSSProxyServiceProvider",
+  "canonicalName" : "java.beans.beancontext.BeanContextServicesSupport.BCSSProxyServiceProvider",
+  "simpleName" : "BCSSProxyServiceProvider",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "java.beans.beancontext.BeanContextServicesSupport",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.beans.beancontext.BeanContextServiceProvider", "java.beans.beancontext.BeanContextServiceRevokedListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getCurrentServiceSelectors",
+    "modifiers" : "public",
+    "signature" : "public java.util.Iterator getCurrentServiceSelectors(java.beans.beancontext.BeanContextServices, java.lang.Class)",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "parameters" : [ {
+      "name" : "bcs",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "serviceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getService",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getService(java.beans.beancontext.BeanContextServices, java.lang.Object, java.lang.Class, java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "bcs",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requestor",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "serviceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "serviceSelector",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "releaseService",
+    "modifiers" : "public",
+    "signature" : "public void releaseService(java.beans.beancontext.BeanContextServices, java.lang.Object, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcs",
+      "type" : "java.beans.beancontext.BeanContextServices",
+      "genericType" : "java.beans.beancontext.BeanContextServices",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "requestor",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "service",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "serviceRevoked",
+    "modifiers" : "public",
+    "signature" : "public void serviceRevoked(java.beans.beancontext.BeanContextServiceRevokedEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "bcsre",
+      "type" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "genericType" : "java.beans.beancontext.BeanContextServiceRevokedEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

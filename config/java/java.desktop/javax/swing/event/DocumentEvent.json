@@ -1,0 +1,67 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.DocumentEvent",
+  "canonicalName" : "javax.swing.event.DocumentEvent",
+  "simpleName" : "DocumentEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getChange",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.event.DocumentEvent$ElementChange getChange(javax.swing.text.Element)",
+    "returnType" : "javax.swing.event.DocumentEvent$ElementChange",
+    "genericReturnType" : "javax.swing.event.DocumentEvent$ElementChange",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDocument",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.text.Document getDocument()",
+    "returnType" : "javax.swing.text.Document",
+    "genericReturnType" : "javax.swing.text.Document",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLength",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getLength()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getOffset()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.swing.event.DocumentEvent$EventType getType()",
+    "returnType" : "javax.swing.event.DocumentEvent$EventType",
+    "genericReturnType" : "javax.swing.event.DocumentEvent$EventType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

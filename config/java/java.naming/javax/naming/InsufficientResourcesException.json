@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.InsufficientResourcesException",
+  "canonicalName" : "javax.naming.InsufficientResourcesException",
+  "simpleName" : "InsufficientResourcesException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.InsufficientResourcesException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.InsufficientResourcesException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.InsufficientResourcesException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.InsufficientResourcesException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

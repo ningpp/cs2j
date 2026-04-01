@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.constantpool",
+  "binaryName" : "java.lang.classfile.constantpool.AnnotationConstantValueEntry",
+  "canonicalName" : "java.lang.classfile.constantpool.AnnotationConstantValueEntry",
+  "simpleName" : "AnnotationConstantValueEntry",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.constantpool.PoolEntry" ],
+  "declaredPublicMethods" : [ {
+    "name" : "constantValue",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.constant.ConstantDesc constantValue()",
+    "returnType" : "java.lang.constant.ConstantDesc",
+    "genericReturnType" : "java.lang.constant.ConstantDesc",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

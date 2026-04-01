@@ -1,0 +1,102 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text.spi",
+  "binaryName" : "java.text.spi.NumberFormatProvider",
+  "canonicalName" : "java.text.spi.NumberFormatProvider",
+  "simpleName" : "NumberFormatProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.spi.LocaleServiceProvider",
+  "declaredPublicMethods" : [ {
+    "name" : "getCompactNumberInstance",
+    "modifiers" : "public",
+    "signature" : "public java.text.NumberFormat getCompactNumberInstance(java.util.Locale, java.text.NumberFormat$Style)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "formatStyle",
+      "type" : "java.text.NumberFormat$Style",
+      "genericType" : "java.text.NumberFormat$Style",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCurrencyInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.NumberFormat getCurrencyInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIntegerInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.NumberFormat getIntegerInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNumberInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.NumberFormat getNumberInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPercentInstance",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.text.NumberFormat getPercentInstance(java.util.Locale)",
+    "returnType" : "java.text.NumberFormat",
+    "genericReturnType" : "java.text.NumberFormat",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

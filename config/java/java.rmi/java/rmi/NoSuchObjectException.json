@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.rmi",
+  "packageName" : "java.rmi",
+  "binaryName" : "java.rmi.NoSuchObjectException",
+  "canonicalName" : "java.rmi.NoSuchObjectException",
+  "simpleName" : "NoSuchObjectException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.rmi.RemoteException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.rmi.NoSuchObjectException",
+    "modifiers" : "public",
+    "signature" : "public java.rmi.NoSuchObjectException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

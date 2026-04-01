@@ -1,0 +1,366 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.beans",
+  "binaryName" : "java.beans.EventSetDescriptor",
+  "canonicalName" : "java.beans.EventSetDescriptor",
+  "simpleName" : "EventSetDescriptor",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.beans.FeatureDescriptor",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.beans.EventSetDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.EventSetDescriptor(java.lang.Class, java.lang.String, java.lang.Class, java.lang.String) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "eventSetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.EventSetDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.EventSetDescriptor(java.lang.Class, java.lang.String, java.lang.Class, java.lang.String[], java.lang.String, java.lang.String) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "eventSetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerMethodNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addListenerMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "removeListenerMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.EventSetDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.EventSetDescriptor(java.lang.Class, java.lang.String, java.lang.Class, java.lang.String[], java.lang.String, java.lang.String, java.lang.String) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "sourceClass",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "eventSetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerMethodNames",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addListenerMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "removeListenerMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "getListenerMethodName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.EventSetDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.EventSetDescriptor(java.lang.String, java.lang.Class, java.beans.MethodDescriptor[], java.lang.reflect.Method, java.lang.reflect.Method) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "eventSetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerMethodDescriptors",
+      "type" : "java.beans.MethodDescriptor[]",
+      "genericType" : "java.beans.MethodDescriptor[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addListenerMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "removeListenerMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.EventSetDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.EventSetDescriptor(java.lang.String, java.lang.Class, java.lang.reflect.Method[], java.lang.reflect.Method, java.lang.reflect.Method) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "eventSetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerMethods",
+      "type" : "java.lang.reflect.Method[]",
+      "genericType" : "java.lang.reflect.Method[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addListenerMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "removeListenerMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  }, {
+    "name" : "java.beans.EventSetDescriptor",
+    "modifiers" : "public",
+    "signature" : "public java.beans.EventSetDescriptor(java.lang.String, java.lang.Class, java.lang.reflect.Method[], java.lang.reflect.Method, java.lang.reflect.Method, java.lang.reflect.Method) throws java.beans.IntrospectionException",
+    "parameters" : [ {
+      "name" : "eventSetName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerType",
+      "type" : "java.lang.Class",
+      "genericType" : "java.lang.Class",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "listenerMethods",
+      "type" : "java.lang.reflect.Method[]",
+      "genericType" : "java.lang.reflect.Method[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "addListenerMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "removeListenerMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "getListenerMethod",
+      "type" : "java.lang.reflect.Method",
+      "genericType" : "java.lang.reflect.Method",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.beans.IntrospectionException" ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAddListenerMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.reflect.Method getAddListenerMethod()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGetListenerMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.reflect.Method getGetListenerMethod()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListenerMethodDescriptors",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.beans.MethodDescriptor[] getListenerMethodDescriptors()",
+    "returnType" : "java.beans.MethodDescriptor[]",
+    "genericReturnType" : "java.beans.MethodDescriptor[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListenerMethods",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.reflect.Method[] getListenerMethods()",
+    "returnType" : "java.lang.reflect.Method[]",
+    "genericReturnType" : "java.lang.reflect.Method[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getListenerType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Class getListenerType()",
+    "returnType" : "java.lang.Class",
+    "genericReturnType" : "java.lang.Class",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRemoveListenerMethod",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized java.lang.reflect.Method getRemoveListenerMethod()",
+    "returnType" : "java.lang.reflect.Method",
+    "genericReturnType" : "java.lang.reflect.Method",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isInDefaultEventSet",
+    "modifiers" : "public",
+    "signature" : "public boolean isInDefaultEventSet()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isUnicast",
+    "modifiers" : "public",
+    "signature" : "public boolean isUnicast()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setInDefaultEventSet",
+    "modifiers" : "public",
+    "signature" : "public void setInDefaultEventSet(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "inDefaultEventSet",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUnicast",
+    "modifiers" : "public",
+    "signature" : "public void setUnicast(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "unicast",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

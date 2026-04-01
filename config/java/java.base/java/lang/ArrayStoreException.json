@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ArrayStoreException",
+  "canonicalName" : "java.lang.ArrayStoreException",
+  "simpleName" : "ArrayStoreException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.RuntimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ArrayStoreException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ArrayStoreException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ArrayStoreException",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ArrayStoreException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

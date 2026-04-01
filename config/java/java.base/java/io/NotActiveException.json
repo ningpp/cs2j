@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.NotActiveException",
+  "canonicalName" : "java.io.NotActiveException",
+  "simpleName" : "NotActiveException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.ObjectStreamException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.NotActiveException",
+    "modifiers" : "public",
+    "signature" : "public java.io.NotActiveException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.NotActiveException",
+    "modifiers" : "public",
+    "signature" : "public java.io.NotActiveException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

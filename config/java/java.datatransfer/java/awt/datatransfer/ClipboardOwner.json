@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.datatransfer",
+  "packageName" : "java.awt.datatransfer",
+  "binaryName" : "java.awt.datatransfer.ClipboardOwner",
+  "canonicalName" : "java.awt.datatransfer.ClipboardOwner",
+  "simpleName" : "ClipboardOwner",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "lostOwnership",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void lostOwnership(java.awt.datatransfer.Clipboard, java.awt.datatransfer.Transferable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.datatransfer.Clipboard",
+      "genericType" : "java.awt.datatransfer.Clipboard",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.awt.datatransfer.Transferable",
+      "genericType" : "java.awt.datatransfer.Transferable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

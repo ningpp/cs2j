@@ -1,0 +1,50 @@
+{
+  "moduleName" : "java.prefs",
+  "packageName" : "java.util.prefs",
+  "binaryName" : "java.util.prefs.NodeChangeEvent",
+  "canonicalName" : "java.util.prefs.NodeChangeEvent",
+  "simpleName" : "NodeChangeEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.prefs.NodeChangeEvent",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.NodeChangeEvent(java.util.prefs.Preferences, java.util.prefs.Preferences)",
+    "parameters" : [ {
+      "name" : "parent",
+      "type" : "java.util.prefs.Preferences",
+      "genericType" : "java.util.prefs.Preferences",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "child",
+      "type" : "java.util.prefs.Preferences",
+      "genericType" : "java.util.prefs.Preferences",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getChild",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.Preferences getChild()",
+    "returnType" : "java.util.prefs.Preferences",
+    "genericReturnType" : "java.util.prefs.Preferences",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParent",
+    "modifiers" : "public",
+    "signature" : "public java.util.prefs.Preferences getParent()",
+    "returnType" : "java.util.prefs.Preferences",
+    "genericReturnType" : "java.util.prefs.Preferences",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

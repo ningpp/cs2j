@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.nimbus",
+  "binaryName" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode",
+  "canonicalName" : "javax.swing.plaf.nimbus.AbstractRegionPainter.PaintContext.CacheMode",
+  "simpleName" : "CacheMode",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode valueOf(java.lang.String)",
+    "returnType" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode",
+    "genericReturnType" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode[] values()",
+    "returnType" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode[]",
+    "genericReturnType" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

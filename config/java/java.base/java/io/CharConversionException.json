@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.CharConversionException",
+  "canonicalName" : "java.io.CharConversionException",
+  "simpleName" : "CharConversionException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.CharConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.io.CharConversionException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.CharConversionException",
+    "modifiers" : "public",
+    "signature" : "public java.io.CharConversionException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,23 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.RowSetEvent",
+  "canonicalName" : "javax.sql.RowSetEvent",
+  "simpleName" : "RowSetEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.RowSetEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.RowSetEvent(javax.sql.RowSet)",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "javax.sql.RowSet",
+      "genericType" : "javax.sql.RowSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.util",
+  "binaryName" : "javax.xml.stream.util.XMLEventConsumer",
+  "canonicalName" : "javax.xml.stream.util.XMLEventConsumer",
+  "simpleName" : "XMLEventConsumer",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "add",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void add(javax.xml.stream.events.XMLEvent) throws javax.xml.stream.XMLStreamException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.stream.events.XMLEvent",
+      "genericType" : "javax.xml.stream.events.XMLEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

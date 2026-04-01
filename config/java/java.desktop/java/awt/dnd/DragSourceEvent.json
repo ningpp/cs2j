@@ -1,0 +1,88 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.dnd",
+  "binaryName" : "java.awt.dnd.DragSourceEvent",
+  "canonicalName" : "java.awt.dnd.DragSourceEvent",
+  "simpleName" : "DragSourceEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.awt.dnd.DragSourceEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSourceEvent(java.awt.dnd.DragSourceContext)",
+    "parameters" : [ {
+      "name" : "dsc",
+      "type" : "java.awt.dnd.DragSourceContext",
+      "genericType" : "java.awt.dnd.DragSourceContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.awt.dnd.DragSourceEvent",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSourceEvent(java.awt.dnd.DragSourceContext, int, int)",
+    "parameters" : [ {
+      "name" : "dsc",
+      "type" : "java.awt.dnd.DragSourceContext",
+      "genericType" : "java.awt.dnd.DragSourceContext",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDragSourceContext",
+    "modifiers" : "public",
+    "signature" : "public java.awt.dnd.DragSourceContext getDragSourceContext()",
+    "returnType" : "java.awt.dnd.DragSourceContext",
+    "genericReturnType" : "java.awt.dnd.DragSourceContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocation",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Point getLocation()",
+    "returnType" : "java.awt.Point",
+    "genericReturnType" : "java.awt.Point",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getX",
+    "modifiers" : "public",
+    "signature" : "public int getX()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getY",
+    "modifiers" : "public",
+    "signature" : "public int getY()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

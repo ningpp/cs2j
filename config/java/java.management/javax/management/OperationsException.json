@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.OperationsException",
+  "canonicalName" : "javax.management.OperationsException",
+  "simpleName" : "OperationsException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.JMException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.OperationsException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.OperationsException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.OperationsException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.OperationsException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

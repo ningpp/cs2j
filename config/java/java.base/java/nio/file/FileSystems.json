@@ -1,0 +1,188 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.FileSystems",
+  "canonicalName" : "java.nio.file.FileSystems",
+  "simpleName" : "FileSystems",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getDefault",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem getDefault()",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFileSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem getFileSystem(java.net.URI)",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFileSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem newFileSystem(java.net.URI, java.util.Map) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFileSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem newFileSystem(java.net.URI, java.util.Map, java.lang.ClassLoader) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "parameters" : [ {
+      "name" : "uri",
+      "type" : "java.net.URI",
+      "genericType" : "java.net.URI",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFileSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem newFileSystem(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFileSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem newFileSystem(java.nio.file.Path, java.lang.ClassLoader) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFileSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem newFileSystem(java.nio.file.Path, java.util.Map) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newFileSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.nio.file.FileSystem newFileSystem(java.nio.file.Path, java.util.Map, java.lang.ClassLoader) throws java.io.IOException",
+    "returnType" : "java.nio.file.FileSystem",
+    "genericReturnType" : "java.nio.file.FileSystem",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "loader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

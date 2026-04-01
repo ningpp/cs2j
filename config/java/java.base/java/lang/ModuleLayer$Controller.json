@@ -1,0 +1,120 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ModuleLayer$Controller",
+  "canonicalName" : "java.lang.ModuleLayer.Controller",
+  "simpleName" : "Controller",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.lang.ModuleLayer",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "addExports",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer$Controller addExports(java.lang.Module, java.lang.String, java.lang.Module)",
+    "returnType" : "java.lang.ModuleLayer$Controller",
+    "genericReturnType" : "java.lang.ModuleLayer$Controller",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addOpens",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer$Controller addOpens(java.lang.Module, java.lang.String, java.lang.Module)",
+    "returnType" : "java.lang.ModuleLayer$Controller",
+    "genericReturnType" : "java.lang.ModuleLayer$Controller",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "pn",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "addReads",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer$Controller addReads(java.lang.Module, java.lang.Module)",
+    "returnType" : "java.lang.ModuleLayer$Controller",
+    "genericReturnType" : "java.lang.ModuleLayer$Controller",
+    "parameters" : [ {
+      "name" : "source",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "target",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "enableNativeAccess",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer$Controller enableNativeAccess(java.lang.Module)",
+    "returnType" : "java.lang.ModuleLayer$Controller",
+    "genericReturnType" : "java.lang.ModuleLayer$Controller",
+    "parameters" : [ {
+      "name" : "target",
+      "type" : "java.lang.Module",
+      "genericType" : "java.lang.Module",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "layer",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ModuleLayer layer()",
+    "returnType" : "java.lang.ModuleLayer",
+    "genericReturnType" : "java.lang.ModuleLayer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

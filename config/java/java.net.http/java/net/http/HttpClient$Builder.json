@@ -1,0 +1,208 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpClient$Builder",
+  "canonicalName" : "java.net.http.HttpClient.Builder",
+  "simpleName" : "Builder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpClient",
+  "declaredPublicMethods" : [ {
+    "name" : "authenticator",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder authenticator(java.net.Authenticator)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.Authenticator",
+      "genericType" : "java.net.Authenticator",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "build",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient build()",
+    "returnType" : "java.net.http.HttpClient",
+    "genericReturnType" : "java.net.http.HttpClient",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "connectTimeout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder connectTimeout(java.time.Duration)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.time.Duration",
+      "genericType" : "java.time.Duration",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "cookieHandler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder cookieHandler(java.net.CookieHandler)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.CookieHandler",
+      "genericType" : "java.net.CookieHandler",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "executor",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder executor(java.util.concurrent.Executor)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "followRedirects",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder followRedirects(java.net.http.HttpClient$Redirect)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpClient$Redirect",
+      "genericType" : "java.net.http.HttpClient$Redirect",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localAddress",
+    "modifiers" : "public",
+    "signature" : "public java.net.http.HttpClient$Builder localAddress(java.net.InetAddress)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "localAddr",
+      "type" : "java.net.InetAddress",
+      "genericType" : "java.net.InetAddress",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "priority",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder priority(int)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "proxy",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder proxy(java.net.ProxySelector)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.ProxySelector",
+      "genericType" : "java.net.ProxySelector",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sslContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder sslContext(javax.net.ssl.SSLContext)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.net.ssl.SSLContext",
+      "genericType" : "javax.net.ssl.SSLContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sslParameters",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder sslParameters(javax.net.ssl.SSLParameters)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.net.ssl.SSLParameters",
+      "genericType" : "javax.net.ssl.SSLParameters",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Builder version(java.net.http.HttpClient$Version)",
+    "returnType" : "java.net.http.HttpClient$Builder",
+    "genericReturnType" : "java.net.http.HttpClient$Builder",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.net.http.HttpClient$Version",
+      "genericType" : "java.net.http.HttpClient$Version",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

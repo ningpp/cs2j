@@ -1,0 +1,22 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.CancelablePrintJob",
+  "canonicalName" : "javax.print.CancelablePrintJob",
+  "simpleName" : "CancelablePrintJob",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.print.DocPrintJob" ],
+  "declaredPublicMethods" : [ {
+    "name" : "cancel",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void cancel() throws javax.print.PrintException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.print.PrintException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

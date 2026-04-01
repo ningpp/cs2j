@@ -1,0 +1,86 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.format",
+  "binaryName" : "java.time.format.DateTimeParseException",
+  "canonicalName" : "java.time.format.DateTimeParseException",
+  "simpleName" : "DateTimeParseException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.time.DateTimeException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.time.format.DateTimeParseException",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeParseException(java.lang.String, java.lang.CharSequence, int)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parsedData",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "errorIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.time.format.DateTimeParseException",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DateTimeParseException(java.lang.String, java.lang.CharSequence, int, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "parsedData",
+      "type" : "java.lang.CharSequence",
+      "genericType" : "java.lang.CharSequence",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "errorIndex",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getErrorIndex",
+    "modifiers" : "public",
+    "signature" : "public int getErrorIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getParsedString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getParsedString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

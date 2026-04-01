@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.MBeanServerForwarder",
+  "canonicalName" : "javax.management.remote.MBeanServerForwarder",
+  "simpleName" : "MBeanServerForwarder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.management.MBeanServer" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMBeanServer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.management.MBeanServer getMBeanServer()",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setMBeanServer(javax.management.MBeanServer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

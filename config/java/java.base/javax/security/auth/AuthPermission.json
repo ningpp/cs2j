@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth",
+  "binaryName" : "javax.security.auth.AuthPermission",
+  "canonicalName" : "javax.security.auth.AuthPermission",
+  "simpleName" : "AuthPermission",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.security.BasicPermission",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.AuthPermission",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.AuthPermission(java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.AuthPermission",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.AuthPermission(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "actions",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

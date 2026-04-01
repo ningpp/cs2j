@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.AuthenticationException",
+  "canonicalName" : "javax.naming.AuthenticationException",
+  "simpleName" : "AuthenticationException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.NamingSecurityException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.AuthenticationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.AuthenticationException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.AuthenticationException",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.AuthenticationException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "explanation",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

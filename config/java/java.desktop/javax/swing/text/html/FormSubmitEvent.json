@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.FormSubmitEvent",
+  "canonicalName" : "javax.swing.text.html.FormSubmitEvent",
+  "simpleName" : "FormSubmitEvent",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.swing.text.html.HTMLFrameHyperlinkEvent",
+  "declaredPublicMethods" : [ {
+    "name" : "getData",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getData()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMethod",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.FormSubmitEvent$MethodType getMethod()",
+    "returnType" : "javax.swing.text.html.FormSubmitEvent$MethodType",
+    "genericReturnType" : "javax.swing.text.html.FormSubmitEvent$MethodType",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

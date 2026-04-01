@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.event",
+  "binaryName" : "java.awt.event.MouseWheelListener",
+  "canonicalName" : "java.awt.event.MouseWheelListener",
+  "simpleName" : "MouseWheelListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "mouseWheelMoved",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void mouseWheelMoved(java.awt.event.MouseWheelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.event.MouseWheelEvent",
+      "genericType" : "java.awt.event.MouseWheelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

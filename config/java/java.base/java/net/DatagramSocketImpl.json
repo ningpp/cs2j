@@ -1,0 +1,17 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.DatagramSocketImpl",
+  "canonicalName" : "java.net.DatagramSocketImpl",
+  "simpleName" : "DatagramSocketImpl",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.net.SocketOptions" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.DatagramSocketImpl",
+    "modifiers" : "public",
+    "signature" : "public java.net.DatagramSocketImpl()",
+    "varArgs" : false
+  } ]
+}

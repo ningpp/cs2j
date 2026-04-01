@@ -1,0 +1,81 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.temporal",
+  "binaryName" : "java.time.temporal.TemporalQueries",
+  "canonicalName" : "java.time.temporal.TemporalQueries",
+  "simpleName" : "TemporalQueries",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "chronology",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalQuery chronology()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localDate",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalQuery localDate()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "localTime",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalQuery localTime()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "offset",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalQuery offset()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "precision",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalQuery precision()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "zone",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalQuery zone()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "zoneId",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.temporal.TemporalQuery zoneId()",
+    "returnType" : "java.time.temporal.TemporalQuery",
+    "genericReturnType" : "java.time.temporal.TemporalQuery",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

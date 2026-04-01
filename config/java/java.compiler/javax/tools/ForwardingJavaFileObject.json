@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.ForwardingJavaFileObject",
+  "canonicalName" : "javax.tools.ForwardingJavaFileObject",
+  "simpleName" : "ForwardingJavaFileObject",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.tools.ForwardingFileObject",
+  "interfaces" : [ "javax.tools.JavaFileObject" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAccessLevel",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.Modifier getAccessLevel()",
+    "returnType" : "javax.lang.model.element.Modifier",
+    "genericReturnType" : "javax.lang.model.element.Modifier",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getKind",
+    "modifiers" : "public",
+    "signature" : "public javax.tools.JavaFileObject$Kind getKind()",
+    "returnType" : "javax.tools.JavaFileObject$Kind",
+    "genericReturnType" : "javax.tools.JavaFileObject$Kind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNestingKind",
+    "modifiers" : "public",
+    "signature" : "public javax.lang.model.element.NestingKind getNestingKind()",
+    "returnType" : "javax.lang.model.element.NestingKind",
+    "genericReturnType" : "javax.lang.model.element.NestingKind",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isNameCompatible",
+    "modifiers" : "public",
+    "signature" : "public boolean isNameCompatible(java.lang.String, javax.tools.JavaFileObject$Kind)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "simpleName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "kind",
+      "type" : "javax.tools.JavaFileObject$Kind",
+      "genericType" : "javax.tools.JavaFileObject$Kind",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

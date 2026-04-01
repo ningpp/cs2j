@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.Function",
+  "canonicalName" : "java.util.function.Function",
+  "simpleName" : "Function",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "andThen",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.Function andThen(java.util.function.Function)",
+    "returnType" : "java.util.function.Function",
+    "genericReturnType" : "java.util.function.Function",
+    "parameters" : [ {
+      "name" : "after",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "apply",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object apply(java.lang.Object)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compose",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.Function compose(java.util.function.Function)",
+    "returnType" : "java.util.function.Function",
+    "genericReturnType" : "java.util.function.Function",
+    "parameters" : [ {
+      "name" : "before",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "identity",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.function.Function identity()",
+    "returnType" : "java.util.function.Function",
+    "genericReturnType" : "java.util.function.Function",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

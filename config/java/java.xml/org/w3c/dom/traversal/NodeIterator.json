@@ -1,0 +1,82 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.traversal",
+  "binaryName" : "org.w3c.dom.traversal.NodeIterator",
+  "canonicalName" : "org.w3c.dom.traversal.NodeIterator",
+  "simpleName" : "NodeIterator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "detach",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void detach()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExpandEntityReferences",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getExpandEntityReferences()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFilter",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.traversal.NodeFilter getFilter()",
+    "returnType" : "org.w3c.dom.traversal.NodeFilter",
+    "genericReturnType" : "org.w3c.dom.traversal.NodeFilter",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRoot",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node getRoot()",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWhatToShow",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getWhatToShow()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node nextNode() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "previousNode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.Node previousNode() throws org.w3c.dom.DOMException",
+    "returnType" : "org.w3c.dom.Node",
+    "genericReturnType" : "org.w3c.dom.Node",
+    "exceptions" : [ "org.w3c.dom.DOMException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.login",
+  "binaryName" : "javax.security.auth.login.AccountLockedException",
+  "canonicalName" : "javax.security.auth.login.AccountLockedException",
+  "simpleName" : "AccountLockedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.security.auth.login.AccountException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.login.AccountLockedException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.AccountLockedException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.login.AccountLockedException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.AccountLockedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

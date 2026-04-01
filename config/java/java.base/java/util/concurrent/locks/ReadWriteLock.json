@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent.locks",
+  "binaryName" : "java.util.concurrent.locks.ReadWriteLock",
+  "canonicalName" : "java.util.concurrent.locks.ReadWriteLock",
+  "simpleName" : "ReadWriteLock",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "readLock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.locks.Lock readLock()",
+    "returnType" : "java.util.concurrent.locks.Lock",
+    "genericReturnType" : "java.util.concurrent.locks.Lock",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "writeLock",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.locks.Lock writeLock()",
+    "returnType" : "java.util.concurrent.locks.Lock",
+    "genericReturnType" : "java.util.concurrent.locks.Lock",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

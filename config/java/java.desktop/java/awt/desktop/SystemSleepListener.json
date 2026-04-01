@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.SystemSleepListener",
+  "canonicalName" : "java.awt.desktop.SystemSleepListener",
+  "simpleName" : "SystemSleepListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.desktop.SystemEventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "systemAboutToSleep",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void systemAboutToSleep(java.awt.desktop.SystemSleepEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.SystemSleepEvent",
+      "genericType" : "java.awt.desktop.SystemSleepEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "systemAwoke",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void systemAwoke(java.awt.desktop.SystemSleepEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.SystemSleepEvent",
+      "genericType" : "java.awt.desktop.SystemSleepEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

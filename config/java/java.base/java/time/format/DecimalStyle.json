@@ -1,0 +1,193 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.time.format",
+  "binaryName" : "java.time.format.DecimalStyle",
+  "canonicalName" : "java.time.format.DecimalStyle",
+  "simpleName" : "DecimalStyle",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAvailableLocales",
+    "modifiers" : "public static",
+    "signature" : "public static java.util.Set getAvailableLocales()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDecimalSeparator",
+    "modifiers" : "public",
+    "signature" : "public char getDecimalSeparator()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNegativeSign",
+    "modifiers" : "public",
+    "signature" : "public char getNegativeSign()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPositiveSign",
+    "modifiers" : "public",
+    "signature" : "public char getPositiveSign()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getZeroDigit",
+    "modifiers" : "public",
+    "signature" : "public char getZeroDigit()",
+    "returnType" : "char",
+    "genericReturnType" : "char",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DecimalStyle of(java.util.Locale)",
+    "returnType" : "java.time.format.DecimalStyle",
+    "genericReturnType" : "java.time.format.DecimalStyle",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ofDefaultLocale",
+    "modifiers" : "public static",
+    "signature" : "public static java.time.format.DecimalStyle ofDefaultLocale()",
+    "returnType" : "java.time.format.DecimalStyle",
+    "genericReturnType" : "java.time.format.DecimalStyle",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withDecimalSeparator",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DecimalStyle withDecimalSeparator(char)",
+    "returnType" : "java.time.format.DecimalStyle",
+    "genericReturnType" : "java.time.format.DecimalStyle",
+    "parameters" : [ {
+      "name" : "decimalSeparator",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withNegativeSign",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DecimalStyle withNegativeSign(char)",
+    "returnType" : "java.time.format.DecimalStyle",
+    "genericReturnType" : "java.time.format.DecimalStyle",
+    "parameters" : [ {
+      "name" : "negativeSign",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withPositiveSign",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DecimalStyle withPositiveSign(char)",
+    "returnType" : "java.time.format.DecimalStyle",
+    "genericReturnType" : "java.time.format.DecimalStyle",
+    "parameters" : [ {
+      "name" : "positiveSign",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withZeroDigit",
+    "modifiers" : "public",
+    "signature" : "public java.time.format.DecimalStyle withZeroDigit(char)",
+    "returnType" : "java.time.format.DecimalStyle",
+    "genericReturnType" : "java.time.format.DecimalStyle",
+    "parameters" : [ {
+      "name" : "zeroDigit",
+      "type" : "char",
+      "genericType" : "char",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

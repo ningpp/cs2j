@@ -1,0 +1,38 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.charset.spi",
+  "binaryName" : "java.nio.charset.spi.CharsetProvider",
+  "canonicalName" : "java.nio.charset.spi.CharsetProvider",
+  "simpleName" : "CharsetProvider",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "charsetForName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.nio.charset.Charset charsetForName(java.lang.String)",
+    "returnType" : "java.nio.charset.Charset",
+    "genericReturnType" : "java.nio.charset.Charset",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "charsets",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator charsets()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,71 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.function",
+  "binaryName" : "java.util.function.IntPredicate",
+  "canonicalName" : "java.util.function.IntPredicate",
+  "simpleName" : "IntPredicate",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "and",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.IntPredicate and(java.util.function.IntPredicate)",
+    "returnType" : "java.util.function.IntPredicate",
+    "genericReturnType" : "java.util.function.IntPredicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "negate",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.IntPredicate negate()",
+    "returnType" : "java.util.function.IntPredicate",
+    "genericReturnType" : "java.util.function.IntPredicate",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "or",
+    "modifiers" : "public",
+    "signature" : "public java.util.function.IntPredicate or(java.util.function.IntPredicate)",
+    "returnType" : "java.util.function.IntPredicate",
+    "genericReturnType" : "java.util.function.IntPredicate",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.util.function.IntPredicate",
+      "genericType" : "java.util.function.IntPredicate",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "test",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean test(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

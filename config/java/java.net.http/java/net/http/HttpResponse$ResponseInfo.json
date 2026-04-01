@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.net.http",
+  "packageName" : "java.net.http",
+  "binaryName" : "java.net.http.HttpResponse$ResponseInfo",
+  "canonicalName" : "java.net.http.HttpResponse.ResponseInfo",
+  "simpleName" : "ResponseInfo",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.net.http.HttpResponse",
+  "declaredPublicMethods" : [ {
+    "name" : "headers",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpHeaders headers()",
+    "returnType" : "java.net.http.HttpHeaders",
+    "genericReturnType" : "java.net.http.HttpHeaders",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "statusCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int statusCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "version",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.net.http.HttpClient$Version version()",
+    "returnType" : "java.net.http.HttpClient$Version",
+    "genericReturnType" : "java.net.http.HttpClient$Version",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

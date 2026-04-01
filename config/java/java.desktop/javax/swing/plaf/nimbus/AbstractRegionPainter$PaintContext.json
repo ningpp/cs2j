@@ -1,0 +1,78 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.nimbus",
+  "binaryName" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext",
+  "canonicalName" : "javax.swing.plaf.nimbus.AbstractRegionPainter.PaintContext",
+  "simpleName" : "PaintContext",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.nimbus.AbstractRegionPainter",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext(java.awt.Insets, java.awt.Dimension, boolean)",
+    "parameters" : [ {
+      "name" : "insets",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "canvasSize",
+      "type" : "java.awt.Dimension",
+      "genericType" : "java.awt.Dimension",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inverted",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext(java.awt.Insets, java.awt.Dimension, boolean, javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode, double, double)",
+    "parameters" : [ {
+      "name" : "insets",
+      "type" : "java.awt.Insets",
+      "genericType" : "java.awt.Insets",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "canvasSize",
+      "type" : "java.awt.Dimension",
+      "genericType" : "java.awt.Dimension",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inverted",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cacheMode",
+      "type" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode",
+      "genericType" : "javax.swing.plaf.nimbus.AbstractRegionPainter$PaintContext$CacheMode",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxH",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "maxV",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

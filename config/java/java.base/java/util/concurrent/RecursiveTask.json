@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.RecursiveTask",
+  "canonicalName" : "java.util.concurrent.RecursiveTask",
+  "simpleName" : "RecursiveTask",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.util.concurrent.ForkJoinTask",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.util.concurrent.RecursiveTask",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.RecursiveTask()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getRawResult",
+    "modifiers" : "public final",
+    "signature" : "public final java.lang.Object getRawResult()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

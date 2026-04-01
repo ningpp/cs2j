@@ -1,0 +1,81 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.module",
+  "binaryName" : "java.lang.module.ModuleFinder",
+  "canonicalName" : "java.lang.module.ModuleFinder",
+  "simpleName" : "ModuleFinder",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "compose",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.ModuleFinder compose(java.lang.module.ModuleFinder...)",
+    "returnType" : "java.lang.module.ModuleFinder",
+    "genericReturnType" : "java.lang.module.ModuleFinder",
+    "parameters" : [ {
+      "name" : "finders",
+      "type" : "java.lang.module.ModuleFinder[]",
+      "genericType" : "java.lang.module.ModuleFinder[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "find",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional find(java.lang.String)",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findAll",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set findAll()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.ModuleFinder of(java.nio.file.Path...)",
+    "returnType" : "java.lang.module.ModuleFinder",
+    "genericReturnType" : "java.lang.module.ModuleFinder",
+    "parameters" : [ {
+      "name" : "entries",
+      "type" : "java.nio.file.Path[]",
+      "genericType" : "java.nio.file.Path[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "ofSystem",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.module.ModuleFinder ofSystem()",
+    "returnType" : "java.lang.module.ModuleFinder",
+    "genericReturnType" : "java.lang.module.ModuleFinder",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

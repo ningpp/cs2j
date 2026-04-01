@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.ReadPendingException",
+  "canonicalName" : "java.nio.channels.ReadPendingException",
+  "simpleName" : "ReadPendingException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.ReadPendingException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.ReadPendingException()",
+    "varArgs" : false
+  } ]
+}

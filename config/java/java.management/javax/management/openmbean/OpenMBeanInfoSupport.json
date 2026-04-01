@@ -1,0 +1,140 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.openmbean",
+  "binaryName" : "javax.management.openmbean.OpenMBeanInfoSupport",
+  "canonicalName" : "javax.management.openmbean.OpenMBeanInfoSupport",
+  "simpleName" : "OpenMBeanInfoSupport",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.MBeanInfo",
+  "interfaces" : [ "javax.management.openmbean.OpenMBeanInfo" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.openmbean.OpenMBeanInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenMBeanAttributeInfo[], javax.management.openmbean.OpenMBeanConstructorInfo[], javax.management.openmbean.OpenMBeanOperationInfo[], javax.management.MBeanNotificationInfo[])",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openAttributes",
+      "type" : "javax.management.openmbean.OpenMBeanAttributeInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanAttributeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openConstructors",
+      "type" : "javax.management.openmbean.OpenMBeanConstructorInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanConstructorInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openOperations",
+      "type" : "javax.management.openmbean.OpenMBeanOperationInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanOperationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifications",
+      "type" : "javax.management.MBeanNotificationInfo[]",
+      "genericType" : "javax.management.MBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.openmbean.OpenMBeanInfoSupport",
+    "modifiers" : "public",
+    "signature" : "public javax.management.openmbean.OpenMBeanInfoSupport(java.lang.String, java.lang.String, javax.management.openmbean.OpenMBeanAttributeInfo[], javax.management.openmbean.OpenMBeanConstructorInfo[], javax.management.openmbean.OpenMBeanOperationInfo[], javax.management.MBeanNotificationInfo[], javax.management.Descriptor)",
+    "parameters" : [ {
+      "name" : "className",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openAttributes",
+      "type" : "javax.management.openmbean.OpenMBeanAttributeInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanAttributeInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openConstructors",
+      "type" : "javax.management.openmbean.OpenMBeanConstructorInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanConstructorInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "openOperations",
+      "type" : "javax.management.openmbean.OpenMBeanOperationInfo[]",
+      "genericType" : "javax.management.openmbean.OpenMBeanOperationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "notifications",
+      "type" : "javax.management.MBeanNotificationInfo[]",
+      "genericType" : "javax.management.MBeanNotificationInfo[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "descriptor",
+      "type" : "javax.management.Descriptor",
+      "genericType" : "javax.management.Descriptor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "obj",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

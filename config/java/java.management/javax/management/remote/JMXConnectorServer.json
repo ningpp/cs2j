@@ -1,0 +1,156 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.remote",
+  "binaryName" : "javax.management.remote.JMXConnectorServer",
+  "canonicalName" : "javax.management.remote.JMXConnectorServer",
+  "simpleName" : "JMXConnectorServer",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "javax.management.NotificationBroadcasterSupport",
+  "interfaces" : [ "javax.management.MBeanRegistration", "javax.management.remote.JMXAddressable", "javax.management.remote.JMXConnectorServerMBean" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.remote.JMXConnectorServer",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.JMXConnectorServer()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.remote.JMXConnectorServer",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.JMXConnectorServer(javax.management.MBeanServer)",
+    "parameters" : [ {
+      "name" : "mbeanServer",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getConnectionIds",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getConnectionIds()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMBeanServer",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized javax.management.MBeanServer getMBeanServer()",
+    "returnType" : "javax.management.MBeanServer",
+    "genericReturnType" : "javax.management.MBeanServer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNotificationInfo",
+    "modifiers" : "public",
+    "signature" : "public javax.management.MBeanNotificationInfo[] getNotificationInfo()",
+    "returnType" : "javax.management.MBeanNotificationInfo[]",
+    "genericReturnType" : "javax.management.MBeanNotificationInfo[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postDeregister",
+    "modifiers" : "public",
+    "signature" : "public void postDeregister()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "postRegister",
+    "modifiers" : "public",
+    "signature" : "public void postRegister(java.lang.Boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "registrationDone",
+      "type" : "java.lang.Boolean",
+      "genericType" : "java.lang.Boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preDeregister",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void preDeregister() throws java.lang.Exception",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "java.lang.Exception" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "preRegister",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized javax.management.ObjectName preRegister(javax.management.MBeanServer, javax.management.ObjectName)",
+    "returnType" : "javax.management.ObjectName",
+    "genericReturnType" : "javax.management.ObjectName",
+    "parameters" : [ {
+      "name" : "mbs",
+      "type" : "javax.management.MBeanServer",
+      "genericType" : "javax.management.MBeanServer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "name",
+      "type" : "javax.management.ObjectName",
+      "genericType" : "javax.management.ObjectName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setMBeanServerForwarder",
+    "modifiers" : "public synchronized",
+    "signature" : "public synchronized void setMBeanServerForwarder(javax.management.remote.MBeanServerForwarder)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "mbsf",
+      "type" : "javax.management.remote.MBeanServerForwarder",
+      "genericType" : "javax.management.remote.MBeanServerForwarder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toJMXConnector",
+    "modifiers" : "public",
+    "signature" : "public javax.management.remote.JMXConnector toJMXConnector(java.util.Map) throws java.io.IOException",
+    "returnType" : "javax.management.remote.JMXConnector",
+    "genericReturnType" : "javax.management.remote.JMXConnector",
+    "parameters" : [ {
+      "name" : "env",
+      "type" : "java.util.Map",
+      "genericType" : "java.util.Map",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

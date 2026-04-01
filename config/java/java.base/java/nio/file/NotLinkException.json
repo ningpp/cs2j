@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.NotLinkException",
+  "canonicalName" : "java.nio.file.NotLinkException",
+  "simpleName" : "NotLinkException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.nio.file.FileSystemException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.NotLinkException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.NotLinkException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.nio.file.NotLinkException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.NotLinkException(java.lang.String, java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "file",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "other",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

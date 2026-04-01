@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.sound.sampled",
+  "binaryName" : "javax.sound.sampled.FloatControl$Type",
+  "canonicalName" : "javax.sound.sampled.FloatControl.Type",
+  "simpleName" : "Type",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.sound.sampled.FloatControl",
+  "superClass" : "javax.sound.sampled.Control$Type"
+}

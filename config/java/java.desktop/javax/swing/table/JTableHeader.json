@@ -1,0 +1,486 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.table",
+  "binaryName" : "javax.swing.table.JTableHeader",
+  "canonicalName" : "javax.swing.table.JTableHeader",
+  "simpleName" : "JTableHeader",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.JComponent",
+  "interfaces" : [ "javax.accessibility.Accessible", "javax.swing.event.TableColumnModelListener" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.table.JTableHeader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.JTableHeader()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.table.JTableHeader",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.JTableHeader(javax.swing.table.TableColumnModel)",
+    "parameters" : [ {
+      "name" : "cm",
+      "type" : "javax.swing.table.TableColumnModel",
+      "genericType" : "javax.swing.table.TableColumnModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "columnAdded",
+    "modifiers" : "public",
+    "signature" : "public void columnAdded(javax.swing.event.TableColumnModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TableColumnModelEvent",
+      "genericType" : "javax.swing.event.TableColumnModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "columnAtPoint",
+    "modifiers" : "public",
+    "signature" : "public int columnAtPoint(java.awt.Point)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "point",
+      "type" : "java.awt.Point",
+      "genericType" : "java.awt.Point",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "columnMarginChanged",
+    "modifiers" : "public",
+    "signature" : "public void columnMarginChanged(javax.swing.event.ChangeEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ChangeEvent",
+      "genericType" : "javax.swing.event.ChangeEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "columnMoved",
+    "modifiers" : "public",
+    "signature" : "public void columnMoved(javax.swing.event.TableColumnModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TableColumnModelEvent",
+      "genericType" : "javax.swing.event.TableColumnModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "columnRemoved",
+    "modifiers" : "public",
+    "signature" : "public void columnRemoved(javax.swing.event.TableColumnModelEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.TableColumnModelEvent",
+      "genericType" : "javax.swing.event.TableColumnModelEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "columnSelectionChanged",
+    "modifiers" : "public",
+    "signature" : "public void columnSelectionChanged(javax.swing.event.ListSelectionEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "javax.swing.event.ListSelectionEvent",
+      "genericType" : "javax.swing.event.ListSelectionEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleContext",
+    "modifiers" : "public",
+    "signature" : "public javax.accessibility.AccessibleContext getAccessibleContext()",
+    "returnType" : "javax.accessibility.AccessibleContext",
+    "genericReturnType" : "javax.accessibility.AccessibleContext",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getColumnModel",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumnModel getColumnModel()",
+    "returnType" : "javax.swing.table.TableColumnModel",
+    "genericReturnType" : "javax.swing.table.TableColumnModel",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDefaultRenderer",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableCellRenderer getDefaultRenderer()",
+    "returnType" : "javax.swing.table.TableCellRenderer",
+    "genericReturnType" : "javax.swing.table.TableCellRenderer",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDraggedColumn",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumn getDraggedColumn()",
+    "returnType" : "javax.swing.table.TableColumn",
+    "genericReturnType" : "javax.swing.table.TableColumn",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDraggedDistance",
+    "modifiers" : "public",
+    "signature" : "public int getDraggedDistance()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeaderRect",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Rectangle getHeaderRect(int)",
+    "returnType" : "java.awt.Rectangle",
+    "genericReturnType" : "java.awt.Rectangle",
+    "parameters" : [ {
+      "name" : "column",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreferredSize",
+    "modifiers" : "public",
+    "signature" : "public java.awt.Dimension getPreferredSize()",
+    "returnType" : "java.awt.Dimension",
+    "genericReturnType" : "java.awt.Dimension",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getReorderingAllowed",
+    "modifiers" : "public",
+    "signature" : "public boolean getReorderingAllowed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResizingAllowed",
+    "modifiers" : "public",
+    "signature" : "public boolean getResizingAllowed()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getResizingColumn",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.table.TableColumn getResizingColumn()",
+    "returnType" : "javax.swing.table.TableColumn",
+    "genericReturnType" : "javax.swing.table.TableColumn",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTable",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JTable getTable()",
+    "returnType" : "javax.swing.JTable",
+    "genericReturnType" : "javax.swing.JTable",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getToolTipText",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getToolTipText(java.awt.event.MouseEvent)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "event",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUI",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.TableHeaderUI getUI()",
+    "returnType" : "javax.swing.plaf.TableHeaderUI",
+    "genericReturnType" : "javax.swing.plaf.TableHeaderUI",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUIClassID",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getUIClassID()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getUpdateTableInRealTime",
+    "modifiers" : "public",
+    "signature" : "public boolean getUpdateTableInRealTime()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "resizeAndRepaint",
+    "modifiers" : "public",
+    "signature" : "public void resizeAndRepaint()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setColumnModel",
+    "modifiers" : "public",
+    "signature" : "public void setColumnModel(javax.swing.table.TableColumnModel)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "columnModel",
+      "type" : "javax.swing.table.TableColumnModel",
+      "genericType" : "javax.swing.table.TableColumnModel",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDefaultRenderer",
+    "modifiers" : "public",
+    "signature" : "public void setDefaultRenderer(javax.swing.table.TableCellRenderer)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "defaultRenderer",
+      "type" : "javax.swing.table.TableCellRenderer",
+      "genericType" : "javax.swing.table.TableCellRenderer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDraggedColumn",
+    "modifiers" : "public",
+    "signature" : "public void setDraggedColumn(javax.swing.table.TableColumn)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "aColumn",
+      "type" : "javax.swing.table.TableColumn",
+      "genericType" : "javax.swing.table.TableColumn",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setDraggedDistance",
+    "modifiers" : "public",
+    "signature" : "public void setDraggedDistance(int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "distance",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setReorderingAllowed",
+    "modifiers" : "public",
+    "signature" : "public void setReorderingAllowed(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "reorderingAllowed",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResizingAllowed",
+    "modifiers" : "public",
+    "signature" : "public void setResizingAllowed(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "resizingAllowed",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setResizingColumn",
+    "modifiers" : "public",
+    "signature" : "public void setResizingColumn(javax.swing.table.TableColumn)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "aColumn",
+      "type" : "javax.swing.table.TableColumn",
+      "genericType" : "javax.swing.table.TableColumn",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTable",
+    "modifiers" : "public",
+    "signature" : "public void setTable(javax.swing.JTable)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "javax.swing.JTable",
+      "genericType" : "javax.swing.JTable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUI",
+    "modifiers" : "public",
+    "signature" : "public void setUI(javax.swing.plaf.TableHeaderUI)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "ui",
+      "type" : "javax.swing.plaf.TableHeaderUI",
+      "genericType" : "javax.swing.plaf.TableHeaderUI",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setUpdateTableInRealTime",
+    "modifiers" : "public",
+    "signature" : "public void setUpdateTableInRealTime(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "flag",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "updateUI",
+    "modifiers" : "public",
+    "signature" : "public void updateUI()",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

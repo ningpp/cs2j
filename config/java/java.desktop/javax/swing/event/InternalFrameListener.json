@@ -1,0 +1,130 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.event",
+  "binaryName" : "javax.swing.event.InternalFrameListener",
+  "canonicalName" : "javax.swing.event.InternalFrameListener",
+  "simpleName" : "InternalFrameListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.EventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "internalFrameActivated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void internalFrameActivated(javax.swing.event.InternalFrameEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.InternalFrameEvent",
+      "genericType" : "javax.swing.event.InternalFrameEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "internalFrameClosed",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void internalFrameClosed(javax.swing.event.InternalFrameEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.InternalFrameEvent",
+      "genericType" : "javax.swing.event.InternalFrameEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "internalFrameClosing",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void internalFrameClosing(javax.swing.event.InternalFrameEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.InternalFrameEvent",
+      "genericType" : "javax.swing.event.InternalFrameEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "internalFrameDeactivated",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void internalFrameDeactivated(javax.swing.event.InternalFrameEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.InternalFrameEvent",
+      "genericType" : "javax.swing.event.InternalFrameEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "internalFrameDeiconified",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void internalFrameDeiconified(javax.swing.event.InternalFrameEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.InternalFrameEvent",
+      "genericType" : "javax.swing.event.InternalFrameEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "internalFrameIconified",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void internalFrameIconified(javax.swing.event.InternalFrameEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.InternalFrameEvent",
+      "genericType" : "javax.swing.event.InternalFrameEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "internalFrameOpened",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void internalFrameOpened(javax.swing.event.InternalFrameEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.swing.event.InternalFrameEvent",
+      "genericType" : "javax.swing.event.InternalFrameEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

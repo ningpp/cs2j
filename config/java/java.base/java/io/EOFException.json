@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.io",
+  "binaryName" : "java.io.EOFException",
+  "canonicalName" : "java.io.EOFException",
+  "simpleName" : "EOFException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.io.EOFException",
+    "modifiers" : "public",
+    "signature" : "public java.io.EOFException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.io.EOFException",
+    "modifiers" : "public",
+    "signature" : "public java.io.EOFException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

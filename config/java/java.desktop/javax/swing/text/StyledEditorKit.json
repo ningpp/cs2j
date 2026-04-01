@@ -1,0 +1,111 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text",
+  "binaryName" : "javax.swing.text.StyledEditorKit",
+  "canonicalName" : "javax.swing.text.StyledEditorKit",
+  "simpleName" : "StyledEditorKit",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.swing.text.DefaultEditorKit",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.StyledEditorKit",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.StyledEditorKit()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "clone",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object clone()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "createDefaultDocument",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Document createDefaultDocument()",
+    "returnType" : "javax.swing.text.Document",
+    "genericReturnType" : "javax.swing.text.Document",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "deinstall",
+    "modifiers" : "public",
+    "signature" : "public void deinstall(javax.swing.JEditorPane)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JEditorPane",
+      "genericType" : "javax.swing.JEditorPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getActions",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Action[] getActions()",
+    "returnType" : "javax.swing.Action[]",
+    "genericReturnType" : "javax.swing.Action[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCharacterAttributeRun",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.Element getCharacterAttributeRun()",
+    "returnType" : "javax.swing.text.Element",
+    "genericReturnType" : "javax.swing.text.Element",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getInputAttributes",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.MutableAttributeSet getInputAttributes()",
+    "returnType" : "javax.swing.text.MutableAttributeSet",
+    "genericReturnType" : "javax.swing.text.MutableAttributeSet",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getViewFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.ViewFactory getViewFactory()",
+    "returnType" : "javax.swing.text.ViewFactory",
+    "genericReturnType" : "javax.swing.text.ViewFactory",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "install",
+    "modifiers" : "public",
+    "signature" : "public void install(javax.swing.JEditorPane)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "javax.swing.JEditorPane",
+      "genericType" : "javax.swing.JEditorPane",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

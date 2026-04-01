@@ -1,0 +1,117 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.SymbolLookup",
+  "canonicalName" : "java.lang.foreign.SymbolLookup",
+  "simpleName" : "SymbolLookup",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "find",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional find(java.lang.String)",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "findOrThrow",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.MemorySegment findOrThrow(java.lang.String)",
+    "returnType" : "java.lang.foreign.MemorySegment",
+    "genericReturnType" : "java.lang.foreign.MemorySegment",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "libraryLookup",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.SymbolLookup libraryLookup(java.lang.String, java.lang.foreign.Arena)",
+    "returnType" : "java.lang.foreign.SymbolLookup",
+    "genericReturnType" : "java.lang.foreign.SymbolLookup",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arena",
+      "type" : "java.lang.foreign.Arena",
+      "genericType" : "java.lang.foreign.Arena",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "libraryLookup",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.SymbolLookup libraryLookup(java.nio.file.Path, java.lang.foreign.Arena)",
+    "returnType" : "java.lang.foreign.SymbolLookup",
+    "genericReturnType" : "java.lang.foreign.SymbolLookup",
+    "parameters" : [ {
+      "name" : "path",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arena",
+      "type" : "java.lang.foreign.Arena",
+      "genericType" : "java.lang.foreign.Arena",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "loaderLookup",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.SymbolLookup loaderLookup()",
+    "returnType" : "java.lang.foreign.SymbolLookup",
+    "genericReturnType" : "java.lang.foreign.SymbolLookup",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "or",
+    "modifiers" : "public",
+    "signature" : "public java.lang.foreign.SymbolLookup or(java.lang.foreign.SymbolLookup)",
+    "returnType" : "java.lang.foreign.SymbolLookup",
+    "genericReturnType" : "java.lang.foreign.SymbolLookup",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.foreign.SymbolLookup",
+      "genericType" : "java.lang.foreign.SymbolLookup",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

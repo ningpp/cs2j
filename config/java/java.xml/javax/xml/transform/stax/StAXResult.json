@@ -1,0 +1,84 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform.stax",
+  "binaryName" : "javax.xml.transform.stax.StAXResult",
+  "canonicalName" : "javax.xml.transform.stax.StAXResult",
+  "simpleName" : "StAXResult",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.transform.Result" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.transform.stax.StAXResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stax.StAXResult(javax.xml.stream.XMLEventWriter)",
+    "parameters" : [ {
+      "name" : "xmlEventWriter",
+      "type" : "javax.xml.stream.XMLEventWriter",
+      "genericType" : "javax.xml.stream.XMLEventWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.transform.stax.StAXResult",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.transform.stax.StAXResult(javax.xml.stream.XMLStreamWriter)",
+    "parameters" : [ {
+      "name" : "xmlStreamWriter",
+      "type" : "javax.xml.stream.XMLStreamWriter",
+      "genericType" : "javax.xml.stream.XMLStreamWriter",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getSystemId",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getSystemId()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLEventWriter",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLEventWriter getXMLEventWriter()",
+    "returnType" : "javax.xml.stream.XMLEventWriter",
+    "genericReturnType" : "javax.xml.stream.XMLEventWriter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getXMLStreamWriter",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.stream.XMLStreamWriter getXMLStreamWriter()",
+    "returnType" : "javax.xml.stream.XMLStreamWriter",
+    "genericReturnType" : "javax.xml.stream.XMLStreamWriter",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSystemId",
+    "modifiers" : "public",
+    "signature" : "public void setSystemId(java.lang.String)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "systemId",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

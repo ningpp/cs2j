@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.xpath",
+  "binaryName" : "javax.xml.xpath.XPathEvaluationResult",
+  "canonicalName" : "javax.xml.xpath.XPathEvaluationResult",
+  "simpleName" : "XPathEvaluationResult",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "type",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.xpath.XPathEvaluationResult$XPathResultType type()",
+    "returnType" : "javax.xml.xpath.XPathEvaluationResult$XPathResultType",
+    "genericReturnType" : "javax.xml.xpath.XPathEvaluationResult$XPathResultType",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "value",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object value()",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

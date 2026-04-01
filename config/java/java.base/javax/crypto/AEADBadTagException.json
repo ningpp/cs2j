@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.crypto",
+  "binaryName" : "javax.crypto.AEADBadTagException",
+  "canonicalName" : "javax.crypto.AEADBadTagException",
+  "simpleName" : "AEADBadTagException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.crypto.BadPaddingException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.crypto.AEADBadTagException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.AEADBadTagException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.crypto.AEADBadTagException",
+    "modifiers" : "public",
+    "signature" : "public javax.crypto.AEADBadTagException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

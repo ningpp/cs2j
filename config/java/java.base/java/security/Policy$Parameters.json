@@ -1,0 +1,10 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.Policy$Parameters",
+  "canonicalName" : "java.security.Policy.Parameters",
+  "simpleName" : "Parameters",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaringType" : "java.security.Policy"
+}

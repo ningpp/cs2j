@@ -1,0 +1,77 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.filechooser",
+  "binaryName" : "javax.swing.filechooser.FileNameExtensionFilter",
+  "canonicalName" : "javax.swing.filechooser.FileNameExtensionFilter",
+  "simpleName" : "FileNameExtensionFilter",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "superClass" : "javax.swing.filechooser.FileFilter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.filechooser.FileNameExtensionFilter",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.filechooser.FileNameExtensionFilter(java.lang.String, java.lang.String...)",
+    "parameters" : [ {
+      "name" : "description",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "extensions",
+      "type" : "java.lang.String[]",
+      "genericType" : "java.lang.String[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : true
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "accept",
+    "modifiers" : "public",
+    "signature" : "public boolean accept(java.io.File)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "f",
+      "type" : "java.io.File",
+      "genericType" : "java.io.File",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getDescription()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getExtensions",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String[] getExtensions()",
+    "returnType" : "java.lang.String[]",
+    "genericReturnType" : "java.lang.String[]",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

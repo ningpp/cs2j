@@ -1,0 +1,116 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.cert",
+  "binaryName" : "java.security.cert.X509CRLEntry",
+  "canonicalName" : "java.security.cert.X509CRLEntry",
+  "simpleName" : "X509CRLEntry",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "java.security.cert.X509Extension" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.cert.X509CRLEntry",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.X509CRLEntry()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "other",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getCertificateIssuer",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.x500.X500Principal getCertificateIssuer()",
+    "returnType" : "javax.security.auth.x500.X500Principal",
+    "genericReturnType" : "javax.security.auth.x500.X500Principal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEncoded",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract byte[] getEncoded() throws java.security.cert.CRLException",
+    "returnType" : "byte[]",
+    "genericReturnType" : "byte[]",
+    "exceptions" : [ "java.security.cert.CRLException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRevocationDate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Date getRevocationDate()",
+    "returnType" : "java.util.Date",
+    "genericReturnType" : "java.util.Date",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRevocationReason",
+    "modifiers" : "public",
+    "signature" : "public java.security.cert.CRLReason getRevocationReason()",
+    "returnType" : "java.security.cert.CRLReason",
+    "genericReturnType" : "java.security.cert.CRLReason",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSerialNumber",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.math.BigInteger getSerialNumber()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasExtensions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasExtensions()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

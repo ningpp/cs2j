@@ -1,0 +1,115 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.classfile.instruction",
+  "binaryName" : "java.lang.classfile.instruction.ExceptionCatch",
+  "canonicalName" : "java.lang.classfile.instruction.ExceptionCatch",
+  "simpleName" : "ExceptionCatch",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.classfile.PseudoInstruction" ],
+  "declaredPublicMethods" : [ {
+    "name" : "catchType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional catchType()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label handler()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ExceptionCatch of(java.lang.classfile.Label, java.lang.classfile.Label, java.lang.classfile.Label)",
+    "returnType" : "java.lang.classfile.instruction.ExceptionCatch",
+    "genericReturnType" : "java.lang.classfile.instruction.ExceptionCatch",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tryStart",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tryEnd",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "of",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.classfile.instruction.ExceptionCatch of(java.lang.classfile.Label, java.lang.classfile.Label, java.lang.classfile.Label, java.util.Optional)",
+    "returnType" : "java.lang.classfile.instruction.ExceptionCatch",
+    "genericReturnType" : "java.lang.classfile.instruction.ExceptionCatch",
+    "parameters" : [ {
+      "name" : "handler",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tryStart",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "tryEnd",
+      "type" : "java.lang.classfile.Label",
+      "genericType" : "java.lang.classfile.Label",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "catchTypeEntry",
+      "type" : "java.util.Optional",
+      "genericType" : "java.util.Optional",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryEnd",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label tryEnd()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "tryStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.classfile.Label tryStart()",
+    "returnType" : "java.lang.classfile.Label",
+    "genericReturnType" : "java.lang.classfile.Label",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

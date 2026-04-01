@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management.relation",
+  "binaryName" : "javax.management.relation.InvalidRelationTypeException",
+  "canonicalName" : "javax.management.relation.InvalidRelationTypeException",
+  "simpleName" : "InvalidRelationTypeException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.relation.RelationException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.relation.InvalidRelationTypeException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRelationTypeException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.relation.InvalidRelationTypeException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.relation.InvalidRelationTypeException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

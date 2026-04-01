@@ -1,0 +1,36 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTMLEditorKit$HTMLFactory",
+  "canonicalName" : "javax.swing.text.html.HTMLEditorKit.HTMLFactory",
+  "simpleName" : "HTMLFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.text.html.HTMLEditorKit",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.text.ViewFactory" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTMLEditorKit$HTMLFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTMLEditorKit$HTMLFactory()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "create",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.View create(javax.swing.text.Element)",
+    "returnType" : "javax.swing.text.View",
+    "genericReturnType" : "javax.swing.text.View",
+    "parameters" : [ {
+      "name" : "elem",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

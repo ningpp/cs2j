@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.tools",
+  "binaryName" : "javax.tools.DiagnosticListener",
+  "canonicalName" : "javax.tools.DiagnosticListener",
+  "simpleName" : "DiagnosticListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "report",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void report(javax.tools.Diagnostic)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.tools.Diagnostic",
+      "genericType" : "javax.tools.Diagnostic",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,21 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print",
+  "binaryName" : "javax.print.MultiDocPrintService",
+  "canonicalName" : "javax.print.MultiDocPrintService",
+  "simpleName" : "MultiDocPrintService",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.print.PrintService" ],
+  "declaredPublicMethods" : [ {
+    "name" : "createMultiDocPrintJob",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.print.MultiDocPrintJob createMultiDocPrintJob()",
+    "returnType" : "javax.print.MultiDocPrintJob",
+    "genericReturnType" : "javax.print.MultiDocPrintJob",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,20 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security.interfaces",
+  "binaryName" : "java.security.interfaces.DSAKey",
+  "canonicalName" : "java.security.interfaces.DSAKey",
+  "simpleName" : "DSAKey",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getParams",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.security.interfaces.DSAParams getParams()",
+    "returnType" : "java.security.interfaces.DSAParams",
+    "genericReturnType" : "java.security.interfaces.DSAParams",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

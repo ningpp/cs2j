@@ -1,0 +1,330 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.MemoryLayout",
+  "canonicalName" : "java.lang.foreign.MemoryLayout",
+  "simpleName" : "MemoryLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "arrayElementVarHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.VarHandle arrayElementVarHandle(java.lang.foreign.MemoryLayout$PathElement...)",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "genericType" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "byteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long byteAlignment()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "byteOffset",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long byteOffset(java.lang.foreign.MemoryLayout$PathElement...)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "genericType" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "byteOffsetHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle byteOffsetHandle(java.lang.foreign.MemoryLayout$PathElement...)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "genericType" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "byteSize",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long byteSize()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "name",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional name()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "paddingLayout",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.PaddingLayout paddingLayout(long)",
+    "returnType" : "java.lang.foreign.PaddingLayout",
+    "genericReturnType" : "java.lang.foreign.PaddingLayout",
+    "parameters" : [ {
+      "name" : "byteSize",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scale",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract long scale(long, long)",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scaleHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle scaleHandle()",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "select",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemoryLayout select(java.lang.foreign.MemoryLayout$PathElement...)",
+    "returnType" : "java.lang.foreign.MemoryLayout",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "genericType" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "sequenceLayout",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.SequenceLayout sequenceLayout(long, java.lang.foreign.MemoryLayout)",
+    "returnType" : "java.lang.foreign.SequenceLayout",
+    "genericReturnType" : "java.lang.foreign.SequenceLayout",
+    "parameters" : [ {
+      "name" : "elementCount",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "elementLayout",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sliceHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.MethodHandle sliceHandle(java.lang.foreign.MemoryLayout$PathElement...)",
+    "returnType" : "java.lang.invoke.MethodHandle",
+    "genericReturnType" : "java.lang.invoke.MethodHandle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "genericType" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "structLayout",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.StructLayout structLayout(java.lang.foreign.MemoryLayout...)",
+    "returnType" : "java.lang.foreign.StructLayout",
+    "genericReturnType" : "java.lang.foreign.StructLayout",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.foreign.MemoryLayout[]",
+      "genericType" : "java.lang.foreign.MemoryLayout[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "toString",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unionLayout",
+    "modifiers" : "public static",
+    "signature" : "public static java.lang.foreign.UnionLayout unionLayout(java.lang.foreign.MemoryLayout...)",
+    "returnType" : "java.lang.foreign.UnionLayout",
+    "genericReturnType" : "java.lang.foreign.UnionLayout",
+    "parameters" : [ {
+      "name" : "elements",
+      "type" : "java.lang.foreign.MemoryLayout[]",
+      "genericType" : "java.lang.foreign.MemoryLayout[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "varHandle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.invoke.VarHandle varHandle(java.lang.foreign.MemoryLayout$PathElement...)",
+    "returnType" : "java.lang.invoke.VarHandle",
+    "genericReturnType" : "java.lang.invoke.VarHandle",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "genericType" : "java.lang.foreign.MemoryLayout$PathElement[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : true
+  }, {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemoryLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.MemoryLayout",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemoryLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.MemoryLayout",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.MemoryLayout withoutName()",
+    "returnType" : "java.lang.foreign.MemoryLayout",
+    "genericReturnType" : "java.lang.foreign.MemoryLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

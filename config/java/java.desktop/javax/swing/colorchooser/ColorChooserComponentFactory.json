@@ -1,0 +1,31 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.colorchooser",
+  "binaryName" : "javax.swing.colorchooser.ColorChooserComponentFactory",
+  "canonicalName" : "javax.swing.colorchooser.ColorChooserComponentFactory",
+  "simpleName" : "ColorChooserComponentFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getDefaultChooserPanels",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.colorchooser.AbstractColorChooserPanel[] getDefaultChooserPanels()",
+    "returnType" : "javax.swing.colorchooser.AbstractColorChooserPanel[]",
+    "genericReturnType" : "javax.swing.colorchooser.AbstractColorChooserPanel[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getPreviewPanel",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.JComponent getPreviewPanel()",
+    "returnType" : "javax.swing.JComponent",
+    "genericReturnType" : "javax.swing.JComponent",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

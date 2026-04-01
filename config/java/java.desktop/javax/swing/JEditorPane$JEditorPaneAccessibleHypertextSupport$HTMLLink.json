@@ -1,0 +1,139 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport$HTMLLink",
+  "canonicalName" : "javax.swing.JEditorPane.JEditorPaneAccessibleHypertextSupport.HTMLLink",
+  "simpleName" : "HTMLLink",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport",
+  "superClass" : "javax.accessibility.AccessibleHyperlink",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport$HTMLLink",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport$HTMLLink(javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport, javax.swing.text.Element)",
+    "parameters" : [ {
+      "name" : "this$1",
+      "type" : "javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport",
+      "genericType" : "javax.swing.JEditorPane$JEditorPaneAccessibleHypertextSupport",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "e",
+      "type" : "javax.swing.text.Element",
+      "genericType" : "javax.swing.text.Element",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "doAccessibleAction",
+    "modifiers" : "public",
+    "signature" : "public boolean doAccessibleAction(int)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleActionAnchor",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getAccessibleActionAnchor(int)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleActionCount",
+    "modifiers" : "public",
+    "signature" : "public int getAccessibleActionCount()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleActionDescription",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getAccessibleActionDescription(int)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAccessibleActionObject",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object getAccessibleActionObject(int)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "i",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEndIndex",
+    "modifiers" : "public",
+    "signature" : "public int getEndIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getStartIndex",
+    "modifiers" : "public",
+    "signature" : "public int getStartIndex()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isValid",
+    "modifiers" : "public",
+    "signature" : "public boolean isValid()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

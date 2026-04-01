@@ -1,0 +1,94 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream",
+  "binaryName" : "javax.xml.stream.XMLEventReader",
+  "canonicalName" : "javax.xml.stream.XMLEventReader",
+  "simpleName" : "XMLEventReader",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.util.Iterator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "close",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void close() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElementText",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getElementText() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getProperty",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getProperty(java.lang.String) throws java.lang.IllegalArgumentException",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hasNext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean hasNext()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextEvent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.XMLEvent nextEvent() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.events.XMLEvent",
+    "genericReturnType" : "javax.xml.stream.events.XMLEvent",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "nextTag",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.XMLEvent nextTag() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.events.XMLEvent",
+    "genericReturnType" : "javax.xml.stream.events.XMLEvent",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "peek",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.XMLEvent peek() throws javax.xml.stream.XMLStreamException",
+    "returnType" : "javax.xml.stream.events.XMLEvent",
+    "genericReturnType" : "javax.xml.stream.events.XMLEvent",
+    "exceptions" : [ "javax.xml.stream.XMLStreamException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

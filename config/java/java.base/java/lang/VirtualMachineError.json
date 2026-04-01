@@ -1,0 +1,58 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.VirtualMachineError",
+  "canonicalName" : "java.lang.VirtualMachineError",
+  "simpleName" : "VirtualMachineError",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Error",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.VirtualMachineError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.VirtualMachineError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.VirtualMachineError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.VirtualMachineError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.VirtualMachineError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.VirtualMachineError(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.VirtualMachineError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.VirtualMachineError(java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

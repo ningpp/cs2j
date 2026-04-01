@@ -1,0 +1,41 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.net.ssl",
+  "binaryName" : "javax.net.ssl.SSLKeyException",
+  "canonicalName" : "javax.net.ssl.SSLKeyException",
+  "simpleName" : "SSLKeyException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.net.ssl.SSLException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.net.ssl.SSLKeyException",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLKeyException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "reason",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.net.ssl.SSLKeyException",
+    "modifiers" : "public",
+    "signature" : "public javax.net.ssl.SSLKeyException(java.lang.String, java.lang.Throwable)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "cause",
+      "type" : "java.lang.Throwable",
+      "genericType" : "java.lang.Throwable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

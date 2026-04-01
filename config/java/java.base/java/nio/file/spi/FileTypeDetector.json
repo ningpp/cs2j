@@ -1,0 +1,29 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file.spi",
+  "binaryName" : "java.nio.file.spi.FileTypeDetector",
+  "canonicalName" : "java.nio.file.spi.FileTypeDetector",
+  "simpleName" : "FileTypeDetector",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "probeContentType",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String probeContentType(java.nio.file.Path) throws java.io.IOException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.file.Path",
+      "genericType" : "java.nio.file.Path",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

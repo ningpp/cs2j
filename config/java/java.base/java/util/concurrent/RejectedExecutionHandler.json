@@ -1,0 +1,33 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.RejectedExecutionHandler",
+  "canonicalName" : "java.util.concurrent.RejectedExecutionHandler",
+  "simpleName" : "RejectedExecutionHandler",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "rejectedExecution",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void rejectedExecution(java.lang.Runnable, java.util.concurrent.ThreadPoolExecutor)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.ThreadPoolExecutor",
+      "genericType" : "java.util.concurrent.ThreadPoolExecutor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang",
+  "binaryName" : "java.lang.ClassFormatError",
+  "canonicalName" : "java.lang.ClassFormatError",
+  "simpleName" : "ClassFormatError",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.LinkageError",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.lang.ClassFormatError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassFormatError()",
+    "varArgs" : false
+  }, {
+    "name" : "java.lang.ClassFormatError",
+    "modifiers" : "public",
+    "signature" : "public java.lang.ClassFormatError(java.lang.String)",
+    "parameters" : [ {
+      "name" : "s",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

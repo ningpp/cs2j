@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.file",
+  "binaryName" : "java.nio.file.ClosedWatchServiceException",
+  "canonicalName" : "java.nio.file.ClosedWatchServiceException",
+  "simpleName" : "ClosedWatchServiceException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.file.ClosedWatchServiceException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.file.ClosedWatchServiceException()",
+    "varArgs" : false
+  } ]
+}

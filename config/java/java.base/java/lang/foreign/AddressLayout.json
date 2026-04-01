@@ -1,0 +1,109 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.foreign",
+  "binaryName" : "java.lang.foreign.AddressLayout",
+  "canonicalName" : "java.lang.foreign.AddressLayout",
+  "simpleName" : "AddressLayout",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.foreign.ValueLayout" ],
+  "declaredPublicMethods" : [ {
+    "name" : "targetLayout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Optional targetLayout()",
+    "returnType" : "java.util.Optional",
+    "genericReturnType" : "java.util.Optional",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withByteAlignment",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.AddressLayout withByteAlignment(long)",
+    "returnType" : "java.lang.foreign.AddressLayout",
+    "genericReturnType" : "java.lang.foreign.AddressLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.AddressLayout withName(java.lang.String)",
+    "returnType" : "java.lang.foreign.AddressLayout",
+    "genericReturnType" : "java.lang.foreign.AddressLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withOrder",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.AddressLayout withOrder(java.nio.ByteOrder)",
+    "returnType" : "java.lang.foreign.AddressLayout",
+    "genericReturnType" : "java.lang.foreign.AddressLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.nio.ByteOrder",
+      "genericType" : "java.nio.ByteOrder",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withTargetLayout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.AddressLayout withTargetLayout(java.lang.foreign.MemoryLayout)",
+    "returnType" : "java.lang.foreign.AddressLayout",
+    "genericReturnType" : "java.lang.foreign.AddressLayout",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.foreign.MemoryLayout",
+      "genericType" : "java.lang.foreign.MemoryLayout",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.AddressLayout withoutName()",
+    "returnType" : "java.lang.foreign.AddressLayout",
+    "genericReturnType" : "java.lang.foreign.AddressLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "withoutTargetLayout",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.foreign.AddressLayout withoutTargetLayout()",
+    "returnType" : "java.lang.foreign.AddressLayout",
+    "genericReturnType" : "java.lang.foreign.AddressLayout",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

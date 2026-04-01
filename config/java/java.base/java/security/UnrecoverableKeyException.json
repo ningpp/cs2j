@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.security",
+  "binaryName" : "java.security.UnrecoverableKeyException",
+  "canonicalName" : "java.security.UnrecoverableKeyException",
+  "simpleName" : "UnrecoverableKeyException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.security.UnrecoverableEntryException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.security.UnrecoverableKeyException",
+    "modifiers" : "public",
+    "signature" : "public java.security.UnrecoverableKeyException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.security.UnrecoverableKeyException",
+    "modifiers" : "public",
+    "signature" : "public java.security.UnrecoverableKeyException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

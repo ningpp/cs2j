@@ -1,0 +1,136 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.text",
+  "binaryName" : "java.text.AttributedCharacterIterator",
+  "canonicalName" : "java.text.AttributedCharacterIterator",
+  "simpleName" : "AttributedCharacterIterator",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.text.CharacterIterator" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAllAttributeKeys",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Set getAllAttributeKeys()",
+    "returnType" : "java.util.Set",
+    "genericReturnType" : "java.util.Set",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getAttribute(java.text.AttributedCharacterIterator$Attribute)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.text.AttributedCharacterIterator$Attribute",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getAttributes()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRunLimit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getRunLimit()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRunLimit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getRunLimit(java.text.AttributedCharacterIterator$Attribute)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.text.AttributedCharacterIterator$Attribute",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRunLimit",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getRunLimit(java.util.Set)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRunStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getRunStart()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRunStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getRunStart(java.text.AttributedCharacterIterator$Attribute)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.text.AttributedCharacterIterator$Attribute",
+      "genericType" : "java.text.AttributedCharacterIterator$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getRunStart",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getRunStart(java.util.Set)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.Set",
+      "genericType" : "java.util.Set",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

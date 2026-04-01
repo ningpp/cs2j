@@ -1,0 +1,39 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.LayoutStyle$ComponentPlacement",
+  "canonicalName" : "javax.swing.LayoutStyle.ComponentPlacement",
+  "simpleName" : "ComponentPlacement",
+  "kind" : "enum",
+  "modifiers" : "public final",
+  "declaringType" : "javax.swing.LayoutStyle",
+  "superClass" : "java.lang.Enum",
+  "declaredPublicMethods" : [ {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.LayoutStyle$ComponentPlacement valueOf(java.lang.String)",
+    "returnType" : "javax.swing.LayoutStyle$ComponentPlacement",
+    "genericReturnType" : "javax.swing.LayoutStyle$ComponentPlacement",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : true,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "values",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.LayoutStyle$ComponentPlacement[] values()",
+    "returnType" : "javax.swing.LayoutStyle$ComponentPlacement[]",
+    "genericReturnType" : "javax.swing.LayoutStyle$ComponentPlacement[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

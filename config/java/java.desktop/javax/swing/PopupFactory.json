@@ -1,0 +1,80 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.PopupFactory",
+  "canonicalName" : "javax.swing.PopupFactory",
+  "simpleName" : "PopupFactory",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.PopupFactory",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.PopupFactory()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getPopup",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Popup getPopup(java.awt.Component, java.awt.Component, int, int) throws java.lang.IllegalArgumentException",
+    "returnType" : "javax.swing.Popup",
+    "genericReturnType" : "javax.swing.Popup",
+    "parameters" : [ {
+      "name" : "owner",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "contents",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "x",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.lang.IllegalArgumentException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSharedInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.PopupFactory getSharedInstance()",
+    "returnType" : "javax.swing.PopupFactory",
+    "genericReturnType" : "javax.swing.PopupFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setSharedInstance",
+    "modifiers" : "public static",
+    "signature" : "public static void setSharedInstance(javax.swing.PopupFactory)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "factory",
+      "type" : "javax.swing.PopupFactory",
+      "genericType" : "javax.swing.PopupFactory",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

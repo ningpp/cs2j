@@ -1,0 +1,72 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "org.w3c.dom.events",
+  "binaryName" : "org.w3c.dom.events.UIEvent",
+  "canonicalName" : "org.w3c.dom.events.UIEvent",
+  "simpleName" : "UIEvent",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "org.w3c.dom.events.Event" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getDetail",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract int getDetail()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getView",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract org.w3c.dom.views.AbstractView getView()",
+    "returnType" : "org.w3c.dom.views.AbstractView",
+    "genericReturnType" : "org.w3c.dom.views.AbstractView",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "initUIEvent",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void initUIEvent(java.lang.String, boolean, boolean, org.w3c.dom.views.AbstractView, int)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "org.w3c.dom.views.AbstractView",
+      "genericType" : "org.w3c.dom.views.AbstractView",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg4",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

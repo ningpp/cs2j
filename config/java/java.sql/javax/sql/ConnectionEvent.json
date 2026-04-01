@@ -1,0 +1,52 @@
+{
+  "moduleName" : "java.sql",
+  "packageName" : "javax.sql",
+  "binaryName" : "javax.sql.ConnectionEvent",
+  "canonicalName" : "javax.sql.ConnectionEvent",
+  "simpleName" : "ConnectionEvent",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.util.EventObject",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.sql.ConnectionEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.ConnectionEvent(javax.sql.PooledConnection)",
+    "parameters" : [ {
+      "name" : "con",
+      "type" : "javax.sql.PooledConnection",
+      "genericType" : "javax.sql.PooledConnection",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.sql.ConnectionEvent",
+    "modifiers" : "public",
+    "signature" : "public javax.sql.ConnectionEvent(javax.sql.PooledConnection, java.sql.SQLException)",
+    "parameters" : [ {
+      "name" : "con",
+      "type" : "javax.sql.PooledConnection",
+      "genericType" : "javax.sql.PooledConnection",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ex",
+      "type" : "java.sql.SQLException",
+      "genericType" : "java.sql.SQLException",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getSQLException",
+    "modifiers" : "public",
+    "signature" : "public java.sql.SQLException getSQLException()",
+    "returnType" : "java.sql.SQLException",
+    "genericReturnType" : "java.sql.SQLException",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

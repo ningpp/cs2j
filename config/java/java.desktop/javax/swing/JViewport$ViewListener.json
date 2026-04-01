@@ -1,0 +1,30 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.JViewport$ViewListener",
+  "canonicalName" : "javax.swing.JViewport.ViewListener",
+  "simpleName" : "ViewListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.JViewport",
+  "superClass" : "java.awt.event.ComponentAdapter",
+  "interfaces" : [ "java.io.Serializable" ],
+  "declaredPublicMethods" : [ {
+    "name" : "componentResized",
+    "modifiers" : "public",
+    "signature" : "public void componentResized(java.awt.event.ComponentEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.ComponentEvent",
+      "genericType" : "java.awt.event.ComponentEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

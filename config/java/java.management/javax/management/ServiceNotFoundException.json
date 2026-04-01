@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.management",
+  "packageName" : "javax.management",
+  "binaryName" : "javax.management.ServiceNotFoundException",
+  "canonicalName" : "javax.management.ServiceNotFoundException",
+  "simpleName" : "ServiceNotFoundException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.management.OperationsException",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.management.ServiceNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ServiceNotFoundException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.management.ServiceNotFoundException",
+    "modifiers" : "public",
+    "signature" : "public javax.management.ServiceNotFoundException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "message",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

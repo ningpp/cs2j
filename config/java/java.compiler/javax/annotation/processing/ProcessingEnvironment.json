@@ -1,0 +1,90 @@
+{
+  "moduleName" : "java.compiler",
+  "packageName" : "javax.annotation.processing",
+  "binaryName" : "javax.annotation.processing.ProcessingEnvironment",
+  "canonicalName" : "javax.annotation.processing.ProcessingEnvironment",
+  "simpleName" : "ProcessingEnvironment",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "getElementUtils",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.util.Elements getElementUtils()",
+    "returnType" : "javax.lang.model.util.Elements",
+    "genericReturnType" : "javax.lang.model.util.Elements",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFiler",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.annotation.processing.Filer getFiler()",
+    "returnType" : "javax.annotation.processing.Filer",
+    "genericReturnType" : "javax.annotation.processing.Filer",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getLocale",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Locale getLocale()",
+    "returnType" : "java.util.Locale",
+    "genericReturnType" : "java.util.Locale",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getMessager",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.annotation.processing.Messager getMessager()",
+    "returnType" : "javax.annotation.processing.Messager",
+    "genericReturnType" : "javax.annotation.processing.Messager",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOptions",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Map getOptions()",
+    "returnType" : "java.util.Map",
+    "genericReturnType" : "java.util.Map",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getSourceVersion",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.SourceVersion getSourceVersion()",
+    "returnType" : "javax.lang.model.SourceVersion",
+    "genericReturnType" : "javax.lang.model.SourceVersion",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTypeUtils",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.lang.model.util.Types getTypeUtils()",
+    "returnType" : "javax.lang.model.util.Types",
+    "genericReturnType" : "javax.lang.model.util.Types",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "isPreviewEnabled",
+    "modifiers" : "public",
+    "signature" : "public boolean isPreviewEnabled()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  } ]
+}

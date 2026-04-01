@@ -1,0 +1,103 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.UIDefaults$ProxyLazyValue",
+  "canonicalName" : "javax.swing.UIDefaults.ProxyLazyValue",
+  "simpleName" : "ProxyLazyValue",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.UIDefaults",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.UIDefaults$LazyValue" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.UIDefaults$ProxyLazyValue",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults$ProxyLazyValue(java.lang.String)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.UIDefaults$ProxyLazyValue",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults$ProxyLazyValue(java.lang.String, java.lang.Object[])",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "o",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.UIDefaults$ProxyLazyValue",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults$ProxyLazyValue(java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "m",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.UIDefaults$ProxyLazyValue",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.UIDefaults$ProxyLazyValue(java.lang.String, java.lang.String, java.lang.Object[])",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "m",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "o",
+      "type" : "java.lang.Object[]",
+      "genericType" : "java.lang.Object[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "createValue",
+    "modifiers" : "public",
+    "signature" : "public java.lang.Object createValue(javax.swing.UIDefaults)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "table",
+      "type" : "javax.swing.UIDefaults",
+      "genericType" : "javax.swing.UIDefaults",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

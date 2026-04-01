@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth.login",
+  "binaryName" : "javax.security.auth.login.ConfigurationSpi",
+  "canonicalName" : "javax.security.auth.login.ConfigurationSpi",
+  "simpleName" : "ConfigurationSpi",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.login.ConfigurationSpi",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.login.ConfigurationSpi()",
+    "varArgs" : false
+  } ]
+}

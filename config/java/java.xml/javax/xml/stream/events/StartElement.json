@@ -1,0 +1,85 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.stream.events",
+  "binaryName" : "javax.xml.stream.events.StartElement",
+  "canonicalName" : "javax.xml.stream.events.StartElement",
+  "simpleName" : "StartElement",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "javax.xml.stream.events.XMLEvent" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAttributeByName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.stream.events.Attribute getAttributeByName(javax.xml.namespace.QName)",
+    "returnType" : "javax.xml.stream.events.Attribute",
+    "genericReturnType" : "javax.xml.stream.events.Attribute",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.namespace.QName",
+      "genericType" : "javax.xml.namespace.QName",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributes",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator getAttributes()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.namespace.QName getName()",
+    "returnType" : "javax.xml.namespace.QName",
+    "genericReturnType" : "javax.xml.namespace.QName",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNamespaceContext",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.namespace.NamespaceContext getNamespaceContext()",
+    "returnType" : "javax.xml.namespace.NamespaceContext",
+    "genericReturnType" : "javax.xml.namespace.NamespaceContext",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNamespaceURI",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getNamespaceURI(java.lang.String)",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getNamespaces",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.Iterator getNamespaces()",
+    "returnType" : "java.util.Iterator",
+    "genericReturnType" : "java.util.Iterator",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

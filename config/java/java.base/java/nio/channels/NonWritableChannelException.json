@@ -1,0 +1,16 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.nio.channels",
+  "binaryName" : "java.nio.channels.NonWritableChannelException",
+  "canonicalName" : "java.nio.channels.NonWritableChannelException",
+  "simpleName" : "NonWritableChannelException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.IllegalStateException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.nio.channels.NonWritableChannelException",
+    "modifiers" : "public",
+    "signature" : "public java.nio.channels.NonWritableChannelException()",
+    "varArgs" : false
+  } ]
+}

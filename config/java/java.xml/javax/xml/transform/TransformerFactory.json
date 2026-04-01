@@ -1,0 +1,274 @@
+{
+  "moduleName" : "java.xml",
+  "packageName" : "javax.xml.transform",
+  "binaryName" : "javax.xml.transform.TransformerFactory",
+  "canonicalName" : "javax.xml.transform.TransformerFactory",
+  "simpleName" : "TransformerFactory",
+  "kind" : "class",
+  "modifiers" : "public abstract",
+  "superClass" : "java.lang.Object",
+  "declaredPublicMethods" : [ {
+    "name" : "getAssociatedStylesheet",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Source getAssociatedStylesheet(javax.xml.transform.Source, java.lang.String, java.lang.String, java.lang.String) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.Source",
+    "genericReturnType" : "javax.xml.transform.Source",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg3",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.Object getAttribute(java.lang.String)",
+    "returnType" : "java.lang.Object",
+    "genericReturnType" : "java.lang.Object",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getErrorListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.ErrorListener getErrorListener()",
+    "returnType" : "javax.xml.transform.ErrorListener",
+    "genericReturnType" : "javax.xml.transform.ErrorListener",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean getFeature(java.lang.String)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURIResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.URIResolver getURIResolver()",
+    "returnType" : "javax.xml.transform.URIResolver",
+    "genericReturnType" : "javax.xml.transform.URIResolver",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newDefaultInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.transform.TransformerFactory newDefaultInstance()",
+    "returnType" : "javax.xml.transform.TransformerFactory",
+    "genericReturnType" : "javax.xml.transform.TransformerFactory",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.transform.TransformerFactory newInstance() throws javax.xml.transform.TransformerFactoryConfigurationError",
+    "returnType" : "javax.xml.transform.TransformerFactory",
+    "genericReturnType" : "javax.xml.transform.TransformerFactory",
+    "exceptions" : [ "javax.xml.transform.TransformerFactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newInstance",
+    "modifiers" : "public static",
+    "signature" : "public static javax.xml.transform.TransformerFactory newInstance(java.lang.String, java.lang.ClassLoader) throws javax.xml.transform.TransformerFactoryConfigurationError",
+    "returnType" : "javax.xml.transform.TransformerFactory",
+    "genericReturnType" : "javax.xml.transform.TransformerFactory",
+    "parameters" : [ {
+      "name" : "factoryClassName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "classLoader",
+      "type" : "java.lang.ClassLoader",
+      "genericType" : "java.lang.ClassLoader",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerFactoryConfigurationError" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newTemplates",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Templates newTemplates(javax.xml.transform.Source) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.Templates",
+    "genericReturnType" : "javax.xml.transform.Templates",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newTransformer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Transformer newTransformer() throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.Transformer",
+    "genericReturnType" : "javax.xml.transform.Transformer",
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "newTransformer",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract javax.xml.transform.Transformer newTransformer(javax.xml.transform.Source) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "javax.xml.transform.Transformer",
+    "genericReturnType" : "javax.xml.transform.Transformer",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.Source",
+      "genericType" : "javax.xml.transform.Source",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setAttribute",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setAttribute(java.lang.String, java.lang.Object)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setErrorListener",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setErrorListener(javax.xml.transform.ErrorListener)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.ErrorListener",
+      "genericType" : "javax.xml.transform.ErrorListener",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setFeature",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setFeature(java.lang.String, boolean) throws javax.xml.transform.TransformerConfigurationException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "javax.xml.transform.TransformerConfigurationException" ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setURIResolver",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void setURIResolver(javax.xml.transform.URIResolver)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.xml.transform.URIResolver",
+      "genericType" : "javax.xml.transform.URIResolver",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

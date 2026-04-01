@@ -1,0 +1,100 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html",
+  "binaryName" : "javax.swing.text.html.HTML",
+  "canonicalName" : "javax.swing.text.html.HTML",
+  "simpleName" : "HTML",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.text.html.HTML",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.HTML()",
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAllAttributeKeys",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.html.HTML$Attribute[] getAllAttributeKeys()",
+    "returnType" : "javax.swing.text.html.HTML$Attribute[]",
+    "genericReturnType" : "javax.swing.text.html.HTML$Attribute[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAllTags",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.html.HTML$Tag[] getAllTags()",
+    "returnType" : "javax.swing.text.html.HTML$Tag[]",
+    "genericReturnType" : "javax.swing.text.html.HTML$Tag[]",
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getAttributeKey",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.html.HTML$Attribute getAttributeKey(java.lang.String)",
+    "returnType" : "javax.swing.text.html.HTML$Attribute",
+    "genericReturnType" : "javax.swing.text.html.HTML$Attribute",
+    "parameters" : [ {
+      "name" : "attName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getIntegerAttributeValue",
+    "modifiers" : "public static",
+    "signature" : "public static int getIntegerAttributeValue(javax.swing.text.AttributeSet, javax.swing.text.html.HTML$Attribute, int)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "attr",
+      "type" : "javax.swing.text.AttributeSet",
+      "genericType" : "javax.swing.text.AttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "key",
+      "type" : "javax.swing.text.html.HTML$Attribute",
+      "genericType" : "javax.swing.text.html.HTML$Attribute",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "def",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getTag",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.html.HTML$Tag getTag(java.lang.String)",
+    "returnType" : "javax.swing.text.html.HTML$Tag",
+    "genericReturnType" : "javax.swing.text.html.HTML$Tag",
+    "parameters" : [ {
+      "name" : "tagName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

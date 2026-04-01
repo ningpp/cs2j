@@ -1,0 +1,53 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.print.attribute",
+  "binaryName" : "javax.print.attribute.HashDocAttributeSet",
+  "canonicalName" : "javax.print.attribute.HashDocAttributeSet",
+  "simpleName" : "HashDocAttributeSet",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.print.attribute.HashAttributeSet",
+  "interfaces" : [ "java.io.Serializable", "javax.print.attribute.DocAttributeSet" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.print.attribute.HashDocAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashDocAttributeSet()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashDocAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashDocAttributeSet(javax.print.attribute.DocAttribute)",
+    "parameters" : [ {
+      "name" : "attribute",
+      "type" : "javax.print.attribute.DocAttribute",
+      "genericType" : "javax.print.attribute.DocAttribute",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashDocAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashDocAttributeSet(javax.print.attribute.DocAttributeSet)",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.DocAttributeSet",
+      "genericType" : "javax.print.attribute.DocAttributeSet",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.print.attribute.HashDocAttributeSet",
+    "modifiers" : "public",
+    "signature" : "public javax.print.attribute.HashDocAttributeSet(javax.print.attribute.DocAttribute[])",
+    "parameters" : [ {
+      "name" : "attributes",
+      "type" : "javax.print.attribute.DocAttribute[]",
+      "genericType" : "javax.print.attribute.DocAttribute[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

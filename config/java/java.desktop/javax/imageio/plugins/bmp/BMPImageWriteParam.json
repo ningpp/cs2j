@@ -1,0 +1,56 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.plugins.bmp",
+  "binaryName" : "javax.imageio.plugins.bmp.BMPImageWriteParam",
+  "canonicalName" : "javax.imageio.plugins.bmp.BMPImageWriteParam",
+  "simpleName" : "BMPImageWriteParam",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.imageio.ImageWriteParam",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.imageio.plugins.bmp.BMPImageWriteParam",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.bmp.BMPImageWriteParam()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.imageio.plugins.bmp.BMPImageWriteParam",
+    "modifiers" : "public",
+    "signature" : "public javax.imageio.plugins.bmp.BMPImageWriteParam(java.util.Locale)",
+    "parameters" : [ {
+      "name" : "locale",
+      "type" : "java.util.Locale",
+      "genericType" : "java.util.Locale",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "isTopDown",
+    "modifiers" : "public",
+    "signature" : "public boolean isTopDown()",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setTopDown",
+    "modifiers" : "public",
+    "signature" : "public void setTopDown(boolean)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "topDown",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

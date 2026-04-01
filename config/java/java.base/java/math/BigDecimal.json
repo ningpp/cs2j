@@ -1,0 +1,1267 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.math",
+  "binaryName" : "java.math.BigDecimal",
+  "canonicalName" : "java.math.BigDecimal",
+  "simpleName" : "BigDecimal",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Number",
+  "interfaces" : [ "java.lang.Comparable" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(char[])",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(char[], int, int)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(char[], int, int, java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "offset",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "len",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(char[], java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(double)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(double, java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(int)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(int, java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(java.lang.String)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(java.lang.String, java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(java.math.BigInteger)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(java.math.BigInteger, int)",
+    "parameters" : [ {
+      "name" : "unscaledVal",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(java.math.BigInteger, int, java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "unscaledVal",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(java.math.BigInteger, java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.math.BigInteger",
+      "genericType" : "java.math.BigInteger",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(long)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "java.math.BigDecimal",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal(long, java.math.MathContext)",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "abs",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal abs()",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "abs",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal abs(java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal add(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "augend",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "add",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal add(java.math.BigDecimal, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "augend",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "byteValueExact",
+    "modifiers" : "public",
+    "signature" : "public byte byteValueExact()",
+    "returnType" : "byte",
+    "genericReturnType" : "byte",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "compareTo",
+    "modifiers" : "public",
+    "signature" : "public int compareTo(java.math.BigDecimal)",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divide",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divide(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divide",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divide(java.math.BigDecimal, int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roundingMode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divide",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divide(java.math.BigDecimal, int, int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roundingMode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divide",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divide(java.math.BigDecimal, int, java.math.RoundingMode)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roundingMode",
+      "type" : "java.math.RoundingMode",
+      "genericType" : "java.math.RoundingMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divide",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divide(java.math.BigDecimal, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divide",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divide(java.math.BigDecimal, java.math.RoundingMode)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roundingMode",
+      "type" : "java.math.RoundingMode",
+      "genericType" : "java.math.RoundingMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divideAndRemainder",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal[] divideAndRemainder(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal[]",
+    "genericReturnType" : "java.math.BigDecimal[]",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divideAndRemainder",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal[] divideAndRemainder(java.math.BigDecimal, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal[]",
+    "genericReturnType" : "java.math.BigDecimal[]",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divideToIntegralValue",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divideToIntegralValue(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "divideToIntegralValue",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal divideToIntegralValue(java.math.BigDecimal, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "doubleValue",
+    "modifiers" : "public",
+    "signature" : "public double doubleValue()",
+    "returnType" : "double",
+    "genericReturnType" : "double",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "equals",
+    "modifiers" : "public",
+    "signature" : "public boolean equals(java.lang.Object)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "java.lang.Object",
+      "genericType" : "java.lang.Object",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "floatValue",
+    "modifiers" : "public",
+    "signature" : "public float floatValue()",
+    "returnType" : "float",
+    "genericReturnType" : "float",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "hashCode",
+    "modifiers" : "public",
+    "signature" : "public int hashCode()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intValue",
+    "modifiers" : "public",
+    "signature" : "public int intValue()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "intValueExact",
+    "modifiers" : "public",
+    "signature" : "public int intValueExact()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longValue",
+    "modifiers" : "public",
+    "signature" : "public long longValue()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "longValueExact",
+    "modifiers" : "public",
+    "signature" : "public long longValueExact()",
+    "returnType" : "long",
+    "genericReturnType" : "long",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "max",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal max(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "min",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal min(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "movePointLeft",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal movePointLeft(int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "movePointRight",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal movePointRight(int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "multiply",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal multiply(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "multiplicand",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "multiply",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal multiply(java.math.BigDecimal, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "multiplicand",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negate",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal negate()",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "negate",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal negate(java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal plus()",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "plus",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal plus(java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pow",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal pow(int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "pow",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal pow(int, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "precision",
+    "modifiers" : "public",
+    "signature" : "public int precision()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remainder",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal remainder(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "remainder",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal remainder(java.math.BigDecimal, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "divisor",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "round",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal round(java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scale",
+    "modifiers" : "public",
+    "signature" : "public int scale()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "scaleByPowerOfTen",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal scaleByPowerOfTen(int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "n",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setScale",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal setScale(int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "newScale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setScale",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal setScale(int, int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "newScale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roundingMode",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setScale",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal setScale(int, java.math.RoundingMode)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "newScale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "roundingMode",
+      "type" : "java.math.RoundingMode",
+      "genericType" : "java.math.RoundingMode",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "shortValueExact",
+    "modifiers" : "public",
+    "signature" : "public short shortValueExact()",
+    "returnType" : "short",
+    "genericReturnType" : "short",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "signum",
+    "modifiers" : "public",
+    "signature" : "public int signum()",
+    "returnType" : "int",
+    "genericReturnType" : "int",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "sqrt",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal sqrt(java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "stripTrailingZeros",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal stripTrailingZeros()",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subtract",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal subtract(java.math.BigDecimal)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "subtrahend",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "subtract",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal subtract(java.math.BigDecimal, java.math.MathContext)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "subtrahend",
+      "type" : "java.math.BigDecimal",
+      "genericType" : "java.math.BigDecimal",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mc",
+      "type" : "java.math.MathContext",
+      "genericType" : "java.math.MathContext",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toBigInteger",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger toBigInteger()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toBigIntegerExact",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger toBigIntegerExact()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toEngineeringString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toEngineeringString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toPlainString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toPlainString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "ulp",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigDecimal ulp()",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "unscaledValue",
+    "modifiers" : "public",
+    "signature" : "public java.math.BigInteger unscaledValue()",
+    "returnType" : "java.math.BigInteger",
+    "genericReturnType" : "java.math.BigInteger",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.math.BigDecimal valueOf(double)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "double",
+      "genericType" : "double",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.math.BigDecimal valueOf(long)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "val",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "valueOf",
+    "modifiers" : "public static",
+    "signature" : "public static java.math.BigDecimal valueOf(long, int)",
+    "returnType" : "java.math.BigDecimal",
+    "genericReturnType" : "java.math.BigDecimal",
+    "parameters" : [ {
+      "name" : "unscaledVal",
+      "type" : "long",
+      "genericType" : "long",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "scale",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

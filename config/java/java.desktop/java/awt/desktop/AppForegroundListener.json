@@ -1,0 +1,45 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt.desktop",
+  "binaryName" : "java.awt.desktop.AppForegroundListener",
+  "canonicalName" : "java.awt.desktop.AppForegroundListener",
+  "simpleName" : "AppForegroundListener",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.awt.desktop.SystemEventListener" ],
+  "declaredPublicMethods" : [ {
+    "name" : "appMovedToBackground",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void appMovedToBackground(java.awt.desktop.AppForegroundEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.AppForegroundEvent",
+      "genericType" : "java.awt.desktop.AppForegroundEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "appRaisedToForeground",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract void appRaisedToForeground(java.awt.desktop.AppForegroundEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.awt.desktop.AppForegroundEvent",
+      "genericType" : "java.awt.desktop.AppForegroundEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

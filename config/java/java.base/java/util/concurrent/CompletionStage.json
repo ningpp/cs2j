@@ -1,0 +1,926 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.util.concurrent",
+  "binaryName" : "java.util.concurrent.CompletionStage",
+  "canonicalName" : "java.util.concurrent.CompletionStage",
+  "simpleName" : "CompletionStage",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "acceptEither",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage acceptEither(java.util.concurrent.CompletionStage, java.util.function.Consumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acceptEitherAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage acceptEitherAsync(java.util.concurrent.CompletionStage, java.util.function.Consumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "acceptEitherAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage acceptEitherAsync(java.util.concurrent.CompletionStage, java.util.function.Consumer, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "applyToEither",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage applyToEither(java.util.concurrent.CompletionStage, java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "applyToEitherAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage applyToEitherAsync(java.util.concurrent.CompletionStage, java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "applyToEitherAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage applyToEitherAsync(java.util.concurrent.CompletionStage, java.util.function.Function, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionally",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage exceptionally(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionallyAsync",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage exceptionallyAsync(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "fn",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionallyAsync",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage exceptionallyAsync(java.util.function.Function, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "fn",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionallyCompose",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage exceptionallyCompose(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "fn",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionallyComposeAsync",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage exceptionallyComposeAsync(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "fn",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "exceptionallyComposeAsync",
+    "modifiers" : "public",
+    "signature" : "public java.util.concurrent.CompletionStage exceptionallyComposeAsync(java.util.function.Function, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "fn",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "executor",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : true,
+    "varArgs" : false
+  }, {
+    "name" : "handle",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage handle(java.util.function.BiFunction)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage handleAsync(java.util.function.BiFunction)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "handleAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage handleAsync(java.util.function.BiFunction, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runAfterBoth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage runAfterBoth(java.util.concurrent.CompletionStage, java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runAfterBothAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage runAfterBothAsync(java.util.concurrent.CompletionStage, java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runAfterBothAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage runAfterBothAsync(java.util.concurrent.CompletionStage, java.lang.Runnable, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runAfterEither",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage runAfterEither(java.util.concurrent.CompletionStage, java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runAfterEitherAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage runAfterEitherAsync(java.util.concurrent.CompletionStage, java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "runAfterEitherAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage runAfterEitherAsync(java.util.concurrent.CompletionStage, java.lang.Runnable, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenAccept",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenAccept(java.util.function.Consumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenAcceptAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenAcceptAsync(java.util.function.Consumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenAcceptAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenAcceptAsync(java.util.function.Consumer, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Consumer",
+      "genericType" : "java.util.function.Consumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenAcceptBoth",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenAcceptBoth(java.util.concurrent.CompletionStage, java.util.function.BiConsumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenAcceptBothAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenAcceptBothAsync(java.util.concurrent.CompletionStage, java.util.function.BiConsumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenAcceptBothAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenAcceptBothAsync(java.util.concurrent.CompletionStage, java.util.function.BiConsumer, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenApply",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenApply(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenApplyAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenApplyAsync(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenApplyAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenApplyAsync(java.util.function.Function, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenCombine",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenCombine(java.util.concurrent.CompletionStage, java.util.function.BiFunction)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenCombineAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenCombineAsync(java.util.concurrent.CompletionStage, java.util.function.BiFunction)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenCombineAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenCombineAsync(java.util.concurrent.CompletionStage, java.util.function.BiFunction, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.concurrent.CompletionStage",
+      "genericType" : "java.util.concurrent.CompletionStage",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.function.BiFunction",
+      "genericType" : "java.util.function.BiFunction",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg2",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenCompose",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenCompose(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenComposeAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenComposeAsync(java.util.function.Function)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenComposeAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenComposeAsync(java.util.function.Function, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.Function",
+      "genericType" : "java.util.function.Function",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenRun",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenRun(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenRunAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenRunAsync(java.lang.Runnable)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "thenRunAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage thenRunAsync(java.lang.Runnable, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.lang.Runnable",
+      "genericType" : "java.lang.Runnable",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toCompletableFuture",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletableFuture toCompletableFuture()",
+    "returnType" : "java.util.concurrent.CompletableFuture",
+    "genericReturnType" : "java.util.concurrent.CompletableFuture",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "whenComplete",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage whenComplete(java.util.function.BiConsumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "whenCompleteAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage whenCompleteAsync(java.util.function.BiConsumer)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "whenCompleteAsync",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.util.concurrent.CompletionStage whenCompleteAsync(java.util.function.BiConsumer, java.util.concurrent.Executor)",
+    "returnType" : "java.util.concurrent.CompletionStage",
+    "genericReturnType" : "java.util.concurrent.CompletionStage",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "java.util.function.BiConsumer",
+      "genericType" : "java.util.function.BiConsumer",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "arg1",
+      "type" : "java.util.concurrent.Executor",
+      "genericType" : "java.util.concurrent.Executor",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,47 @@
+{
+  "moduleName" : "java.naming",
+  "packageName" : "javax.naming",
+  "binaryName" : "javax.naming.LinkRef",
+  "canonicalName" : "javax.naming.LinkRef",
+  "simpleName" : "LinkRef",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "javax.naming.Reference",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.naming.LinkRef",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.LinkRef(java.lang.String)",
+    "parameters" : [ {
+      "name" : "linkName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.naming.LinkRef",
+    "modifiers" : "public",
+    "signature" : "public javax.naming.LinkRef(javax.naming.Name)",
+    "parameters" : [ {
+      "name" : "linkName",
+      "type" : "javax.naming.Name",
+      "genericType" : "javax.naming.Name",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getLinkName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getLinkName() throws javax.naming.NamingException",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "exceptions" : [ "javax.naming.NamingException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "javax.security.auth",
+  "binaryName" : "javax.security.auth.DestroyFailedException",
+  "canonicalName" : "javax.security.auth.DestroyFailedException",
+  "simpleName" : "DestroyFailedException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Exception",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.security.auth.DestroyFailedException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.DestroyFailedException()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.security.auth.DestroyFailedException",
+    "modifiers" : "public",
+    "signature" : "public javax.security.auth.DestroyFailedException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

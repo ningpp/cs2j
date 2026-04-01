@@ -1,0 +1,226 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing",
+  "binaryName" : "javax.swing.SpringLayout$Constraints",
+  "canonicalName" : "javax.swing.SpringLayout.Constraints",
+  "simpleName" : "Constraints",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.SpringLayout",
+  "superClass" : "java.lang.Object",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.SpringLayout$Constraints",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpringLayout$Constraints()",
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.SpringLayout$Constraints",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpringLayout$Constraints(java.awt.Component)",
+    "parameters" : [ {
+      "name" : "c",
+      "type" : "java.awt.Component",
+      "genericType" : "java.awt.Component",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.SpringLayout$Constraints",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpringLayout$Constraints(javax.swing.Spring, javax.swing.Spring)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.swing.SpringLayout$Constraints",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.SpringLayout$Constraints(javax.swing.Spring, javax.swing.Spring, javax.swing.Spring, javax.swing.Spring)",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "y",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "width",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "height",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getConstraint",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Spring getConstraint(java.lang.String)",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "parameters" : [ {
+      "name" : "edgeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getHeight",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Spring getHeight()",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getWidth",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Spring getWidth()",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getX",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Spring getX()",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getY",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.Spring getY()",
+    "returnType" : "javax.swing.Spring",
+    "genericReturnType" : "javax.swing.Spring",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setConstraint",
+    "modifiers" : "public",
+    "signature" : "public void setConstraint(java.lang.String, javax.swing.Spring)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "edgeName",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "s",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setHeight",
+    "modifiers" : "public",
+    "signature" : "public void setHeight(javax.swing.Spring)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "height",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setWidth",
+    "modifiers" : "public",
+    "signature" : "public void setWidth(javax.swing.Spring)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "width",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setX",
+    "modifiers" : "public",
+    "signature" : "public void setX(javax.swing.Spring)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "x",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "setY",
+    "modifiers" : "public",
+    "signature" : "public void setY(javax.swing.Spring)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "y",
+      "type" : "javax.swing.Spring",
+      "genericType" : "javax.swing.Spring",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

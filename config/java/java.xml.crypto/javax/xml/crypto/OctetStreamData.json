@@ -1,0 +1,79 @@
+{
+  "moduleName" : "java.xml.crypto",
+  "packageName" : "javax.xml.crypto",
+  "binaryName" : "javax.xml.crypto.OctetStreamData",
+  "canonicalName" : "javax.xml.crypto.OctetStreamData",
+  "simpleName" : "OctetStreamData",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.xml.crypto.Data" ],
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.xml.crypto.OctetStreamData",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.OctetStreamData(java.io.InputStream)",
+    "parameters" : [ {
+      "name" : "octetStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  }, {
+    "name" : "javax.xml.crypto.OctetStreamData",
+    "modifiers" : "public",
+    "signature" : "public javax.xml.crypto.OctetStreamData(java.io.InputStream, java.lang.String, java.lang.String)",
+    "parameters" : [ {
+      "name" : "octetStream",
+      "type" : "java.io.InputStream",
+      "genericType" : "java.io.InputStream",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "uri",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "mimeType",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "getMimeType",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getMimeType()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getOctetStream",
+    "modifiers" : "public",
+    "signature" : "public java.io.InputStream getOctetStream()",
+    "returnType" : "java.io.InputStream",
+    "genericReturnType" : "java.io.InputStream",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getURI",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getURI()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

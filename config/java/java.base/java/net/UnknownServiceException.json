@@ -1,0 +1,28 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.net",
+  "binaryName" : "java.net.UnknownServiceException",
+  "canonicalName" : "java.net.UnknownServiceException",
+  "simpleName" : "UnknownServiceException",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.io.IOException",
+  "declaredPublicConstructors" : [ {
+    "name" : "java.net.UnknownServiceException",
+    "modifiers" : "public",
+    "signature" : "public java.net.UnknownServiceException()",
+    "varArgs" : false
+  }, {
+    "name" : "java.net.UnknownServiceException",
+    "modifiers" : "public",
+    "signature" : "public java.net.UnknownServiceException(java.lang.String)",
+    "parameters" : [ {
+      "name" : "msg",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ]
+}

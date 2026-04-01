@@ -1,0 +1,11 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "java.awt",
+  "binaryName" : "java.awt.JobAttributes$DefaultSelectionType",
+  "canonicalName" : "java.awt.JobAttributes.DefaultSelectionType",
+  "simpleName" : "DefaultSelectionType",
+  "kind" : "class",
+  "modifiers" : "public final",
+  "declaringType" : "java.awt.JobAttributes",
+  "superClass" : "java.awt.AttributeValue"
+}

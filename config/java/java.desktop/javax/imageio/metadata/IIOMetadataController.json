@@ -1,0 +1,27 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.imageio.metadata",
+  "binaryName" : "javax.imageio.metadata.IIOMetadataController",
+  "canonicalName" : "javax.imageio.metadata.IIOMetadataController",
+  "simpleName" : "IIOMetadataController",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "declaredPublicMethods" : [ {
+    "name" : "activate",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract boolean activate(javax.imageio.metadata.IIOMetadata)",
+    "returnType" : "boolean",
+    "genericReturnType" : "boolean",
+    "parameters" : [ {
+      "name" : "arg0",
+      "type" : "javax.imageio.metadata.IIOMetadata",
+      "genericType" : "javax.imageio.metadata.IIOMetadata",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

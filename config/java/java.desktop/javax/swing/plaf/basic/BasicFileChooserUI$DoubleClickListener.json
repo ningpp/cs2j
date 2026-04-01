@@ -1,0 +1,65 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.plaf.basic",
+  "binaryName" : "javax.swing.plaf.basic.BasicFileChooserUI$DoubleClickListener",
+  "canonicalName" : "javax.swing.plaf.basic.BasicFileChooserUI.DoubleClickListener",
+  "simpleName" : "DoubleClickListener",
+  "kind" : "class",
+  "modifiers" : "public",
+  "declaringType" : "javax.swing.plaf.basic.BasicFileChooserUI",
+  "superClass" : "java.awt.event.MouseAdapter",
+  "declaredPublicConstructors" : [ {
+    "name" : "javax.swing.plaf.basic.BasicFileChooserUI$DoubleClickListener",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.plaf.basic.BasicFileChooserUI$DoubleClickListener(javax.swing.plaf.basic.BasicFileChooserUI, javax.swing.JList)",
+    "parameters" : [ {
+      "name" : "this$0",
+      "type" : "javax.swing.plaf.basic.BasicFileChooserUI",
+      "genericType" : "javax.swing.plaf.basic.BasicFileChooserUI",
+      "implicit" : true,
+      "synthetic" : false
+    }, {
+      "name" : "list",
+      "type" : "javax.swing.JList",
+      "genericType" : "javax.swing.JList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "varArgs" : false
+  } ],
+  "declaredPublicMethods" : [ {
+    "name" : "mouseClicked",
+    "modifiers" : "public",
+    "signature" : "public void mouseClicked(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "mouseEntered",
+    "modifiers" : "public",
+    "signature" : "public void mouseEntered(java.awt.event.MouseEvent)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "e",
+      "type" : "java.awt.event.MouseEvent",
+      "genericType" : "java.awt.event.MouseEvent",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

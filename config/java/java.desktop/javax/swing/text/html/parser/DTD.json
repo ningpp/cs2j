@@ -1,0 +1,299 @@
+{
+  "moduleName" : "java.desktop",
+  "packageName" : "javax.swing.text.html.parser",
+  "binaryName" : "javax.swing.text.html.parser.DTD",
+  "canonicalName" : "javax.swing.text.html.parser.DTD",
+  "simpleName" : "DTD",
+  "kind" : "class",
+  "modifiers" : "public",
+  "superClass" : "java.lang.Object",
+  "interfaces" : [ "javax.swing.text.html.parser.DTDConstants" ],
+  "declaredPublicMethods" : [ {
+    "name" : "defEntity",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Entity defEntity(java.lang.String, int, int)",
+    "returnType" : "javax.swing.text.html.parser.Entity",
+    "genericReturnType" : "javax.swing.text.html.parser.Entity",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "ch",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineAttributes",
+    "modifiers" : "public",
+    "signature" : "public void defineAttributes(java.lang.String, javax.swing.text.html.parser.AttributeList)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "atts",
+      "type" : "javax.swing.text.html.parser.AttributeList",
+      "genericType" : "javax.swing.text.html.parser.AttributeList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Element defineElement(java.lang.String, int, boolean, boolean, javax.swing.text.html.parser.ContentModel, java.util.BitSet, java.util.BitSet, javax.swing.text.html.parser.AttributeList)",
+    "returnType" : "javax.swing.text.html.parser.Element",
+    "genericReturnType" : "javax.swing.text.html.parser.Element",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "omitStart",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "omitEnd",
+      "type" : "boolean",
+      "genericType" : "boolean",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "content",
+      "type" : "javax.swing.text.html.parser.ContentModel",
+      "genericType" : "javax.swing.text.html.parser.ContentModel",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "exclusions",
+      "type" : "java.util.BitSet",
+      "genericType" : "java.util.BitSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "inclusions",
+      "type" : "java.util.BitSet",
+      "genericType" : "java.util.BitSet",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "atts",
+      "type" : "javax.swing.text.html.parser.AttributeList",
+      "genericType" : "javax.swing.text.html.parser.AttributeList",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "defineEntity",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Entity defineEntity(java.lang.String, int, char[])",
+    "returnType" : "javax.swing.text.html.parser.Entity",
+    "genericReturnType" : "javax.swing.text.html.parser.Entity",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "type",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "data",
+      "type" : "char[]",
+      "genericType" : "char[]",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getDTD",
+    "modifiers" : "public static",
+    "signature" : "public static javax.swing.text.html.parser.DTD getDTD(java.lang.String) throws java.io.IOException",
+    "returnType" : "javax.swing.text.html.parser.DTD",
+    "genericReturnType" : "javax.swing.text.html.parser.DTD",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Element getElement(int)",
+    "returnType" : "javax.swing.text.html.parser.Element",
+    "genericReturnType" : "javax.swing.text.html.parser.Element",
+    "parameters" : [ {
+      "name" : "index",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getElement",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Element getElement(java.lang.String)",
+    "returnType" : "javax.swing.text.html.parser.Element",
+    "genericReturnType" : "javax.swing.text.html.parser.Element",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEntity",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Entity getEntity(int)",
+    "returnType" : "javax.swing.text.html.parser.Entity",
+    "genericReturnType" : "javax.swing.text.html.parser.Entity",
+    "parameters" : [ {
+      "name" : "ch",
+      "type" : "int",
+      "genericType" : "int",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getEntity",
+    "modifiers" : "public",
+    "signature" : "public javax.swing.text.html.parser.Entity getEntity(java.lang.String)",
+    "returnType" : "javax.swing.text.html.parser.Entity",
+    "genericReturnType" : "javax.swing.text.html.parser.Entity",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "putDTDHash",
+    "modifiers" : "public static",
+    "signature" : "public static void putDTDHash(java.lang.String, javax.swing.text.html.parser.DTD)",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "name",
+      "type" : "java.lang.String",
+      "genericType" : "java.lang.String",
+      "implicit" : false,
+      "synthetic" : false
+    }, {
+      "name" : "dtd",
+      "type" : "javax.swing.text.html.parser.DTD",
+      "genericType" : "javax.swing.text.html.parser.DTD",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "staticMethod" : true,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "read",
+    "modifiers" : "public",
+    "signature" : "public void read(java.io.DataInputStream) throws java.io.IOException",
+    "returnType" : "void",
+    "genericReturnType" : "void",
+    "parameters" : [ {
+      "name" : "in",
+      "type" : "java.io.DataInputStream",
+      "genericType" : "java.io.DataInputStream",
+      "implicit" : false,
+      "synthetic" : false
+    } ],
+    "exceptions" : [ "java.io.IOException" ],
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "toString",
+    "modifiers" : "public",
+    "signature" : "public java.lang.String toString()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : false,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}

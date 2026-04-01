@@ -1,0 +1,51 @@
+{
+  "moduleName" : "java.base",
+  "packageName" : "java.lang.reflect",
+  "binaryName" : "java.lang.reflect.TypeVariable",
+  "canonicalName" : "java.lang.reflect.TypeVariable",
+  "simpleName" : "TypeVariable",
+  "kind" : "interface",
+  "modifiers" : "public",
+  "interfaces" : [ "java.lang.reflect.AnnotatedElement", "java.lang.reflect.Type" ],
+  "declaredPublicMethods" : [ {
+    "name" : "getAnnotatedBounds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.AnnotatedType[] getAnnotatedBounds()",
+    "returnType" : "java.lang.reflect.AnnotatedType[]",
+    "genericReturnType" : "java.lang.reflect.AnnotatedType[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getBounds",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.Type[] getBounds()",
+    "returnType" : "java.lang.reflect.Type[]",
+    "genericReturnType" : "java.lang.reflect.Type[]",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getGenericDeclaration",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.reflect.GenericDeclaration getGenericDeclaration()",
+    "returnType" : "java.lang.reflect.GenericDeclaration",
+    "genericReturnType" : "java.lang.reflect.GenericDeclaration",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  }, {
+    "name" : "getName",
+    "modifiers" : "public abstract",
+    "signature" : "public abstract java.lang.String getName()",
+    "returnType" : "java.lang.String",
+    "genericReturnType" : "java.lang.String",
+    "staticMethod" : false,
+    "abstractMethod" : true,
+    "defaultMethod" : false,
+    "varArgs" : false
+  } ]
+}
