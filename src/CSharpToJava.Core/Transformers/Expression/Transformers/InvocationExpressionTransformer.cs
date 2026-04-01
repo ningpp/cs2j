@@ -2458,6 +2458,19 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             && !receiver.Contains(".mapToObj(", StringComparison.Ordinal)
                             && PrimitiveStreamCategory(methodSymbol.TypeArguments[1].SpecialType) == "";
                     }
+                    // Fallback: string-based heuristic when semantic info is incomplete.
+                    // If receiver looks like a primitive IntStream (Arrays.stream on int[])
+                    // and flatMapArg returns a reference stream, we need .boxed().
+                    if (!smNeedsBoxed
+                        && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+                        && !receiver.Contains(".mapToObj(", StringComparison.Ordinal)
+                        && (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+                            || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
+                        && (flatMapArg.Contains(".stream()", StringComparison.Ordinal)
+                            || flatMapArg.Contains("StreamSupport.stream(", StringComparison.Ordinal)))
+                    {
+                        smNeedsBoxed = true;
+                    }
                     var boxedInsert = smNeedsBoxed ? ".boxed()" : "";
                     return $"{receiver}{boxedInsert}.flatMap({flatMapArg})";
                 }
