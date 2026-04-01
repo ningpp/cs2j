@@ -1487,7 +1487,16 @@ public class StatementTransformer : IStatementTransformer
         // IEnumerable, or uninstantiated generic types that don't cleanly map to Java equivalents.
         bool hasNoInitializer = stmt.Declaration.Variables.All(v => v.Initializer == null);
         if (wasImplicitVar && !hasNoInitializer)
-            javaType = "var";
+        {
+            // Exception: Java's var cannot infer lambda/method-reference types inside ternary
+            // expressions, so keep the explicit type when the initializer is a conditional
+            // expression containing lambdas or method references.
+            bool hasTernaryWithLambda = stmt.Declaration.Variables.Any(v =>
+                v.Initializer?.Value is ConditionalExpressionSyntax cond
+                && (ContainsLambdaOrMethodRef(cond.WhenTrue) || ContainsLambdaOrMethodRef(cond.WhenFalse)));
+            if (!hasTernaryWithLambda)
+                javaType = "var";
+        }
         bool wasConvertedFromVar = false;
         if (javaType == "var" && hasNoInitializer && context.SemanticModel != null)
         {
@@ -1824,6 +1833,22 @@ public class StatementTransformer : IStatementTransformer
         return bare is "List" or "Collection" or "ArrayList" or "HashSet" or "TreeSet"
             or "LinkedList" or "LinkedHashSet" or "ArrayDeque" or "Stack" or "Vector"
             or "Set" or "Deque" or "Queue";
+    }
+
+    /// <summary>
+    /// Checks whether an expression contains a lambda or method reference.
+    /// Used to detect ternary expressions that Java var can't infer.
+    /// </summary>
+    private static bool ContainsLambdaOrMethodRef(ExpressionSyntax expr)
+    {
+        if (expr is ParenthesizedExpressionSyntax paren)
+            return ContainsLambdaOrMethodRef(paren.Expression);
+        if (expr is CastExpressionSyntax cast)
+            return ContainsLambdaOrMethodRef(cast.Expression);
+        return expr is SimpleLambdaExpressionSyntax
+            or ParenthesizedLambdaExpressionSyntax
+            or AnonymousMethodExpressionSyntax
+            || (expr is MemberAccessExpressionSyntax && expr.Parent is ArgumentSyntax);
     }
 
     /// <summary>
