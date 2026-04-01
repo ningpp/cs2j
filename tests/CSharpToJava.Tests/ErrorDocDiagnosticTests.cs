@@ -878,4 +878,29 @@ class Sample {
         var code = r.GeneratedCode ?? "";
         Assert.Contains("new TreeNode", code);
     }
+
+    // Regression: Debug.Assert with out param — Holder must be declared before assert
+    [Fact]
+    public void AssertWithOutParam_HolderDeclaredBeforeAssert()
+    {
+        var r = Convert(@"
+using System.Diagnostics;
+using System.Collections.Generic;
+class Sample {
+    void M() {
+        var dict = new Dictionary<string, int>();
+        Debug.Assert(dict.TryGetValue(""key"", out var value));
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Holder declaration must appear BEFORE the assert that uses it
+        var holderDeclIdx = code.IndexOf("Holder", StringComparison.Ordinal);
+        var assertIdx = code.IndexOf("assert ", StringComparison.Ordinal);
+        Assert.True(holderDeclIdx >= 0, "Expected Holder declaration in output");
+        Assert.True(assertIdx >= 0, "Expected assert statement in output");
+        Assert.True(holderDeclIdx < assertIdx,
+            $"Holder declaration (pos {holderDeclIdx}) must appear before assert (pos {assertIdx}).\n{code}");
+    }
 }

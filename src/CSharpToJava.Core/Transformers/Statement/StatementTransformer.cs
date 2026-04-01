@@ -273,12 +273,37 @@ public class StatementTransformer : IStatementTransformer
             if (isAssertLike)
             {
                 var condition = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[0].Expression, context);
+                string assertStmt;
                 if (assertInvoc.ArgumentList.Arguments.Count >= 2)
                 {
                     var message = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[1].Expression, context);
-                    return new JavaStatementNode($"assert {condition} : {message};");
+                    assertStmt = $"assert {condition} : {message};";
                 }
-                return new JavaStatementNode($"assert {condition};");
+                else
+                {
+                    assertStmt = $"assert {condition};";
+                }
+
+                // Drain any pre/post statements emitted during condition/message transformation
+                // (e.g., ref/out Holder declarations must precede the assert statement)
+                if (context.HasPendingPreStatements || context.HasPendingPostStatements)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    if (context.HasPendingPreStatements)
+                    {
+                        var preStmts = context.DrainPreStatements();
+                        sb.AppendLine(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
+                    }
+                    sb.Append(assertStmt);
+                    if (context.HasPendingPostStatements)
+                    {
+                        var postStmts = context.DrainPostStatements();
+                        sb.Append("\n" + string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
+                    }
+                    return new JavaStatementNode(sb.ToString());
+                }
+
+                return new JavaStatementNode(assertStmt);
             }
         }
 
