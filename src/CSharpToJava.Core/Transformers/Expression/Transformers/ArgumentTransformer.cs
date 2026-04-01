@@ -381,6 +381,22 @@ public class ArgumentTransformer
         if (context.SemanticModel == null)
             return transformedExpr;
 
+        // Lambda/anonymous-function disambiguation: when the argument is a lambda and the
+        // target parameter is a delegate type, add an explicit target-type cast to resolve
+        // Java overload ambiguity (e.g., Comparator<T> vs BiFunction<T,T,Integer>).
+        if (arg.Expression is AnonymousFunctionExpressionSyntax
+            && targetParam.Type.TypeKind == TypeKind.Delegate
+            && HasOverloadWithDifferentFunctionalParam(targetParam))
+        {
+            var javaFuncType = context.MapType(targetParam.Type);
+            if (!string.IsNullOrWhiteSpace(javaFuncType)
+                && javaFuncType != "Object"
+                && javaFuncType != "var")
+            {
+                transformedExpr = $"({javaFuncType}) {transformedExpr}";
+            }
+        }
+
         var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
         if (argType == null)
             return transformedExpr;
@@ -527,6 +543,59 @@ public class ArgumentTransformer
             transformedExpr,
             paramType,
             context);
+    }
+
+    /// <summary>
+    /// Returns true when the containing method/constructor has an overload where the
+    /// same-position parameter accepts a different delegate/functional-interface type.
+    /// This causes lambda argument ambiguity in Java.
+    /// </summary>
+    private static bool HasOverloadWithDifferentFunctionalParam(IParameterSymbol targetParam)
+    {
+        var containingMethod = targetParam.ContainingSymbol as IMethodSymbol;
+        if (containingMethod == null) return false;
+        var containingType = containingMethod.ContainingType;
+        if (containingType == null) return false;
+
+        int ordinal = targetParam.Ordinal;
+
+        IEnumerable<IMethodSymbol> overloads = containingMethod.MethodKind == MethodKind.Constructor
+            ? containingType.Constructors
+            : containingType.GetMembers(containingMethod.Name).OfType<IMethodSymbol>();
+
+        foreach (var overload in overloads)
+        {
+            if (SymbolEqualityComparer.Default.Equals(overload, containingMethod))
+                continue;
+            if (overload.Parameters.Length <= ordinal)
+                continue;
+            var otherParam = overload.Parameters[ordinal];
+            // Check if the other parameter is also a functional interface candidate (delegate or
+            // single-method interface) AND has a different type from the current parameter.
+            if (!SymbolEqualityComparer.Default.Equals(otherParam.Type, targetParam.Type)
+                && (otherParam.Type.TypeKind == TypeKind.Delegate
+                    || IsSingleMethodInterface(otherParam.Type)))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true if the type is an interface with exactly one abstract method,
+    /// making it a Java functional interface candidate (e.g., IComparer → Comparator).
+    /// </summary>
+    private static bool IsSingleMethodInterface(ITypeSymbol type)
+    {
+        if (type.TypeKind != TypeKind.Interface) return false;
+        if (type is not INamedTypeSymbol namedType) return false;
+        var abstractMethods = namedType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .Where(m => m.MethodKind == MethodKind.Ordinary && m.IsAbstract)
+            .Take(2)
+            .ToList();
+        return abstractMethods.Count == 1;
     }
 
     private static string ApplyStructValueCopyIfNeeded(
