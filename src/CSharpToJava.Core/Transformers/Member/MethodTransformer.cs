@@ -198,10 +198,12 @@ public class MethodTransformer : IMemberTransformer
         if (javaMethod.Modifiers.HasFlag(JavaModifiers.Static) && context.CurrentType?.TypeParameters.Count > 0)
         {
             var methodOwnTypeParamNames = javaMethod.TypeParameters.Select(tp => tp.Name).ToHashSet(StringComparer.Ordinal);
-            // Include the body in the search so that type params used in foreach element types are also promoted
+            // Include both Body (string) and StructuredBody (IR) in the search.
+            // StructuredBody is used for normal block methods; Body is used for yield/expression-body.
+            var bodyText = javaMethod.Body ?? javaMethod.StructuredBody?.ToString("") ?? "";
             var signatureText = javaMethod.ReturnType + " " +
                 string.Join(" ", javaMethod.Parameters.Select(p => p.Type)) + " " +
-                (javaMethod.Body ?? "");
+                bodyText;
             var toAdd = new List<JavaTypeParameter>();
             foreach (var classParam in context.CurrentType.TypeParameters)
             {
