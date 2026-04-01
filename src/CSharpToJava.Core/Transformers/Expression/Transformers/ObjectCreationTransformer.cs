@@ -138,6 +138,19 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
     private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, ConversionContext context)
     {
+        // Map.Entry is an interface — instantiate via AbstractMap.SimpleEntry instead.
+        // This handles C# `new KeyValuePair<K,V>(key, value)` construction.
+        if (typeName is "Map.Entry")
+        {
+            context.AddImport("java.util.AbstractMap");
+            var seArgs = argumentList != null
+                ? ArgumentTransformer.TransformArgumentList(argumentList, context, ExpressionTransformerFacade.Instance)
+                : "";
+            return string.IsNullOrWhiteSpace(seArgs)
+                ? "new AbstractMap.SimpleEntry<>()"
+                : $"new AbstractMap.SimpleEntry<>({seArgs})";
+        }
+
         // Exception / ApplicationException → RuntimeException (unchecked in Java)
         if (typeName is "Exception" or "ApplicationException")
         {
