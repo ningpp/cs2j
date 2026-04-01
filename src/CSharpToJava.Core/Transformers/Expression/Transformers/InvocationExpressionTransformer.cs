@@ -856,10 +856,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             && methodSymbol?.ContainingType.ToDisplayString() == "System.Linq.Enumerable")
         {
             // Check if receiver is an array - simplest correct check is .length > 0
+            // Wrap in parens so a parent `!` produces `!(arr.length > 0)` instead of `!arr.length > 0`
             var receiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
             if (receiverType is IArrayTypeSymbol)
             {
-                return $"{receiver}.length > 0";
+                return $"({receiver}.length > 0)";
             }
             return $"{receiver}.iterator().hasNext()";
         }
