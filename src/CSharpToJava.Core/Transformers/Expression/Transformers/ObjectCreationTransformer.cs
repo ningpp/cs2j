@@ -140,7 +140,9 @@ public class ObjectCreationTransformer : IExpressionTransformer
     {
         // Map.Entry is an interface — instantiate via AbstractMap.SimpleEntry instead.
         // This handles C# `new KeyValuePair<K,V>(key, value)` construction.
-        if (typeName is "Map.Entry")
+        // typeName may include generics (e.g. "Map.Entry<Foo, Bar>"), so strip them.
+        var bareTypeName = typeName.Contains('<') ? typeName.Substring(0, typeName.IndexOf('<')) : typeName;
+        if (bareTypeName is "Map.Entry")
         {
             context.AddImport("java.util.AbstractMap");
             var seArgs = argumentList != null
