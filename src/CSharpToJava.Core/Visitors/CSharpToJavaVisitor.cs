@@ -345,6 +345,7 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
             SyntaxKind.StructDeclaration => _factory.CreateStructTransformer(),
             SyntaxKind.EnumDeclaration => _factory.CreateEnumTransformer(),
             SyntaxKind.RecordDeclaration => _factory.CreateRecordTransformer(),
+            SyntaxKind.RecordStructDeclaration => _factory.CreateRecordTransformer(),
             _ => null
         };
 

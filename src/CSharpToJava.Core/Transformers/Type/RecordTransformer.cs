@@ -28,6 +28,14 @@ public class RecordTransformer : ITypeTransformer
             return CreateMutableRecordStruct(recordDecl, context);
         }
 
+        // Abstract records cannot be Java records (Java records are implicitly final).
+        // Fall back to abstract class which preserves the inheritance semantics.
+        bool isAbstract = recordDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword));
+        if (isAbstract)
+        {
+            return CreateImmutableClass(recordDecl, context);
+        }
+
         // 如果目标 Java 版本支持 record (Java 14+)，使用 record
         var useRecord = context.Options.UseRecords &&
                        context.Options.TargetJavaVersion >= JavaVersion.Java25;
@@ -45,16 +53,20 @@ public class RecordTransformer : ITypeTransformer
 
     private JavaTypeDeclaration CreateJavaRecord(RecordDeclarationSyntax recordDecl, ConversionContext context)
     {
+        var modifiers = ConvertModifiers(recordDecl.Modifiers);
+        // Java records are implicitly final — strip redundant Final flag from sealed keyword
+        modifiers &= ~JavaModifiers.Final;
+
         var javaRecord = new JavaClassDeclaration
         {
             Name = recordDecl.Identifier.Text,
             IsRecord = true,
-            Modifiers = ConvertModifiers(recordDecl.Modifiers)
+            Modifiers = modifiers
         };
         var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
         javaRecord.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
-        // Fix 1: Populate positional record component list so Java record header includes (Type name, ...)
+        // Populate positional record component list so Java record header includes (Type name, ...)
         var positionalNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
@@ -62,7 +74,7 @@ public class RecordTransformer : ITypeTransformer
             var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
                 ? context.MapType(typeInfo.Value.Type)
                 : "Object";
-            var componentName = ToCamelCase(param.Identifier.Text);
+            var componentName = JavaNaming.EscapeJavaKeyword(ToCamelCase(param.Identifier.Text));
             javaRecord.RecordComponents.Add(new JavaRecordComponent(javaType, componentName));
             positionalNames.Add(param.Identifier.Text);
             positionalNames.Add(componentName);
@@ -74,9 +86,17 @@ public class RecordTransformer : ITypeTransformer
             foreach (var baseType in recordDecl.BaseList.Types)
             {
                 var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
+                if (typeInfo.HasValue && typeInfo.Value.Type != null)
                 {
-                    javaRecord.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                    if (typeInfo.Value.Type.TypeKind == TypeKind.Interface)
+                    {
+                        javaRecord.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                    }
+                    else if (typeInfo.Value.Type.TypeKind == TypeKind.Class
+                             && typeInfo.Value.Type.SpecialType != SpecialType.System_Object)
+                    {
+                        javaRecord.ExtendedType = context.MapType(typeInfo.Value.Type);
+                    }
                 }
             }
         }
@@ -98,10 +118,15 @@ public class RecordTransformer : ITypeTransformer
 
     private JavaTypeDeclaration CreateImmutableClass(RecordDeclarationSyntax recordDecl, ConversionContext context)
     {
+        var classModifiers = ConvertModifiers(recordDecl.Modifiers);
+        // Non-abstract records are implicitly sealed in C# → final in Java
+        if ((classModifiers & JavaModifiers.Abstract) == 0)
+            classModifiers |= JavaModifiers.Final;
+
         var javaClass = new JavaClassDeclaration
         {
             Name = recordDecl.Identifier.Text,
-            Modifiers = ConvertModifiers(recordDecl.Modifiers) | JavaModifiers.Final
+            Modifiers = classModifiers
         };
         var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
         javaClass.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
@@ -115,32 +140,46 @@ public class RecordTransformer : ITypeTransformer
             var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
             var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
             var paramName = param.Identifier.Text;
+            var fieldName = JavaNaming.EscapeJavaKeyword(ToCamelCase(paramName));
 
             // 创建 final 字段
             fields.Add(new JavaFieldDeclaration
             {
                 Type = javaType,
-                Name = ToCamelCase(paramName),
+                Name = fieldName,
                 Modifiers = JavaModifiers.Private | JavaModifiers.Final
             });
 
-            constructorParams.Add(new JavaParameter(javaType, ToCamelCase(paramName)));
+            constructorParams.Add(new JavaParameter(javaType, fieldName));
         }
 
         javaClass.Fields.AddRange(fields);
 
-        // Fix 3: collect base constructor arguments from the record's primary constructor base type
+        // Collect base constructor arguments from the record's primary constructor base type
         // e.g. record Derived(int A) : Base(A) → super(a) in constructor
         ArgumentListSyntax? baseCtorArgs = null;
         if (recordDecl.BaseList != null)
         {
             foreach (var baseType in recordDecl.BaseList.Types)
             {
+                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
+                if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                {
+                    if (typeInfo.Value.Type.TypeKind == TypeKind.Interface)
+                    {
+                        javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                    }
+                    else if (typeInfo.Value.Type.TypeKind == TypeKind.Class
+                             && typeInfo.Value.Type.SpecialType != SpecialType.System_Object)
+                    {
+                        javaClass.ExtendedType = context.MapType(typeInfo.Value.Type);
+                    }
+                }
+
                 if (baseType is PrimaryConstructorBaseTypeSyntax primaryBase &&
                     primaryBase.ArgumentList?.Arguments.Count > 0)
                 {
                     baseCtorArgs = primaryBase.ArgumentList;
-                    break;
                 }
             }
         }
@@ -249,8 +288,11 @@ public class RecordTransformer : ITypeTransformer
         {
             var comparisons = string.Join(" &&\n           ", fields.Select(f =>
             {
+                bool isDeepArray = f.Type.Contains("[][]");
                 bool isArray = f.Type.EndsWith("[]");
-                return isArray
+                return isDeepArray
+                    ? $"java.util.Arrays.deepEquals(this.{f.Name}, other.{f.Name})"
+                    : isArray
                     ? $"java.util.Arrays.equals(this.{f.Name}, other.{f.Name})"
                     : $"Objects.equals(this.{f.Name}, other.{f.Name})";
             }));
@@ -285,7 +327,9 @@ public class RecordTransformer : ITypeTransformer
             var sb = new System.Text.StringBuilder("int result = 1;\n");
             foreach (var f in fields)
             {
-                if (f.Type.EndsWith("[]"))
+                if (f.Type.Contains("[][]"))
+                    sb.Append($"result = 31 * result + java.util.Arrays.deepHashCode({f.Name});\n");
+                else if (f.Type.EndsWith("[]"))
                     sb.Append($"result = 31 * result + java.util.Arrays.hashCode({f.Name});\n");
                 else
                     sb.Append($"result = 31 * result + Objects.hashCode({f.Name});\n");
@@ -314,19 +358,27 @@ public class RecordTransformer : ITypeTransformer
         });
     }
 
+    private static readonly TransformerFactory _factory = new();
+
     private void ProcessRecordMember(MemberDeclarationSyntax member, JavaClassDeclaration javaRecord, ConversionContext context, HashSet<string> positionalNames)
     {
-        // 处理 record 中的附加方法等
-        var factory = new Transformers.TransformerFactory();
-
         switch (member)
         {
+            case ConstructorDeclarationSyntax ctorDecl:
+                var ctorTransformer = _factory.CreateConstructorTransformer();
+                var ctorResult = ctorTransformer.Transform(ctorDecl, context);
+                if (ctorResult is JavaConstructorDeclaration javaCtor)
+                    javaRecord.Constructors.Add(javaCtor);
+                else if (ctorResult is JavaStaticInitializerBlock staticBlock)
+                    javaRecord.StaticInitializers.Add(staticBlock);
+                break;
+
             case PropertyDeclarationSyntax propDecl:
                 // Fix 5: skip properties whose name matches a positional component (getter already auto-generated)
                 if (positionalNames.Contains(propDecl.Identifier.Text) ||
                     positionalNames.Contains(ToCamelCase(propDecl.Identifier.Text)))
                     break;
-                var propTransformer = factory.CreatePropertyTransformer();
+                var propTransformer = _factory.CreatePropertyTransformer();
                 var props = propTransformer.Transform(propDecl, context);
                 if (props is JavaMemberCollection collection)
                 {
@@ -347,7 +399,7 @@ public class RecordTransformer : ITypeTransformer
                 break;
 
             case MethodDeclarationSyntax methodDecl:
-                var methodTransformer = factory.CreateMethodTransformer();
+                var methodTransformer = _factory.CreateMethodTransformer();
                 var method = methodTransformer.Transform(methodDecl, context);
                 if (method is JavaMethodDeclaration javaMethod)
                 {
@@ -356,14 +408,14 @@ public class RecordTransformer : ITypeTransformer
                 break;
 
             case OperatorDeclarationSyntax opDecl:
-                var opTransformer = factory.CreateOperatorTransformer();
+                var opTransformer = _factory.CreateOperatorTransformer();
                 var opMethod = opTransformer.Transform(opDecl, context);
                 if (opMethod != null)
                     javaRecord.Methods.Add(opMethod);
                 break;
 
             case ConversionOperatorDeclarationSyntax convDecl:
-                var convOpTransformer = factory.CreateOperatorTransformer();
+                var convOpTransformer = _factory.CreateOperatorTransformer();
                 var convOpMethod = convOpTransformer.TransformConversion(convDecl, context);
                 if (convOpMethod != null)
                     javaRecord.Methods.Add(convOpMethod);
@@ -371,7 +423,7 @@ public class RecordTransformer : ITypeTransformer
         }
     }
 
-    // Fix 4: record struct has value semantics — produce a mutable Java class (non-final fields, all-args ctor, no generated equals/hashCode)
+    // Record struct has value semantics — produce a mutable Java class (non-final fields, all-args ctor)
     private JavaTypeDeclaration CreateMutableRecordStruct(RecordDeclarationSyntax recordDecl, ConversionContext context)
     {
         var javaClass = new JavaClassDeclaration
@@ -382,6 +434,22 @@ public class RecordTransformer : ITypeTransformer
         var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
         javaClass.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
+        // Handle interface implementations
+        if (recordDecl.BaseList != null)
+        {
+            foreach (var baseType in recordDecl.BaseList.Types)
+            {
+                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
+                if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
+                {
+                    // Skip IEquatable<T> — Java has no direct equivalent
+                    if (typeInfo.Value.Type.OriginalDefinition.ToDisplayString() == "System.IEquatable<T>")
+                        continue;
+                    javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                }
+            }
+        }
+
         var constructorParams = new List<JavaParameter>();
 
         foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
@@ -390,7 +458,7 @@ public class RecordTransformer : ITypeTransformer
             var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
                 ? context.MapType(typeInfo.Value.Type)
                 : "Object";
-            var paramName = ToCamelCase(param.Identifier.Text);
+            var paramName = JavaNaming.EscapeJavaKeyword(ToCamelCase(param.Identifier.Text));
 
             // Mutable public fields (no Final modifier) for record struct
             javaClass.Fields.Add(new JavaFieldDeclaration
@@ -403,7 +471,7 @@ public class RecordTransformer : ITypeTransformer
             constructorParams.Add(new JavaParameter(javaType, paramName));
         }
 
-        // All-args constructor
+        // All-args constructor + default no-arg constructor for struct semantics
         if (constructorParams.Count > 0)
         {
             var ctor = new JavaConstructorDeclaration
@@ -415,6 +483,15 @@ public class RecordTransformer : ITypeTransformer
             foreach (var param in constructorParams)
                 ctor.Parameters.Add(param);
             javaClass.Constructors.Add(ctor);
+
+            // Default no-arg constructor (C# record structs always have one)
+            var defaultCtor = new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Public,
+                Body = GenerateDefaultConstructorBody(javaClass.Fields)
+            };
+            javaClass.Constructors.Add(defaultCtor);
         }
 
         // Process extra members (no positional names to skip since fields are public, not as property accessors)
@@ -424,5 +501,23 @@ public class RecordTransformer : ITypeTransformer
         }
 
         return javaClass;
+    }
+
+    private static string GenerateDefaultConstructorBody(List<JavaFieldDeclaration> fields)
+    {
+        var assignments = string.Join("\n        ", fields.Select(f =>
+        {
+            var defaultValue = f.Type switch
+            {
+                "int" or "long" or "short" or "byte" => "0",
+                "float" => "0.0f",
+                "double" => "0.0",
+                "char" => "'\\0'",
+                "boolean" => "false",
+                _ => "null"
+            };
+            return $"this.{f.Name} = {defaultValue};";
+        }));
+        return assignments;
     }
 }

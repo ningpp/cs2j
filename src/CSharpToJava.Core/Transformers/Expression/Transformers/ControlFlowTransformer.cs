@@ -243,24 +243,72 @@ public class ControlFlowTransformer : IExpressionTransformer
         return $"({expr} instanceof {mappedType} {designation})";
     }
 
-    // Fix 1: with expression — clone source and apply property setters as pre-statements.
+    // with expression — for Java records, build a new record constructor call with overridden fields;
+    // for non-record types (immutable class / record struct), fall back to clone + setters.
     private string TransformWithExpression(WithExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
         var sourceExpr = facade.Transform(node.Expression, context);
-        var tmpVar = context.GenerateSyntheticName("__withCopy");
-        context.AddPreStatement($"var {tmpVar} = {sourceExpr}.clone();");
+
+        // Collect the property overrides from the initializer
+        var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var init in node.Initializer.Expressions)
         {
             if (init is AssignmentExpressionSyntax assignment)
             {
                 var propName = assignment.Left.ToString();
                 var propValue = facade.Transform(assignment.Right, context);
+                overrides[propName] = propValue;
+            }
+        }
+
+        // Check if the source type is a record (and we're emitting Java records)
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Expression);
+        var namedType = typeInfo?.Type as INamedTypeSymbol;
+        bool isJavaRecord = namedType?.IsRecord == true
+                            && context.Options.UseRecords
+                            && context.Options.TargetJavaVersion >= JavaVersion.Java25
+                            && !namedType.IsAbstract;
+
+        if (isJavaRecord && namedType != null)
+        {
+            // Java records: build new constructor call with overridden components
+            // e.g. p with { X = 5 } → new Point(5, p.y())
+            var typeName = context.MapType(namedType);
+            var args = new List<string>();
+            foreach (var member in namedType.GetMembers())
+            {
+                if (member is IPropertySymbol prop && prop.IsReadOnly
+                    && !prop.IsStatic && !prop.IsIndexer
+                    && namedType.Constructors.Any(c => c.Parameters.Any(p =>
+                        string.Equals(p.Name, prop.Name, StringComparison.OrdinalIgnoreCase))))
+                {
+                    if (overrides.TryGetValue(prop.Name, out var overrideValue))
+                    {
+                        args.Add(overrideValue);
+                    }
+                    else
+                    {
+                        // Access via record accessor method (camelCase name)
+                        var accessorName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
+                        args.Add($"{sourceExpr}.{accessorName}()");
+                    }
+                }
+            }
+            return $"new {typeName}({string.Join(", ", args)})";
+        }
+        else
+        {
+            // Non-record path: clone + setters
+            var tmpVar = context.GenerateSyntheticName("__withCopy");
+            context.AddPreStatement($"var {tmpVar} = {sourceExpr}.clone();");
+            foreach (var (propName, propValue) in overrides)
+            {
                 var setterName = $"set{char.ToUpperInvariant(propName[0])}{propName.Substring(1)}";
                 context.AddPreStatement($"{tmpVar}.{setterName}({propValue});");
             }
+            return tmpVar;
         }
-        return tmpVar;
     }
 
     // Fix 2: range expression — emit Arrays.copyOfRange for the standalone case.
