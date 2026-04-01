@@ -2328,7 +2328,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     // Two-arg: SelectMany(collectionSelector, resultSelector)
                     var collArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                     var resArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                    return $"{receiver}.flatMap({collArg}).map({resArg})";
+                    // Detect if receiver is a primitive stream (IntStream) that needs .boxed()
+                    // before .flatMap() — otherwise flatMap expects IntFunction<IntStream>.
+                    var twoArgBoxed = DetectReceiverPrimitiveStreamCategory(memberAccess, receiver, context) != ""
+                        ? ".boxed()" : "";
+                    return $"{receiver}{twoArgBoxed}.flatMap({collArg}).map({resArg})";
                 }
                 if (node.ArgumentList.Arguments.Count == 1)
                 {
