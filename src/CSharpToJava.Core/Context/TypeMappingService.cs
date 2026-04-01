@@ -224,6 +224,18 @@ public class TypeMappingService
 
             var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t)));
 
+            // IGrouping<K, V> maps to Map.Entry<K, List<V>> because Collectors.groupingBy()
+            // groups element values into List<V>. Without this, the type arg V would not be
+            // wrapped and for-each variable types would be Map.Entry<K, V> instead of Map.Entry<K, List<V>>.
+            if (fullQualifiedName == "System.Linq.IGrouping`2"
+                || configKey == "System.Linq.IGrouping`2")
+            {
+                var keyArg = MapTypeForGeneric(namedType.TypeArguments[0]);
+                var valueArg = MapTypeForGeneric(namedType.TypeArguments[1]);
+                AddImport("java.util.List");
+                typeArgs = $"{keyArg}, List<{valueArg}>";
+            }
+
             var tickIndex = baseType.IndexOf('`');
             if (tickIndex > 0)
                 baseType = baseType.Substring(0, tickIndex);
