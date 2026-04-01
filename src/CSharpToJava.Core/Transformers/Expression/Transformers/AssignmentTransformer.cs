@@ -282,6 +282,32 @@ public class AssignmentTransformer : IExpressionTransformer
             });
         }
 
+        // Fix 7: Compound assignment on indexer (e.g. dict[key] += value → dict.put(key, dict.get(key) + value))
+        // Java does not support compound-assignment on method-call results.
+        if (op != "=" && leftNode is ElementAccessExpressionSyntax compoundEla)
+        {
+            var compoundElaContainerType = context.SemanticModel?.GetTypeInfo(compoundEla.Expression).Type;
+            bool isCompoundArray = compoundElaContainerType is IArrayTypeSymbol;
+            if (!isCompoundArray && compoundEla.ArgumentList.Arguments.Count == 1)
+            {
+                var target = facade.Transform(compoundEla.Expression, context);
+                var arg0 = facade.Transform(compoundEla.ArgumentList.Arguments[0].Expression, context);
+                var rhs = facade.Transform(rightNode, context);
+                string baseOp = op[..^1]; // "+=" → "+", "-=" → "-", "*=" → "*", etc.
+
+                bool isDictLike = compoundElaContainerType is INamedTypeSymbol cn && IsDictionaryLikeContainer(cn);
+                if (isDictLike)
+                {
+                    return $"{target}.put({arg0}, {target}.get({arg0}) {baseOp} {rhs})";
+                }
+                else
+                {
+                    // List-like: set(idx, get(idx) op rhs)
+                    return $"{target}.set({arg0}, {target}.get({arg0}) {baseOp} {rhs})";
+                }
+            }
+        }
+
         // Handle bare-identifier property assignment (e.g., Demo = value; → setDemo(value);)
         if (op == "=" && leftNode is IdentifierNameSyntax propIdentifier)
         {

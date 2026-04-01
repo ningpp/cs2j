@@ -196,6 +196,7 @@ public class UnaryExpressionTransformer : IExpressionTransformer
 
     private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        // Statement context: rewrite property/indexer in place (no return value needed)
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
@@ -206,6 +207,24 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
         {
             return indexerRewrite;
+        }
+
+        // Expression context: hoist property increment to pre-statement, return old value
+        if (node.Parent is not ExpressionStatementSyntax
+            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
+        {
+            // propRewrite = "recv.setter(recv.getter() ± 1)" — we need old value
+            // Hoist: var _t = recv.getter(); recv.setter(_t ± 1); return _t;
+            if (TryBuildPropertyHoistForPostfix(node.Operand, op, context, out var hoisted))
+                return hoisted;
+        }
+
+        // Expression context: hoist indexer increment to pre-statement, return old value
+        if (node.Parent is not ExpressionStatementSyntax
+            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var idxRewrite))
+        {
+            if (TryBuildIndexerHoistForPostfix(node.Operand, op, context, out var hoisted))
+                return hoisted;
         }
 
         // Check if this is a user-defined postfix operator (++, --)
@@ -247,6 +266,7 @@ public class UnaryExpressionTransformer : IExpressionTransformer
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        // Statement context: rewrite property/indexer in place
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
@@ -257,6 +277,22 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
         {
             return indexerRewrite;
+        }
+
+        // Expression context: hoist property increment to pre-statement, return new value
+        if (node.Parent is not ExpressionStatementSyntax
+            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
+        {
+            if (TryBuildPropertyHoistForPrefix(node.Operand, op, context, out var hoisted))
+                return hoisted;
+        }
+
+        // Expression context: hoist indexer increment to pre-statement, return new value
+        if (node.Parent is not ExpressionStatementSyntax
+            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var idxRewrite))
+        {
+            if (TryBuildIndexerHoistForPrefix(node.Operand, op, context, out var hoisted))
+                return hoisted;
         }
 
         // Check if this is a user-defined prefix operator (++, --)
@@ -380,5 +416,156 @@ public class UnaryExpressionTransformer : IExpressionTransformer
         return type.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
             "System.Collections.Generic.IList<T>"
             or "System.Collections.Generic.IReadOnlyList<T>");
+    }
+
+    /// <summary>
+    /// Hoists a postfix property increment into pre-statements.
+    /// Returns the old value (pre-increment) as the expression result.
+    /// Pattern: var _t = getter(); setter(_t ± 1); → returns _t
+    /// </summary>
+    private static bool TryBuildPropertyHoistForPostfix(
+        ExpressionSyntax operand, string op, ConversionContext context, out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null) return false;
+
+        var symbol = context.SemanticModel.GetSymbolInfo(operand).Symbol as IPropertySymbol;
+        if (symbol == null || symbol.SetMethod == null) return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var propName = symbol.Name;
+        var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
+        var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
+        var tmp = context.GenerateSyntheticName("_prev");
+
+        if (operand is MemberAccessExpressionSyntax ma)
+        {
+            var recv = facade.Transform(ma.Expression, context);
+            context.AddPreStatement($"var {tmp} = {recv}.{getter}();");
+            context.AddPreStatement($"{recv}.{setter}({tmp} {delta});");
+            result = tmp;
+            return true;
+        }
+        if (operand is IdentifierNameSyntax)
+        {
+            context.AddPreStatement($"var {tmp} = {getter}();");
+            context.AddPreStatement($"{setter}({tmp} {delta});");
+            result = tmp;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Hoists a prefix property increment into pre-statements.
+    /// Returns the new value (post-increment) as the expression result.
+    /// Pattern: setter(getter() ± 1); var _t = getter(); → returns _t
+    /// </summary>
+    private static bool TryBuildPropertyHoistForPrefix(
+        ExpressionSyntax operand, string op, ConversionContext context, out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null) return false;
+
+        var symbol = context.SemanticModel.GetSymbolInfo(operand).Symbol as IPropertySymbol;
+        if (symbol == null || symbol.SetMethod == null) return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var propName = symbol.Name;
+        var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
+        var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
+        var tmp = context.GenerateSyntheticName("_inc");
+
+        if (operand is MemberAccessExpressionSyntax ma)
+        {
+            var recv = facade.Transform(ma.Expression, context);
+            context.AddPreStatement($"var {tmp} = {recv}.{getter}() {delta};");
+            context.AddPreStatement($"{recv}.{setter}({tmp});");
+            result = tmp;
+            return true;
+        }
+        if (operand is IdentifierNameSyntax)
+        {
+            context.AddPreStatement($"var {tmp} = {getter}() {delta};");
+            context.AddPreStatement($"{setter}({tmp});");
+            result = tmp;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Hoists a postfix indexer increment into pre-statements.
+    /// Returns the old value (pre-increment) as the expression result.
+    /// Pattern: var _t = map.get(key); map.put(key, _t ± 1); → returns _t
+    /// </summary>
+    private static bool TryBuildIndexerHoistForPostfix(
+        ExpressionSyntax operand, string op, ConversionContext context, out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null || operand is not ElementAccessExpressionSyntax ela)
+            return false;
+        if (ela.ArgumentList.Arguments.Count != 1) return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var target = facade.Transform(ela.Expression, context);
+        var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
+        var containerType = context.SemanticModel.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
+        var tmp = context.GenerateSyntheticName("_prev");
+
+        if (containerType != null && IsDictionaryLike(containerType))
+        {
+            context.AddPreStatement($"var {tmp} = {target}.get({key});");
+            context.AddPreStatement($"{target}.put({key}, {tmp} {delta});");
+            result = tmp;
+            return true;
+        }
+        if (containerType != null && IsListLike(containerType))
+        {
+            context.AddPreStatement($"var {tmp} = {target}.get({key});");
+            context.AddPreStatement($"{target}.set({key}, {tmp} {delta});");
+            result = tmp;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Hoists a prefix indexer increment into pre-statements.
+    /// Returns the new value (post-increment) as the expression result.
+    /// </summary>
+    private static bool TryBuildIndexerHoistForPrefix(
+        ExpressionSyntax operand, string op, ConversionContext context, out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null || operand is not ElementAccessExpressionSyntax ela)
+            return false;
+        if (ela.ArgumentList.Arguments.Count != 1) return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var target = facade.Transform(ela.Expression, context);
+        var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
+        var containerType = context.SemanticModel.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
+        var tmp = context.GenerateSyntheticName("_inc");
+
+        if (containerType != null && IsDictionaryLike(containerType))
+        {
+            context.AddPreStatement($"var {tmp} = {target}.get({key}) {delta};");
+            context.AddPreStatement($"{target}.put({key}, {tmp});");
+            result = tmp;
+            return true;
+        }
+        if (containerType != null && IsListLike(containerType))
+        {
+            context.AddPreStatement($"var {tmp} = {target}.get({key}) {delta};");
+            context.AddPreStatement($"{target}.set({key}, {tmp});");
+            result = tmp;
+            return true;
+        }
+        return false;
     }
 }
