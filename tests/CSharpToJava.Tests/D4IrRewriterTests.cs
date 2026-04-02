@@ -811,6 +811,347 @@ public class D4IrRewriterTests
     }
 
     // ═══════════════════════════════════════════════════════════
+    //  StringConcatRewriter
+    // ═══════════════════════════════════════════════════════════
+
+    [Fact]
+    public void StringConcat_StringConcat_BecomesStringHelperConcat()
+    {
+        var rewriter = new StringConcatRewriter();
+
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("String"),
+            MethodName = "Concat",
+            Arguments = { new JavaLiteralExpression("\"a\""), new JavaLiteralExpression("\"b\"") },
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("StringHelper", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Equal("concat", call.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void StringConcat_SystemStringConcat_BecomesStringHelperConcat()
+    {
+        var rewriter = new StringConcatRewriter();
+
+        // System.String.Concat(a, b) — member access target
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaMemberAccessExpression
+            {
+                Target = new JavaIdentifierExpression("System"),
+                MemberName = "String",
+            },
+            MethodName = "Concat",
+            Arguments = { new JavaLiteralExpression("\"hello\"") },
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("StringHelper", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Equal("concat", call.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void StringConcat_RegularStringMethod_Unchanged()
+    {
+        var rewriter = new StringConcatRewriter();
+
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("String"),
+            MethodName = "valueOf",
+            Arguments = { new JavaLiteralExpression("42") },
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("String", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Equal("valueOf", call.MethodName);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void StringConcat_InFullCompilationUnit_Works()
+    {
+        var rewriter = new StringConcatRewriter();
+        var cu = BuildCompilationUnit(
+            new JavaExpressionStatement
+            {
+                Expression = new JavaMethodCallExpression
+                {
+                    Target = new JavaIdentifierExpression("String"),
+                    MethodName = "Concat",
+                    Arguments = { new JavaLiteralExpression("\"x\""), new JavaLiteralExpression("\"y\"") },
+                },
+            });
+
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal(1, rewriter.RewriteCount);
+
+        var code = cu.ToString("");
+        Assert.Contains("StringHelper.concat", code);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  EventHandlerLambdaRewriter
+    // ═══════════════════════════════════════════════════════════
+
+    [Fact]
+    public void EventHandler_ConsumerWithTwoParamLambda_BecomesBiConsumer()
+    {
+        var rewriter = new EventHandlerLambdaRewriter();
+
+        var varDecl = new JavaVariableDeclarationStatement
+        {
+            Type = "Consumer<ProgressChangedEventArgs>",
+            Name = "handler",
+            Initializer = new JavaLambdaExpression
+            {
+                Parameters = { "sender", "e" },
+                ExpressionBody = new JavaMethodCallExpression
+                {
+                    Target = new JavaIdentifierExpression("System"),
+                    MethodName = "out",
+                },
+            },
+        };
+
+        rewriter.VisitVariableDeclarationStatement(varDecl);
+
+        Assert.Equal("BiConsumer<Object, ProgressChangedEventArgs>", varDecl.Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void EventHandler_ConsumerWithOneParamLambda_Unchanged()
+    {
+        var rewriter = new EventHandlerLambdaRewriter();
+
+        var varDecl = new JavaVariableDeclarationStatement
+        {
+            Type = "Consumer<String>",
+            Name = "handler",
+            Initializer = new JavaLambdaExpression
+            {
+                Parameters = { "s" },
+                ExpressionBody = new JavaMethodCallExpression
+                {
+                    Target = new JavaIdentifierExpression("System.out"),
+                    MethodName = "println",
+                    Arguments = { new JavaIdentifierExpression("s") },
+                },
+            },
+        };
+
+        rewriter.VisitVariableDeclarationStatement(varDecl);
+
+        Assert.Equal("Consumer<String>", varDecl.Type);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void EventHandler_BiConsumerWithTwoParamLambda_Unchanged()
+    {
+        var rewriter = new EventHandlerLambdaRewriter();
+
+        // Already BiConsumer — should not be rewritten
+        var varDecl = new JavaVariableDeclarationStatement
+        {
+            Type = "BiConsumer<Object, EventArgs>",
+            Name = "handler",
+            Initializer = new JavaLambdaExpression
+            {
+                Parameters = { "sender", "e" },
+                ExpressionBody = new JavaLiteralExpression("null"),
+            },
+        };
+
+        rewriter.VisitVariableDeclarationStatement(varDecl);
+
+        Assert.Equal("BiConsumer<Object, EventArgs>", varDecl.Type);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void EventHandler_NonLambdaInitializer_Unchanged()
+    {
+        var rewriter = new EventHandlerLambdaRewriter();
+
+        var varDecl = new JavaVariableDeclarationStatement
+        {
+            Type = "Consumer<EventArgs>",
+            Name = "handler",
+            Initializer = new JavaIdentifierExpression("someHandler"),
+        };
+
+        rewriter.VisitVariableDeclarationStatement(varDecl);
+
+        Assert.Equal("Consumer<EventArgs>", varDecl.Type);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ExceptionApiRewriter
+    // ═══════════════════════════════════════════════════════════
+
+    [Fact]
+    public void ExceptionApi_GetInnerException_BecomesCause()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("ex"),
+            MethodName = "getInnerException",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("getCause", call.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ExceptionApi_InnerExceptionMemberAccess_BecomesCauseCall()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var memberAccess = new JavaMemberAccessExpression
+        {
+            Target = new JavaIdentifierExpression("ex"),
+            MemberName = "InnerException",
+        };
+
+        var result = rewriter.VisitExpression(memberAccess);
+
+        Assert.IsType<JavaMethodCallExpression>(result);
+        var call = (JavaMethodCallExpression)result;
+        Assert.Equal("getCause", call.MethodName);
+        Assert.Equal("ex", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ExceptionApi_NewApplicationException_BecomesRuntimeException()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var newExpr = new JavaNewExpression
+        {
+            Type = "ApplicationException",
+            Arguments = { new JavaLiteralExpression("\"error\"") },
+        };
+
+        rewriter.VisitNewExpression(newExpr);
+
+        Assert.Equal("RuntimeException", newExpr.Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ExceptionApi_NewInvalidOperationException_BecomesIllegalState()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var newExpr = new JavaNewExpression
+        {
+            Type = "InvalidOperationException",
+            Arguments = { new JavaLiteralExpression("\"msg\"") },
+        };
+
+        rewriter.VisitNewExpression(newExpr);
+
+        Assert.Equal("IllegalStateException", newExpr.Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ExceptionApi_NewArgumentNullException_BecomesNullPointerException()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var newExpr = new JavaNewExpression
+        {
+            Type = "ArgumentNullException",
+            Arguments = { new JavaLiteralExpression("\"param\"") },
+        };
+
+        rewriter.VisitNewExpression(newExpr);
+
+        Assert.Equal("NullPointerException", newExpr.Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ExceptionApi_CatchClause_ExceptionTypeReplaced()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var tryCatch = new JavaTryCatchStatement
+        {
+            TryBody = new JavaBlockStatement(),
+        };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "ApplicationException",
+            VariableName = "ex",
+            Body = new JavaBlockStatement(),
+        });
+
+        rewriter.VisitTryCatchStatement(tryCatch);
+
+        Assert.Equal("RuntimeException", tryCatch.CatchClauses[0].ExceptionType);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ExceptionApi_RegularException_Unchanged()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var newExpr = new JavaNewExpression
+        {
+            Type = "RuntimeException",
+            Arguments = { new JavaLiteralExpression("\"error\"") },
+        };
+
+        rewriter.VisitNewExpression(newExpr);
+
+        Assert.Equal("RuntimeException", newExpr.Type);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ExceptionApi_NotImplementedException_BecomesUnsupportedOperation()
+    {
+        var rewriter = new ExceptionApiRewriter();
+
+        var throwStmt = new JavaThrowStatement
+        {
+            Expression = new JavaNewExpression
+            {
+                Type = "NotImplementedException",
+            },
+        };
+
+        var cu = BuildCompilationUnit(throwStmt);
+        rewriter.VisitCompilationUnit(cu);
+
+        // Find the throw statement and check the rewritten type
+        var method = ((JavaClassDeclaration)cu.TypeDeclarations[0]).Methods[0];
+        var rewrittenThrow = (JavaThrowStatement)method.StructuredBody!.Statements[0];
+        var rewrittenNew = (JavaNewExpression)rewrittenThrow.Expression;
+        Assert.Equal("UnsupportedOperationException", rewrittenNew.Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    // ═══════════════════════════════════════════════════════════
     //  Integration: all rewriters run in pipeline
     // ═══════════════════════════════════════════════════════════
 
@@ -846,6 +1187,9 @@ public class D4IrRewriterTests
         new ArrayIterableConversionRewriter().VisitCompilationUnit(cu);
         new CollectStreamRoundtripRewriter().VisitCompilationUnit(cu);
         new StopwatchApiRewriter().VisitCompilationUnit(cu);
+        new StringConcatRewriter().VisitCompilationUnit(cu);
+        new EventHandlerLambdaRewriter().VisitCompilationUnit(cu);
+        new ExceptionApiRewriter().VisitCompilationUnit(cu);
 
         // Should generate valid code
         var code = cu.ToString("");
