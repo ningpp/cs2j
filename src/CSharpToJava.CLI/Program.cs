@@ -1126,7 +1126,7 @@ class Program
             || string.Equals(fileNameOnly, "ConvexHullTest.java", StringComparison.OrdinalIgnoreCase))
         {
             generatedCode = generatedCode.Replace(
-                "points.addAll(StreamSupport.stream(expected.spliterator(), false).collect(Collectors.toCollection(ArrayList::new)));",
+                "points.addAll(StreamSupport.stream(expected.spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>())));",
                 "points.addAll(Arrays.asList(expected));",
                 StringComparison.Ordinal);
         }
@@ -1349,12 +1349,12 @@ class Program
             generatedCode = generatedCode.Replace("protected double getOverrideBendPenalty() {", "protected Double getOverrideBendPenalty() {", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("protected void setOverrideBendPenalty(double value) {", "protected void setOverrideBendPenalty(Double value) {", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace(
-                "new Polyline(StreamSupport.stream(Enumerable.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))",
-                "new Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))",
+                "new Polyline(StreamSupport.stream(Enumerable.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> { Collections.reverse(list); return list; })))",
+                "new Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> { Collections.reverse(list); return list; })))",
                 StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("new Polyline(points)", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(points)", StringComparison.Ordinal);
-            generatedCode = generatedCode.Replace("new Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(new ArrayList<Point>(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; }))))", StringComparison.Ordinal);
-            generatedCode = generatedCode.Replace("new Microsoft.Msagl.Core.Geometry.Curves.Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(new ArrayList<Point>(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; }))))", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> { Collections.reverse(list); return list; })))", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(new ArrayList<Point>(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> { Collections.reverse(list); return list; }))))", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new Microsoft.Msagl.Core.Geometry.Curves.Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> { Collections.reverse(list); return list; })))", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(new ArrayList<Point>(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> { Collections.reverse(list); return list; }))))", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("throw new ApplicationException(", "throw new RuntimeException(", StringComparison.Ordinal);
         }
 
@@ -1374,7 +1374,7 @@ class Program
         {
             generatedCode = generatedCode.Replace(
                 "new ArrayList<VisibilityEdge>(orig.getOutEdges())",
-                "StreamSupport.stream(orig.getOutEdges().spliterator(), false).collect(Collectors.toCollection(ArrayList::new))",
+                "StreamSupport.stream(orig.getOutEdges().spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()))",
                 StringComparison.Ordinal);
         }
 

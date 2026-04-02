@@ -812,7 +812,7 @@ class Sample {
         var code = r.GeneratedCode ?? "";
         Assert.Contains("flatMap(", code);
         // Should not have .collect() called on a non-stream type
-        Assert.DoesNotContain(".collect(Collectors.toCollection(ArrayList::new)).collect(", code);
+        Assert.DoesNotContain(".collect(Collectors.toCollection(() -> new ArrayList<>())).collect(", code);
     }
 
     // Error 15c: GroupBy then access values should not call .stream() on scalar

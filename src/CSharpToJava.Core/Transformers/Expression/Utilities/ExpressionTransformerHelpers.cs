@@ -606,13 +606,13 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
-    /// Strips ".collect(Collectors.toCollection(ArrayList::new))" or similar from a stream expression.
+    /// Strips ".collect(Collectors.toCollection(() -> new ArrayList<>()))" or similar from a stream expression.
     /// </summary>
     public static string StripCollect(string target)
     {
         var patterns = new[]
         {
-            ".collect(Collectors.toCollection(ArrayList::new))",
+            ".collect(Collectors.toCollection(() -> new ArrayList<>()))",
             ".collect(Collectors.toSet())",
             ".collect(Collectors.toCollection(LinkedList::new))",
             ".collect(Collectors.toCollection(HashSet::new))",
@@ -643,7 +643,7 @@ public static class ExpressionTransformerHelpers
     /// </summary>
     public static bool IsAlreadyCollectedCore(string t)
     {
-        return t.Contains(".collect(Collectors.toCollection(ArrayList::new))") ||
+        return t.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))") ||
                t.Contains(".collect(Collectors.toSet())") ||
                t.Contains(".collect(Collectors.toCollection(LinkedList::new))") ||
                t.Contains(".collect(Collectors.toCollection(HashSet::new))") ||
@@ -775,7 +775,7 @@ public static class ExpressionTransformerHelpers
             context.AddImport("java.util.stream.Collectors");
             context.AddImport("java.util.ArrayList");
             var stream = BuildArrayStreamExpression(expr, arrayType, context, boxed: true);
-            return $"{stream}.collect(Collectors.toCollection(ArrayList::new))";
+            return $"{stream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
         }
 
         context.AddImport("java.util.Arrays");

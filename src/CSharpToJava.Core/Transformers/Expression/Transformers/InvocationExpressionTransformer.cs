@@ -1123,13 +1123,24 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             && node.ArgumentList.Arguments.Count == 2)
         {
             var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            var outHolderArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var outArg = node.ArgumentList.Arguments[1];
+            var outHolderArg = facade.Transform(outArg.Expression, context);
             if (IsSimpleIdentifier(outHolderArg))
             {
-                var assignTarget = outHolderArg.StartsWith("_", StringComparison.Ordinal)
-                    && outHolderArg.EndsWith("Holder", StringComparison.Ordinal)
-                    ? $"{outHolderArg}.value"
-                    : outHolderArg;
+                // Detect whether the out argument is a holder variable (needs .value access).
+                // This can be: (a) an explicitly-allocated holder (_xxxHolder), or
+                // (b) a method parameter that was converted from C# out/ref to a Java holder type.
+                bool isHolder = outHolderArg.StartsWith("_", StringComparison.Ordinal)
+                    && outHolderArg.EndsWith("Holder", StringComparison.Ordinal);
+                if (!isHolder && context.SemanticModel != null)
+                {
+                    var outArgSymbol = context.SemanticModel.GetSymbolInfo(outArg.Expression).Symbol;
+                    if (outArgSymbol is IParameterSymbol { RefKind: RefKind.Out or RefKind.Ref })
+                        isHolder = true;
+                }
+                if (!isHolder)
+                    isHolder = context.TryGetActiveRefHolder(outHolderArg, out _);
+                var assignTarget = isHolder ? $"{outHolderArg}.value" : outHolderArg;
                 return $"(({assignTarget} = {receiver}.get({keyArg})) != null || {receiver}.containsKey({keyArg}))";
             }
         }
@@ -1515,7 +1526,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     {
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList");
-                        terminal = ".collect(Collectors.toCollection(ArrayList::new))";
+                        terminal = ".collect(Collectors.toCollection(() -> new ArrayList<>()))";
                     }
 
                     if (originalMethodName == "Where")
@@ -1800,7 +1811,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
-                firstArg = $"{firstArg}.collect(Collectors.toCollection(ArrayList::new))";
+                firstArg = $"{firstArg}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
             }
             return $"{receiver}.{methodName}({firstArg}, {secondArg})";
         }
@@ -1929,7 +1940,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     receiverSyntaxNode: memberAccess.Expression);
             }
 
-            // ToList → collect(Collectors.toCollection(ArrayList::new))
+            // ToList → collect(Collectors.toCollection(() -> new ArrayList<>()))
             // C# ToList() returns the concrete List<T> class, so the Java collector must produce
             // ArrayList<T> (not the List<T> interface returned by Collectors.toList()).
             if (originalMethodName == "ToList")
@@ -1942,7 +1953,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
-                return $"{receiver}.collect(Collectors.toCollection(ArrayList::new))";
+                return $"{receiver}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
             }
 
             // ToDictionary → collect(Collectors.toMap(keySelector, valueSelector))
@@ -2161,11 +2172,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                         return $"{receiver}.collect(Collectors.groupingBy({keyArg}))"
                              + $".entrySet().stream()"
                              + $".map(_e -> {{ var {kParam} = _e.getKey(); var {gParam} = _e.getValue(); return {resultBody}; }})"
-                             + $".collect(Collectors.toCollection(ArrayList::new))";
+                             + $".collect(Collectors.toCollection(() -> new ArrayList<>()))";
                     }
                     // Element-selector overload
                     var elemArg = facade.Transform(arg1Expr, context);
-                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toCollection(ArrayList::new)))).entrySet().stream()";
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toCollection(() -> new ArrayList<>())))).entrySet().stream()";
                 }
                 if (node.ArgumentList.Arguments.Count == 1)
                 {
@@ -2244,7 +2255,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 {
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    return $"{concatStream}.collect(Collectors.toCollection(ArrayList::new))";
+                    return $"{concatStream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
                 }
                 return concatStream;
             }
@@ -2267,7 +2278,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     context.AddImport("java.util.stream.IntStream");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    var whereIndexed = $"{whereReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                    var whereIndexed = $"{whereReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                                      + $" _src -> IntStream.range(0, _src.size())"
                                      + $".filter(_i -> {{ var {whP0} = _src.get(_i); int {whP1} = _i; return {whCond}; }})"
                                      + $".mapToObj(_src::get)))";
@@ -2276,7 +2287,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                         && whereType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
                     bool whereIsChained = node.Parent is MemberAccessExpressionSyntax maWhere && maWhere.Expression == node;
                     return whereReturnsEnumerable && !whereIsChained
-                        ? $"{whereIndexed}.collect(Collectors.toCollection(ArrayList::new))"
+                        ? $"{whereIndexed}.collect(Collectors.toCollection(() -> new ArrayList<>()))"
                         : whereIndexed;
                 }
                 var predArg = facade.Transform(whereLambdaArg, context);
@@ -2294,7 +2305,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     context.AddImport("java.util.stream.IntStream");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    var selectIndexed = $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                    var selectIndexed = $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                                       + $" _src -> IntStream.range(0, _src.size())"
                                       + $".mapToObj(_i -> {{ var {selP0} = _src.get(_i); int {selP1} = _i; return {selBody}; }})))";
                     var selectType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
@@ -2302,7 +2313,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                         && selectType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
                     bool selectIsChained = node.Parent is MemberAccessExpressionSyntax maSelect && maSelect.Expression == node;
                     return selectReturnsEnumerable && !selectIsChained
-                        ? $"{selectIndexed}.collect(Collectors.toCollection(ArrayList::new))"
+                        ? $"{selectIndexed}.collect(Collectors.toCollection(() -> new ArrayList<>()))"
                         : selectIndexed;
                 }
                 var mapArg = facade.Transform(selectLambdaArg, context);
@@ -2400,7 +2411,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             // Assume the body already returns a stream-compatible expression
                             innerStreamExpr = smIdxBody;
                         }
-                        return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                        return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                              + $" _src -> IntStream.range(0, _src.size())"
                              + $".mapToObj(_i -> {{ var {smIdxP0} = _src.get(_i); int {smIdxP1} = _i; return {innerStreamExpr}; }})"
                              + $".flatMap(java.util.function.Function.identity())))";
@@ -2712,7 +2723,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
                 context.AddImport("java.util.Collections");
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> {{ Collections.reverse(list); return list.stream(); }}))";
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); return list.stream(); }}))";
             }
 
             // Append(item) → Stream.concat(stream, Stream.of(item))
@@ -2740,9 +2751,9 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 if (node.ArgumentList.Arguments.Count >= 1)
                 {
                     var defaultArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> list.isEmpty() ? Stream.of({defaultArg}) : list.stream()))";
+                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> list.isEmpty() ? Stream.of({defaultArg}) : list.stream()))";
                 }
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> list.isEmpty() ? Stream.of((Object) null) : list.stream()))";
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> list.isEmpty() ? Stream.of((Object) null) : list.stream()))";
             }
 
             // Aggregate(func) → reduce(func).orElseThrow()
@@ -2865,14 +2876,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
                 if (TryGetTwoParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var zipP0, out var zipP1, out var zipBody))
                 {
-                    return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                    return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                          + $" _left -> {{ var _right = {zipOtherListExpr};"
                          + $" return IntStream.range(0, Math.min(_left.size(), _right.size()))"
                          + $".mapToObj(_i -> {{ var {zipP0} = _left.get(_i); var {zipP1} = _right.get(_i); return {zipBody}; }}); }}))";
                 }
                 // Fallback: no two-param lambda recognised
                 var zipSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                      + $" _left -> {{ var _right = {zipOtherListExpr};"
                      + $" return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> _left.get(_i)); }}))";
             }
@@ -2946,8 +2957,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 if (seqOtherType is IArrayTypeSymbol seqArr)
                     seqOtherList = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(seqOtherStr, seqArr, context);
                 else
-                    seqOtherList = $"{seqOtherStr}.stream().collect(Collectors.toCollection(ArrayList::new))";
-                return $"{receiver}.collect(Collectors.toCollection(ArrayList::new)).equals({seqOtherList})";
+                    seqOtherList = $"{seqOtherStr}.stream().collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                return $"{receiver}.collect(Collectors.toCollection(() -> new ArrayList<>())).equals({seqOtherList})";
             }
 
             // TakeLast(n) → collect, then subList from the last n elements, re-stream
@@ -2956,7 +2967,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
                 var nArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                      + $" _l -> _l.subList(Math.max(0, _l.size() - {nArg}), _l.size()).stream()))";
             }
 
@@ -2966,7 +2977,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
                 var nArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                      + $" _l -> _l.subList(0, Math.max(0, _l.size() - {nArg})).stream()))";
             }
 
@@ -2994,7 +3005,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 {
                     var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                     var elemArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toCollection(ArrayList::new))))";
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toCollection(() -> new ArrayList<>()))))";
                 }
                 if (node.ArgumentList.Arguments.Count >= 1)
                 {
@@ -3010,7 +3021,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 context.AddImport("java.util.ArrayList");
                 context.AddImport("java.util.stream.IntStream");
                 var nArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                      + $" _src -> {{ int _n = {nArg}; return IntStream.range(0, (_src.size() + _n - 1) / _n)"
                      + $".mapToObj(_i -> _src.subList(_i * _n, Math.min((_i + 1) * _n, _src.size()))); }}))";
             }
@@ -3023,7 +3034,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 context.AddImport("java.util.LinkedHashMap");
                 var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 return $"{receiver}.collect(Collectors.collectingAndThen("
-                     + $"Collectors.groupingBy({selArg}, java.util.LinkedHashMap::new, Collectors.toCollection(ArrayList::new)),"
+                     + $"Collectors.groupingBy({selArg}, java.util.LinkedHashMap::new, Collectors.toCollection(() -> new ArrayList<>())),"
                      + $" _m -> _m.values().stream().map(_list -> _list.get(0))))";
             }
 
@@ -3048,7 +3059,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var ubSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                 return $"Stream.concat({receiver}, {ubOtherStream})"
                      + $".collect(Collectors.collectingAndThen("
-                     + $"Collectors.groupingBy({ubSel}, java.util.LinkedHashMap::new, Collectors.toCollection(ArrayList::new)),"
+                     + $"Collectors.groupingBy({ubSel}, java.util.LinkedHashMap::new, Collectors.toCollection(() -> new ArrayList<>())),"
                      + $" _m -> _m.values().stream().map(_list -> _list.get(0))))";
             }
 
@@ -3124,7 +3135,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 TryGetTwoParamLambda(node.ArgumentList.Arguments[3].Expression, context, facade, out var gjResP0, out var gjResP1, out var gjResBody);
                 // Resolve result body outer param name vs actual outer param
                 string prebind = gjResP0 != gjOuterP ? $"var {gjResP0} = {gjOuterP}; " : "";
-                string gjGroupExpr = $"{gjInnerStream}.filter({gjInnerP} -> Objects.equals({gjOuterKey}, {gjInnerKey})).collect(Collectors.toCollection(ArrayList::new))";
+                string gjGroupExpr = $"{gjInnerStream}.filter({gjInnerP} -> Objects.equals({gjOuterKey}, {gjInnerKey})).collect(Collectors.toCollection(() -> new ArrayList<>()))";
                 return $"{receiver}.map({gjOuterP} -> {{ {prebind}var {gjResP1} = {gjGroupExpr}; return {gjResBody}; }})";
             }
 
@@ -3655,7 +3666,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (receiverExpr.Contains(".collect(Collectors.collectingAndThen(", StringComparison.Ordinal))
             return false;
 
-        return receiverExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))", StringComparison.Ordinal)
+        return receiverExpr.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))", StringComparison.Ordinal)
             || receiverExpr.EndsWith(".toList()", StringComparison.Ordinal);
     }
 

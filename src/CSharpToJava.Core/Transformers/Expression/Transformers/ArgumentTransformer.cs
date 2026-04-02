@@ -500,9 +500,9 @@ public class ArgumentTransformer
                     {
                         return transformedExpr;
                     }
-                    return $"{transformedExpr}.collect(Collectors.toCollection(ArrayList::new))";
+                    return $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
                 }
-                return $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(ArrayList::new))";
+                return $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()))";
             }
         }
 
@@ -742,6 +742,6 @@ public class ArgumentTransformer
         if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
             return transformedExpr;
 
-        return $"{transformedExpr}.collect(Collectors.toCollection(ArrayList::new))";
+        return $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
     }
 }

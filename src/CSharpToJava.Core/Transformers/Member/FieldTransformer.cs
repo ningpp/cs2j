@@ -117,7 +117,7 @@ public class FieldTransformer : IMemberTransformer
                         context.AddImport("java.util.Arrays");
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList");
-                        javaField.Initializer = $"Arrays.stream({javaField.Initializer}).boxed().collect(Collectors.toCollection(ArrayList::new))";
+                        javaField.Initializer = $"Arrays.stream({javaField.Initializer}).boxed().collect(Collectors.toCollection(() -> new ArrayList<>()))";
                     }
                     else if (javaField.Initializer.StartsWith("new short[", StringComparison.Ordinal)
                         || javaField.Initializer.StartsWith("new byte[", StringComparison.Ordinal)
@@ -128,7 +128,7 @@ public class FieldTransformer : IMemberTransformer
                         context.AddImport("java.util.stream.IntStream");
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList");
-                        javaField.Initializer = $"IntStream.range(0, {javaField.Initializer}.length).mapToObj(i -> {javaField.Initializer}[i]).collect(Collectors.toCollection(ArrayList::new))";
+                        javaField.Initializer = $"IntStream.range(0, {javaField.Initializer}.length).mapToObj(i -> {javaField.Initializer}[i]).collect(Collectors.toCollection(() -> new ArrayList<>()))";
                     }
                     else
                     {

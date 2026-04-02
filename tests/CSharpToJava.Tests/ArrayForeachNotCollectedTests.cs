@@ -10,7 +10,7 @@ namespace CSharpToJava.Tests;
 /// Root cause: The StreamLocalVariables set does not track variable scope — a variable name
 /// added to the set in one block persists for the entire method. When the same variable name is
 /// reused in a sibling scope with an array type (Point[]), the foreach was incorrectly wrapping
-/// the array with .collect(Collectors.toCollection(ArrayList::new)), producing invalid Java.
+/// the array with .collect(Collectors.toCollection(() -> new ArrayList<>())), producing invalid Java.
 ///
 /// Specifically:
 ///   1. In one block, `var pts = source.AsQueryable().Where(...)` → pts added to StreamLocalVariables

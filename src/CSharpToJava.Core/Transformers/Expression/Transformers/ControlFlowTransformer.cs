@@ -100,7 +100,7 @@ public class ControlFlowTransformer : IExpressionTransformer
 
         context.AddImport("java.util.stream.Collectors");
         context.AddImport("java.util.ArrayList");
-        return $"{expr}.collect(Collectors.toCollection(ArrayList::new))";
+        return $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
     }
 
     private static string AdaptZeroArrayToEmptyIterable(string expr, ConversionContext context)

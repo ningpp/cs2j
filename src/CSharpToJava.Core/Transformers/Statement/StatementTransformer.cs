@@ -447,7 +447,7 @@ public class StatementTransformer : IStatementTransformer
 
             // Detect when a Stream expression is returned from a method that declares Iterable/IEnumerable.
             // C# LINQ expressions become Java Streams but IEnumerable<T> maps to Iterable<T>.
-            // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toCollection(ArrayList::new)).
+            // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toCollection(() -> new ArrayList<>())).
             var retExprType = context.SemanticModel?.GetTypeInfo(stmt.Expression).Type;
             bool isStreamReturn = retExprType is INamedTypeSymbol retNamed2 &&
                 (retNamed2.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable") &&
@@ -475,11 +475,11 @@ public class StatementTransformer : IStatementTransformer
                 }
                 bool enclosingReturnsIterable = enclosingRetType is INamedTypeSymbol mret &&
                     mret.Name is "IEnumerable" or "ICollection" or "IList";
-                // Don't double-collect: if the expression already ends with .toList() or ArrayList::new it's already a List
+                // Don't double-collect: if the expression already ends with .toList() or ArrayList<>()) it's already a List
                 bool alreadyCollected = expr.EndsWith(".toList())")
                     || expr.EndsWith("toList()))")
-                    || expr.EndsWith("ArrayList::new))")
-                    || expr.EndsWith("ArrayList::new)")
+                    || expr.EndsWith("new ArrayList<>()))")
+                    || expr.EndsWith("new ArrayList<>())")
                     || expr.EndsWith(".toArray())")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)\)$")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)$");
@@ -487,7 +487,7 @@ public class StatementTransformer : IStatementTransformer
                 {
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    expr = $"{expr}.collect(Collectors.toCollection(ArrayList::new))";
+                    expr = $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
                 }
             }
         }
@@ -615,6 +615,12 @@ public class StatementTransformer : IStatementTransformer
                 var tvKey = exprTransformer.Transform(tvIfInvoc.ArgumentList.Arguments[0].Expression, context);
                 var existingVarName = ConversionContext.EscapeJavaKeyword(tvIfIdent.Identifier.Text);
 
+                // When the out variable is itself a ref/out parameter of the enclosing method,
+                // it has been converted to a Holder type — use containsKey pattern instead of null check
+                bool isOutParam = context.SemanticModel?.GetSymbolInfo(tvIfIdent).Symbol is IParameterSymbol negOutP
+                    && (negOutP.RefKind == RefKind.Out || negOutP.RefKind == RefKind.Ref)
+                    && !context.IsReadOnlyRefStructParam(negOutP.Name);
+
                 var tvStmtTransformer2 = new StatementTransformer();
                 string thenBody;
                 if (stmt.Statement is BlockSyntax tvIfThenBlock2)
@@ -623,17 +629,42 @@ public class StatementTransformer : IStatementTransformer
                     thenBody = $"{{ {tvStmtTransformer2.Transform(stmt.Statement, context).ToString("")} }}";
 
                 var ifSb2 = new System.Text.StringBuilder();
-                ifSb2.Append($"{existingVarName} = {tvTarget}.get({tvKey});\n");
-                ifSb2.Append($"if ({existingVarName} == null) {thenBody}");
-
-                if (stmt.Else != null)
+                if (isOutParam)
                 {
-                    string elseBody;
-                    if (stmt.Else.Statement is BlockSyntax tvIfElseBlock)
-                        elseBody = $"{{\n        {TransformBlock(tvIfElseBlock, context)}\n    }}";
+                    // Null check on .value won't work for primitives; use containsKey instead
+                    // C#: if (!dict.TryGetValue(key, out outParam)) { A } [else { B }]
+                    // Java: if (!dict.containsKey(key)) { A } else { outParam.value = dict.get(key); [B] }
+                    ifSb2.Append($"if (!{tvTarget}.containsKey({tvKey})) {thenBody}");
+                    // Always emit else to assign the value when key exists
+                    string elseInner = $"{existingVarName}.value = {tvTarget}.get({tvKey});";
+                    if (stmt.Else != null)
+                    {
+                        string elseBody;
+                        if (stmt.Else.Statement is BlockSyntax tvIfElseBlock)
+                            elseBody = TransformBlock(tvIfElseBlock, context);
+                        else
+                            elseBody = tvStmtTransformer2.Transform(stmt.Else.Statement, context).ToString("");
+                        ifSb2.Append($" else {{\n        {elseInner}\n        {elseBody}\n    }}");
+                    }
                     else
-                        elseBody = $"{{ {tvStmtTransformer2.Transform(stmt.Else.Statement, context).ToString("")} }}";
-                    ifSb2.Append($" else {elseBody}");
+                    {
+                        ifSb2.Append($" else {{\n        {elseInner}\n    }}");
+                    }
+                }
+                else
+                {
+                    ifSb2.Append($"{existingVarName} = {tvTarget}.get({tvKey});\n");
+                    ifSb2.Append($"if ({existingVarName} == null) {thenBody}");
+
+                    if (stmt.Else != null)
+                    {
+                        string elseBody;
+                        if (stmt.Else.Statement is BlockSyntax tvIfElseBlock)
+                            elseBody = $"{{\n        {TransformBlock(tvIfElseBlock, context)}\n    }}";
+                        else
+                            elseBody = $"{{ {tvStmtTransformer2.Transform(stmt.Else.Statement, context).ToString("")} }}";
+                        ifSb2.Append($" else {elseBody}");
+                    }
                 }
 
                 return new JavaStatementNode(ifSb2.ToString());
@@ -698,18 +729,28 @@ public class StatementTransformer : IStatementTransformer
                 var tvKey2 = exprTransformer.Transform(tvIfInvoc2.ArgumentList.Arguments[0].Expression, context);
                 var existingVarName = ConversionContext.EscapeJavaKeyword(tvIfIdent2.Identifier.Text);
 
+                // When the out variable is itself a ref/out parameter of the enclosing method,
+                // it has been converted to a Holder type — assignments must target .value
+                var assignTarget = existingVarName;
+                if (context.SemanticModel?.GetSymbolInfo(tvIfIdent2).Symbol is IParameterSymbol tvOutParam
+                    && (tvOutParam.RefKind == RefKind.Out || tvOutParam.RefKind == RefKind.Ref)
+                    && !context.IsReadOnlyRefStructParam(tvOutParam.Name))
+                {
+                    assignTarget = $"{existingVarName}.value";
+                }
+
                 var tvStmtTransformer4 = new StatementTransformer();
 
                 string thenBody2;
                 if (stmt.Statement is BlockSyntax tvIfThenBlock4)
                 {
                     var bodyStr = TransformBlock(tvIfThenBlock4, context);
-                    thenBody2 = $"{{\n        {existingVarName} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
+                    thenBody2 = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
                 }
                 else
                 {
                     var bodyStr = tvStmtTransformer4.Transform(stmt.Statement, context).ToString("");
-                    thenBody2 = $"{{\n        {existingVarName} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
+                    thenBody2 = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
                 }
 
                 var ifSb4 = new System.Text.StringBuilder();
@@ -969,24 +1010,36 @@ public class StatementTransformer : IStatementTransformer
         }
 
         // Pre-process: StreamSupport.stream(...).toArray() used in foreach can't be iterated (Object[]).
-        // Convert to .collect(Collectors.toCollection(ArrayList::new)) so the list is Iterable<T> and foreach works.
+        // Convert to .collect(Collectors.toCollection(() -> new ArrayList<>())) so the list is Iterable<T> and foreach works.
         {
             var trimExpr = expression.TrimEnd();
             if (trimExpr.EndsWith(".toArray()") && trimExpr.Contains("StreamSupport.stream("))
             {
                 expression = trimExpr.Substring(0, trimExpr.Length - ".toArray()".Length)
-                                 + ".collect(Collectors.toCollection(ArrayList::new))";
+                                 + ".collect(Collectors.toCollection(() -> new ArrayList<>()))";
                 context.AddImport("java.util.ArrayList");
             }
+        }
+
+        // Strip trailing .stream() from expressions like .entrySet().stream() or .values().stream()
+        // because the underlying collection is already Iterable and .stream() breaks for-each.
+        // After stripping, the result ends with a collection method (.entrySet(), .values(), etc.)
+        // which is already Iterable — skip further stream detection.
+        bool strippedTrailingStream = false;
+        if (expression.TrimEnd().EndsWith(".stream()"))
+        {
+            expression = expression.TrimEnd()[..^".stream()".Length];
+            strippedTrailingStream = true;
         }
 
         // Stream.concat(), StreamSupport.stream(), Arrays.stream(), etc.
         // Collect to List to allow break/continue/return in the loop body.
         // Use EndsWith check to avoid double-collecting an already-collected stream:
         // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
-        // but we only skip if the OUTERMOST call is already .collect(Collectors.toCollection(ArrayList::new)).
-        bool isStream = !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(ArrayList::new))")
-            && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.collect\(.+\)$")
+        // but we only skip if the OUTERMOST call is already .collect(Collectors.toCollection(() -> new ArrayList<>())).
+        bool isStream = !strippedTrailingStream
+            && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
+            && !EndsWithCollectCall(expression.TrimEnd())
             && !expression.TrimEnd().EndsWith(".toArray()")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
             && (
@@ -1041,7 +1094,7 @@ public class StatementTransformer : IStatementTransformer
             // Collect stream to list so that break/return/continue work in loop body
             context.AddImport("java.util.ArrayList");
             context.AddImport("java.util.stream.Collectors");
-            expression = $"{expression}.collect(Collectors.toCollection(ArrayList::new))";
+            expression = $"{expression}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
         }
 
         // Iterating a raw (non-generic) IEnumerable with a typed loop variable: in Java, iterating
@@ -1193,7 +1246,7 @@ public class StatementTransformer : IStatementTransformer
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
-                srcExpr = $"{srcExpr}.collect(Collectors.toCollection(ArrayList::new))";
+                srcExpr = $"{srcExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
             }
             if (i == froms.Count - 1)
             {
@@ -1694,12 +1747,12 @@ public class StatementTransformer : IStatementTransformer
 
                 // Fix K3: When the C# declared type is IEnumerable<T>/ICollection<T>/IList<T> (→ Java Iterable<T>)
                 // but the initializer ends with .toArray(T[]::new), the assignment would fail because
-                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toCollection(ArrayList::new)).
+                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toCollection(() -> new ArrayList<>())).
                 if ((javaType.StartsWith("Iterable<") || javaType.StartsWith("List<") || javaType.StartsWith("Collection<"))
                     && System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$"))
                 {
                     initExpr = System.Text.RegularExpressions.Regex.Replace(
-                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toCollection(ArrayList::new))");
+                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toCollection(() -> new ArrayList<>()))");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
                 }
@@ -1713,7 +1766,7 @@ public class StatementTransformer : IStatementTransformer
                     var localSym = context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
                         && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
-                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
+                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
                         && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
                         && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
@@ -1726,7 +1779,7 @@ public class StatementTransformer : IStatementTransformer
 
                     if (semanticTypeIsEnumerableLike && looksLikeStreamExpr)
                     {
-                        initExpr = $"{initExpr}.collect(Collectors.toCollection(ArrayList::new))";
+                        initExpr = $"{initExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList");
                     }
@@ -1755,7 +1808,7 @@ public class StatementTransformer : IStatementTransformer
                 // Guard: never register array-typed variables (T[]) as streams — arrays are
                 // directly iterable in Java and must not be collected in for-each loops.
                 {
-                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
+                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
                         // If it ends with .toArray(...), the stream was already terminated to an array —
                         // the variable is T[], not a stream, so do NOT register it as a stream variable.
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
@@ -1858,6 +1911,30 @@ public class StatementTransformer : IStatementTransformer
         return bare is "List" or "Collection" or "ArrayList" or "HashSet" or "TreeSet"
             or "LinkedList" or "LinkedHashSet" or "ArrayDeque" or "Stack" or "Vector"
             or "Set" or "Deque" or "Queue";
+    }
+
+    /// <summary>
+    /// Checks if an expression ends with a balanced .collect(...) call.
+    /// Unlike a simple regex, this correctly handles nested parentheses so
+    /// expressions like ".collect(groupingBy(...)).entrySet()" are NOT detected.
+    /// </summary>
+    private static bool EndsWithCollectCall(string expr)
+    {
+        if (!expr.EndsWith(")"))
+            return false;
+        // Walk backward to find the matching '(' for the final ')'
+        int depth = 0;
+        int i = expr.Length - 1;
+        for (; i >= 0; i--)
+        {
+            if (expr[i] == ')') depth++;
+            else if (expr[i] == '(') depth--;
+            if (depth == 0) break;
+        }
+        // i now points to the matching '(' — check if preceded by ".collect"
+        const string collectSuffix = ".collect";
+        return i >= collectSuffix.Length
+            && expr.AsSpan((i - collectSuffix.Length), collectSuffix.Length).SequenceEqual(collectSuffix.AsSpan());
     }
 
     /// <summary>

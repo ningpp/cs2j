@@ -319,7 +319,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
     /// When the constructor symbol is unavailable, scan each argument for array types.
     /// Any array argument passed to a Java collection constructor must be wrapped:
     ///   • reference-type arrays  → Arrays.asList(expr)
-    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toCollection(ArrayList::new))
+    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toCollection(() -> new ArrayList<>()))
     /// Returns the updated comma-separated argument string.
     /// </summary>
     private static string CoerceArrayArgsForCollectionCtor(
@@ -399,7 +399,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
         context.AddImport("java.util.stream.Collectors");
         context.AddImport("java.util.ArrayList");
-        return $"{expr}.collect(Collectors.toCollection(ArrayList::new))";
+        return $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
     }
 
     private static bool IsArrayAlreadyWrappedForCollectionArg(string expr)

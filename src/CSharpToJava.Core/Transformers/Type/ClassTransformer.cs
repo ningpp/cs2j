@@ -33,6 +33,11 @@ public class ClassTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(classDecl.Modifiers, context),
         };
 
+        // Ensure abstract modifier is set from the semantic symbol (covers partial classes
+        // where only some parts have the 'abstract' keyword in their declaration).
+        if (mergedType.TypeSymbol.IsAbstract)
+            javaClass.Modifiers |= JavaModifiers.Abstract;
+
         ApplyTypeLevelTestAnnotations(mergedType.OriginalSyntaxNodes.OfType<ClassDeclarationSyntax>(), javaClass, context);
 
         // Use the semantic model from the merged type for better type resolution
@@ -277,6 +282,9 @@ public class ClassTransformer : ITypeTransformer
         ApplyTypeLevelTestAnnotations(new[] { classDecl }, javaClass, context);
 
         var classSymbol = context.SemanticModel?.GetDeclaredSymbol(classDecl);
+        // Ensure abstract modifier is set from the semantic symbol
+        if (classSymbol?.IsAbstract == true)
+            javaClass.Modifiers |= JavaModifiers.Abstract;
         javaClass.LeadingComment = context.GetDeclarationComments(classDecl, classSymbol).ToCombinedComment();
 
         // Pre-scan members to determine if the class provides its own ICollection<T> implementation.
@@ -753,36 +761,91 @@ public class ClassTransformer : ITypeTransformer
         var iteratorType = javaClass.ImplementedTypes.FirstOrDefault(t =>
             t == "Iterator" || t.StartsWith("Iterator<"));
         if (iteratorType == null) return;
-        if (javaClass.Methods.Any(m => m.Name is "hasNext" or "next")) return;
 
         // Extract the element type from "Iterator<T>" or fall back to "Object"
         string elementType = "Object";
         if (iteratorType.StartsWith("Iterator<") && iteratorType.EndsWith(">"))
             elementType = iteratorType.Substring(9, iteratorType.Length - 10);
 
-        javaClass.Fields.Add(new JavaFieldDeclaration
-        {
-            Modifiers = JavaModifiers.Private,
-            Type = "boolean",
-            Name = "_iteratorHasNext",
-            Initializer = "false"
-        });
+        bool hasHasNext = javaClass.Methods.Any(m => m.Name == "hasNext");
+        bool hasNext = javaClass.Methods.Any(m => m.Name == "next");
+        bool hasMoveNext = javaClass.Methods.Any(m => m.Name == "moveNext");
+        bool hasGetCurrent = javaClass.Methods.Any(m => m.Name == "getCurrent");
 
-        javaClass.Methods.Insert(0, new JavaMethodDeclaration
-        {
-            Modifiers = JavaModifiers.Public,
-            ReturnType = "boolean",
-            Name = "hasNext",
-            Body = "if (_iteratorHasNext) return true;\n        _iteratorHasNext = moveNext();\n        return _iteratorHasNext;"
-        });
+        // If hasNext exists (from TypeMappings MoveNext→hasNext) but next() doesn't,
+        // we need to add the next() bridge and the backing field.
+        if (hasHasNext && hasNext) return;
 
-        javaClass.Methods.Insert(1, new JavaMethodDeclaration
+        if (!hasHasNext && !hasMoveNext)
         {
-            Modifiers = JavaModifiers.Public,
-            ReturnType = elementType,
-            Name = "next",
-            Body = "if (!_iteratorHasNext && !moveNext()) throw new java.util.NoSuchElementException();\n        _iteratorHasNext = false;\n        return getCurrent();"
-        });
+            // No iteration method at all — nothing to bridge
+            return;
+        }
+
+        // The advancing method name: either moveNext (renamed by MethodTransformer)
+        // or hasNext (renamed by TypeMappings).
+        string advanceMethod = hasHasNext ? "hasNext" : "moveNext";
+
+        // When hasNext was directly mapped from MoveNext via TypeMappings, its body already
+        // contains the advancing logic. We wrap it with caching so repeated calls are safe.
+        if (!hasHasNext)
+        {
+            javaClass.Fields.Add(new JavaFieldDeclaration
+            {
+                Modifiers = JavaModifiers.Private,
+                Type = "boolean",
+                Name = "_iteratorHasNext",
+                Initializer = "false"
+            });
+
+            javaClass.Methods.Insert(0, new JavaMethodDeclaration
+            {
+                Modifiers = JavaModifiers.Public,
+                ReturnType = "boolean",
+                Name = "hasNext",
+                Body = $"if (_iteratorHasNext) return true;\n        _iteratorHasNext = {advanceMethod}();\n        return _iteratorHasNext;"
+            });
+        }
+
+        if (!hasNext && hasGetCurrent)
+        {
+            if (hasHasNext)
+            {
+                // hasNext() is the direct MoveNext with advancing logic.
+                // next() must call hasNext() to advance, then return getCurrent().
+                // Use a flag to avoid double-advancing on hasNext()+next() sequences.
+                javaClass.Fields.Add(new JavaFieldDeclaration
+                {
+                    Modifiers = JavaModifiers.Private,
+                    Type = "boolean",
+                    Name = "_iteratorAdvanced",
+                    Initializer = "false"
+                });
+
+                // Wrap the existing hasNext to track advancement
+                var existingHasNext = javaClass.Methods.First(m => m.Name == "hasNext");
+                var originalBody = existingHasNext.Body ?? "";
+                existingHasNext.Body = $"_iteratorAdvanced = true;\n        {originalBody}";
+
+                javaClass.Methods.Add(new JavaMethodDeclaration
+                {
+                    Modifiers = JavaModifiers.Public,
+                    ReturnType = elementType,
+                    Name = "next",
+                    Body = $"if (!_iteratorAdvanced) {{ if (!hasNext()) throw new java.util.NoSuchElementException(); }}\n        _iteratorAdvanced = false;\n        return getCurrent();"
+                });
+            }
+            else
+            {
+                javaClass.Methods.Insert(1, new JavaMethodDeclaration
+                {
+                    Modifiers = JavaModifiers.Public,
+                    ReturnType = elementType,
+                    Name = "next",
+                    Body = $"if (!_iteratorHasNext && !{advanceMethod}()) throw new java.util.NoSuchElementException();\n        _iteratorHasNext = false;\n        return getCurrent();"
+                });
+            }
+        }
     }
 
     private static void AddIterableBridgeFromIteratorMethod(JavaClassDeclaration javaClass)

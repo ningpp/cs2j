@@ -10,7 +10,7 @@ namespace CSharpToJava.Tests;
 /// But the converter was generating .collect(Collectors.toList()) which returns java.util.List&lt;T&gt;
 /// (an interface), creating a type mismatch when assigned to an ArrayList&lt;T&gt; variable.
 ///
-/// Fix: Use .collect(Collectors.toCollection(ArrayList::new)) instead of .collect(Collectors.toList())
+/// Fix: Use .collect(Collectors.toCollection(() -> new ArrayList<>())) instead of .collect(Collectors.toList())
 /// so that stream collect operations produce ArrayList&lt;T&gt;, matching the C# List&lt;T&gt; → ArrayList mapping.
 /// </summary>
 public class ArrayListTypeCompatibilityTests
@@ -123,9 +123,9 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // ToList() should use Collectors.toCollection(ArrayList::new) — produces ArrayList<T>,
+        // ToList() should use Collectors.toCollection(() -> new ArrayList<>()) — produces ArrayList<T>,
         // not Collectors.toList() which returns List<T> (interface) and causes type mismatch
-        Assert.Contains("Collectors.toCollection(ArrayList::new)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Collectors.toCollection(() -> new ArrayList<>())", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("Collectors.toList()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
