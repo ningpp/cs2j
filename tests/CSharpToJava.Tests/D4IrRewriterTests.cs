@@ -488,6 +488,329 @@ public class D4IrRewriterTests
     }
 
     // ═══════════════════════════════════════════════════════════
+    //  Error 10: IntStreamBoxedRewriter
+    // ═══════════════════════════════════════════════════════════
+
+    [Fact]
+    public void IntStream_ArraysStreamFlatMap_InsertsBoxed()
+    {
+        var rewriter = new IntStreamBoxedRewriter();
+
+        // Arrays.stream(intArr).flatMap(...)
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaMethodCallExpression
+            {
+                Target = new JavaIdentifierExpression("Arrays"),
+                MethodName = "stream",
+                Arguments = { new JavaIdentifierExpression("intArr") },
+            },
+            MethodName = "flatMap",
+        };
+        call.Arguments.Add(new JavaIdentifierExpression("mapper"));
+
+        rewriter.VisitMethodCallExpression(call);
+
+        // Should become: Arrays.stream(intArr).boxed().flatMap(mapper)
+        Assert.IsType<JavaMethodCallExpression>(call.Target);
+        var boxedCall = (JavaMethodCallExpression)call.Target!;
+        Assert.Equal("boxed", boxedCall.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void IntStream_IntStreamRange_Map_InsertsBoxed()
+    {
+        var rewriter = new IntStreamBoxedRewriter();
+
+        // IntStream.range(0, n).map(...)
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaMethodCallExpression
+            {
+                Target = new JavaIdentifierExpression("IntStream"),
+                MethodName = "range",
+                Arguments = { new JavaLiteralExpression("0"), new JavaIdentifierExpression("n") },
+            },
+            MethodName = "map",
+        };
+        call.Arguments.Add(new JavaIdentifierExpression("fn"));
+
+        rewriter.VisitMethodCallExpression(call);
+
+        var boxedCall = (JavaMethodCallExpression)call.Target!;
+        Assert.Equal("boxed", boxedCall.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void IntStream_RegularStreamMap_Unchanged()
+    {
+        var rewriter = new IntStreamBoxedRewriter();
+
+        // list.stream().map(...)  — not IntStream, should be unchanged
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaMethodCallExpression
+            {
+                Target = new JavaIdentifierExpression("list"),
+                MethodName = "stream",
+            },
+            MethodName = "map",
+        };
+        call.Arguments.Add(new JavaIdentifierExpression("fn"));
+
+        rewriter.VisitMethodCallExpression(call);
+
+        // Target should still be list.stream(), no boxed() inserted
+        var streamCall = (JavaMethodCallExpression)call.Target!;
+        Assert.Equal("stream", streamCall.MethodName);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Error 11/24e: ArrayIterableConversionRewriter
+    // ═══════════════════════════════════════════════════════════
+
+    [Fact]
+    public void ArrayIterable_SpliteratorOnArray_BecomesArraysSpliterator()
+    {
+        var rewriter = new ArrayIterableConversionRewriter();
+
+        // graphs.spliterator() → Arrays.spliterator(graphs)
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("graphs"),
+            MethodName = "spliterator",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("spliterator", call.MethodName);
+        Assert.IsType<JavaIdentifierExpression>(call.Target);
+        Assert.Equal("Arrays", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Single(call.Arguments);
+        Assert.Equal("graphs", ((JavaIdentifierExpression)call.Arguments[0]).Name);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ArrayIterable_StreamOnArray_BecomesArraysStream()
+    {
+        var rewriter = new ArrayIterableConversionRewriter();
+
+        // nodeItems.stream() → Arrays.stream(nodeItems)
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("nodeItems"),
+            MethodName = "stream",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("stream", call.MethodName);
+        Assert.Equal("Arrays", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Single(call.Arguments);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ArrayIterable_StreamOnCollection_Unchanged()
+    {
+        var rewriter = new ArrayIterableConversionRewriter();
+
+        // list.stream() — "list" doesn't end in "s" or array-like suffix
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("collection"),
+            MethodName = "stream",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        // Should be unchanged — "collection" doesn't match array heuristic
+        Assert.Equal("collection", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Empty(call.Arguments);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void ArrayIterable_StreamOnNewArrayExpr_BecomesArraysStream()
+    {
+        var rewriter = new ArrayIterableConversionRewriter();
+
+        // (new int[5]).stream() → Arrays.stream(new int[5])
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaNewExpression { Type = "int[5]" },
+            MethodName = "stream",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("Arrays", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Single(call.Arguments);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Error 15: CollectStreamRoundtripRewriter
+    // ═══════════════════════════════════════════════════════════
+
+    [Fact]
+    public void CollectStream_RoundTrip_RemovesBoth()
+    {
+        var rewriter = new CollectStreamRoundtripRewriter();
+
+        // list.stream().filter(p).collect(toList()).stream()
+        // Should become: list.stream().filter(p)
+        var filterCall = new JavaMethodCallExpression
+        {
+            Target = new JavaMethodCallExpression
+            {
+                Target = new JavaIdentifierExpression("list"),
+                MethodName = "stream",
+            },
+            MethodName = "filter",
+        };
+        filterCall.Arguments.Add(new JavaIdentifierExpression("p"));
+
+        var collectCall = new JavaMethodCallExpression
+        {
+            Target = filterCall,
+            MethodName = "collect",
+        };
+        collectCall.Arguments.Add(new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("Collectors"),
+            MethodName = "toList",
+        });
+
+        var streamCall = new JavaMethodCallExpression
+        {
+            Target = collectCall,
+            MethodName = "stream",
+        };
+
+        var result = rewriter.VisitExpression(streamCall);
+
+        // Should return the filter call directly (stripping collect + stream)
+        Assert.IsType<JavaMethodCallExpression>(result);
+        var resultCall = (JavaMethodCallExpression)result;
+        Assert.Equal("filter", resultCall.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void CollectStream_NoRoundTrip_Unchanged()
+    {
+        var rewriter = new CollectStreamRoundtripRewriter();
+
+        // list.stream().filter(p).map(fn) — no collect/stream round-trip
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaMethodCallExpression
+            {
+                Target = new JavaMethodCallExpression
+                {
+                    Target = new JavaIdentifierExpression("list"),
+                    MethodName = "stream",
+                },
+                MethodName = "filter",
+                Arguments = { new JavaIdentifierExpression("p") },
+            },
+            MethodName = "map",
+        };
+        call.Arguments.Add(new JavaIdentifierExpression("fn"));
+
+        var result = rewriter.VisitExpression(call);
+
+        Assert.IsType<JavaMethodCallExpression>(result);
+        Assert.Equal("map", ((JavaMethodCallExpression)result).MethodName);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Error 17: StopwatchApiRewriter
+    // ═══════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Stopwatch_Frequency_BecomesNanoPrecisionLiteral()
+    {
+        var rewriter = new StopwatchApiRewriter();
+
+        // StopwatchHelper.Frequency → 1_000_000_000L
+        var memberAccess = new JavaMemberAccessExpression
+        {
+            Target = new JavaIdentifierExpression("StopwatchHelper"),
+            MemberName = "Frequency",
+        };
+
+        var result = rewriter.VisitExpression(memberAccess);
+
+        Assert.IsType<JavaLiteralExpression>(result);
+        Assert.Equal("1_000_000_000L", ((JavaLiteralExpression)result).Value);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void Stopwatch_GetTimestamp_BecomesSystemNanoTime()
+    {
+        var rewriter = new StopwatchApiRewriter();
+
+        // StopwatchHelper.getTimestamp() → System.nanoTime()
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("StopwatchHelper"),
+            MethodName = "getTimestamp",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("System", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Equal("nanoTime", call.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void Stopwatch_PascalCaseGetTimestamp_AlsoRewrites()
+    {
+        var rewriter = new StopwatchApiRewriter();
+
+        // StopwatchHelper.GetTimestamp() → System.nanoTime()
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("Stopwatch"),
+            MethodName = "GetTimestamp",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("System", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Equal("nanoTime", call.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void Stopwatch_RegularMethodCall_Unchanged()
+    {
+        var rewriter = new StopwatchApiRewriter();
+
+        // StopwatchHelper.start() — not a rewrite target
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression("StopwatchHelper"),
+            MethodName = "start",
+        };
+
+        rewriter.VisitMethodCallExpression(call);
+
+        Assert.Equal("StopwatchHelper", ((JavaIdentifierExpression)call.Target!).Name);
+        Assert.Equal("start", call.MethodName);
+        Assert.Equal(0, rewriter.RewriteCount);
+    }
+
+    // ═══════════════════════════════════════════════════════════
     //  Integration: all rewriters run in pipeline
     // ═══════════════════════════════════════════════════════════
 
@@ -519,6 +842,10 @@ public class D4IrRewriterTests
         new MathMethodRewriter().VisitCompilationUnit(cu);
         new DelegateInvocationRewriter().VisitCompilationUnit(cu);
         new GenericArrayCreationRewriter().VisitCompilationUnit(cu);
+        new IntStreamBoxedRewriter().VisitCompilationUnit(cu);
+        new ArrayIterableConversionRewriter().VisitCompilationUnit(cu);
+        new CollectStreamRoundtripRewriter().VisitCompilationUnit(cu);
+        new StopwatchApiRewriter().VisitCompilationUnit(cu);
 
         // Should generate valid code
         var code = cu.ToString("");
