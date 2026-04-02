@@ -596,21 +596,3 @@ public sealed class ProjectCrossPackageImportEmitPass : ICs2jPass<ProjectPassSta
     }
 }
 
-public sealed class ProjectPostGenerationRewriteEmitPass : ICs2jPass<ProjectPassState>, ICs2jPassMetricSource
-{
-    public string Name => nameof(ProjectPostGenerationRewriteEmitPass);
-    public Cs2jPassStage Stage => Cs2jPassStage.Emit;
-    public int RewriteCount { get; private set; }
-
-    public void Execute(ProjectPassState state)
-    {
-        RewriteCount = 0;
-
-        if (!state.Results.Any(result => !string.IsNullOrEmpty(result.GeneratedCode)))
-        {
-            return;
-        }
-
-        RewriteCount = PostGenerationRewriteEngine.ApplyCompatibilityRewrites(state.Results);
-    }
-}

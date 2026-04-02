@@ -132,7 +132,6 @@ public class ProjectConversionPipeline
             new ProjectTypeEmitPass(_irRewriters),
             new ProjectCompatibilityEmitPass(),
             new ProjectCrossPackageImportEmitPass(),
-            new ProjectPostGenerationRewriteEmitPass(),
             new ProjectJavaModuleDependencyPass(),
         };
     }
@@ -196,14 +195,6 @@ public class ProjectConversionPipeline
             return passState.Results;
         }
     }
-
-    // Forwarding method for backward compatibility (tests use reflection to access this)
-    private static void ApplyCompatibilityRewrites(List<ConversionResult> results)
-        => PostGenerationRewriteEngine.ApplyCompatibilityRewrites(results);
-
-    public static string ApplyCompatibilityRewritesForTesting(string fileName, string generatedCode)
-        => PostGenerationRewriteEngine.ApplyCompatibilityRewritesForTesting(fileName, generatedCode);
-
 
     public static List<ConversionResult> GenerateCompatibilitySupport(string compatibilityPackage, bool includeTestContext)
         => CompatibilityClassGenerator.GenerateCompatibilitySupport(compatibilityPackage, includeTestContext);
