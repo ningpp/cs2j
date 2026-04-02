@@ -2,6 +2,7 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.TypeMapping;
+using CSharpToJava.TypeMapping.JavaModel;
 
 namespace CSharpToJava.Core.Pipeline;
 
@@ -24,6 +25,13 @@ public class ProjectConversionPipeline
     {
         _options = options;
         _typeMappings = new TypeMappingRegistry(options.TypeMappingConfigPath);
+
+        // Inject Java standard-library metadata when the path is configured.
+        if (!string.IsNullOrEmpty(options.JavaMetadataPath)
+            && Directory.Exists(options.JavaMetadataPath))
+        {
+            _typeMappings.SetJavaLibraryIndex(new JavaLibraryIndex(options.JavaMetadataPath));
+        }
     }
 
     /// <summary>

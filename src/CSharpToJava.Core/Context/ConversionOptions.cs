@@ -16,6 +16,13 @@ public class ConversionOptions
     public string? TypeMappingConfigPath { get; set; }
 
     /// <summary>
+    /// Path to the root directory containing Java standard-library metadata JSON files
+    /// (e.g. <c>config/java/</c>).  When set, enables metadata-driven method mapping
+    /// auto-deduction and semantic validation of mapped Java types.
+    /// </summary>
+    public string? JavaMetadataPath { get; set; }
+
+    /// <summary>
     /// 是否生成 JavaDoc 注释
     /// </summary>
     public bool GenerateJavaDoc { get; set; } = true;
