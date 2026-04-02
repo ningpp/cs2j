@@ -61,6 +61,17 @@ public class ClassTransformer : ITypeTransformer
         }));
 
         // 处理接口 - 使用符号信息
+        // Seed erasure tracker with generic interfaces already provided by the base type,
+        // so the current class won't try to re-implement them with different type args.
+        var addedGenericErasures = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        if (baseType != null)
+        {
+            foreach (var baseIface in baseType.AllInterfaces)
+            {
+                if (baseIface.IsGenericType)
+                    addedGenericErasures.Add(baseIface.OriginalDefinition);
+            }
+        }
         foreach (var iface in mergedType.TypeSymbol.AllInterfaces)
         {
             // Only add directly implemented interfaces, not inherited ones
@@ -103,14 +114,21 @@ public class ClassTransformer : ITypeTransformer
                     // generic interface with different type arguments (e.g. Comparator<String> in parent,
                     // Comparator<Integer> in child), Java forbids this due to type erasure. Extract the
                     // conflicting interface to a factory method instead.
+                    // Keep the first occurrence; only extract subsequent ones with different type args.
                     bool hasErasureConflict = false;
                     if (iface.IsGenericType)
                     {
                         var origDef = iface.OriginalDefinition;
-                        hasErasureConflict = mergedType.TypeSymbol.AllInterfaces.Any(
+                        bool hasSameErasure = mergedType.TypeSymbol.AllInterfaces.Any(
                             other => other.IsGenericType
                                 && SymbolEqualityComparer.Default.Equals(other.OriginalDefinition, origDef)
                                 && !SymbolEqualityComparer.Default.Equals(other, iface));
+                        if (hasSameErasure)
+                        {
+                            // First time seeing this erased generic? Keep it. Otherwise extract.
+                            if (!addedGenericErasures.Add(origDef))
+                                hasErasureConflict = true;
+                        }
                     }
                     if (hasErasureConflict)
                     {
@@ -118,6 +136,9 @@ public class ClassTransformer : ITypeTransformer
                         var rawIfaceName = iface.Name.StartsWith("I") ? iface.Name.Substring(1) : iface.Name;
                         var typeArg = iface.TypeArguments.Length > 0 ? context.MapType(iface.TypeArguments[0]) : "Object";
                         // Use boxed type name for method naming (int → Integer, etc.)
+                        // Also strip dots from nested types (e.g. "SegmentIntersector.SegEvent" → "SegEvent")
+                        if (typeArg.Contains('.'))
+                            typeArg = typeArg.Substring(typeArg.LastIndexOf('.') + 1);
                         typeArg = typeArg switch
                         {
                             "int" => "Integer",

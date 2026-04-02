@@ -381,6 +381,18 @@ public class ArgumentTransformer
         if (context.SemanticModel == null)
             return transformedExpr;
 
+        // When 'this' is passed as IComparer<T>, emit a typed method reference instead.
+        // This handles erasure conflicts where the class implements multiple IComparer<T>
+        // but Java only allows one Comparator<T>. Using this::compare with type context
+        // lets Java resolve the correct overload.
+        if (arg.Expression is ThisExpressionSyntax
+            && targetParam.Type is INamedTypeSymbol { Name: "IComparer", TypeArguments.Length: 1 })
+        {
+            var javaComparatorType = context.MapType(targetParam.Type);
+            context.AddImport("java.util.Comparator");
+            return $"({javaComparatorType}) this::compare";
+        }
+
         // Lambda/anonymous-function disambiguation: when the argument is a lambda and the
         // target parameter is a delegate type, add an explicit target-type cast to resolve
         // Java overload ambiguity (e.g., Comparator<T> vs BiFunction<T,T,Integer>).
