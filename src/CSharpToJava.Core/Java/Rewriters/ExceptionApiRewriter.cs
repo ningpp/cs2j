@@ -27,8 +27,7 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
     public int RewriteCount => _rewriteCount;
 
     /// <summary>
-    /// Maps .NET exception type names to Java equivalents.
-    /// Keys can appear in both PascalCase (from C# conversion residue) and camelCase.
+    /// Maps .NET exception type names (PascalCase) to Java equivalents.
     /// </summary>
     private static readonly Dictionary<string, string> ExceptionTypeMap = new(StringComparer.Ordinal)
     {
