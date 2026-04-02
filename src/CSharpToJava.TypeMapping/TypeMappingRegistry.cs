@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CSharpToJava.TypeMapping.JavaModel;
 
 namespace CSharpToJava.TypeMapping;
 
@@ -97,6 +98,18 @@ public class TypeMappingRegistry
     private readonly Dictionary<string, TypeMappingEntry> _typeMappings = new();
     private readonly Dictionary<(string TypeName, string MethodName), MethodMappingEntry> _methodMappings = new();
     private readonly Dictionary<string, string> _namespaceMappings = new();
+
+    /// <summary>
+    /// Optional Java standard-library metadata index.  When set, enables auto-deduction of
+    /// method name mappings (PascalCase → camelCase) and validation of mapped Java types.
+    /// </summary>
+    public JavaLibraryIndex? JavaLibrary { get; private set; }
+
+    /// <summary>
+    /// Injects the Java standard-library metadata index.  Should be called once after
+    /// construction when the <c>config/java/</c> directory is available.
+    /// </summary>
+    public void SetJavaLibraryIndex(JavaLibraryIndex index) => JavaLibrary = index;
 
     /// <summary>
     /// 解析配置文件路径，处理相对路径和默认路径
@@ -283,7 +296,123 @@ public class TypeMappingRegistry
             }
         }
 
+        // Auto-deduction: when no explicit config mapping exists and JavaLibraryIndex is
+        // available, try PascalCase → camelCase conversion and check if the Java type has
+        // a matching method.
+        if (JavaLibrary is not null)
+        {
+            var javaTypeName = ResolveJavaCanonicalName(typeName);
+            if (javaTypeName is not null)
+            {
+                var camelCase = PascalToCamelCase(methodName);
+                if (camelCase != methodName) // only try if conversion actually changed something
+                {
+                    var methods = JavaLibrary.FindMethods(javaTypeName, camelCase);
+                    if (methods.Count > 0)
+                        return camelCase;
+                }
+            }
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// Checks whether the given Java method exists on the specified Java type according to
+    /// the loaded Java standard-library metadata.  Returns <see langword="true"/> when the
+    /// metadata is not available (optimistic).
+    /// </summary>
+    public bool ValidateMethodExists(string javaTypeName, string javaMethodName)
+    {
+        if (JavaLibrary is null) return true; // No metadata → optimistic
+        return JavaLibrary.FindMethods(javaTypeName, javaMethodName).Count > 0;
+    }
+
+    /// <summary>
+    /// Checks whether the given Java type exists in the loaded Java standard-library metadata.
+    /// Returns <see langword="true"/> when the metadata is not available (optimistic).
+    /// </summary>
+    public bool ValidateTypeExists(string javaTypeName)
+    {
+        if (JavaLibrary is null) return true; // No metadata → optimistic
+        return JavaLibrary.FindType(javaTypeName) is not null;
+    }
+
+    /// <summary>
+    /// Resolves a C# fully-qualified type name (as used in TypeMappings.json) to the
+    /// canonical Java type name suitable for <see cref="JavaLibraryIndex"/> lookups.
+    /// Returns <see langword="null"/> if no mapping is found.
+    /// </summary>
+    public string? ResolveJavaCanonicalName(string csharpTypeName)
+    {
+        // Try direct config-based mapping first (strip generics for lookup).
+        var baseTypeName = csharpTypeName;
+        var angleIdx = baseTypeName.IndexOf('<');
+        if (angleIdx > 0)
+            baseTypeName = baseTypeName.Substring(0, angleIdx);
+
+        // Try exact match
+        if (_typeMappings.TryGetValue(csharpTypeName, out var entry))
+            return MapToCanonical(entry.JavaType);
+
+        if (_typeMappings.TryGetValue(baseTypeName, out entry))
+            return MapToCanonical(entry.JavaType);
+
+        // Try with backtick notation
+        foreach (var kvp in _typeMappings)
+        {
+            var backtickIdx = kvp.Key.LastIndexOf('`');
+            if (backtickIdx >= 0)
+            {
+                var keyBase = kvp.Key.Substring(0, backtickIdx);
+                if (baseTypeName == keyBase || csharpTypeName.StartsWith(keyBase + "<"))
+                    return MapToCanonical(kvp.Value.JavaType);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Maps a Java simple type name (from config, e.g. "ArrayList") to its canonical form
+    /// (e.g. "java.util.ArrayList") by looking up imports or using the JavaLibraryIndex.
+    /// </summary>
+    private string? MapToCanonical(string javaType)
+    {
+        // Already canonical (contains dot)
+        if (javaType.Contains('.'))
+            return javaType;
+
+        // Try well-known java.lang types
+        if (JavaLibrary?.FindType("java.lang." + javaType) is not null)
+            return "java.lang." + javaType;
+
+        // Try java.util types (very common in C# → Java mapping)
+        if (JavaLibrary?.FindType("java.util." + javaType) is not null)
+            return "java.util." + javaType;
+
+        // Search through type imports configured for this mapping
+        foreach (var mapping in _typeMappings.Values)
+        {
+            if (mapping.JavaType != javaType) continue;
+            foreach (var import in mapping.Imports)
+            {
+                if (import.EndsWith("." + javaType))
+                    return import;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Converts a PascalCase identifier to Java camelCase (first letter lowered).
+    /// </summary>
+    public static string PascalToCamelCase(string name)
+    {
+        if (string.IsNullOrEmpty(name) || char.IsLower(name[0]))
+            return name;
+        return char.ToLowerInvariant(name[0]) + name.Substring(1);
     }
 
     /// <summary>

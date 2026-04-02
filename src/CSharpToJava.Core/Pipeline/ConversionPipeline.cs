@@ -6,6 +6,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.Visitors;
 using CSharpToJava.TypeMapping;
+using CSharpToJava.TypeMapping.JavaModel;
 using DiagSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -96,6 +97,13 @@ public class ConversionPipeline
             var errorContext = new ConversionContext(request.Options, new TypeMappingRegistry(new TypeMapping.TypeMappingConfig()));
             errorContext.Diagnostics.Error($"Configuration error: {ex.Message}", null);
             return CreateFailureResult(errorContext, request.FileName);
+        }
+
+        // Inject Java standard-library metadata when the path is configured.
+        if (!string.IsNullOrEmpty(request.Options.JavaMetadataPath)
+            && Directory.Exists(request.Options.JavaMetadataPath))
+        {
+            typeMappings.SetJavaLibraryIndex(new JavaLibraryIndex(request.Options.JavaMetadataPath));
         }
 
         var context = new ConversionContext(request.Options, typeMappings);

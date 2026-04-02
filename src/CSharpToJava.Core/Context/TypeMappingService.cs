@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.TypeMapping.JavaModel;
 
 namespace CSharpToJava.Core.Context;
 
@@ -517,5 +518,68 @@ public class TypeMappingService
     private string GetSynthesizedRecordName(string key)
     {
         return _getSynthesizedRecordName?.Invoke(key) ?? "Object";
+    }
+
+    // ─── Java metadata validation ───
+
+    /// <summary>
+    /// Convenience accessor for the Java standard-library metadata index attached to
+    /// the underlying <see cref="TypeMapping.TypeMappingRegistry"/>.
+    /// </summary>
+    public JavaLibraryIndex? JavaLibrary => _typeMappings.JavaLibrary;
+
+    /// <summary>
+    /// Validates that the mapped Java type <paramref name="javaTypeName"/> exists in the
+    /// Java standard-library metadata.  Emits a <c>CS2J4001</c> diagnostic when the type
+    /// is not found (and metadata is available).
+    /// </summary>
+    public void ValidateMappedJavaType(string javaTypeName, Location? location = null)
+    {
+        if (_typeMappings.JavaLibrary is null)
+            return; // No metadata loaded — skip validation.
+
+        // Skip primitive types and common types not in metadata
+        if (IsPrimitiveOrCommon(javaTypeName))
+            return;
+
+        if (!_typeMappings.ValidateTypeExists(javaTypeName))
+        {
+            _diagnostics.Warning(
+                $"Mapped Java type '{javaTypeName}' not found in Java standard-library metadata",
+                location,
+                code: "CS2J4001",
+                category: "JavaApiValidation");
+        }
+    }
+
+    /// <summary>
+    /// Validates that the mapped Java method <paramref name="javaMethodName"/> exists on
+    /// <paramref name="javaTypeName"/>.  Emits a <c>CS2J4002</c> diagnostic when the method
+    /// is not found (and metadata is available).
+    /// </summary>
+    public void ValidateMappedJavaMethod(string javaTypeName, string javaMethodName, Location? location = null)
+    {
+        if (_typeMappings.JavaLibrary is null)
+            return; // No metadata loaded — skip validation.
+
+        if (IsPrimitiveOrCommon(javaTypeName))
+            return;
+
+        if (!_typeMappings.ValidateMethodExists(javaTypeName, javaMethodName))
+        {
+            _diagnostics.Warning(
+                $"Mapped Java method '{javaTypeName}.{javaMethodName}' not found in Java standard-library metadata",
+                location,
+                code: "CS2J4002",
+                category: "JavaApiValidation");
+        }
+    }
+
+    private static bool IsPrimitiveOrCommon(string javaTypeName)
+    {
+        return javaTypeName is "int" or "long" or "short" or "byte" or "float" or "double"
+            or "boolean" or "char" or "void"
+            or "Object" or "String" or "var"
+            or "Integer" or "Long" or "Short" or "Byte" or "Float" or "Double" or "Boolean" or "Character";
     }
 }
