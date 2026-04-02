@@ -19,6 +19,8 @@ public sealed class SingleFilePassState
     public string GeneratedCode { get; set; } = string.Empty;
     public bool BlockEmit { get; set; }
     public bool EmitSucceeded { get; set; }
+    /// <summary>Preserved Java IR compilation unit for post-emit passes.</summary>
+    public Java.JavaCompilationUnit? JavaCompilation { get; set; }
 }
 
 public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, ICs2jPassMetricSource
@@ -266,6 +268,7 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
         }
 
         state.GeneratedCode = code;
+        state.JavaCompilation = javaCompilation;
         state.EmitSucceeded = true;
     }
 

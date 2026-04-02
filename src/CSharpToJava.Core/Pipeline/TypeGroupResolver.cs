@@ -144,34 +144,38 @@ public static class TypeGroupResolver
                     var rawPkg = context.NamespaceToPackage(ns);
                     var pkg = string.IsNullOrEmpty(rawPkg) ? null : rawPkg;
 
-                    // Build file header: package declaration + standard imports
-                    var sb = new System.Text.StringBuilder();
-                    if (pkg != null)
-                        sb.AppendLine($"package {pkg};").AppendLine();
+                    // Build a JavaCompilationUnit with structured imports
+                    var javaCompilation = new Java.JavaCompilationUnit(pkg);
+
                     // Standard JDK wildcard imports
-                    sb.AppendLine("import java.util.*;");
-                    sb.AppendLine("import java.util.function.*;");
-                    sb.AppendLine("import java.util.stream.*;");
-                    sb.AppendLine("import java.io.*;");
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.function", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
+
                     // Imports collected during conversion (type-specific)
                     foreach (var imp in context.ImportedTypes.OrderBy(x => x))
-                        sb.AppendLine($"import {imp};");
-                    if (context.ImportedTypes.Count > 0)
-                        sb.AppendLine();
+                    {
+                        if (imp.EndsWith(".*", StringComparison.Ordinal))
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
+                        else
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp));
+                    }
 
-                    // IR 层后处理
+                    javaCompilation.TypeDeclarations.Add(javaType);
+
+                    // IR-level post-processing
                     if (irRewriters != null)
                     {
                         foreach (var rewriter in irRewriters)
-                            rewriter.VisitTypeDeclaration(javaType);
+                            rewriter.VisitCompilationUnit(javaCompilation);
                     }
-
-                    sb.AppendLine(javaType.ToString(""));
 
                     return new ConversionResult
                     {
                         Success = true,
-                        GeneratedCode = sb.ToString(),
+                        GeneratedCode = javaCompilation.ToString(""),
+                        Compilation = javaCompilation,
                         Diagnostics = new List<Context.DiagnosticMessage>(),
                         FileName = mergedDeclaration.OutputFileName,
                         Package = pkg
@@ -330,29 +334,35 @@ public static class TypeGroupResolver
                     var rawPkg2 = context.NamespaceToPackage(nsName);
                     var pkg = string.IsNullOrEmpty(rawPkg2) ? null : rawPkg2;
 
-                    // Build file header: package declaration + standard imports
-                    var enumSb = new System.Text.StringBuilder();
-                    if (pkg != null) enumSb.AppendLine($"package {pkg};").AppendLine();
-                    enumSb.AppendLine("import java.util.*;");
-                    enumSb.AppendLine("import java.util.function.*;");
-                    enumSb.AppendLine("import java.util.stream.*;");
-                    enumSb.AppendLine("import java.io.*;");
+                    // Build a JavaCompilationUnit with structured imports
+                    var javaCompilation = new Java.JavaCompilationUnit(pkg);
+
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.function", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
+
                     foreach (var imp in context.ImportedTypes.OrderBy(x => x))
-                        enumSb.AppendLine($"import {imp};");
-                    enumSb.AppendLine();
+                    {
+                        if (imp.EndsWith(".*", StringComparison.Ordinal))
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
+                        else
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp));
+                    }
+
+                    javaCompilation.TypeDeclarations.Add(javaEnum);
 
                     if (irRewriters != null)
                     {
                         foreach (var rewriter in irRewriters)
-                            rewriter.VisitTypeDeclaration(javaEnum);
+                            rewriter.VisitCompilationUnit(javaCompilation);
                     }
-
-                    enumSb.Append(javaEnum.ToString(""));
 
                     return new ConversionResult
                     {
                         Success = true,
-                        GeneratedCode = enumSb.ToString(),
+                        GeneratedCode = javaCompilation.ToString(""),
+                        Compilation = javaCompilation,
                         FileName = $"{typeGroup.TypeSymbol.Name}.java",
                         Package = pkg,
                         Diagnostics = context.Diagnostics.Messages.ToList()
@@ -401,29 +411,35 @@ public static class TypeGroupResolver
                     var rawPkg3 = context.NamespaceToPackage(delNsName);
                     var pkg = string.IsNullOrEmpty(rawPkg3) ? null : rawPkg3;
 
-                    // Build file header: package declaration + standard imports
-                    var delSb = new System.Text.StringBuilder();
-                    if (pkg != null) delSb.AppendLine($"package {pkg};").AppendLine();
-                    delSb.AppendLine("import java.util.*;");
-                    delSb.AppendLine("import java.util.function.*;");
-                    delSb.AppendLine("import java.util.stream.*;");
-                    delSb.AppendLine("import java.io.*;");
+                    // Build a JavaCompilationUnit with structured imports
+                    var javaCompilation = new Java.JavaCompilationUnit(pkg);
+
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.function", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
+                    javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
+
                     foreach (var imp in context.ImportedTypes.OrderBy(x => x))
-                        delSb.AppendLine($"import {imp};");
-                    delSb.AppendLine();
+                    {
+                        if (imp.EndsWith(".*", StringComparison.Ordinal))
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
+                        else
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp));
+                    }
+
+                    javaCompilation.TypeDeclarations.Add(javaInterface);
 
                     if (irRewriters != null)
                     {
                         foreach (var rewriter in irRewriters)
-                            rewriter.VisitTypeDeclaration(javaInterface);
+                            rewriter.VisitCompilationUnit(javaCompilation);
                     }
-
-                    delSb.Append(javaInterface.ToString(""));
 
                     return new ConversionResult
                     {
                         Success = true,
-                        GeneratedCode = delSb.ToString(),
+                        GeneratedCode = javaCompilation.ToString(""),
+                        Compilation = javaCompilation,
                         FileName = $"{typeGroup.TypeSymbol.Name}.java",
                         Package = pkg,
                         Diagnostics = new List<Context.DiagnosticMessage>()
