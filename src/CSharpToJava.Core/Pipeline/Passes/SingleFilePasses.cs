@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java.Rewriters;
 using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.Visitors;
 
@@ -233,9 +234,21 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
             return;
         }
 
+        // Run user-registered IR rewriters
         foreach (var rewriter in _irRewriters)
         {
             rewriter.VisitCompilationUnit(javaCompilation);
+        }
+
+        // Run built-in Java metadata validation rewriters when metadata is available
+        var javaLibrary = state.Context.TypeMappings.JavaLibrary;
+        if (javaLibrary is not null)
+        {
+            var apiValidator = new JavaApiValidationRewriter(javaLibrary, state.Context.Diagnostics);
+            apiValidator.VisitCompilationUnit(javaCompilation);
+
+            var exceptionChecker = new JavaExceptionCheckRewriter(javaLibrary, state.Context.Diagnostics);
+            exceptionChecker.VisitCompilationUnit(javaCompilation);
         }
 
         var code = javaCompilation.ToString("");
