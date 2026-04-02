@@ -28,7 +28,7 @@ public sealed class ProjectJavaModuleDependencyPass : ICs2jPass<ProjectPassState
             if (string.IsNullOrWhiteSpace(result.GeneratedCode) || !result.Success)
                 continue;
 
-            var modules = CollectModuleDependencies(result.GeneratedCode, javaLibrary);
+            var modules = CollectModuleDependencies(result, javaLibrary);
             if (modules.Count > 0)
             {
                 result.JavaModuleDependencies = modules;
@@ -40,16 +40,44 @@ public sealed class ProjectJavaModuleDependencyPass : ICs2jPass<ProjectPassState
 
     /// <summary>
     /// Parses import statements from generated Java code and queries the Java metadata
-    /// to determine which modules they belong to.
+    /// to determine which modules they belong to.  Uses the preserved IR import list
+    /// when available; falls back to string parsing for compatibility-generated files.
     /// </summary>
     private static HashSet<string> CollectModuleDependencies(
-        string generatedCode,
+        ConversionResult result,
         TypeMapping.JavaModel.JavaLibraryIndex javaLibrary)
     {
         var modules = new HashSet<string>(StringComparer.Ordinal);
 
-        // Parse import statements from generated code
-        foreach (var line in generatedCode.Split('\n'))
+        // Prefer IR path: read from JavaCompilationUnit.Imports
+        if (result.Compilation is not null)
+        {
+            foreach (var import in result.Compilation.Imports)
+            {
+                if (import.IsWildcard) continue; // Skip wildcard imports
+
+                string typeName;
+                if (import.IsStatic)
+                {
+                    // Static import: strip member name to get type name
+                    var lastDot = import.Name.LastIndexOf('.');
+                    typeName = lastDot > 0 ? import.Name[..lastDot] : import.Name;
+                }
+                else
+                {
+                    typeName = import.Name;
+                }
+
+                var module = javaLibrary.GetModuleFor(typeName);
+                if (module is not null)
+                    modules.Add(module);
+            }
+
+            return modules;
+        }
+
+        // Fallback: parse import statements from generated code string
+        foreach (var line in result.GeneratedCode.Split('\n'))
         {
             var trimmed = line.Trim();
             if (!trimmed.StartsWith("import ", StringComparison.Ordinal))
@@ -62,7 +90,7 @@ public sealed class ProjectJavaModuleDependencyPass : ICs2jPass<ProjectPassState
                 var lastDot = importName.LastIndexOf('.');
                 if (lastDot > 0)
                 {
-                    var typeName = importName.Substring(0, lastDot);
+                    var typeName = importName[..lastDot];
                     var module = javaLibrary.GetModuleFor(typeName);
                     if (module is not null)
                         modules.Add(module);
