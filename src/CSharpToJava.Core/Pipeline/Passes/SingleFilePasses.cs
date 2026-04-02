@@ -240,6 +240,9 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
             rewriter.VisitCompilationUnit(javaCompilation);
         }
 
+        // Run built-in compatibility IR rewriters (D4: migrated from PostGenerationRewriteEngine)
+        RunBuiltInRewriters(javaCompilation);
+
         // Run built-in Java metadata validation rewriters when metadata is available
         var javaLibrary = state.Context.TypeMappings.JavaLibrary;
         if (javaLibrary is not null)
@@ -264,5 +267,20 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
 
         state.GeneratedCode = code;
         state.EmitSucceeded = true;
+    }
+
+    /// <summary>
+    /// Runs the built-in compatibility IR rewriters that address known conversion error patterns.
+    /// These rewriters were migrated from string-level post-processing (PostGenerationRewriteEngine)
+    /// to the IR layer for more robust and precise transformations.
+    /// </summary>
+    private static void RunBuiltInRewriters(Java.JavaCompilationUnit compilation)
+    {
+        new OperatorPrecedenceRewriter().VisitCompilationUnit(compilation);
+        new MapEntryTypeRewriter().VisitCompilationUnit(compilation);
+        new MemberwiseCloneRewriter().VisitCompilationUnit(compilation);
+        new MathMethodRewriter().VisitCompilationUnit(compilation);
+        new DelegateInvocationRewriter().VisitCompilationUnit(compilation);
+        new GenericArrayCreationRewriter().VisitCompilationUnit(compilation);
     }
 }

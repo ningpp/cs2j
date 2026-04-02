@@ -477,13 +477,24 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
 
     private IReadOnlyList<Java.JavaSyntaxRewriter> BuildEffectiveRewriters(ProjectPassState state)
     {
-        var javaLibrary = state.Context.TypeMappings.JavaLibrary;
-        if (javaLibrary is null)
-            return _irRewriters;
-
         var rewriters = new List<Java.JavaSyntaxRewriter>(_irRewriters);
-        rewriters.Add(new Java.Rewriters.JavaApiValidationRewriter(javaLibrary, state.Context.Diagnostics));
-        rewriters.Add(new Java.Rewriters.JavaExceptionCheckRewriter(javaLibrary, state.Context.Diagnostics));
+
+        // D4: Built-in compatibility rewriters migrated from PostGenerationRewriteEngine
+        rewriters.Add(new Java.Rewriters.OperatorPrecedenceRewriter());
+        rewriters.Add(new Java.Rewriters.MapEntryTypeRewriter());
+        rewriters.Add(new Java.Rewriters.MemberwiseCloneRewriter());
+        rewriters.Add(new Java.Rewriters.MathMethodRewriter());
+        rewriters.Add(new Java.Rewriters.DelegateInvocationRewriter());
+        rewriters.Add(new Java.Rewriters.GenericArrayCreationRewriter());
+
+        // Java metadata validation rewriters (Phase C)
+        var javaLibrary = state.Context.TypeMappings.JavaLibrary;
+        if (javaLibrary is not null)
+        {
+            rewriters.Add(new Java.Rewriters.JavaApiValidationRewriter(javaLibrary, state.Context.Diagnostics));
+            rewriters.Add(new Java.Rewriters.JavaExceptionCheckRewriter(javaLibrary, state.Context.Diagnostics));
+        }
+
         return rewriters;
     }
 
