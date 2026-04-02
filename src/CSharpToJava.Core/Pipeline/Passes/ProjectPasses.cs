@@ -444,6 +444,9 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
 
     public void Execute(ProjectPassState state)
     {
+        // Build effective IR rewriters: user-registered + built-in validation rewriters
+        var effectiveRewriters = BuildEffectiveRewriters(state);
+
         foreach (var typeGroup in state.TypeGroups)
         {
             var candidatePaths = CollectCandidatePaths(typeGroup);
@@ -457,7 +460,7 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
                 continue;
             }
 
-            var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, state.Compilation, state.Context, _irRewriters);
+            var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, state.Compilation, state.Context, effectiveRewriters);
             if (result != null)
             {
                 var diagnostics = state.GetDiagnosticsForPaths(candidatePaths);
@@ -470,6 +473,18 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
                 state.Results.Add(result);
             }
         }
+    }
+
+    private IReadOnlyList<Java.JavaSyntaxRewriter> BuildEffectiveRewriters(ProjectPassState state)
+    {
+        var javaLibrary = state.Context.TypeMappings.JavaLibrary;
+        if (javaLibrary is null)
+            return _irRewriters;
+
+        var rewriters = new List<Java.JavaSyntaxRewriter>(_irRewriters);
+        rewriters.Add(new Java.Rewriters.JavaApiValidationRewriter(javaLibrary, state.Context.Diagnostics));
+        rewriters.Add(new Java.Rewriters.JavaExceptionCheckRewriter(javaLibrary, state.Context.Diagnostics));
+        return rewriters;
     }
 
     private static List<string> CollectCandidatePaths(PartialTypeGroup typeGroup)

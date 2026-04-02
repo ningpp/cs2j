@@ -133,6 +133,7 @@ public class ProjectConversionPipeline
             new ProjectCompatibilityEmitPass(),
             new ProjectCrossPackageImportEmitPass(),
             new ProjectPostGenerationRewriteEmitPass(),
+            new ProjectJavaModuleDependencyPass(),
         };
     }
 

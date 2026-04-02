@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java.Rewriters;
 using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.Visitors;
 using CSharpToJava.TypeMapping;
@@ -33,6 +34,11 @@ public class ConversionResult
     public string? FileName { get; set; }
     /// <summary>Java package for this output file (used by Holder class generation).</summary>
     public string? Package { get; set; }
+    /// <summary>
+    /// Java platform module names required by this output file (e.g. "java.base", "java.sql").
+    /// Populated by the module dependency analysis pass when <c>JavaMetadataPath</c> is configured.
+    /// </summary>
+    public IReadOnlySet<string>? JavaModuleDependencies { get; set; }
 }
 
 /// <summary>
