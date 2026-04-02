@@ -62,6 +62,7 @@ public sealed class OperatorPrecedenceRewriter : JavaSyntaxRewriter
     private static bool IsLikelyNonBooleanExpression(JavaExpression expr)
     {
         // Member access like .length, .size, .count
+        // Include both camelCase (Java convention) and PascalCase (C# residue from incomplete conversion)
         if (expr is JavaMemberAccessExpression memberAccess)
         {
             var name = memberAccess.MemberName;
