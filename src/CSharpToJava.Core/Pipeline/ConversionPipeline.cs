@@ -39,6 +39,25 @@ public class ConversionResult
     /// Populated by the module dependency analysis pass when <c>JavaMetadataPath</c> is configured.
     /// </summary>
     public IReadOnlySet<string>? JavaModuleDependencies { get; set; }
+
+    /// <summary>
+    /// The Java IR compilation unit for this output file.  Preserved after the emit pass so
+    /// that downstream passes (e.g. cross-package import resolution, module dependency analysis)
+    /// can operate on structured IR nodes rather than re-parsing generated code strings.
+    /// <para>May be <c>null</c> for compatibility-generated files or failed conversions.</para>
+    /// </summary>
+    public Java.JavaCompilationUnit? Compilation { get; set; }
+
+    /// <summary>
+    /// Regenerates <see cref="GeneratedCode"/> from the preserved <see cref="Compilation"/> IR.
+    /// Call this after modifying the IR in post-emit passes to keep the string in sync.
+    /// No-op if <see cref="Compilation"/> is <c>null</c>.
+    /// </summary>
+    public void SyncGeneratedCodeFromIR()
+    {
+        if (Compilation is not null)
+            GeneratedCode = Compilation.ToString("");
+    }
 }
 
 /// <summary>
