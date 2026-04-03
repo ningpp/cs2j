@@ -1,4 +1,4 @@
-# LINQ 重写引擎架构设计
+# LINQ 重写引擎架构设计 / LINQ Rewrite Engine Architecture Design
 
 ## 1. 文档定位
 
