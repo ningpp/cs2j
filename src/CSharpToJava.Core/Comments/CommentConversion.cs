@@ -61,7 +61,17 @@ internal static class CommentConversion
         if (symbol == null)
             return null;
 
-        var xml = symbol.GetDocumentationCommentXml(expandIncludes: true, cancellationToken: default);
+        string? xml;
+        try
+        {
+            xml = symbol.GetDocumentationCommentXml(expandIncludes: true, cancellationToken: default);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // Roslyn bug: DocumentationCommentCompiler.WriteSubStringLine can
+            // compute a negative length for certain malformed doc comments.
+            return null;
+        }
         if (string.IsNullOrWhiteSpace(xml))
             return null;
 

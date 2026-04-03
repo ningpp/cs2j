@@ -105,7 +105,9 @@ namespace CSharpToJava.Core.LinqRewrite
             }
             catch (Exception ex) when (ex is InvalidCastException || ex is NotSupportedException || ex is ArgumentException)
             {
-                methodsToAddToCurrentType.RemoveRange(methodIdx, methodsToAddToCurrentType.Count - methodIdx);
+                var removeCount = methodsToAddToCurrentType.Count - methodIdx;
+                if (removeCount > 0)
+                    methodsToAddToCurrentType.RemoveRange(methodIdx, removeCount);
                 var location = node.GetLocation().GetLineSpan();
                 var lineNumber = location.StartLinePosition.Line + 1;
                 var reason = ex is NotSupportedException

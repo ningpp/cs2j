@@ -15,7 +15,7 @@ echo Output: %OUTPUT_DIR%
 echo.
 
 if /I "%~1"=="--print-only" (
-    echo dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_PATH%" -d "%OUTPUT_DIR%" --mode multi-module --prefer-procedural --verbose
+    echo dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_PATH%" -d "%OUTPUT_DIR%" --mode multi-module --prefer-procedural 
     echo pushd "%OUTPUT_DIR%" ^>nul
     echo mvn clean package -e
     echo popd ^>nul
@@ -23,7 +23,7 @@ if /I "%~1"=="--print-only" (
 )
 
 pushd "%SCRIPT_DIR%" >nul
-dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_PATH%" -d "%OUTPUT_DIR%" --mode multi-module --prefer-procedural --verbose
+dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_PATH%" -d "%OUTPUT_DIR%" --mode multi-module --prefer-procedural 
 set "EXIT_CODE=%ERRORLEVEL%"
 popd >nul
 
