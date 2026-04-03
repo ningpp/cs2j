@@ -943,6 +943,63 @@ namespace CSharpToJava.Core.LinqRewrite
                     SyntaxFactory.ElseClause(next is BlockSyntax ? next : SyntaxFactory.Block(next)));
             }
 
+            // --- Zip: synchronous dual-iterator pairing ---
+            if (method == ZipMethod)
+            {
+                var resultLambda = (AnonymousFunctionExpressionSyntax)step.Arguments[1];
+                var lambdaType = (INamedTypeSymbol)semantic.GetTypeInfo(resultLambda).ConvertedType;
+                var resultBodyType = lambdaType.TypeArguments.Last();
+                var newtype = IsAnonymousType(resultBodyType) ? null : SyntaxFactory.ParseTypeName(resultBodyType.ToDisplayString());
+
+                var zipCurrentName = "_zipCurrent" + (++lastId);
+                var newname = "_linqitem" + (++lastId);
+
+                // if (_zipIndex >= _zipList.Count) break;
+                var boundCheck = SyntaxFactory.IfStatement(
+                    SyntaxFactory.BinaryExpression(SyntaxKind.GreaterThanOrEqualExpression,
+                        SyntaxFactory.IdentifierName("_zipIndex"),
+                        SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName("_zipList"),
+                            SyntaxFactory.IdentifierName("Count"))),
+                    SyntaxFactory.BreakStatement());
+
+                // var _zipCurrentN = _zipList[_zipIndex++];
+                var getCurrentDecl = CreateLocalVariableDeclaration(zipCurrentName,
+                    SyntaxFactory.ElementAccessExpression(
+                        SyntaxFactory.IdentifierName("_zipList"),
+                        SyntaxFactory.BracketedArgumentList(
+                            CreateSeparatedList(SyntaxFactory.Argument(
+                                SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                                    SyntaxFactory.IdentifierName("_zipIndex")))))));
+
+                // Inline the 2-param lambda: substitute param[0] → itemName, param[1] → zipCurrentName
+                var zipLambda = new Lambda(resultLambda);
+                var param0Name = zipLambda.Parameters[0].Identifier.ValueText;
+                var param1Name = zipLambda.Parameters[1].Identifier.ValueText;
+
+                var identifiersToReplace = new Dictionary<SyntaxNode, string>();
+                foreach (var id in zipLambda.Body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+                {
+                    var sym = semantic.GetSymbolInfo(id).Symbol;
+                    if (sym is IParameterSymbol ps)
+                    {
+                        if (ps.Name == param0Name) identifiersToReplace[id] = itemName;
+                        else if (ps.Name == param1Name) identifiersToReplace[id] = zipCurrentName;
+                    }
+                }
+
+                var inlinedBody = zipLambda.Body.ReplaceNodes(
+                    identifiersToReplace.Keys,
+                    (orig, _) => SyntaxFactory.IdentifierName(identifiersToReplace[orig]));
+
+                var resultDecl = CreateLocalVariableDeclaration(newname, (ExpressionSyntax)inlinedBody);
+
+                var next = CreateProcessingStep(chain, chainIndex - 1, newtype, newname, arguments, noAggregation);
+                var nexts = next is BlockSyntax ? ((BlockSyntax)next).Statements : (IEnumerable<StatementSyntax>)new[] { next };
+
+                return SyntaxFactory.Block(new StatementSyntax[] { boundCheck, getCurrentDecl, resultDecl }.Concat(nexts));
+            }
+
 
             throw new NotSupportedException();
         }

@@ -327,7 +327,8 @@ namespace CSharpToJava.Core.LinqRewrite
                 if (name == ElementAtMethod || name == ElementAtOrDefaultMethod || name == ContainsMethod
                     || name == SkipMethod || name == TakeMethod
                     || name == ConcatMethod || name == UnionMethod || name == IntersectMethod || name == ExceptMethod
-                    || name == AggregateWithSeedMethod || name == SequenceEqualMethod)
+                    || name == AggregateWithSeedMethod || name == SequenceEqualMethod
+                    || name == ZipMethod)
                 {
                     // These accept non-lambda args, allow them
                 }
@@ -517,6 +518,18 @@ namespace CSharpToJava.Core.LinqRewrite
                     result.Add(CreateLocalVariableDeclaration("_skipWhileActive",
                         SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)));
                 }
+                else if (step.MethodName == ZipMethod)
+                {
+                    var zipMethodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var zipSecondItemType = GetItemType(zipMethodSymbol.Parameters[0].Type);
+                    result.Add(CreateLocalVariableDeclaration("_zipList",
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + zipSecondItemType.ToDisplayString() + ">"),
+                            CreateArguments(new ExpressionSyntax[] { SyntaxFactory.IdentifierName("_zipSecond") }),
+                            null)));
+                    result.Add(CreateLocalVariableDeclaration("_zipIndex",
+                        SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))));
+                }
             }
             return result;
         }
@@ -560,6 +573,14 @@ namespace CSharpToJava.Core.LinqRewrite
                 {
                     intermediateParams.Add(Tuple.Create(
                         CreateParameter("_takeCount_param", CreatePrimitiveType(SyntaxKind.IntKeyword)),
+                        step.Arguments[0]));
+                }
+                else if (step.MethodName == ZipMethod && step.Arguments.Count > 0)
+                {
+                    var zipMethodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var zipSecondType = zipMethodSymbol.Parameters[0].Type;
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_zipSecond", SyntaxFactory.ParseTypeName(zipSecondType.ToDisplayString())),
                         step.Arguments[0]));
                 }
             }
