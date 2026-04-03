@@ -170,8 +170,11 @@ namespace CSharpToJava.Core.LinqRewrite
                         && !chain.Any(x => x.MethodName == SkipMethod || x.MethodName == TakeMethod || x.MethodName == DistinctMethod
                             || x.MethodName == SkipLastMethod || x.MethodName == TakeLastMethod
                             || x.MethodName == AppendMethod || x.MethodName == PrependMethod
-                            || x.MethodName == DefaultIfEmptyMethod || x.MethodName == DefaultIfEmptyWithValueMethod)
-                        && !chain.Any(x => x.MethodName == SequenceEqualMethod))
+                            || x.MethodName == DefaultIfEmptyMethod || x.MethodName == DefaultIfEmptyWithValueMethod
+                            || x.MethodName == ChunkMethod)
+                        && !chain.Any(x => x.MethodName == SequenceEqualMethod
+                            || x.MethodName == UnionByMethod || x.MethodName == IntersectByMethod || x.MethodName == ExceptByMethod
+                            || x.MethodName == MinByMethod || x.MethodName == MaxByMethod))
                         return null;
                     if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName)) return null;
 
@@ -336,7 +339,9 @@ namespace CSharpToJava.Core.LinqRewrite
                     || name == AggregateWithSeedMethod || name == SequenceEqualMethod
                     || name == ZipMethod
                     || name == SkipLastMethod || name == TakeLastMethod
-                    || name == AppendMethod || name == PrependMethod || name == DefaultIfEmptyWithValueMethod)
+                    || name == AppendMethod || name == PrependMethod || name == DefaultIfEmptyWithValueMethod
+                    || name == UnionByMethod || name == IntersectByMethod || name == ExceptByMethod
+                    || name == ChunkMethod)
                 {
                     // These accept non-lambda args, allow them
                 }
@@ -514,6 +519,15 @@ namespace CSharpToJava.Core.LinqRewrite
                             SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + GetIntermediateItemTypeForStep(step) + ">"),
                             CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
                 }
+                else if (step.MethodName == DistinctByMethod)
+                {
+                    var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var keyType = methodSymbol.TypeArguments[1]; // TKey
+                    result.Add(CreateLocalVariableDeclaration("_seenKeys_" + i,
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + keyType.ToDisplayString() + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
+                }
                 else if (step.MethodName == SkipMethod)
                 {
                     result.Add(CreateLocalVariableDeclaration("_skipCount", SyntaxFactory.IdentifierName("_skipCount_param")));
@@ -578,6 +592,18 @@ namespace CSharpToJava.Core.LinqRewrite
                 {
                     result.Add(CreateLocalVariableDeclaration("_hasElements_" + i,
                         SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+                }
+                else if (step.MethodName == ChunkMethod)
+                {
+                    // Buffer for individual items (TSource, not TSource[])
+                    var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var elementType = methodSymbol.TypeArguments[0]; // TSource
+                    result.Add(CreateLocalVariableDeclaration("_chunkBuffer_" + i,
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + elementType.ToDisplayString() + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
+                    result.Add(CreateLocalVariableDeclaration("_chunkSize_" + i,
+                        SyntaxFactory.IdentifierName("_chunkSize_param_" + i)));
                 }
             }
             return result;
@@ -669,6 +695,29 @@ namespace CSharpToJava.Core.LinqRewrite
                                 SyntaxFactory.IdentifierName("_defaultValue_" + i)),
                             inner)));
                 }
+                else if (step.MethodName == ChunkMethod)
+                {
+                    // Emit remaining items in the buffer as a final chunk
+                    var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var elementType = methodSymbol.TypeArguments[0]; // TSource
+                    var elementTypeSyntax = SyntaxFactory.ParseTypeName(elementType.ToDisplayString());
+                    var chunkItemType = SyntaxFactory.ArrayType(elementTypeSyntax, SyntaxFactory.List(new[] { SyntaxFactory.ArrayRankSpecifier() }));
+                    var chunkItemName = "_chunkArrayFinal" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, chunkItemType, chunkItemName, arguments, noAggregation);
+                    result.Add(SyntaxFactory.IfStatement(
+                        SyntaxFactory.BinaryExpression(SyntaxKind.GreaterThanExpression,
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_chunkBuffer_" + i),
+                                SyntaxFactory.IdentifierName("Count")),
+                            SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))),
+                        SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(chunkItemName,
+                                SyntaxFactory.InvocationExpression(
+                                    SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        SyntaxFactory.IdentifierName("_chunkBuffer_" + i),
+                                        SyntaxFactory.IdentifierName("ToArray")))),
+                            inner)));
+                }
             }
             return result;
         }
@@ -749,6 +798,13 @@ namespace CSharpToJava.Core.LinqRewrite
                     var paramType = methodSymbol.Parameters[0].Type;
                     intermediateParams.Add(Tuple.Create(
                         CreateParameter("_defaultValue_" + idx, SyntaxFactory.ParseTypeName(paramType.ToDisplayString())),
+                        step.Arguments[0]));
+                }
+                else if (step.MethodName == ChunkMethod && step.Arguments.Count > 0)
+                {
+                    var idx = chain.IndexOf(step);
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_chunkSize_param_" + idx, CreatePrimitiveType(SyntaxKind.IntKeyword)),
                         step.Arguments[0]));
                 }
             }

@@ -74,6 +74,75 @@ namespace CSharpToJava.Core.LinqRewrite
                 );
             }
 
+            // --- MinBy / MaxBy: return element with min/max key ---
+            if (aggregationMethod == MinByMethod || aggregationMethod == MaxByMethod)
+            {
+                var isMax = aggregationMethod == MaxByMethod;
+                var lambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[0].Expression;
+                var methodSymbol = semantic.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var keyType = methodSymbol.TypeArguments[1]; // TKey
+                var keyTypeName = keyType.ToDisplayString();
+                var keyTypeSyntax = SyntaxFactory.ParseTypeName(keyTypeName);
+
+                return RewriteAsLoop(
+                    returnType,
+                    new[] {
+                        CreateLocalVariableDeclaration("found_", SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)),
+                        CreateLocalVariableDeclaration("bestItem_", SyntaxFactory.DefaultExpression(returnType)),
+                        CreateLocalVariableDeclaration("bestKey_", SyntaxFactory.DefaultExpression(keyTypeSyntax))
+                    },
+                    new[] {
+                        SyntaxFactory.Block(
+                            SyntaxFactory.IfStatement(
+                                SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, SyntaxFactory.IdentifierName("found_")),
+                                CreateThrowException("System.InvalidOperationException", "Sequence contains no elements")),
+                            SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("bestItem_")))
+                    },
+                    collection,
+                    chain,
+                    (inv, arguments, param) =>
+                    {
+                        var itemIdent = SyntaxFactory.IdentifierName(param.Identifier.ValueText);
+                        var keyExpr = InlineOrCreateMethod(new Lambda(lambda), keyTypeSyntax, arguments, param);
+                        var keyVarName = "_key" + (++lastId);
+                        var keyDecl = CreateLocalVariableDeclaration(keyVarName, keyExpr);
+                        var keyIdent = SyntaxFactory.IdentifierName(keyVarName);
+
+                        // Comparer<TKey>.Default.Compare(key, bestKey_) < 0 (min) or > 0 (max)
+                        var comparerCall = SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.ParseTypeName("System.Collections.Generic.Comparer<" + keyTypeName + ">"),
+                                    SyntaxFactory.IdentifierName("Default")),
+                                SyntaxFactory.IdentifierName("Compare")),
+                            CreateArguments(keyIdent, SyntaxFactory.IdentifierName("bestKey_")));
+
+                        var condition = SyntaxFactory.BinaryExpression(
+                            isMax ? SyntaxKind.GreaterThanExpression : SyntaxKind.LessThanExpression,
+                            comparerCall,
+                            SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0)));
+
+                        var updateBest = new StatementSyntax[] {
+                            SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                SyntaxFactory.IdentifierName("bestKey_"), keyIdent)),
+                            SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                SyntaxFactory.IdentifierName("bestItem_"), itemIdent))
+                        };
+
+                        return SyntaxFactory.Block(
+                            keyDecl,
+                            SyntaxFactory.IfStatement(
+                                SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, SyntaxFactory.IdentifierName("found_")),
+                                SyntaxFactory.Block(
+                                    updateBest[0], updateBest[1],
+                                    SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                        SyntaxFactory.IdentifierName("found_"), SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)))),
+                                SyntaxFactory.ElseClause(
+                                    SyntaxFactory.IfStatement(condition,
+                                        SyntaxFactory.Block(updateBest[0], updateBest[1])))));
+                    });
+            }
+
             if (aggregationMethod.Contains(".Max") || aggregationMethod.Contains(".Min"))
             {
                 var minmax = aggregationMethod.Contains(".Max") ? "max_" : "min_";
@@ -656,6 +725,112 @@ namespace CSharpToJava.Core.LinqRewrite
                 );
             }
 
+            // --- UnionBy: union two sequences using key selector for dedup ---
+            if (aggregationMethod == UnionByMethod)
+            {
+                var listIdentifier = SyntaxFactory.IdentifierName("_list");
+                var itemType = GetItemType(semanticReturnType);
+                var methodSymbol = semantic.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var keyType = methodSymbol.TypeArguments[1]; // TKey
+                var keyTypeName = keyType.ToDisplayString();
+                var lambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[1].Expression;
+                return RewriteAsLoop(
+                    returnType,
+                    new[] {
+                        CreateLocalVariableDeclaration("_list", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + itemType.ToDisplayString() + ">"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)),
+                        CreateLocalVariableDeclaration("_unionSeen", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + keyTypeName + ">"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null))
+                    },
+                    new StatementSyntax[] {
+                        SyntaxFactory.ForEachStatement(SyntaxFactory.IdentifierName("var"), "_unionItem", SyntaxFactory.IdentifierName("_second"),
+                            SyntaxFactory.Block(
+                                CreateLocalVariableDeclaration("_unionItemKey", InlineOrCreateMethod(new Lambda(lambda), SyntaxFactory.ParseTypeName(keyTypeName), null, CreateParameter("_unionItem", itemType))),
+                                SyntaxFactory.IfStatement(
+                                    SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName("_unionSeen"), SyntaxFactory.IdentifierName("Add")), CreateArguments(new[] { SyntaxFactory.IdentifierName("_unionItemKey") })),
+                                    SyntaxFactory.Block(CreateStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, listIdentifier, SyntaxFactory.IdentifierName("Add")), CreateArguments(new[] { SyntaxFactory.IdentifierName("_unionItem") }))))))),
+                        SyntaxFactory.ReturnStatement(listIdentifier)
+                    },
+                    collection,
+                    chain,
+                    (inv, arguments, param) =>
+                    {
+                        var keyExpr = InlineOrCreateMethod(new Lambda(lambda), SyntaxFactory.ParseTypeName(keyTypeName), arguments, param);
+                        var keyVarName = "_unionKey" + (++lastId);
+                        return SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(keyVarName, keyExpr),
+                            SyntaxFactory.IfStatement(
+                                SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName("_unionSeen"), SyntaxFactory.IdentifierName("Add")), CreateArguments(new[] { SyntaxFactory.IdentifierName(keyVarName) })),
+                                SyntaxFactory.Block(CreateStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, listIdentifier, SyntaxFactory.IdentifierName("Add")), CreateArguments(new[] { SyntaxFactory.IdentifierName(param.Identifier.ValueText) }))))));
+                    },
+                    additionalParameters: new[] { Tuple.Create(CreateParameter("_second", SyntaxFactory.ParseTypeName("System.Collections.Generic.IEnumerable<" + itemType.ToDisplayString() + ">")), node.ArgumentList.Arguments[0].Expression) }
+                );
+            }
+
+            // --- IntersectBy: return items from first whose key exists in second keys ---
+            if (aggregationMethod == IntersectByMethod)
+            {
+                var listIdentifier = SyntaxFactory.IdentifierName("_list");
+                var itemType = GetItemType(semanticReturnType);
+                var methodSymbol = semantic.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var keyType = methodSymbol.TypeArguments[1]; // TKey
+                var keyTypeName = keyType.ToDisplayString();
+                var lambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[1].Expression;
+                return RewriteAsLoop(
+                    returnType,
+                    new[] {
+                        CreateLocalVariableDeclaration("_list", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + itemType.ToDisplayString() + ">"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)),
+                        CreateLocalVariableDeclaration("_secondSet", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + keyTypeName + ">"), CreateArguments(new ExpressionSyntax[] { SyntaxFactory.IdentifierName("_second") }), null))
+                    },
+                    new[] { SyntaxFactory.ReturnStatement(listIdentifier) },
+                    collection,
+                    chain,
+                    (inv, arguments, param) =>
+                    {
+                        var keyExpr = InlineOrCreateMethod(new Lambda(lambda), SyntaxFactory.ParseTypeName(keyTypeName), arguments, param);
+                        var keyVarName = "_intersectKey" + (++lastId);
+                        return SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(keyVarName, keyExpr),
+                            SyntaxFactory.IfStatement(
+                                SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName("_secondSet"), SyntaxFactory.IdentifierName("Remove")), CreateArguments(new[] { SyntaxFactory.IdentifierName(keyVarName) })),
+                                SyntaxFactory.Block(CreateStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, listIdentifier, SyntaxFactory.IdentifierName("Add")), CreateArguments(new[] { SyntaxFactory.IdentifierName(param.Identifier.ValueText) }))))));
+                    },
+                    additionalParameters: new[] { Tuple.Create(CreateParameter("_second", SyntaxFactory.ParseTypeName("System.Collections.Generic.IEnumerable<" + keyTypeName + ">")), node.ArgumentList.Arguments[0].Expression) }
+                );
+            }
+
+            // --- ExceptBy: return items from first whose key doesn't exist in second keys ---
+            if (aggregationMethod == ExceptByMethod)
+            {
+                var listIdentifier = SyntaxFactory.IdentifierName("_list");
+                var itemType = GetItemType(semanticReturnType);
+                var methodSymbol = semantic.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var keyType = methodSymbol.TypeArguments[1]; // TKey
+                var keyTypeName = keyType.ToDisplayString();
+                var lambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[1].Expression;
+                return RewriteAsLoop(
+                    returnType,
+                    new[] {
+                        CreateLocalVariableDeclaration("_list", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + itemType.ToDisplayString() + ">"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)),
+                        CreateLocalVariableDeclaration("_secondSet", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + keyTypeName + ">"), CreateArguments(new ExpressionSyntax[] { SyntaxFactory.IdentifierName("_second") }), null))
+                    },
+                    new[] { SyntaxFactory.ReturnStatement(listIdentifier) },
+                    collection,
+                    chain,
+                    (inv, arguments, param) =>
+                    {
+                        var keyExpr = InlineOrCreateMethod(new Lambda(lambda), SyntaxFactory.ParseTypeName(keyTypeName), arguments, param);
+                        var keyVarName = "_exceptKey" + (++lastId);
+                        return SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(keyVarName, keyExpr),
+                            SyntaxFactory.IfStatement(
+                                SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                                    SyntaxFactory.ParenthesizedExpression(
+                                        SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName("_secondSet"), SyntaxFactory.IdentifierName("Contains")), CreateArguments(new[] { SyntaxFactory.IdentifierName(keyVarName) })))),
+                                SyntaxFactory.Block(CreateStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, listIdentifier, SyntaxFactory.IdentifierName("Add")), CreateArguments(new[] { SyntaxFactory.IdentifierName(param.Identifier.ValueText) }))))));
+                    },
+                    additionalParameters: new[] { Tuple.Create(CreateParameter("_second", SyntaxFactory.ParseTypeName("System.Collections.Generic.IEnumerable<" + keyTypeName + ">")), node.ArgumentList.Arguments[0].Expression) }
+                );
+            }
+
             // --- SequenceEqual: element-by-element comparison of two sequences ---
             if (aggregationMethod == SequenceEqualMethod)
             {
@@ -1010,6 +1185,25 @@ namespace CSharpToJava.Core.LinqRewrite
                     next is BlockSyntax ? next : SyntaxFactory.Block(next));
             }
 
+            // --- DistinctBy: skip items whose key has already been seen ---
+            if (method == DistinctByMethod)
+            {
+                var lambda = (AnonymousFunctionExpressionSyntax)step.Arguments[0];
+                var keyVarName = "_distinctByKey" + (++lastId);
+                var keyExpr = InlineOrCreateMethod(new Lambda(lambda), null, arguments, CreateParameter(itemName, itemType));
+                var keyDecl = CreateLocalVariableDeclaration(keyVarName, keyExpr);
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.Block(
+                    keyDecl,
+                    SyntaxFactory.IfStatement(
+                        SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_seenKeys_" + chainIndex),
+                                SyntaxFactory.IdentifierName("Add")),
+                            CreateArguments(new[] { SyntaxFactory.IdentifierName(keyVarName) })),
+                        next is BlockSyntax ? next : SyntaxFactory.Block(next)));
+            }
+
             // --- Skip: skip first N items ---
             if (method == SkipMethod)
             {
@@ -1236,6 +1430,40 @@ namespace CSharpToJava.Core.LinqRewrite
                     next);
             }
 
+            // --- Chunk: buffer items into arrays of given size ---
+            if (method == ChunkMethod)
+            {
+                var chunkArrayType = SyntaxFactory.ArrayType(itemType, SyntaxFactory.List(new[] { SyntaxFactory.ArrayRankSpecifier() }));
+                var chunkItemName = "_chunkArray" + (++lastId);
+                var next = CreateProcessingStep(chain, chainIndex - 1, chunkArrayType, chunkItemName, arguments, noAggregation);
+                var emitChunk = SyntaxFactory.Block(
+                    CreateLocalVariableDeclaration(chunkItemName,
+                        SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_chunkBuffer_" + chainIndex),
+                                SyntaxFactory.IdentifierName("ToArray")))),
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_chunkBuffer_" + chainIndex),
+                                SyntaxFactory.IdentifierName("Clear")))),
+                    next);
+                return SyntaxFactory.Block(
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_chunkBuffer_" + chainIndex),
+                                SyntaxFactory.IdentifierName("Add")),
+                            CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) }))),
+                    SyntaxFactory.IfStatement(
+                        SyntaxFactory.BinaryExpression(SyntaxKind.GreaterThanOrEqualExpression,
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_chunkBuffer_" + chainIndex),
+                                SyntaxFactory.IdentifierName("Count")),
+                            SyntaxFactory.IdentifierName("_chunkSize_" + chainIndex)),
+                        emitChunk));
+            }
+
             // --- Zip: synchronous dual-iterator pairing ---
             if (method == ZipMethod)
             {
@@ -1383,6 +1611,15 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string DefaultIfEmptyMethod = "System.Collections.Generic.IEnumerable<TSource>.DefaultIfEmpty<TSource>()";
         readonly static string DefaultIfEmptyWithValueMethod = "System.Collections.Generic.IEnumerable<TSource>.DefaultIfEmpty<TSource>(TSource)";
 
+        // Phase 4: .NET 6+ *By operators and Chunk
+        readonly static string DistinctByMethod = "System.Collections.Generic.IEnumerable<TSource>.DistinctBy<TSource, TKey>(System.Func<TSource, TKey>)";
+        readonly static string UnionByMethod = "System.Collections.Generic.IEnumerable<TSource>.UnionBy<TSource, TKey>(System.Collections.Generic.IEnumerable<TSource>, System.Func<TSource, TKey>)";
+        readonly static string IntersectByMethod = "System.Collections.Generic.IEnumerable<TSource>.IntersectBy<TSource, TKey>(System.Collections.Generic.IEnumerable<TKey>, System.Func<TSource, TKey>)";
+        readonly static string ExceptByMethod = "System.Collections.Generic.IEnumerable<TSource>.ExceptBy<TSource, TKey>(System.Collections.Generic.IEnumerable<TKey>, System.Func<TSource, TKey>)";
+        readonly static string MinByMethod = "System.Collections.Generic.IEnumerable<TSource>.MinBy<TSource, TKey>(System.Func<TSource, TKey>)";
+        readonly static string MaxByMethod = "System.Collections.Generic.IEnumerable<TSource>.MaxBy<TSource, TKey>(System.Func<TSource, TKey>)";
+        readonly static string ChunkMethod = "System.Collections.Generic.IEnumerable<TSource>.Chunk<TSource>(int)";
+
         readonly static string[] RootMethodsThatRequireYieldReturn = new[] {
             WhereMethod, SelectMethod, CastMethod, OfTypeMethod,
             DistinctMethod, SkipMethod, TakeMethod, SkipWhileMethod, TakeWhileMethod, SelectManyMethod,
@@ -1391,7 +1628,8 @@ namespace CSharpToJava.Core.LinqRewrite
             WhereWithIndexMethod, SelectWithIndexMethod, SkipWhileWithIndexMethod, TakeWhileWithIndexMethod,
             SelectManyWithIndexMethod,
             SkipLastMethod, TakeLastMethod, AppendMethod, PrependMethod,
-            DefaultIfEmptyMethod, DefaultIfEmptyWithValueMethod
+            DefaultIfEmptyMethod, DefaultIfEmptyWithValueMethod,
+            DistinctByMethod, ChunkMethod
         };
         readonly static string[] MethodsThatPreserveCount = new[] {
             SelectMethod, CastMethod, ReverseMethod, ToListMethod, ToArrayMethod /*OrderBy*/
