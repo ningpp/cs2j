@@ -14,6 +14,7 @@ public enum OutputIncrementalEntryKind
     PassProfile,
     CanarySummary,
     InputFingerprint,
+    Report,
 }
 
 public sealed class OutputIncrementalManifestEntry

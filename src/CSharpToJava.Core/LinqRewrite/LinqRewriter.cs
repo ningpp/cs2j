@@ -57,6 +57,7 @@ namespace CSharpToJava.Core.LinqRewrite
         public int RewrittenMethods { get; private set; }
         public int RewrittenLinqQueries { get; private set; }
         public List<string> SkippedLinqChains { get; } = new();
+        public LinqRewriteStatistics Statistics { get; } = new();
         static LinqRewriter()
         {
 
@@ -98,6 +99,7 @@ namespace CSharpToJava.Core.LinqRewrite
                 if (k != null)
                 {
                     RewrittenLinqQueries++;
+                    Statistics.RewrittenChainCount++;
                     return k;
                 }
             }
@@ -105,7 +107,13 @@ namespace CSharpToJava.Core.LinqRewrite
             {
                 methodsToAddToCurrentType.RemoveRange(methodIdx, methodsToAddToCurrentType.Count - methodIdx);
                 var location = node.GetLocation().GetLineSpan();
-                SkippedLinqChains.Add($"Line {location.StartLinePosition.Line + 1}: {ex.GetType().Name} – {ex.Message}");
+                var lineNumber = location.StartLinePosition.Line + 1;
+                var reason = ex is NotSupportedException
+                    ? LinqSkipReason.UnsupportedMethodChain
+                    : LinqSkipReason.RuleExpansionFailed;
+                var methodName = (node.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.ValueText;
+                SkippedLinqChains.Add($"Line {lineNumber}: {ex.GetType().Name} – {ex.Message}");
+                Statistics.SkippedChains.Add(new LinqSkipInfo(reason, lineNumber, methodName, ex.Message));
             }
             return null;
         }
@@ -156,6 +164,15 @@ namespace CSharpToJava.Core.LinqRewrite
                         }
                         else break;
                     }
+
+                    // Record all operators encountered in this chain
+                    var chainLineNumber = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                    foreach (var step in chain)
+                    {
+                        if (step.MethodName != null && step.MethodName != IEnumerableForEachMethod)
+                            Statistics.EncounteredOperators.Add(new LinqOperatorOccurrence(step.MethodName, chainLineNumber, false));
+                    }
+
                     if (containingForEach != null)
                     {
                         chain.Insert(0, new LinqStep(IEnumerableForEachMethod, new[] { SyntaxFactory.SimpleLambdaExpression(SyntaxFactory.Parameter(containingForEach.Identifier), containingForEach.Statement) })
@@ -177,8 +194,21 @@ namespace CSharpToJava.Core.LinqRewrite
                             || x.MethodName == UnionByMethod || x.MethodName == IntersectByMethod || x.MethodName == ExceptByMethod
                             || x.MethodName == MinByMethod || x.MethodName == MaxByMethod
                             || x.MethodName == JoinMethod || x.MethodName == GroupJoinMethod))
+                    {
+                        Statistics.SkippedChains.Add(new LinqSkipInfo(
+                            LinqSkipReason.NoLambdaOrRecognizedOperator, chainLineNumber,
+                            memberAccess.Name.Identifier.ValueText,
+                            "Chain has no lambda and no recognized non-lambda operator"));
                         return null;
-                    if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName)) return null;
+                    }
+                    if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName))
+                    {
+                        Statistics.SkippedChains.Add(new LinqSkipInfo(
+                            LinqSkipReason.SingleRootMethodRequiresYield, chainLineNumber,
+                            memberAccess.Name.Identifier.ValueText,
+                            "Single root method requires yield return"));
+                        return null;
+                    }
 
 
                     var flowsIn = new List<ISymbol>();
@@ -229,22 +259,61 @@ namespace CSharpToJava.Core.LinqRewrite
                     while (collection is ParenthesizedExpressionSyntax collectionParen)
                         collection = collectionParen.Expression;
 
-                    if (!CanUseRecordsForAnonymousTypes && IsAnonymousType(semantic.GetTypeInfo(collection).Type)) return null;
+                    if (!CanUseRecordsForAnonymousTypes && IsAnonymousType(semantic.GetTypeInfo(collection).Type))
+                    {
+                        Statistics.SkippedChains.Add(new LinqSkipInfo(
+                            LinqSkipReason.AnonymousTypeRequiresRecords, chainLineNumber,
+                            memberAccess.Name.Identifier.ValueText,
+                            "Anonymous type in collection source requires record support"));
+                        return null;
+                    }
 
 
                     var semanticReturnType = semantic.GetTypeInfo(node).Type;
-                    if (semanticReturnType == null) return null;
-                    if (!CanUseRecordsForAnonymousTypes && (IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(GetSymbolType(x.Symbol))))) return null;
+                    if (semanticReturnType == null)
+                    {
+                        Statistics.SkippedChains.Add(new LinqSkipInfo(
+                            LinqSkipReason.ReturnTypeUnresolved, chainLineNumber,
+                            memberAccess.Name.Identifier.ValueText,
+                            "Return type could not be resolved"));
+                        return null;
+                    }
+                    if (!CanUseRecordsForAnonymousTypes && (IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(GetSymbolType(x.Symbol)))))
+                    {
+                        Statistics.SkippedChains.Add(new LinqSkipInfo(
+                            LinqSkipReason.AnonymousTypeRequiresRecords, chainLineNumber,
+                            memberAccess.Name.Identifier.ValueText,
+                            "Anonymous type in result or captured variables requires record support"));
+                        return null;
+                    }
 
 
-
-
-
-
-                    return TryRewrite(chain.First().MethodName, collection, semanticReturnType, chain, node)
+                    var result = TryRewrite(chain.First().MethodName, collection, semanticReturnType, chain, node)
                         .WithLeadingTrivia(((CSharpSyntaxNode)containingForEach ?? node).GetLeadingTrivia())
                         .WithTrailingTrivia(((CSharpSyntaxNode)containingForEach ?? node).GetTrailingTrivia());
 
+                    // Mark all operators in this chain as successfully rewritten
+                    for (int i = Statistics.EncounteredOperators.Count - 1; i >= 0; i--)
+                    {
+                        var op = Statistics.EncounteredOperators[i];
+                        if (op.LineNumber == chainLineNumber && !op.WasRewritten)
+                            Statistics.EncounteredOperators[i] = op with { WasRewritten = true };
+                        else if (op.LineNumber != chainLineNumber)
+                            break;
+                    }
+
+                    return result;
+
+                }
+                else
+                {
+                    // Track unsupported method if it looks like a LINQ operator
+                    var methodFullName = GetMethodFullName(node);
+                    if (methodFullName != null && methodFullName.StartsWith("System."))
+                    {
+                        var lineNumber = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                        Statistics.EncounteredOperators.Add(new LinqOperatorOccurrence(methodFullName, lineNumber, false));
+                    }
                 }
             }
             return null;
@@ -387,6 +456,7 @@ namespace CSharpToJava.Core.LinqRewrite
             if (RewrittenLinqQueries != old)
             {
                 RewrittenMethods++;
+                Statistics.RewrittenMethodCount++;
             }
             return k;
         }

@@ -119,11 +119,14 @@ public class ProjectConversionPipeline
         return ConvertLibraryAsync(library, emitFilePaths);
     }
 
-    private IReadOnlyList<ICs2jPass<ProjectPassState>> CreateProjectPasses()
+    public LinqRewrite.LinqRewriteStatistics? LastLinqStatistics { get; private set; }
+
+    private IReadOnlyList<ICs2jPass<ProjectPassState>> CreateProjectPasses(out ProjectLinqDesugarPass linqPass)
     {
+        linqPass = new ProjectLinqDesugarPass();
         return new ICs2jPass<ProjectPassState>[]
         {
-            new ProjectLinqDesugarPass(),
+            linqPass,
             new ProjectCompilationCheckPass(),
             new ProjectUnsupportedDomainCheckPass(),
             new ProjectPlatformBoundaryCheckPass(),
@@ -162,8 +165,9 @@ public class ProjectConversionPipeline
 
         try
         {
-            Cs2jPassExecutor.Execute(passState, context, CreateProjectPasses(), passMetrics);
+            Cs2jPassExecutor.Execute(passState, context, CreateProjectPasses(out var linqPass), passMetrics);
             LastPassMetrics = passMetrics.ToList();
+            LastLinqStatistics = linqPass.LinqStatistics;
             if (passState.Results.Count == 0 && context.Diagnostics.Messages.Any(m => m.Severity == Context.DiagnosticSeverity.Error))
             {
                 passState.Results.Add(new ConversionResult

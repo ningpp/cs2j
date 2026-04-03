@@ -31,6 +31,7 @@ public class ConversionResult
     public string GeneratedCode { get; set; } = string.Empty;
     public IReadOnlyList<DiagnosticMessage> Diagnostics { get; set; } = Array.Empty<DiagnosticMessage>();
     public IReadOnlyList<Cs2jPassMetric> PassMetrics { get; set; } = Array.Empty<Cs2jPassMetric>();
+    public LinqRewrite.LinqRewriteStatistics? LinqStatistics { get; set; }
     public string? FileName { get; set; }
     /// <summary>Java package for this output file (used by Holder class generation).</summary>
     public string? Package { get; set; }
@@ -93,6 +94,7 @@ public class ConversionPipeline
     private readonly List<Java.JavaSyntaxRewriter> _irRewriters = new();
 
     public IReadOnlyList<Cs2jPassMetric> LastProjectPassMetrics { get; private set; } = Array.Empty<Cs2jPassMetric>();
+    public LinqRewrite.LinqRewriteStatistics? LastLinqStatistics { get; private set; }
 
     public ConversionPipeline()
     {
@@ -204,7 +206,9 @@ public class ConversionPipeline
 
             if (passState.EmitSucceeded)
             {
-                return CreateSuccessResult(passState.GeneratedCode, context, request.FileName, passMetrics);
+                var result = CreateSuccessResult(passState.GeneratedCode, context, request.FileName, passMetrics);
+                result.LinqStatistics = passState.LinqStatistics;
+                return result;
             }
 
             return CreateFailureResult(context, request.FileName, passMetrics);
@@ -330,6 +334,7 @@ public class ConversionPipeline
         var emitFilePaths = new HashSet<string>(csFiles.Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase);
         var results = await pipeline.ConvertProjectAsync(sourceFiles, emitFilePaths);
         LastProjectPassMetrics = pipeline.LastPassMetrics.ToList();
+        LastLinqStatistics = pipeline.LastLinqStatistics;
         return results;
     }
 

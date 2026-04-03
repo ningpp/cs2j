@@ -21,6 +21,8 @@ public sealed class SingleFilePassState
     public bool EmitSucceeded { get; set; }
     /// <summary>Preserved Java IR compilation unit for post-emit passes.</summary>
     public Java.JavaCompilationUnit? JavaCompilation { get; set; }
+    /// <summary>Aggregated LINQ rewrite statistics from the desugar pass.</summary>
+    public LinqRewrite.LinqRewriteStatistics? LinqStatistics { get; set; }
 }
 
 public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, ICs2jPassMetricSource
@@ -28,10 +30,12 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, 
     public string Name => nameof(SingleFileLinqDesugarPass);
     public Cs2jPassStage Stage => Cs2jPassStage.Desugar;
     public int RewriteCount { get; private set; }
+    public LinqRewriteStatistics? LinqStatistics { get; private set; }
 
     public void Execute(SingleFilePassState state)
     {
         RewriteCount = 0;
+        LinqStatistics = null;
 
         var runLinqRewrite = state.Request.Options.EnableLinqRewrite && !state.Request.Options.EffectivePreferStreamApi;
         if (!runLinqRewrite)
@@ -47,12 +51,15 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, 
 
         try
         {
+            var stats = new LinqRewriteStatistics();
+
             // Phase 1: Desugar LINQ query expressions (from…in…where…select) to
             // equivalent method-call chains (Where/Select/OrderBy/GroupBy).
             // This is purely syntactic and requires no semantic model.
             var desugarer = new LinqQueryDesugarer();
             var desugaredRoot = (CompilationUnitSyntax)desugarer.Visit(state.SyntaxTree.GetRoot());
             RewriteCount += desugarer.DesugaredCount;
+            stats.DesugaredQueryCount = desugarer.DesugaredCount;
 
             if (desugarer.DesugaredCount > 0)
             {
@@ -78,6 +85,10 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, 
             var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(state.SyntaxTree.GetRoot());
             RewriteCount += rewriter.RewrittenLinqQueries;
             state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(rewrittenRoot, state.SyntaxTree.Options);
+
+            stats.MergeFrom(rewriter.Statistics);
+            LinqStatistics = stats;
+            state.LinqStatistics = stats;
 
             foreach (var skipped in rewriter.SkippedLinqChains)
             {

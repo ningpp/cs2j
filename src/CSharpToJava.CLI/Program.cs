@@ -281,6 +281,8 @@ class Program
             var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
             await WriteCanarySummarySnapshot(opts.Destination, opts.Source, results, passProfileSnapshot, outputSession);
             WriteInputFingerprintSnapshot(opts.Destination, manualInputFingerprintSnapshot, outputSession);
+            if (opts.LinqReport)
+                WriteLinqReport(opts.Destination, pipeline.LastLinqStatistics, outputSession);
             await outputSession.SaveAsync();
 
             Console.WriteLine();
@@ -436,6 +438,8 @@ class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
+        if (opts.LinqReport)
+            WriteLinqReport(opts.Destination, pipeline.LastLinqStatistics, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -550,6 +554,8 @@ class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
+        if (opts.LinqReport)
+            WriteLinqReport(opts.Destination, AggregateLinqStatistics(canaryResults), outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -728,6 +734,8 @@ class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
+        if (opts.LinqReport)
+            WriteLinqReport(opts.Destination, AggregateLinqStatistics(canaryResults), outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -943,6 +951,8 @@ class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
+        if (opts.LinqReport)
+            WriteLinqReport(opts.Destination, pipeline.LastLinqStatistics, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -1835,6 +1845,75 @@ class Program
         outputSession.WriteTextFile(snapshotPath, serializer.Serialize(snapshot), OutputIncrementalEntryKind.InputFingerprint);
     }
 
+    private static void WriteLinqReport(
+        string destinationRoot,
+        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? stats,
+        OutputIncrementalWriteSession outputSession)
+    {
+        if (stats == null)
+        {
+            return;
+        }
+
+        var report = new System.Text.Json.Nodes.JsonObject
+        {
+            ["desugaredQueryCount"] = stats.DesugaredQueryCount,
+            ["rewrittenChainCount"] = stats.RewrittenChainCount,
+            ["rewrittenMethodCount"] = stats.RewrittenMethodCount,
+            ["skippedChainCount"] = stats.SkippedChains.Count,
+        };
+
+        if (stats.SkippedChains.Count > 0)
+        {
+            var skippedArray = new System.Text.Json.Nodes.JsonArray();
+            foreach (var skip in stats.SkippedChains)
+            {
+                skippedArray.Add(new System.Text.Json.Nodes.JsonObject
+                {
+                    ["reason"] = skip.Reason.ToString(),
+                    ["line"] = skip.LineNumber,
+                    ["method"] = skip.MethodName,
+                    ["message"] = skip.Message,
+                });
+            }
+            report["skippedChains"] = skippedArray;
+        }
+
+        var uncovered = stats.GetUncoveredOperatorsByFrequency();
+        if (uncovered.Count > 0)
+        {
+            var uncoveredArray = new System.Text.Json.Nodes.JsonArray();
+            foreach (var kv in uncovered)
+            {
+                uncoveredArray.Add(new System.Text.Json.Nodes.JsonObject
+                {
+                    ["operator"] = kv.Key,
+                    ["occurrences"] = kv.Value,
+                });
+            }
+            report["uncoveredOperators"] = uncoveredArray;
+        }
+
+        var json = report.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        var reportPath = Path.Combine(destinationRoot, "cs2j-linq-report.json");
+        outputSession.WriteTextFile(reportPath, json, OutputIncrementalEntryKind.Report);
+    }
+
+    private static CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? AggregateLinqStatistics(
+        IEnumerable<ConversionResult> results)
+    {
+        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? aggregated = null;
+        foreach (var result in results)
+        {
+            if (result.LinqStatistics != null)
+            {
+                aggregated ??= new CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics();
+                aggregated.MergeFrom(result.LinqStatistics);
+            }
+        }
+        return aggregated;
+    }
+
     private static bool TryReusePreviousProjectOutputs(
         string destinationRoot,
         InputFingerprintSnapshot currentSnapshot,
@@ -2360,6 +2439,9 @@ class ConvertProjectOptions
 
     [Option("mode", Default = "multi-module", HelpText = "Output mode: single-module or multi-module")]
     public string Mode { get; set; } = "multi-module";
+
+    [Option("linq-report", Default = false, HelpText = "Output LINQ preprocessing report (rewrite stats, skipped chains, uncovered operators)")]
+    public bool LinqReport { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

@@ -137,6 +137,7 @@ internal sealed class ProjectLinqRewriteResult
     public required SyntaxTree SyntaxTree { get; init; }
     public required IReadOnlyList<string> Warnings { get; init; }
     public required int RewriteCount { get; init; }
+    public LinqRewriteStatistics? Statistics { get; init; }
 }
 
 public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jPassMetricSource
@@ -144,10 +145,12 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
     public string Name => nameof(ProjectLinqDesugarPass);
     public Cs2jPassStage Stage => Cs2jPassStage.Desugar;
     public int RewriteCount { get; private set; }
+    public LinqRewriteStatistics? LinqStatistics { get; private set; }
 
     public void Execute(ProjectPassState state)
     {
         RewriteCount = 0;
+        LinqStatistics = null;
 
         var runLinqRewrite = state.Context.Options.EnableLinqRewrite && !state.Context.Options.EffectivePreferStreamApi;
         if (!runLinqRewrite)
@@ -187,6 +190,8 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             syntaxTree => RewriteSyntaxTree(state, syntaxTree));
 
         var rewrittenTrees = new List<SyntaxTree>(rewriteResults.Count);
+        var aggregatedStats = new LinqRewriteStatistics();
+        aggregatedStats.DesugaredQueryCount = desugarResults.Sum(r => r.RewriteCount);
         foreach (var rewriteResult in rewriteResults)
         {
             RewriteCount += rewriteResult.RewriteCount;
@@ -194,9 +199,12 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             {
                 state.Context.Diagnostics.Warning(warning);
             }
+            if (rewriteResult.Statistics != null)
+                aggregatedStats.MergeFrom(rewriteResult.Statistics);
 
             rewrittenTrees.Add(rewriteResult.SyntaxTree);
         }
+        LinqStatistics = aggregatedStats;
 
         state.Compilation = CSharpCompilation.Create(
             state.Compilation.AssemblyName ?? "TempAssembly",
@@ -281,6 +289,7 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
                     .Select(skipped => $"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}")
                     .ToList(),
                 RewriteCount = rewriter.RewrittenLinqQueries,
+                Statistics = rewriter.Statistics,
             };
         }
         catch (Exception ex)
