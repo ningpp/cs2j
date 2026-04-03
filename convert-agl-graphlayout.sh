@@ -19,7 +19,7 @@ echo "Output: ${OUTPUT_DIR}"
 echo
 
 if [[ "${1:-}" == "--print-only" ]]; then
-    echo "dotnet run --project \"src/CSharpToJava.CLI/CSharpToJava.CLI.csproj\" --configuration Release -- convert-project -s \"${SOURCE_PATH}\" -d \"${OUTPUT_DIR}\" --mode multi-module --verbose"
+    echo "dotnet run --project \"src/CSharpToJava.CLI/CSharpToJava.CLI.csproj\" --configuration Release -- convert-project -s \"${SOURCE_PATH}\" -d \"${OUTPUT_DIR}\" --mode multi-module --prefer-procedural --verbose"
     echo "cd \"${OUTPUT_DIR}\""
     echo "mvn clean package -e"
     exit 0
@@ -40,6 +40,7 @@ dotnet run \
         -s "${SOURCE_PATH}" \
         -d "${OUTPUT_DIR}" \
         --mode multi-module \
+        --prefer-procedural \
         --verbose
 popd > /dev/null
 
