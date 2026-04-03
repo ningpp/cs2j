@@ -182,15 +182,16 @@ namespace CSharpToJava.Core.LinqRewrite
                             if (item.Lambda != null)
                             {
                                 var dataFlow = semantic.AnalyzeDataFlow(item.Lambda.Body);
-                                var pname = item.Lambda.Parameters.Single().Identifier.ValueText;
+                                var lambdaParamNames = new HashSet<string>(
+                                    item.Lambda.Parameters.Select(p => p.Identifier.ValueText));
                                 foreach (var k in dataFlow.DataFlowsIn)
                                 {
-                                    if (k.Name == pname) continue;
+                                    if (lambdaParamNames.Contains(k.Name)) continue;
                                     if (!flowsIn.Contains(k)) flowsIn.Add(k);
                                 }
                                 foreach (var k in dataFlow.DataFlowsOut)
                                 {
-                                    if (k.Name == pname) continue;
+                                    if (lambdaParamNames.Contains(k.Name)) continue;
                                     if (!flowsOut.Contains(k)) flowsOut.Add(k);
                                 }
                             }
@@ -498,8 +499,9 @@ namespace CSharpToJava.Core.LinqRewrite
         private IEnumerable<StatementSyntax> GetIntermediatePrologue(List<LinqStep> chain)
         {
             var result = new List<StatementSyntax>();
-            foreach (var step in chain)
+            for (int i = 0; i < chain.Count; i++)
             {
+                var step = chain[i];
                 if (step.MethodName == DistinctMethod)
                 {
                     result.Add(CreateLocalVariableDeclaration("_seen",
@@ -519,6 +521,21 @@ namespace CSharpToJava.Core.LinqRewrite
                 {
                     result.Add(CreateLocalVariableDeclaration("_skipWhileActive",
                         SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)));
+                }
+                else if (step.MethodName == SkipWhileWithIndexMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_skipWhileActive_" + i,
+                        SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)));
+                    result.Add(CreateLocalVariableDeclaration("_idxCounter_" + i,
+                        SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))));
+                }
+                else if (step.MethodName == WhereWithIndexMethod
+                      || step.MethodName == SelectWithIndexMethod
+                      || step.MethodName == TakeWhileWithIndexMethod
+                      || step.MethodName == SelectManyWithIndexMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_idxCounter_" + i,
+                        SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))));
                 }
                 else if (step.MethodName == ZipMethod)
                 {

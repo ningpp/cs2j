@@ -787,6 +787,32 @@ namespace CSharpToJava.Core.LinqRewrite
             return nullable ? (StatementSyntax)SyntaxFactory.IfStatement(SyntaxFactory.BinaryExpression(SyntaxKind.NotEqualsExpression, currentValue, SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)), p(k)) : p(k);
         }
 
+        /// <summary>
+        /// Inlines a 2-parameter indexed lambda (item, index) => body by substituting
+        /// param[0] → itemName and param[1] → indexVarName in the expression body.
+        /// </summary>
+        private ExpressionSyntax InlineIndexedLambda(AnonymousFunctionExpressionSyntax lambda, string itemName, string indexVarName)
+        {
+            var wrappedLambda = new Lambda(lambda);
+            var param0Name = wrappedLambda.Parameters[0].Identifier.ValueText;
+            var param1Name = wrappedLambda.Parameters[1].Identifier.ValueText;
+
+            var replacements = new Dictionary<SyntaxNode, string>();
+            foreach (var id in wrappedLambda.Body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            {
+                var sym = semantic.GetSymbolInfo(id).Symbol;
+                if (sym is IParameterSymbol ps)
+                {
+                    if (ps.Name == param0Name) replacements[id] = itemName;
+                    else if (ps.Name == param1Name) replacements[id] = indexVarName;
+                }
+            }
+
+            return (ExpressionSyntax)wrappedLambda.Body.ReplaceNodes(
+                replacements.Keys,
+                (orig, _) => SyntaxFactory.IdentifierName(replacements[orig]));
+        }
+
         private ExpressionSyntax GetCollectionCount(ExpressionSyntax collection, bool allowUnknown)
         {
             var collectionType = semantic.GetTypeInfo(collection).Type;
@@ -880,6 +906,20 @@ namespace CSharpToJava.Core.LinqRewrite
                 return SyntaxFactory.IfStatement(check, next is BlockSyntax ? next : SyntaxFactory.Block(next));
             }
 
+            // --- Indexed Where: Where((x, i) => ...) ---
+            if (method == WhereWithIndexMethod)
+            {
+                var lambda = (AnonymousFunctionExpressionSyntax)step.Arguments[0];
+                var idxVar = "_idx" + (++lastId);
+                var check = InlineIndexedLambda(lambda, itemName, idxVar);
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.Block(
+                    CreateLocalVariableDeclaration(idxVar,
+                        SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                            SyntaxFactory.IdentifierName("_idxCounter_" + chainIndex))),
+                    SyntaxFactory.IfStatement(check, next is BlockSyntax ? next : SyntaxFactory.Block(next)));
+            }
+
 
 
             if (method == OfTypeMethod || method == CastMethod)
@@ -934,6 +974,26 @@ namespace CSharpToJava.Core.LinqRewrite
                 var next = CreateProcessingStep(chain, chainIndex - 1, newtype, newname, arguments, noAggregation);
                 var nexts = next is BlockSyntax ? ((BlockSyntax)next).Statements : (IEnumerable<StatementSyntax>)new[] { next };
                 return SyntaxFactory.Block(new[] { local }.Concat(nexts));
+            }
+
+            // --- Indexed Select: Select((x, i) => ...) ---
+            if (method == SelectWithIndexMethod)
+            {
+                var lambda = (AnonymousFunctionExpressionSyntax)step.Arguments[0];
+                var newname = "_linqitem" + ++lastId;
+                var idxVar = "_idx" + (++lastId);
+                var lambdaType = (INamedTypeSymbol)semantic.GetTypeInfo(lambda).ConvertedType;
+                var lambdaBodyType = lambdaType.TypeArguments.Last();
+                var newtype = IsAnonymousType(lambdaBodyType) ? null : SyntaxFactory.ParseTypeName(lambdaBodyType.ToDisplayString());
+
+                var idxDecl = CreateLocalVariableDeclaration(idxVar,
+                    SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                        SyntaxFactory.IdentifierName("_idxCounter_" + chainIndex)));
+                var local = CreateLocalVariableDeclaration(newname, InlineIndexedLambda(lambda, itemName, idxVar));
+
+                var next = CreateProcessingStep(chain, chainIndex - 1, newtype, newname, arguments, noAggregation);
+                var nexts = next is BlockSyntax ? ((BlockSyntax)next).Statements : (IEnumerable<StatementSyntax>)new[] { next };
+                return SyntaxFactory.Block(new StatementSyntax[] { idxDecl, local }.Concat(nexts));
             }
 
 
@@ -1002,6 +1062,29 @@ namespace CSharpToJava.Core.LinqRewrite
                     next is BlockSyntax ? next : SyntaxFactory.Block(next));
             }
 
+            // --- Indexed SkipWhile: SkipWhile((x, i) => ...) ---
+            if (method == SkipWhileWithIndexMethod)
+            {
+                var lambda = (AnonymousFunctionExpressionSyntax)step.Arguments[0];
+                var idxVar = "_idx" + (++lastId);
+                var check = InlineIndexedLambda(lambda, itemName, idxVar);
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.Block(
+                    CreateLocalVariableDeclaration(idxVar,
+                        SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                            SyntaxFactory.IdentifierName("_idxCounter_" + chainIndex))),
+                    SyntaxFactory.IfStatement(
+                        SyntaxFactory.IdentifierName("_skipWhileActive_" + chainIndex),
+                        SyntaxFactory.Block(
+                            SyntaxFactory.IfStatement(check, SyntaxFactory.ContinueStatement(),
+                                SyntaxFactory.ElseClause(SyntaxFactory.Block(
+                                    SyntaxFactory.ExpressionStatement(
+                                        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                            SyntaxFactory.IdentifierName("_skipWhileActive_" + chainIndex),
+                                            SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)))))))),
+                    next is BlockSyntax ? next : SyntaxFactory.Block(next));
+            }
+
             // --- TakeWhile: take while predicate is true, then break ---
             if (method == TakeWhileMethod)
             {
@@ -1012,6 +1095,67 @@ namespace CSharpToJava.Core.LinqRewrite
                     SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, SyntaxFactory.ParenthesizedExpression(check)),
                     SyntaxFactory.BreakStatement(),
                     SyntaxFactory.ElseClause(next is BlockSyntax ? next : SyntaxFactory.Block(next)));
+            }
+
+            // --- Indexed TakeWhile: TakeWhile((x, i) => ...) ---
+            if (method == TakeWhileWithIndexMethod)
+            {
+                var lambda = (AnonymousFunctionExpressionSyntax)step.Arguments[0];
+                var idxVar = "_idx" + (++lastId);
+                var check = InlineIndexedLambda(lambda, itemName, idxVar);
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.Block(
+                    CreateLocalVariableDeclaration(idxVar,
+                        SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                            SyntaxFactory.IdentifierName("_idxCounter_" + chainIndex))),
+                    SyntaxFactory.IfStatement(
+                        SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, SyntaxFactory.ParenthesizedExpression(check)),
+                        SyntaxFactory.BreakStatement(),
+                        SyntaxFactory.ElseClause(next is BlockSyntax ? next : SyntaxFactory.Block(next))));
+            }
+
+            // --- SelectMany: flatten inner collection ---
+            if (method == SelectManyMethod)
+            {
+                var lambda = (AnonymousFunctionExpressionSyntax)step.Arguments[0];
+                var newname = "_linqitem" + ++lastId;
+                var lambdaType = (INamedTypeSymbol)semantic.GetTypeInfo(lambda).ConvertedType;
+                var innerCollectionType = lambdaType.TypeArguments.Last();
+                var innerItemType = GetItemType(innerCollectionType);
+                var newtype = innerItemType != null ? SyntaxFactory.ParseTypeName(innerItemType.ToDisplayString()) : null;
+
+                var innerCollectionExpr = InlineOrCreateMethod(new Lambda(lambda), null, arguments, CreateParameter(itemName, itemType));
+                var next = CreateProcessingStep(chain, chainIndex - 1, newtype, newname, arguments, noAggregation);
+                var foreachStatement = SyntaxFactory.ForEachStatement(
+                    SyntaxFactory.ParseTypeName("var"),
+                    newname,
+                    innerCollectionExpr,
+                    next is BlockSyntax ? next : SyntaxFactory.Block(next));
+                return foreachStatement;
+            }
+
+            // --- Indexed SelectMany: SelectMany((x, i) => ...) ---
+            if (method == SelectManyWithIndexMethod)
+            {
+                var lambda = (AnonymousFunctionExpressionSyntax)step.Arguments[0];
+                var newname = "_linqitem" + ++lastId;
+                var idxVar = "_idx" + (++lastId);
+                var lambdaType = (INamedTypeSymbol)semantic.GetTypeInfo(lambda).ConvertedType;
+                var innerCollectionType = lambdaType.TypeArguments.Last();
+                var innerItemType = GetItemType(innerCollectionType);
+                var newtype = innerItemType != null ? SyntaxFactory.ParseTypeName(innerItemType.ToDisplayString()) : null;
+
+                var idxDecl = CreateLocalVariableDeclaration(idxVar,
+                    SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                        SyntaxFactory.IdentifierName("_idxCounter_" + chainIndex)));
+                var innerCollectionExpr = InlineIndexedLambda(lambda, itemName, idxVar);
+                var next = CreateProcessingStep(chain, chainIndex - 1, newtype, newname, arguments, noAggregation);
+                var foreachStatement = SyntaxFactory.ForEachStatement(
+                    SyntaxFactory.ParseTypeName("var"),
+                    newname,
+                    innerCollectionExpr,
+                    next is BlockSyntax ? next : SyntaxFactory.Block(next));
+                return SyntaxFactory.Block(idxDecl, foreachStatement);
             }
 
             // --- Zip: synchronous dual-iterator pairing ---
@@ -1128,6 +1272,13 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string SkipWhileMethod = "System.Collections.Generic.IEnumerable<TSource>.SkipWhile<TSource>(System.Func<TSource, bool>)";
         readonly static string TakeWhileMethod = "System.Collections.Generic.IEnumerable<TSource>.TakeWhile<TSource>(System.Func<TSource, bool>)";
         readonly static string SelectManyMethod = "System.Collections.Generic.IEnumerable<TSource>.SelectMany<TSource, TResult>(System.Func<TSource, System.Collections.Generic.IEnumerable<TResult>>)";
+
+        // Indexed intermediate operators
+        readonly static string WhereWithIndexMethod = "System.Collections.Generic.IEnumerable<TSource>.Where<TSource>(System.Func<TSource, int, bool>)";
+        readonly static string SelectWithIndexMethod = "System.Collections.Generic.IEnumerable<TSource>.Select<TSource, TResult>(System.Func<TSource, int, TResult>)";
+        readonly static string SkipWhileWithIndexMethod = "System.Collections.Generic.IEnumerable<TSource>.SkipWhile<TSource>(System.Func<TSource, int, bool>)";
+        readonly static string TakeWhileWithIndexMethod = "System.Collections.Generic.IEnumerable<TSource>.TakeWhile<TSource>(System.Func<TSource, int, bool>)";
+        readonly static string SelectManyWithIndexMethod = "System.Collections.Generic.IEnumerable<TSource>.SelectMany<TSource, TResult>(System.Func<TSource, int, System.Collections.Generic.IEnumerable<TResult>>)";
         readonly static string OrderByMethod = "System.Collections.Generic.IEnumerable<TSource>.OrderBy<TSource, TKey>(System.Func<TSource, TKey>)";
         readonly static string OrderByDescendingMethod = "System.Collections.Generic.IEnumerable<TSource>.OrderByDescending<TSource, TKey>(System.Func<TSource, TKey>)";
         readonly static string ThenByMethod = "System.Linq.IOrderedEnumerable<TSource>.ThenBy<TSource, TKey>(System.Func<TSource, TKey>)";
@@ -1150,7 +1301,9 @@ namespace CSharpToJava.Core.LinqRewrite
             WhereMethod, SelectMethod, CastMethod, OfTypeMethod,
             DistinctMethod, SkipMethod, TakeMethod, SkipWhileMethod, TakeWhileMethod, SelectManyMethod,
             OrderByMethod, OrderByDescendingMethod, ThenByMethod, ThenByDescendingMethod,
-            ConcatMethod, UnionMethod, IntersectMethod, ExceptMethod
+            ConcatMethod, UnionMethod, IntersectMethod, ExceptMethod,
+            WhereWithIndexMethod, SelectWithIndexMethod, SkipWhileWithIndexMethod, TakeWhileWithIndexMethod,
+            SelectManyWithIndexMethod
         };
         readonly static string[] MethodsThatPreserveCount = new[] {
             SelectMethod, CastMethod, ReverseMethod, ToListMethod, ToArrayMethod /*OrderBy*/
