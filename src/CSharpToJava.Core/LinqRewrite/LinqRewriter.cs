@@ -167,7 +167,10 @@ namespace CSharpToJava.Core.LinqRewrite
                     // (Skip, Take, Distinct) OR a terminal that benefits from procedural rewriting
                     // without lambdas (SequenceEqual).
                     if (!chain.Any(x => x.Arguments.Any(y => y is AnonymousFunctionExpressionSyntax))
-                        && !chain.Any(x => x.MethodName == SkipMethod || x.MethodName == TakeMethod || x.MethodName == DistinctMethod)
+                        && !chain.Any(x => x.MethodName == SkipMethod || x.MethodName == TakeMethod || x.MethodName == DistinctMethod
+                            || x.MethodName == SkipLastMethod || x.MethodName == TakeLastMethod
+                            || x.MethodName == AppendMethod || x.MethodName == PrependMethod
+                            || x.MethodName == DefaultIfEmptyMethod || x.MethodName == DefaultIfEmptyWithValueMethod)
                         && !chain.Any(x => x.MethodName == SequenceEqualMethod))
                         return null;
                     if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName)) return null;
@@ -331,7 +334,9 @@ namespace CSharpToJava.Core.LinqRewrite
                     || name == SkipMethod || name == TakeMethod
                     || name == ConcatMethod || name == UnionMethod || name == IntersectMethod || name == ExceptMethod
                     || name == AggregateWithSeedMethod || name == SequenceEqualMethod
-                    || name == ZipMethod)
+                    || name == ZipMethod
+                    || name == SkipLastMethod || name == TakeLastMethod
+                    || name == AppendMethod || name == PrependMethod || name == DefaultIfEmptyWithValueMethod)
                 {
                     // These accept non-lambda args, allow them
                 }
@@ -549,6 +554,31 @@ namespace CSharpToJava.Core.LinqRewrite
                     result.Add(CreateLocalVariableDeclaration("_zipIndex",
                         SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))));
                 }
+                else if (step.MethodName == SkipLastMethod)
+                {
+                    // Ring buffer: Queue<T> to delay output by N elements
+                    result.Add(CreateLocalVariableDeclaration("_skipLastBuffer_" + i,
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.Queue<" + GetIntermediateItemTypeForStep(step) + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
+                    result.Add(CreateLocalVariableDeclaration("_skipLastN_" + i,
+                        SyntaxFactory.IdentifierName("_skipLastN_param_" + i)));
+                }
+                else if (step.MethodName == TakeLastMethod)
+                {
+                    // Ring buffer: Queue<T> to keep last N elements
+                    result.Add(CreateLocalVariableDeclaration("_takeLastBuffer_" + i,
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.Queue<" + GetIntermediateItemTypeForStep(step) + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
+                    result.Add(CreateLocalVariableDeclaration("_takeLastN_" + i,
+                        SyntaxFactory.IdentifierName("_takeLastN_param_" + i)));
+                }
+                else if (step.MethodName == DefaultIfEmptyMethod || step.MethodName == DefaultIfEmptyWithValueMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_hasElements_" + i,
+                        SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+                }
             }
             return result;
         }
@@ -563,6 +593,84 @@ namespace CSharpToJava.Core.LinqRewrite
                 if (itemType != null) return itemType.ToDisplayString();
             }
             return "object";
+        }
+
+        /// <summary>
+        /// Generates statements to execute before the main foreach loop.
+        /// Used for Prepend (emit prepended element through inner chain).
+        /// </summary>
+        private IEnumerable<StatementSyntax> GetIntermediatePreLoopStatements(List<LinqStep> chain, TypeSyntax collectionItemType, string itemName, ArgumentListSyntax arguments, bool noAggregation)
+        {
+            var result = new List<StatementSyntax>();
+            for (int i = 0; i < chain.Count; i++)
+            {
+                var step = chain[i];
+                if (step.MethodName == PrependMethod)
+                {
+                    var prependItemName = "_prependItem" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, prependItemName, arguments, noAggregation);
+                    result.Add(SyntaxFactory.Block(
+                        CreateLocalVariableDeclaration(prependItemName, SyntaxFactory.IdentifierName("_prependValue_" + i)),
+                        inner));
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Generates statements to execute after the main foreach loop.
+        /// Used for Append, TakeLast, DefaultIfEmpty.
+        /// </summary>
+        private IEnumerable<StatementSyntax> GetIntermediatePostLoopStatements(List<LinqStep> chain, TypeSyntax collectionItemType, string itemName, ArgumentListSyntax arguments, bool noAggregation)
+        {
+            var result = new List<StatementSyntax>();
+            for (int i = 0; i < chain.Count; i++)
+            {
+                var step = chain[i];
+                if (step.MethodName == AppendMethod)
+                {
+                    var appendItemName = "_appendItem" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, appendItemName, arguments, noAggregation);
+                    result.Add(SyntaxFactory.Block(
+                        CreateLocalVariableDeclaration(appendItemName, SyntaxFactory.IdentifierName("_appendValue_" + i)),
+                        inner));
+                }
+                else if (step.MethodName == TakeLastMethod)
+                {
+                    var bufferItemName = "_takeLastItem" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, bufferItemName, arguments, noAggregation);
+                    result.Add(SyntaxFactory.ForEachStatement(
+                        SyntaxFactory.ParseTypeName("var"),
+                        bufferItemName,
+                        SyntaxFactory.IdentifierName("_takeLastBuffer_" + i),
+                        inner is BlockSyntax ? inner : SyntaxFactory.Block(inner)));
+                }
+                else if (step.MethodName == DefaultIfEmptyMethod)
+                {
+                    var defaultItemName = "_defaultItem" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, defaultItemName, arguments, noAggregation);
+                    result.Add(SyntaxFactory.IfStatement(
+                        SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                            SyntaxFactory.IdentifierName("_hasElements_" + i)),
+                        SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(defaultItemName,
+                                SyntaxFactory.DefaultExpression(collectionItemType)),
+                            inner)));
+                }
+                else if (step.MethodName == DefaultIfEmptyWithValueMethod)
+                {
+                    var defaultItemName = "_defaultItem" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, defaultItemName, arguments, noAggregation);
+                    result.Add(SyntaxFactory.IfStatement(
+                        SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                            SyntaxFactory.IdentifierName("_hasElements_" + i)),
+                        SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(defaultItemName,
+                                SyntaxFactory.IdentifierName("_defaultValue_" + i)),
+                            inner)));
+                }
+            }
+            return result;
         }
 
         private ExpressionSyntax RewriteAsLoop(TypeSyntax returnType, IEnumerable<StatementSyntax> prologue, IEnumerable<StatementSyntax> epilogue, ExpressionSyntax collection, List<LinqStep> chain, AggregationDelegate k, bool noaggregation = false, IEnumerable<Tuple<ParameterSyntax, ExpressionSyntax>> additionalParameters = null)
@@ -602,6 +710,47 @@ namespace CSharpToJava.Core.LinqRewrite
                         CreateParameter("_zipSecond", SyntaxFactory.ParseTypeName(zipSecondType.ToDisplayString())),
                         step.Arguments[0]));
                 }
+                else if (step.MethodName == SkipLastMethod && step.Arguments.Count > 0)
+                {
+                    var idx = chain.IndexOf(step);
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_skipLastN_param_" + idx, CreatePrimitiveType(SyntaxKind.IntKeyword)),
+                        step.Arguments[0]));
+                }
+                else if (step.MethodName == TakeLastMethod && step.Arguments.Count > 0)
+                {
+                    var idx = chain.IndexOf(step);
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_takeLastN_param_" + idx, CreatePrimitiveType(SyntaxKind.IntKeyword)),
+                        step.Arguments[0]));
+                }
+                else if (step.MethodName == AppendMethod && step.Arguments.Count > 0)
+                {
+                    var idx = chain.IndexOf(step);
+                    var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var paramType = methodSymbol.Parameters[0].Type;
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_appendValue_" + idx, SyntaxFactory.ParseTypeName(paramType.ToDisplayString())),
+                        step.Arguments[0]));
+                }
+                else if (step.MethodName == PrependMethod && step.Arguments.Count > 0)
+                {
+                    var idx = chain.IndexOf(step);
+                    var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var paramType = methodSymbol.Parameters[0].Type;
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_prependValue_" + idx, SyntaxFactory.ParseTypeName(paramType.ToDisplayString())),
+                        step.Arguments[0]));
+                }
+                else if (step.MethodName == DefaultIfEmptyWithValueMethod && step.Arguments.Count > 0)
+                {
+                    var idx = chain.IndexOf(step);
+                    var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
+                    var paramType = methodSymbol.Parameters[0].Type;
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_defaultValue_" + idx, SyntaxFactory.ParseTypeName(paramType.ToDisplayString())),
+                        step.Arguments[0]));
+                }
             }
             if (intermediateParams.Count > 0) parameters = parameters.Concat(intermediateParams.Select(x => x.Item1));
 
@@ -612,6 +761,11 @@ namespace CSharpToJava.Core.LinqRewrite
 
             // Build intermediate prologue (HashSet for Distinct, counters for Skip/Take, etc.)
             var intermediatePrologue = GetIntermediatePrologue(chain);
+
+            // Pre/post-loop statements for Prepend, Append, TakeLast, DefaultIfEmpty
+            var collectionItemTypeSyntax = SyntaxFactory.ParseTypeName(collectionItemType.ToDisplayString());
+            var preLoopStatements = GetIntermediatePreLoopStatements(chain, collectionItemTypeSyntax, ItemName, arguments, noaggregation);
+            var postLoopStatements = GetIntermediatePostLoopStatements(chain, collectionItemTypeSyntax, ItemName, arguments, noaggregation);
 
             StatementSyntax foreachStatement;
             if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<") || collectionType is IArrayTypeSymbol)
@@ -638,9 +792,9 @@ namespace CSharpToJava.Core.LinqRewrite
                         .WithParameterList(CreateParameters(parameters))
                         .WithBody(SyntaxFactory.Block((collectionSemanticType.IsValueType ? Enumerable.Empty<StatementSyntax>() : new[] {
                             SyntaxFactory.IfStatement(SyntaxFactory.BinaryExpression(SyntaxKind.EqualsExpression, SyntaxFactory.IdentifierName(ItemsName) ,SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)), CreateThrowException("System.ArgumentNullException"))
-                        }).Concat(prologue).Concat(intermediatePrologue).Concat(new[] {
+                        }).Concat(prologue).Concat(intermediatePrologue).Concat(preLoopStatements).Concat(new[] {
                             foreachStatement
-                        }).Concat(epilogue)))
+                        }).Concat(postLoopStatements).Concat(epilogue)))
                         .WithStatic(currentMethodIsStatic)
                         .WithTypeParameterList(currentMethodTypeParameters)
                         .WithConstraintClauses(currentMethodConstraintClauses)

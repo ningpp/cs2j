@@ -1158,6 +1158,84 @@ namespace CSharpToJava.Core.LinqRewrite
                 return SyntaxFactory.Block(idxDecl, foreachStatement);
             }
 
+            // --- SkipLast(n): ring buffer, yield when buffer exceeds n ---
+            if (method == SkipLastMethod)
+            {
+                var bufferName = "_skipLastBuffer_" + chainIndex;
+                var nName = "_skipLastN_" + chainIndex;
+                var dequeuedName = "_linqitem" + (++lastId);
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, dequeuedName, arguments, noAggregation);
+                return SyntaxFactory.Block(
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName(bufferName),
+                                SyntaxFactory.IdentifierName("Enqueue")),
+                            CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) }))),
+                    SyntaxFactory.IfStatement(
+                        SyntaxFactory.BinaryExpression(SyntaxKind.GreaterThanExpression,
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName(bufferName),
+                                SyntaxFactory.IdentifierName("Count")),
+                            SyntaxFactory.IdentifierName(nName)),
+                        SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(dequeuedName,
+                                SyntaxFactory.InvocationExpression(
+                                    SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        SyntaxFactory.IdentifierName(bufferName),
+                                        SyntaxFactory.IdentifierName("Dequeue")))),
+                            next)));
+            }
+
+            // --- TakeLast(n): buffer items, trim to n; post-loop iterates buffer ---
+            if (method == TakeLastMethod)
+            {
+                var bufferName = "_takeLastBuffer_" + chainIndex;
+                var nName = "_takeLastN_" + chainIndex;
+                return SyntaxFactory.Block(
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName(bufferName),
+                                SyntaxFactory.IdentifierName("Enqueue")),
+                            CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) }))),
+                    SyntaxFactory.IfStatement(
+                        SyntaxFactory.BinaryExpression(SyntaxKind.GreaterThanExpression,
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName(bufferName),
+                                SyntaxFactory.IdentifierName("Count")),
+                            SyntaxFactory.IdentifierName(nName)),
+                        SyntaxFactory.ExpressionStatement(
+                            SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName(bufferName),
+                                    SyntaxFactory.IdentifierName("Dequeue"))))));
+            }
+
+            // --- Append: pass through in loop; post-loop processes appended element ---
+            if (method == AppendMethod)
+            {
+                return CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+            }
+
+            // --- Prepend: pass through in loop; pre-loop processes prepended element ---
+            if (method == PrependMethod)
+            {
+                return CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+            }
+
+            // --- DefaultIfEmpty: set flag and pass through; post-loop emits default if empty ---
+            if (method == DefaultIfEmptyMethod || method == DefaultIfEmptyWithValueMethod)
+            {
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.Block(
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                            SyntaxFactory.IdentifierName("_hasElements_" + chainIndex),
+                            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression))),
+                    next);
+            }
+
             // --- Zip: synchronous dual-iterator pairing ---
             if (method == ZipMethod)
             {
@@ -1297,13 +1375,23 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string ToHashSetMethod = "System.Collections.Generic.IEnumerable<TSource>.ToHashSet<TSource>()";
         readonly static string SequenceEqualMethod = "System.Collections.Generic.IEnumerable<TSource>.SequenceEqual<TSource>(System.Collections.Generic.IEnumerable<TSource>)";
 
+        // Phase 3: filter/slice operators
+        readonly static string SkipLastMethod = "System.Collections.Generic.IEnumerable<TSource>.SkipLast<TSource>(int)";
+        readonly static string TakeLastMethod = "System.Collections.Generic.IEnumerable<TSource>.TakeLast<TSource>(int)";
+        readonly static string AppendMethod = "System.Collections.Generic.IEnumerable<TSource>.Append<TSource>(TSource)";
+        readonly static string PrependMethod = "System.Collections.Generic.IEnumerable<TSource>.Prepend<TSource>(TSource)";
+        readonly static string DefaultIfEmptyMethod = "System.Collections.Generic.IEnumerable<TSource>.DefaultIfEmpty<TSource>()";
+        readonly static string DefaultIfEmptyWithValueMethod = "System.Collections.Generic.IEnumerable<TSource>.DefaultIfEmpty<TSource>(TSource)";
+
         readonly static string[] RootMethodsThatRequireYieldReturn = new[] {
             WhereMethod, SelectMethod, CastMethod, OfTypeMethod,
             DistinctMethod, SkipMethod, TakeMethod, SkipWhileMethod, TakeWhileMethod, SelectManyMethod,
             OrderByMethod, OrderByDescendingMethod, ThenByMethod, ThenByDescendingMethod,
             ConcatMethod, UnionMethod, IntersectMethod, ExceptMethod,
             WhereWithIndexMethod, SelectWithIndexMethod, SkipWhileWithIndexMethod, TakeWhileWithIndexMethod,
-            SelectManyWithIndexMethod
+            SelectManyWithIndexMethod,
+            SkipLastMethod, TakeLastMethod, AppendMethod, PrependMethod,
+            DefaultIfEmptyMethod, DefaultIfEmptyWithValueMethod
         };
         readonly static string[] MethodsThatPreserveCount = new[] {
             SelectMethod, CastMethod, ReverseMethod, ToListMethod, ToArrayMethod /*OrderBy*/
