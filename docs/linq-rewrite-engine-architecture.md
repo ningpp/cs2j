@@ -1,314 +1,287 @@
 # LINQ 重写引擎架构设计 / LINQ Rewrite Engine Architecture Design
 
-## 1. 文档定位
+## 1. 核心思路
 
-本文定义 `cs2j` 中 LINQ 重写引擎的架构边界、执行主线和后续演进方向。目标不是把所有 LINQ 语义一次性做完，而是把“查询语法脱糖 + 方法链识别 + 过程式循环展开 + Java Stream 回退”收束为一套可扩展、可观测、可测试的转换子系统。
+将 LINQ 转换拆成两个独立阶段：
 
-本文面向的问题域对应 issue #27：支持 20+ LINQ 操作符、支持查询语法脱糖，并在适合时把 LINQ 链重写为 Java 侧可维护的过程式代码。
+1. **前处理（C# → C#）**：在 C# 语法树层面，把 LINQ 表达式重写为等价的过程式 C# 代码。这一步的输入和输出都是合法的 C# 代码。
+2. **主转换（C# → Java）**：用 cs2j 主管线把不含 LINQ 的过程式 C# 代码转成 Java。
+
+换句话说，如果原始 C# 项目叫 **A**，那么前处理会先生成一份不含 LINQ 的 C# 项目 **A1**，然后 cs2j 把 **A1** 转成 Java 项目。
+
+这么做的好处是：cs2j 主管线不需要理解 LINQ 语义——它只需要处理普通的循环、条件和方法调用。LINQ 语义的复杂度被完全封装在前处理阶段。
+
+### 示例
+
+#### 原始 C# LINQ 代码（项目 A）
+
+```csharp
+public int Method1()
+{
+    var arr = new[] { 1, 2, 3, 4 };
+    var q = 2;
+    return arr.Where(x => x > q).Select(x => x + 3).Sum();
+}
+```
+
+#### 前处理后的过程式 C# 代码（项目 A1）
+
+```csharp
+public int Method1()
+{
+    int[] arr = new[] { 1, 2, 3, 4 };
+    int q = 2;
+    return this.Method1_ProceduralLinq1(arr, q);
+}
+
+private int Method1_ProceduralLinq1(int[] _linqitems, int q)
+{
+    if (_linqitems == null) throw new ArgumentNullException();
+
+    int num = 0;
+    for (int i = 0; i < _linqitems.Length; i++)
+    {
+        int num2 = _linqitems[i];
+        if (num2 > q)
+            num += num2 + 3;
+    }
+    return num;
+}
+```
+
+注意前处理后的输出仍然是完全合法的 C# 代码：用 `for` 循环代替了 `.Where().Select().Sum()` 链，捕获的外部变量 `q` 变成了辅助方法的参数。这份代码可以直接编译运行，也可以交给 cs2j 主管线做 Java 转换。
 
 ## 2. 目标与非目标
 
 ### 2.1 目标
 
-1. 支持 `from / where / orderby / select / group by` 等常见查询语法的前置脱糖。
-2. 支持对常见 `System.Linq.Enumerable` 方法链进行统一识别，而不是在各个 transformer 中零散处理。
-3. 在 `PreferStreamApi = false` 时，把可安全改写的 LINQ 链降级为过程式循环、累加器和中间集合构造。
-4. 在 `PreferStreamApi = true` 或改写失败时，保留 Java Stream 生成路径，不因局部失败中断整个文件转换。
-5. 让重写过程具备明确的 pass 落点、跳过诊断、rewrite 计数和测试边界。
+1. 把常见 LINQ 链路降级为过程式 C# 代码，消除 cs2j 主管线对 `System.Linq` 的依赖。
+2. 前处理的输出必须是语义等价的、可编译的 C# 代码。
+3. 支持查询语法（`from…where…select`）和方法链语法（`.Where().Select()`）两种写法。
+4. 捕获的外部变量通过辅助方法参数显式传递，不依赖闭包。
+5. 不可改写的链路要安全回退，不阻断文件级转换。
 
 ### 2.2 非目标
 
 1. 不要求覆盖全部 `System.Linq` API。
-2. 不在本阶段处理需要完整透明标识符建模的复杂 query continuation、复杂 `join` / `let` 组合。
-3. 不在本阶段把所有 LINQ 都改写为“最优” Java 代码，优先保证行为正确、可回退、可扩展。
-4. 不把 LINQ 重写逻辑分散回 visitor 主线；它必须保留为独立子系统。
+2. 不在本阶段处理 `join`、`let`、query continuation 等需要透明标识符的复杂查询。
+3. 前处理不涉及任何 Java 语义——它只生产 C# 代码。
 
-## 3. 当前基线
+## 3. 前处理阶段内部结构
 
-### 3.1 当前执行入口
+前处理阶段自身分为两步，都在 C# 语法树层面操作：
 
-当前 LINQ 重写已经进入显式 pass 主线，入口在 [SingleFileLinqDesugarPass](../src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs)。
+### 3.1 第一步：查询语法脱糖
 
-该 pass 位于 `Desugar` 阶段，执行条件是：
+由 [LinqQueryDesugarer](../src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) 完成。
 
-- `EnableLinqRewrite = true`
-- `EffectivePreferStreamApi = false`
-- 当前文件可获得有效 `SemanticModel`
+这是纯语法变换，不需要语义模型：
 
-如果语义模型不存在，或者重写过程中出现受控异常，系统会记录 warning 并回退到后续 Java Stream 路径，而不是直接终止转换。
+| 查询语法 | 脱糖结果 |
+|---------|---------|
+| `from x in xs where p select x` | `xs.Where(x => p)` |
+| `from x in xs orderby x.Key` | `xs.OrderBy(x => x.Key)` |
+| `from x in xs orderby x.A, x.B descending` | `xs.OrderBy(x => x.A).ThenByDescending(x => x.B)` |
+| `from x in xs select f(x)` | `xs.Select(x => f(x))` |
+| `from x in xs group x by x.Key` | `xs.GroupBy(x => x.Key)` |
 
-### 3.2 当前两阶段结构
+如果查询包含 `let`、`join`、`into` 等复杂子句，脱糖器直接跳过，保留原语法树。
 
-当前实现已经形成“两阶段 LINQ 重写”：
+### 3.2 第二步：方法链展开为过程式代码
 
-1. **查询语法脱糖**
-   由 [LinqQueryDesugarer](../src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) 完成，把 query expression 转为等价的方法链。
+由 [LinqRewriter](../src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) 完成。
 
-2. **方法链过程式改写**
-   由 [LinqRewriter](../src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) 完成，把可识别的 `Enumerable` 链改写为循环、条件判断、累加器和集合构造。
+这一步需要 Roslyn 语义模型，做以下事情：
 
-这种分层已经证明是合理的：第一层只做纯语法工作，第二层再使用语义模型做链识别、捕获变量分析和具体代码展开。
+1. **识别可改写的 LINQ 链**：从终结方法（如 `Sum()`、`First()`、`ToList()`）向前回溯，收集链上每一步。
+2. **数据流分析**：用 `SemanticModel.AnalyzeDataFlow()` 识别 lambda 内引用的外部变量。
+3. **生成辅助方法**：
+   - 方法名格式为 `原方法名_ProceduralLinq序号`
+   - 第一个参数是源集合
+   - 后续参数是所有被捕获的外部变量
+   - 被 lambda 修改的变量用 `ref` 传递
+   - 方法体是展开后的 `for`/`foreach` 循环、条件判断和累加器
+4. **替换原调用**：把原 LINQ 链替换为对辅助方法的调用。
+5. **注入辅助方法**：把生成的辅助方法添加到当前类/结构体中。
 
-### 3.3 当前代码落点
+### 3.3 展开规则分组
 
-LINQ 重写子系统主要位于 [src/CSharpToJava.Core/LinqRewrite](../src/CSharpToJava.Core/LinqRewrite/)：
+当前支持的 LINQ 操作符按角色分类：
 
-- `LinqQueryDesugarer.cs`：查询表达式脱糖
-- `LinqRewriter.cs`：主重写器、链识别、数据流分析、跳过诊断
-- `LinqRewriter.Rules.cs`：按操作符组织的规则实现
-- `LinqStep.cs`：LINQ 链步骤模型
-- `Lambda.cs`：lambda/匿名函数包装
-- `CanRewrapForeachVisitor.cs`：`foreach` 场景辅助判断
+#### 流式中间操作（在循环体内生成条件/变换）
 
-测试基线位于：
+- `Where` — 条件过滤
+- `Select` — 投影变换
+- `SelectMany` — 展平嵌套集合
+- `Distinct` — 去重（需要 HashSet 辅助）
+- `Skip` / `Take` — 跳过/截取（需要计数器）
+- `SkipWhile` / `TakeWhile` — 条件跳过/截取
+- `Cast` / `OfType` — 类型转换/过滤
+- `Concat` / `Union` / `Intersect` / `Except` — 集合运算
+- `OrderBy` / `ThenBy` — 排序
 
-- [tests/CSharpToJava.Tests/LinqQueryDesugarTests.cs](../tests/CSharpToJava.Tests/LinqQueryDesugarTests.cs)
-- [tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs](../tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs)
-- [tests/CSharpToJava.Tests/LinqImportAndStreamTests.cs](../tests/CSharpToJava.Tests/LinqImportAndStreamTests.cs)
+#### 终结聚合操作（决定循环的返回值）
 
-## 4. 当前基线存在的问题
+- `Sum` / `Average` / `Min` / `Max` — 数值聚合
+- `Count` / `LongCount` — 计数
+- `Any` / `All` — 存在性判断
+- `First` / `FirstOrDefault` / `Last` / `LastOrDefault` — 元素选取
+- `Single` / `SingleOrDefault` — 唯一性选取
+- `Contains` — 包含检查
+- `ElementAt` / `ElementAtOrDefault` — 按索引选取
 
-1. **规则规模已经不小，但规则边界还不够显式。**
-   目前 `LinqRewriter.Rules.cs` 已承载大量操作符实现，但“哪些属于过滤、投影、聚合、物化、排序”还主要体现在代码约定里。
+#### 物化操作（收集结果到集合）
 
-2. **项目级能力仍通过单文件 pass 间接继承。**
-   项目转换能复用单文件重写能力，但缺少一个从项目视角描述“哪些文件被重写、哪些被回退、统计如何汇总”的架构说明。
+- `ToList` / `ToArray` — 收集到列表/数组
+- `ToDictionary` — 收集到字典
+- `GroupBy` — 分组
+- `Reverse` — 反转
 
-3. **跳过原因可观测性还不够结构化。**
-   目前已有 `SkippedLinqChains` 文本诊断，但还没有更稳定的分类，例如“不支持 query continuation”“匿名类型 record 不可用”“链上没有可降级节点”等。
+#### 命令式操作
 
-4. **能力边界还没有文档化。**
-   仓库已有实现和测试，但缺少一份专门描述 LINQ 引擎目标、分层、扩展方式和回退策略的设计文档。
+- `ForEach` — 对每个元素执行动作
+- `foreach` 语句场景重写
 
-## 5. 目标架构
+### 3.4 回退策略
 
-### 5.1 总体主线
+回退是架构的一等公民，不是异常处理：
 
-LINQ 重写引擎固定为以下四层：
+- 查询脱糖失败 → 保留原查询语法，后续由 Java emit 时的 Stream 路径处理
+- 链分析发现不支持的操作符 → 记录跳过原因，保留原调用链
+- 匿名类型无法表达 → 回退到 Stream 路径
+- 单条链失败 → 不影响同文件其他链
 
-1. **入口编排层**
-   由 pipeline pass 决定是否启用 LINQ 重写，并负责在脱糖和改写之后刷新 `SyntaxTree`、`Compilation`、`Cs2jLibrary` 与 `SemanticModel`。
+这保证前处理是渐进式的：每多支持一个操作符，就多一些链路被降级为过程式代码，剩余的走 Stream 回退。
 
-2. **查询脱糖层**
-   只处理 query syntax 到方法链的纯语法变换，不引入任何 Java 目标语义。
+## 4. 与 cs2j 主管线的关系
 
-3. **链分析与规则分发层**
-   负责识别可改写的 `Enumerable` 链，抽取 `LinqStep` 序列，分析 lambda、捕获变量、返回类型和集合来源。
+### 4.1 执行位置
 
-4. **展开与回退层**
-   对支持的链生成过程式代码；对不支持链记录跳过原因并回退到常规 emit/Stream 路径。
+前处理发生在 cs2j 管线的 `Desugar` 阶段，是所有 pass 中最先执行的。执行入口是 [SingleFileLinqDesugarPass](../src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs)。
 
-### 5.2 入口编排层
+```
+管线执行顺序：
+  1. SingleFileLinqDesugarPass     ← 前处理：LINQ → 过程式 C#
+  2. SingleFileCompilationCheckPass
+  3. SingleFileUnsupportedDomainCheckPass
+  4. SingleFilePlatformBoundaryCheckPass
+  5. SingleFileNativeInteropCheckPass
+  6. SingleFileContextNormalizationPass
+  7. SingleFileJavaEmitPass         ← 主转换：过程式 C# → Java
+```
 
-入口编排层的职责必须保持非常清晰：
+### 4.2 边界清晰
 
-- 决定是否执行 LINQ 重写
-- 先执行 query desugar，再执行 method-chain rewrite
-- 每一阶段后刷新语义模型
-- 统计 `RewriteCount`
-- 把跳过原因写入 diagnostics
+前处理只修改 C# 语法树。它：
 
-这意味着 LINQ 重写不应该直接修改 Java IR，也不应该在 Java emit 之后再做字符串级修补。它的正确位置就是 C# 语法树到 Java visitor 之间的 `Desugar` 阶段。
+- 不生成任何 Java 代码
+- 不依赖 Java 侧的 import 或 type mapping
+- 不修改 Java IR
+- 在完成后重建 `Compilation` 和 `SemanticModel`，让后续 pass 看到的是干净的过程式 C# 语法树
 
-### 5.3 查询脱糖层
+这意味着如果 LINQ 前处理被完全关闭（`EnableLinqRewrite = false`），cs2j 的主管线行为不会受到任何影响——它会走原有的 Stream API 生成路径。
 
-查询脱糖层以 [LinqQueryDesugarer](../src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) 为核心，负责把：
+### 4.3 项目级转换
 
-- `where` 转为 `Where`
-- `orderby` / `descending` 转为 `OrderBy` / `OrderByDescending` / `ThenBy` / `ThenByDescending`
-- `select` 转为 `Select`
-- `group ... by ...` 转为 `GroupBy`
+项目级转换复用同一套前处理能力。每个源文件独立执行前处理，文件之间互不干扰。项目级结果中应汇总每文件的重写计数和回退计数。
 
-该层只做“变成方法链”的工作，不负责是否最终生成循环。复杂语法如果无法纯语法降级，应明确保持原样并交给后续路径处理，而不是在这里做不可靠猜测。
+## 5. 数据模型
 
-### 5.4 链分析与规则分发层
+### 5.1 `LinqStep`
 
-该层以 [LinqRewriter](../src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) 和 [LinqStep](../src/CSharpToJava.Core/LinqRewrite/LinqStep.cs) 为核心，职责包括：
+链分析层的最小单元。每个 `LinqStep` 表达链上的一步操作：
 
-- 识别目标是否为支持的 `Enumerable` 方法
-- 从终结节点向前回溯并组装完整链
-- 判断链上是否包含值得过程化展开的节点
-- 对 lambda 做数据流分析，识别外部变量捕获
-- 识别匿名类型、返回类型、索引型 lambda、`foreach` 包裹场景
-
-这层的输出不是 Java 代码，而是一个“已分类、已验证”的 LINQ 链执行意图。换句话说，它决定“能不能改、该走哪种规则”，而不是直接承担全部展开细节。
-
-### 5.5 规则层分组
-
-后续应把 LINQ 规则稳定划分为以下几类：
-
-#### 流式中间操作
-
-- `Where`
-- `Select`
-- `SelectMany`
-- `Distinct`
-- `Skip` / `Take`
-- `SkipWhile` / `TakeWhile`
-- `Cast`
-- `OfType`
-- `Concat`
-- `Union`
-- `Intersect`
-- `Except`
-- `OrderBy` / `ThenBy`
-
-#### 终结聚合操作
-
-- `Any`
-- `All`
-- `First` / `FirstOrDefault`
-- `Last` / `LastOrDefault`
-- `Single` / `SingleOrDefault`
-- `Count` / `LongCount`
-- `Contains`
-- `ElementAt` / `ElementAtOrDefault`
-- `Sum`
-- `Average`
-- `Min`
-- `Max`
-
-#### 物化操作
-
-- `ToList`
-- `ToArray`
-- `ToDictionary`
-- `GroupBy`
-- `Reverse`
-
-#### 命令式桥接操作
-
-- `ForEach`
-- `foreach` 场景重包裹
-
-这类分组的目的不是重命名现有文件，而是明确未来扩展时应先确定规则类别，再补具体实现和测试。
-
-### 5.6 展开层
-
-展开层负责把链意图转换成以下目标结构之一：
-
-1. `for` / `foreach` 循环
-2. 条件过滤与提前返回
-3. 累加器变量
-4. 中间集合初始化与追加
-5. 分组、字典、排序辅助结构
-6. 需要时生成捕获变量辅助方法
-
-该层要坚持两个原则：
-
-1. **优先生成结构稳定、可读的 Java 代码**
-2. **一旦不能保证正确性，就立即回退，不做半成功展开**
-
-### 5.7 回退与容错
-
-回退策略是该架构的必要组成部分，而不是失败补丁：
-
-- query desugar 失败：保留原语法树，交给后续 visitor/emit
-- 链分析失败：记录跳过原因，保留原调用链
-- 匿名类型或 record 能力不足：回退到 Stream/原有 emit 路径
-- 单条链失败：不影响同文件其他链的转换
-
-这保证了 LINQ 引擎是“增量提升能力”的系统，而不是“全有或全无”的系统。
-
-## 6. 数据模型
-
-### 6.1 `LinqStep`
-
-`LinqStep` 是链分析层的最小稳定单元，至少表达：
-
-- 方法名
+- 方法名（如 `Where`、`Sum`）
 - 参数列表
-- 原始 invocation
-- 可选 lambda 视图
+- 原始 `InvocationExpressionSyntax`
+- 可选的 `Lambda` 视图
 
-后续若需要增强可观测性，可继续补充：
+### 5.2 `Lambda`
 
-- 规则类别
-- 是否终结操作
-- 是否需要索引
-- 是否需要 materialization
+把 `SimpleLambdaExpressionSyntax`、`ParenthesizedLambdaExpressionSyntax`、`AnonymousMethodExpressionSyntax` 归一为统一接口，提取 `Body` 和 `Parameters`。
 
-### 6.2 `Lambda`
+### 5.3 `VariableCapture`
 
-`Lambda` 负责把不同形式的匿名函数归一为统一读取接口，降低规则实现对具体语法节点类型的耦合。后续所有新规则都应优先依赖统一 lambda 抽象，而不是在规则内部反复区分具体语法形态。
+数据流分析的结果。每个被 lambda 捕获的外部变量记录为一个 `VariableCapture`：
 
-### 6.3 跳过诊断模型
+- `Symbol`：原始符号
+- `Changes`：是否被 lambda 修改（决定是否用 `ref` 传递）
 
-当前已有 `SkippedLinqChains` 文本集合。后续建议在保持兼容的前提下，为跳过原因引入稳定分类，例如：
+### 5.4 辅助方法生成
 
-- `UnsupportedQueryClause`
-- `UnsupportedMethodChain`
-- `AnonymousTypeRequiresRecords`
-- `SemanticModelUnavailable`
-- `RuleExpansionFailed`
+`LinqRewriter` 在遍历过程中把生成的辅助方法暂存在 `methodsToAddToCurrentType` 列表中。当 visitor 离开类/结构体声明时，把所有暂存的辅助方法一次性注入到类型成员列表。
 
-这样后续 CLI、测试和 observability 才能稳定统计“为什么没改写”。
+## 6. 可观测性
 
-## 7. 与 pipeline 的关系
+### 6.1 指标
 
-LINQ 重写与整体 pipeline 的关系应固定为：
+前处理过程需要稳定记录以下指标：
 
-- 发生在 `Desugar`
-- 先于 unsupported-domain / platform-boundary checks
-- 先于 Java IR 生成
-- 不直接依赖 Java 端 import 或 post-generation rewrite
+1. 查询语法脱糖次数
+2. 方法链展开次数
+3. 跳过链数量及原因
+4. 按文件统计的重写/回退分布
 
-这样做的原因是：LINQ 重写本质上还是 C# 到 C# 的规范化，不应该和 Java 目标侧的 emit 细节耦合。
+### 6.2 跳过原因分类
 
-对于项目级转换，虽然当前复用单文件能力已经可用，但架构上应明确把“每文件重写计数、回退计数、文件级 warning 汇总”视作项目级结果的一部分。
+当前已有 `SkippedLinqChains` 文本诊断。后续建议引入稳定分类：
 
-## 8. 可观测性与验收
+- `UnsupportedQueryClause` — 包含 `let`/`join`/`into` 等不支持子句
+- `UnsupportedMethodChain` — 链上存在不支持的操作符
+- `AnonymousTypeRequiresRecords` — 匿名类型无法在当前配置下表达
+- `SemanticModelUnavailable` — 语义模型不可用
+- `RuleExpansionFailed` — 规则展开失败
 
-### 8.1 需要稳定记录的指标
+## 7. 验收标准
 
-1. query desugar 次数
-2. method-chain rewrite 次数
-3. 跳过链数量
-4. 按文件统计的 rewrite 数
-5. 失败/回退原因分类
+1. 查询语法和方法链语法在支持范围内产生一致的过程式 C# 代码。
+2. 前处理输出的 C# 代码可独立编译。
+3. 前处理后的过程式 C# 代码能被 cs2j 主管线正确转换为 Java。
+4. 单条链的改写失败不破坏同文件其他链或整个文件的转换。
+5. `EnableLinqRewrite = false` 时，主管线行为不受任何影响。
 
-### 8.2 验收标准
+## 8. 当前代码落点
 
-完成该架构后，LINQ 子系统至少应满足：
+### 核心实现
 
-1. 查询语法与方法链语法在可支持场景下产生一致结果。
-2. 在 `PreferStreamApi = false` 时，常见链路可生成过程式 Java，而不是 `.stream()`.
-3. 单条链改写失败不会破坏整个文件转换。
-4. 项目级入口可复用同一套 LINQ pass，而不是维护第二套逻辑。
-5. 每新增一个操作符类别，都能同时补上规则实现、跳过策略和测试样例。
+| 文件 | 职责 |
+|-----|-----|
+| [LinqQueryDesugarer.cs](../src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) | 查询语法 → 方法链（纯语法） |
+| [LinqRewriter.cs](../src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) | 方法链 → 过程式代码 + 辅助方法 |
+| [LinqRewriter.Rules.cs](../src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs) | 各操作符的展开规则 |
+| [LinqStep.cs](../src/CSharpToJava.Core/LinqRewrite/LinqStep.cs) | 链步骤模型 |
+| [Lambda.cs](../src/CSharpToJava.Core/LinqRewrite/Lambda.cs) | Lambda 统一包装 |
+| [CanRewrapForeachVisitor.cs](../src/CSharpToJava.Core/LinqRewrite/CanRewrapForeachVisitor.cs) | foreach 安全性检查 |
 
-## 9. 分阶段演进建议
+### 管线入口
 
-### Phase A：文档化与规则分组
+| 文件 | 职责 |
+|-----|-----|
+| [SingleFilePasses.cs](../src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs) | `SingleFileLinqDesugarPass`：前处理编排 |
 
-- 固化当前引擎的分层职责
-- 补齐规则分类说明
-- 明确支持、跳过、回退边界
+### 测试
+
+| 文件 | 覆盖内容 |
+|-----|---------|
+| [LinqQueryDesugarTests.cs](../tests/CSharpToJava.Tests/LinqQueryDesugarTests.cs) | 查询语法脱糖 + 过程式生成 |
+| [LinqChainRefactoringTests.cs](../tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs) | 复杂链路、Zip、匿名类型 |
+| [LinqImportAndStreamTests.cs](../tests/CSharpToJava.Tests/LinqImportAndStreamTests.cs) | import 生成与 Stream 兼容性 |
+
+## 9. 演进方向
+
+### Phase A：扩展操作符覆盖
+
+- 补齐更多终结和物化操作的展开规则
+- 处理索引型 lambda（如 `Select((x, i) => ...)`）
+- 支持更多集合运算
 
 ### Phase B：结构化可观测性
 
-- 为跳过原因增加稳定分类
+- 为跳过原因引入稳定分类枚举
 - 在项目级结果中汇总重写统计
-- 让 CLI 或 diagnostics 能输出更可解释的 LINQ 状态
+- 让 CLI 能输出 LINQ 前处理报告
 
-### Phase C：规则扩展
+### Phase C：复杂查询支持
 
-- 扩展更多聚合和物化操作
-- 收敛复杂 lambda、索引型操作和捕获变量场景
-- 补齐复杂查询语法支持边界
-
-### Phase D：工程化收束
-
-- 进一步减少规则实现中的隐式约定
-- 让新增操作符有更稳定的接入点
-- 在不牺牲回退能力的前提下提升可维护性
-
-## 10. 结论
-
-`cs2j` 的 LINQ 重写引擎不应被看成若干零散的操作符特判，而应被看成一个独立的“C# 语义规范化子系统”：
-
-- 前半段把 query syntax 归一为方法链
-- 中段把方法链归一为规则可识别的步骤序列
-- 后半段把可支持链降级为过程式代码，并把不可支持链安全回退
-
-这套架构能同时服务三个目标：继续扩展 20+ 操作符支持、保持 Java Stream 回退能力、以及让后续维护者可以在明确边界内继续演进 LINQ 能力，而不是把复杂度散落到整个转换器里。
+- 探索 `let`、`join`、query continuation 的有限支持
+- 处理复杂 lambda 捕获和多层嵌套场景
