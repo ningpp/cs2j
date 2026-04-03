@@ -1393,6 +1393,12 @@ namespace CSharpToJava.Core.LinqRewrite
 
 
             // --- Distinct: skip items already seen via HashSet ---
+            // AsEnumerable: pure passthrough (type erasure — no transformation)
+            if (method == AsEnumerableMethod)
+            {
+                return CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+            }
+
             if (method == DistinctMethod)
             {
                 var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
@@ -1840,6 +1846,9 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string MaxByMethod = "System.Collections.Generic.IEnumerable<TSource>.MaxBy<TSource, TKey>(System.Func<TSource, TKey>)";
         readonly static string ChunkMethod = "System.Collections.Generic.IEnumerable<TSource>.Chunk<TSource>(int)";
 
+        // Phase 7: Materialization & passthrough
+        readonly static string AsEnumerableMethod = "System.Collections.Generic.IEnumerable<TSource>.AsEnumerable<TSource>()";
+
         // Phase 5: Join / GroupJoin
         readonly static string JoinMethod = "System.Collections.Generic.IEnumerable<TOuter>.Join<TOuter, TInner, TKey, TResult>(System.Collections.Generic.IEnumerable<TInner>, System.Func<TOuter, TKey>, System.Func<TInner, TKey>, System.Func<TOuter, TInner, TResult>)";
         readonly static string GroupJoinMethod = "System.Collections.Generic.IEnumerable<TOuter>.GroupJoin<TOuter, TInner, TKey, TResult>(System.Collections.Generic.IEnumerable<TInner>, System.Func<TOuter, TKey>, System.Func<TInner, TKey>, System.Func<TOuter, System.Collections.Generic.IEnumerable<TInner>, TResult>)";
@@ -1853,7 +1862,8 @@ namespace CSharpToJava.Core.LinqRewrite
             SelectManyWithIndexMethod,
             SkipLastMethod, TakeLastMethod, AppendMethod, PrependMethod,
             DefaultIfEmptyMethod, DefaultIfEmptyWithValueMethod,
-            DistinctByMethod, ChunkMethod
+            DistinctByMethod, ChunkMethod,
+            AsEnumerableMethod
         };
         readonly static string[] MethodsThatPreserveCount = new[] {
             SelectMethod, CastMethod, ReverseMethod, ToListMethod, ToArrayMethod /*OrderBy*/
