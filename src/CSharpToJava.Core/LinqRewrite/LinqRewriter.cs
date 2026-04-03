@@ -171,7 +171,8 @@ namespace CSharpToJava.Core.LinqRewrite
                             || x.MethodName == SkipLastMethod || x.MethodName == TakeLastMethod
                             || x.MethodName == AppendMethod || x.MethodName == PrependMethod
                             || x.MethodName == DefaultIfEmptyMethod || x.MethodName == DefaultIfEmptyWithValueMethod
-                            || x.MethodName == ChunkMethod)
+                            || x.MethodName == ChunkMethod
+                            || x.MethodName == OrderMethod || x.MethodName == OrderDescendingMethod)
                         && !chain.Any(x => x.MethodName == SequenceEqualMethod
                             || x.MethodName == UnionByMethod || x.MethodName == IntersectByMethod || x.MethodName == ExceptByMethod
                             || x.MethodName == MinByMethod || x.MethodName == MaxByMethod
@@ -610,6 +611,13 @@ namespace CSharpToJava.Core.LinqRewrite
                     result.Add(CreateLocalVariableDeclaration("_chunkSize_" + i,
                         SyntaxFactory.IdentifierName("_chunkSize_param_" + i)));
                 }
+                else if (step.MethodName == OrderMethod || step.MethodName == OrderDescendingMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_sortBuffer_" + i,
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + GetIntermediateItemTypeForStep(step) + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
+                }
             }
             return result;
         }
@@ -722,6 +730,36 @@ namespace CSharpToJava.Core.LinqRewrite
                                         SyntaxFactory.IdentifierName("_chunkBuffer_" + i),
                                         SyntaxFactory.IdentifierName("ToArray")))),
                             inner)));
+                }
+                else if (step.MethodName == OrderMethod || step.MethodName == OrderDescendingMethod)
+                {
+                    // Sort the buffer, then iterate sorted items through remaining chain
+                    var sortedItemName = "_sortItem" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, sortedItemName, arguments, noAggregation);
+
+                    var statements = new List<StatementSyntax>();
+                    // _sortBuffer.Sort();
+                    statements.Add(SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_sortBuffer_" + i),
+                                SyntaxFactory.IdentifierName("Sort")))));
+                    // For OrderDescending: _sortBuffer.Reverse();
+                    if (step.MethodName == OrderDescendingMethod)
+                    {
+                        statements.Add(SyntaxFactory.ExpressionStatement(
+                            SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("_sortBuffer_" + i),
+                                    SyntaxFactory.IdentifierName("Reverse")))));
+                    }
+                    // foreach (var _sortItem in _sortBuffer) { inner }
+                    statements.Add(SyntaxFactory.ForEachStatement(
+                        SyntaxFactory.ParseTypeName("var"),
+                        sortedItemName,
+                        SyntaxFactory.IdentifierName("_sortBuffer_" + i),
+                        inner is BlockSyntax ? inner : SyntaxFactory.Block(inner)));
+                    result.Add(SyntaxFactory.Block(statements));
                 }
             }
             return result;

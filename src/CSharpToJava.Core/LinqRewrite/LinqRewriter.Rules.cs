@@ -1429,6 +1429,16 @@ namespace CSharpToJava.Core.LinqRewrite
 
 
             // --- Distinct: skip items already seen via HashSet ---
+            // Order/OrderDescending: buffer items for post-loop sorting
+            if (method == OrderMethod || method == OrderDescendingMethod)
+            {
+                return CreateStatement(SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("_sortBuffer_" + chainIndex),
+                        SyntaxFactory.IdentifierName("Add")),
+                    CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) })));
+            }
+
             // AsEnumerable: pure passthrough (type erasure — no transformation)
             if (method == AsEnumerableMethod)
             {
@@ -1898,6 +1908,11 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string JoinMethod = "System.Collections.Generic.IEnumerable<TOuter>.Join<TOuter, TInner, TKey, TResult>(System.Collections.Generic.IEnumerable<TInner>, System.Func<TOuter, TKey>, System.Func<TInner, TKey>, System.Func<TOuter, TInner, TResult>)";
         readonly static string GroupJoinMethod = "System.Collections.Generic.IEnumerable<TOuter>.GroupJoin<TOuter, TInner, TKey, TResult>(System.Collections.Generic.IEnumerable<TInner>, System.Func<TOuter, TKey>, System.Func<TInner, TKey>, System.Func<TOuter, System.Collections.Generic.IEnumerable<TInner>, TResult>)";
 
+        // Phase 9: .NET 7+/9+ new methods
+        // Note: .NET 7+ methods use type parameter T (not TSource)
+        readonly static string OrderMethod = "System.Collections.Generic.IEnumerable<T>.Order<T>()";
+        readonly static string OrderDescendingMethod = "System.Collections.Generic.IEnumerable<T>.OrderDescending<T>()";
+
         readonly static string[] RootMethodsThatRequireYieldReturn = new[] {
             WhereMethod, SelectMethod, CastMethod, OfTypeMethod,
             DistinctMethod, SkipMethod, TakeMethod, SkipWhileMethod, TakeWhileMethod, SelectManyMethod,
@@ -1908,7 +1923,8 @@ namespace CSharpToJava.Core.LinqRewrite
             SkipLastMethod, TakeLastMethod, AppendMethod, PrependMethod,
             DefaultIfEmptyMethod, DefaultIfEmptyWithValueMethod,
             DistinctByMethod, ChunkMethod,
-            AsEnumerableMethod
+            AsEnumerableMethod,
+            OrderMethod, OrderDescendingMethod
         };
         readonly static string[] MethodsThatPreserveCount = new[] {
             SelectMethod, CastMethod, ReverseMethod, ToListMethod, ToArrayMethod /*OrderBy*/
