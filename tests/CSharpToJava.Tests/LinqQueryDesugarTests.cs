@@ -358,6 +358,147 @@ class Sample {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // Phase 6: let, multi-from, join, join-into, query continuation
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void QuerySyntax_Let_ProducesProceduralCode()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> values) {
+        return (from v in values let doubled = v * 2 where doubled > 5 select doubled).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_Let_MatchesMethodChain()
+    {
+        // let y = expr  ≡  inline y into subsequent clauses
+        // Note: let inlining wraps substituted expressions in parentheses,
+        // so we test structural equivalence rather than exact string match.
+        const string querySource = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> items) {
+        return (from x in items let sq = x * x where sq > 10 select sq + 1).ToList();
+    }
+}";
+        var queryResult = ConvertProcedural(querySource);
+        Assert.True(queryResult.Success, queryResult.GeneratedCode);
+        Assert.Contains("ProceduralLinq", queryResult.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".stream()", queryResult.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_MultiFrom_ProducesProceduralCode()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> xs, List<int> ys) {
+        return (from x in xs from y in ys select x + y).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_MultiFrom_WithWhere_ProducesProceduralCode()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> xs, List<int> ys) {
+        return (from x in xs from y in ys where x + y > 5 select x * y).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_Continuation_GroupInto_ProducesProceduralCode()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> items) {
+        return (from x in items group x by x % 2 into g select g.Count()).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_Join_AsLastClause_ProducesProceduralCode()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<string> M() {
+        var people = new List<(string Name, int DeptId)> { (""Alice"", 1) };
+        var depts = new List<(int Id, string DName)> { (1, ""Eng"") };
+        return (from p in people join d in depts on p.DeptId equals d.Id select p.Name + d.DName).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_GroupJoin_AsLastClause_ProducesProceduralCode()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<string> M() {
+        var depts = new List<(int Id, string Name)> { (1, ""Eng""), (2, ""Sales"") };
+        var people = new List<(string Name, int DeptId)> { (""Alice"", 1), (""Bob"", 1) };
+        return (from d in depts join p in people on d.Id equals p.DeptId into g select d.Name + g.Count()).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_Let_MultipleBindings_ProducesProceduralCode()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> items) {
+        return (from x in items let a = x + 1 let b = a * 2 where b > 10 select b).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────
 

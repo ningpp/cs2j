@@ -38,73 +38,181 @@ public sealed class LinqQueryDesugarer : CSharpSyntaxRewriter
 
     private static ExpressionSyntax? TryDesugar(QueryExpressionSyntax query)
     {
-        // Query continuations (into g ...) require materialising an intermediate
-        // result and re-querying it; too complex for pure syntactic desugaring.
-        if (query.Body.Continuation != null)
-            return null;
+        return ProcessQueryBody(
+            query.FromClause.Expression,
+            query.FromClause.Identifier,
+            query.Body);
+    }
 
-        var clauses = query.Body.Clauses.ToList();
+    private static ExpressionSyntax? ProcessQueryBody(
+        ExpressionSyntax source,
+        SyntaxToken rangeVar,
+        QueryBodySyntax body)
+    {
+        var result = DesugarBodyClauses(
+            source, rangeVar,
+            body.Clauses.ToList(), 0,
+            body.SelectOrGroup,
+            new Dictionary<string, ExpressionSyntax>());
 
-        // Fall back for complex clauses that require transparent identifiers or
-        // GroupJoin semantics which need semantic analysis to desugar correctly.
-        if (clauses.Any(c => c is LetClauseSyntax || c is JoinClauseSyntax || c is FromClauseSyntax))
-            return null;
+        if (result == null) return null;
 
-        var rangeVar = query.FromClause.Identifier;
-        ExpressionSyntax current = query.FromClause.Expression;
-
-        foreach (var clause in clauses)
+        // Handle query continuation (into g <body>)
+        if (body.Continuation != null)
         {
-            switch (clause)
+            return ProcessQueryBody(
+                result,
+                body.Continuation.Identifier,
+                body.Continuation.Body);
+        }
+
+        return result;
+    }
+
+    private static ExpressionSyntax? DesugarBodyClauses(
+        ExpressionSyntax source,
+        SyntaxToken rangeVar,
+        List<QueryClauseSyntax> clauses,
+        int startIndex,
+        SelectOrGroupClauseSyntax selectOrGroup,
+        Dictionary<string, ExpressionSyntax> letBindings)
+    {
+        for (int i = startIndex; i < clauses.Count; i++)
+        {
+            switch (clauses[i])
             {
                 case WhereClauseSyntax where:
-                    current = MakeCall(current, "Where", MakeLambda(rangeVar, where.Condition));
+                    source = MakeCall(source, "Where",
+                        MakeLambda(rangeVar, Substitute(where.Condition, letBindings)));
                     break;
 
                 case OrderByClauseSyntax orderBy:
-                    var orderings = orderBy.Orderings;
                     bool firstKey = true;
-                    foreach (var ordering in orderings)
+                    foreach (var ordering in orderBy.Orderings)
                     {
                         bool descending = ordering.AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword);
                         string method = firstKey
                             ? (descending ? "OrderByDescending" : "OrderBy")
                             : (descending ? "ThenByDescending" : "ThenBy");
-                        current = MakeCall(current, method, MakeLambda(rangeVar, ordering.Expression));
+                        source = MakeCall(source, method,
+                            MakeLambda(rangeVar, Substitute(ordering.Expression, letBindings)));
                         firstKey = false;
                     }
                     break;
+
+                case LetClauseSyntax let:
+                    // Inline substitution: register let variable → expression.
+                    // No method call emitted; subsequent clauses will have the
+                    // let expression inlined wherever the let variable is referenced.
+                    letBindings = new Dictionary<string, ExpressionSyntax>(letBindings)
+                    {
+                        [let.Identifier.Text] = Substitute(let.Expression, letBindings)
+                    };
+                    break;
+
+                case FromClauseSyntax from:
+                    // Push all remaining clauses + select into a nested inner chain
+                    // wrapped inside .SelectMany(outerVar => innerChain).
+                    // Outer variables are captured by closure in the inner lambdas.
+                    var innerSource = Substitute(from.Expression, letBindings);
+                    var innerResult = DesugarBodyClauses(
+                        innerSource, from.Identifier,
+                        clauses, i + 1, selectOrGroup,
+                        new Dictionary<string, ExpressionSyntax>(letBindings));
+                    if (innerResult == null) return null;
+                    source = MakeCall(source, "SelectMany", MakeLambda(rangeVar, innerResult));
+                    return source; // All remaining clauses consumed by inner chain
+
+                case JoinClauseSyntax join when join.Into == null:
+                    // join y in inner on outerKey equals innerKey
+                    // Only desugar when join is the last clause (no transparent identifiers needed).
+                    if (i < clauses.Count - 1) return null;
+
+                    if (selectOrGroup is not SelectClauseSyntax joinSel) return null;
+                    source = MakeCall(source, "Join",
+                        Substitute(join.InExpression, letBindings),
+                        MakeLambda(rangeVar, Substitute(join.LeftExpression, letBindings)),
+                        MakeLambda(join.Identifier, join.RightExpression),
+                        MakeParenLambda(rangeVar, join.Identifier, Substitute(joinSel.Expression, letBindings)));
+                    return source; // selectOrGroup consumed
+
+                case JoinClauseSyntax joinInto when joinInto.Into != null:
+                    // join y in inner on outerKey equals innerKey into g
+                    // Only desugar when join-into is the last clause.
+                    if (i < clauses.Count - 1) return null;
+
+                    if (selectOrGroup is not SelectClauseSyntax gjSel) return null;
+                    source = MakeCall(source, "GroupJoin",
+                        Substitute(joinInto.InExpression, letBindings),
+                        MakeLambda(rangeVar, Substitute(joinInto.LeftExpression, letBindings)),
+                        MakeLambda(joinInto.Identifier, joinInto.RightExpression),
+                        MakeParenLambda(rangeVar, joinInto.Into.Identifier, Substitute(gjSel.Expression, letBindings)));
+                    return source; // selectOrGroup consumed
 
                 default:
                     return null;
             }
         }
 
-        switch (query.Body.SelectOrGroup)
+        // Process final select/group clause
+        switch (selectOrGroup)
         {
             case SelectClauseSyntax select:
+                var selBody = Substitute(select.Expression, letBindings);
                 // Identity select (from x in xs select x) — skip the .Select() call.
-                if (!(select.Expression is IdentifierNameSyntax id && id.Identifier.Text == rangeVar.Text))
-                    current = MakeCall(current, "Select", MakeLambda(rangeVar, select.Expression));
+                if (!(selBody is IdentifierNameSyntax id && id.Identifier.Text == rangeVar.Text))
+                    source = MakeCall(source, "Select", MakeLambda(rangeVar, selBody));
                 break;
 
             case GroupClauseSyntax group:
-                var keySelector = MakeLambda(rangeVar, group.ByExpression);
-                if (group.GroupExpression is IdentifierNameSyntax gId && gId.Identifier.Text == rangeVar.Text)
-                    current = MakeCall(current, "GroupBy", keySelector);
+                var keyBody = Substitute(group.ByExpression, letBindings);
+                var grpBody = Substitute(group.GroupExpression, letBindings);
+                if (grpBody is IdentifierNameSyntax gId && gId.Identifier.Text == rangeVar.Text)
+                    source = MakeCall(source, "GroupBy", MakeLambda(rangeVar, keyBody));
                 else
-                    current = MakeCall(current, "GroupBy", keySelector, MakeLambda(rangeVar, group.GroupExpression));
+                    source = MakeCall(source, "GroupBy", MakeLambda(rangeVar, keyBody), MakeLambda(rangeVar, grpBody));
                 break;
 
             default:
                 return null;
         }
 
-        return current;
+        return source;
+    }
+
+    // ─── Inline substitution for let-bindings ───
+
+    private static ExpressionSyntax Substitute(ExpressionSyntax expr, Dictionary<string, ExpressionSyntax> bindings)
+    {
+        if (bindings.Count == 0) return expr;
+        return (ExpressionSyntax)new IdentifierSubstituter(bindings).Visit(expr);
+    }
+
+    private sealed class IdentifierSubstituter : CSharpSyntaxRewriter
+    {
+        private readonly Dictionary<string, ExpressionSyntax> _bindings;
+        public IdentifierSubstituter(Dictionary<string, ExpressionSyntax> bindings) => _bindings = bindings;
+
+        public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+        {
+            if (_bindings.TryGetValue(node.Identifier.Text, out var replacement))
+                return SyntaxFactory.ParenthesizedExpression(replacement).WithTriviaFrom(node);
+            return base.VisitIdentifierName(node);
+        }
     }
 
     private static SimpleLambdaExpressionSyntax MakeLambda(SyntaxToken param, ExpressionSyntax body)
         => SyntaxFactory.SimpleLambdaExpression(SyntaxFactory.Parameter(param), body);
+
+    private static ParenthesizedLambdaExpressionSyntax MakeParenLambda(
+        SyntaxToken param1, SyntaxToken param2, ExpressionSyntax body)
+        => SyntaxFactory.ParenthesizedLambdaExpression(
+            SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
+            {
+                SyntaxFactory.Parameter(param1),
+                SyntaxFactory.Parameter(param2)
+            })),
+            body);
 
     private static InvocationExpressionSyntax MakeCall(
         ExpressionSyntax receiver,
