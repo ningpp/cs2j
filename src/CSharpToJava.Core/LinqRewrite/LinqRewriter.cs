@@ -174,7 +174,8 @@ namespace CSharpToJava.Core.LinqRewrite
                             || x.MethodName == ChunkMethod)
                         && !chain.Any(x => x.MethodName == SequenceEqualMethod
                             || x.MethodName == UnionByMethod || x.MethodName == IntersectByMethod || x.MethodName == ExceptByMethod
-                            || x.MethodName == MinByMethod || x.MethodName == MaxByMethod))
+                            || x.MethodName == MinByMethod || x.MethodName == MaxByMethod
+                            || x.MethodName == JoinMethod || x.MethodName == GroupJoinMethod))
                         return null;
                     if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName)) return null;
 
@@ -341,7 +342,8 @@ namespace CSharpToJava.Core.LinqRewrite
                     || name == SkipLastMethod || name == TakeLastMethod
                     || name == AppendMethod || name == PrependMethod || name == DefaultIfEmptyWithValueMethod
                     || name == UnionByMethod || name == IntersectByMethod || name == ExceptByMethod
-                    || name == ChunkMethod)
+                    || name == ChunkMethod
+                    || name == JoinMethod || name == GroupJoinMethod)
                 {
                     // These accept non-lambda args, allow them
                 }

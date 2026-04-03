@@ -831,6 +831,205 @@ namespace CSharpToJava.Core.LinqRewrite
                 );
             }
 
+            // --- Join: hash join using inner key → lookup for each outer key ---
+            if (aggregationMethod == JoinMethod)
+            {
+                var methodSymbol = semantic.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var outerType = methodSymbol.TypeArguments[0]; // TOuter
+                var innerType = methodSymbol.TypeArguments[1]; // TInner
+                var keyType = methodSymbol.TypeArguments[2]; // TKey
+                var resultType = methodSymbol.TypeArguments[3]; // TResult
+
+                var outerTypeName = outerType.ToDisplayString();
+                var innerTypeName = innerType.ToDisplayString();
+                var keyTypeName = keyType.ToDisplayString();
+                var resultTypeName = resultType.ToDisplayString();
+
+                var innerSeqExpr = node.ArgumentList.Arguments[0].Expression;
+                var outerKeyLambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[1].Expression;
+                var innerKeyLambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[2].Expression;
+                var resultLambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[3].Expression;
+
+                var listIdentifier = SyntaxFactory.IdentifierName("_joinResult");
+                var lookupType = "System.Collections.Generic.Dictionary<" + keyTypeName + ", System.Collections.Generic.List<" + innerTypeName + ">>";
+
+                return RewriteAsLoop(
+                    returnType,
+                    new StatementSyntax[] {
+                        // var _joinResult = new List<TResult>();
+                        CreateLocalVariableDeclaration("_joinResult", SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + resultTypeName + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)),
+                        // var _joinLookup = new Dictionary<TKey, List<TInner>>();
+                        CreateLocalVariableDeclaration("_joinLookup", SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName(lookupType),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)),
+                        // foreach (var _innerItem in _inner) { var key = innerKeySelector(_innerItem); if (!_joinLookup.ContainsKey(key)) _joinLookup[key] = new List<TInner>(); _joinLookup[key].Add(_innerItem); }
+                        SyntaxFactory.ForEachStatement(SyntaxFactory.IdentifierName("var"), "_innerItem", SyntaxFactory.IdentifierName("_inner"),
+                            SyntaxFactory.Block(
+                                CreateLocalVariableDeclaration("_innerKey",
+                                    InlineOrCreateMethod(new Lambda(innerKeyLambda), SyntaxFactory.ParseTypeName(keyTypeName), null, CreateParameter("_innerItem", innerType))),
+                                SyntaxFactory.IfStatement(
+                                    SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                                        SyntaxFactory.ParenthesizedExpression(
+                                            SyntaxFactory.InvocationExpression(
+                                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                                    SyntaxFactory.IdentifierName("_joinLookup"), SyntaxFactory.IdentifierName("ContainsKey")),
+                                                CreateArguments(new[] { SyntaxFactory.IdentifierName("_innerKey") })))),
+                                    SyntaxFactory.ExpressionStatement(
+                                        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                            SyntaxFactory.ElementAccessExpression(SyntaxFactory.IdentifierName("_joinLookup"),
+                                                SyntaxFactory.BracketedArgumentList(CreateSeparatedList(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("_innerKey"))))),
+                                            SyntaxFactory.ObjectCreationExpression(
+                                                SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + innerTypeName + ">"),
+                                                CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)))),
+                                SyntaxFactory.ExpressionStatement(
+                                    SyntaxFactory.InvocationExpression(
+                                        SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                            SyntaxFactory.ElementAccessExpression(SyntaxFactory.IdentifierName("_joinLookup"),
+                                                SyntaxFactory.BracketedArgumentList(CreateSeparatedList(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("_innerKey"))))),
+                                            SyntaxFactory.IdentifierName("Add")),
+                                        CreateArguments(new[] { SyntaxFactory.IdentifierName("_innerItem") })))))
+                    },
+                    new[] { SyntaxFactory.ReturnStatement(listIdentifier) },
+                    collection,
+                    chain,
+                    (inv, arguments, param) =>
+                    {
+                        var outerItem = SyntaxFactory.IdentifierName(param.Identifier.ValueText);
+                        var outerKeyExpr = InlineOrCreateMethod(new Lambda(outerKeyLambda), SyntaxFactory.ParseTypeName(keyTypeName), arguments, param);
+                        var outerKeyVar = "_outerKey" + (++lastId);
+
+                        // Inline resultSelector: substitute param[0] → outer item, param[1] → inner item
+                        var resLambda = new Lambda(resultLambda);
+                        var outerParamName = resLambda.Parameters[0].Identifier.ValueText;
+                        var innerParamName = resLambda.Parameters[1].Identifier.ValueText;
+
+                        var innerItemVar = "_matchedInner" + (++lastId);
+
+                        return SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(outerKeyVar, outerKeyExpr),
+                            SyntaxFactory.IfStatement(
+                                SyntaxFactory.InvocationExpression(
+                                    SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        SyntaxFactory.IdentifierName("_joinLookup"), SyntaxFactory.IdentifierName("ContainsKey")),
+                                    CreateArguments(new[] { SyntaxFactory.IdentifierName(outerKeyVar) })),
+                                SyntaxFactory.Block(
+                                    SyntaxFactory.ForEachStatement(SyntaxFactory.IdentifierName("var"), innerItemVar,
+                                        SyntaxFactory.ElementAccessExpression(SyntaxFactory.IdentifierName("_joinLookup"),
+                                            SyntaxFactory.BracketedArgumentList(CreateSeparatedList(SyntaxFactory.Argument(SyntaxFactory.IdentifierName(outerKeyVar))))),
+                                        SyntaxFactory.Block(
+                                            CreateLocalVariableDeclaration("_joinPair" + lastId,
+                                                InlineResultSelector(resLambda, outerParamName, param.Identifier.ValueText, innerParamName, innerItemVar)),
+                                            CreateStatement(SyntaxFactory.InvocationExpression(
+                                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                                    listIdentifier, SyntaxFactory.IdentifierName("Add")),
+                                                CreateArguments(new[] { SyntaxFactory.IdentifierName("_joinPair" + lastId) }))))))));
+                    },
+                    additionalParameters: new[] { Tuple.Create(CreateParameter("_inner", SyntaxFactory.ParseTypeName("System.Collections.Generic.IEnumerable<" + innerTypeName + ">")), innerSeqExpr) }
+                );
+            }
+
+            // --- GroupJoin: hash join, pass matched group to resultSelector ---
+            if (aggregationMethod == GroupJoinMethod)
+            {
+                var methodSymbol = semantic.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var outerType = methodSymbol.TypeArguments[0]; // TOuter
+                var innerType = methodSymbol.TypeArguments[1]; // TInner
+                var keyType = methodSymbol.TypeArguments[2]; // TKey
+                var resultType = methodSymbol.TypeArguments[3]; // TResult
+
+                var outerTypeName = outerType.ToDisplayString();
+                var innerTypeName = innerType.ToDisplayString();
+                var keyTypeName = keyType.ToDisplayString();
+                var resultTypeName = resultType.ToDisplayString();
+
+                var innerSeqExpr = node.ArgumentList.Arguments[0].Expression;
+                var outerKeyLambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[1].Expression;
+                var innerKeyLambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[2].Expression;
+                var resultLambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[3].Expression;
+
+                var listIdentifier = SyntaxFactory.IdentifierName("_gjResult");
+                var lookupType = "System.Collections.Generic.Dictionary<" + keyTypeName + ", System.Collections.Generic.List<" + innerTypeName + ">>";
+                var emptyListType = "System.Collections.Generic.List<" + innerTypeName + ">";
+
+                return RewriteAsLoop(
+                    returnType,
+                    new StatementSyntax[] {
+                        CreateLocalVariableDeclaration("_gjResult", SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + resultTypeName + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)),
+                        CreateLocalVariableDeclaration("_gjLookup", SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName(lookupType),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)),
+                        SyntaxFactory.ForEachStatement(SyntaxFactory.IdentifierName("var"), "_innerItem", SyntaxFactory.IdentifierName("_inner"),
+                            SyntaxFactory.Block(
+                                CreateLocalVariableDeclaration("_innerKey",
+                                    InlineOrCreateMethod(new Lambda(innerKeyLambda), SyntaxFactory.ParseTypeName(keyTypeName), null, CreateParameter("_innerItem", innerType))),
+                                SyntaxFactory.IfStatement(
+                                    SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                                        SyntaxFactory.ParenthesizedExpression(
+                                            SyntaxFactory.InvocationExpression(
+                                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                                    SyntaxFactory.IdentifierName("_gjLookup"), SyntaxFactory.IdentifierName("ContainsKey")),
+                                                CreateArguments(new[] { SyntaxFactory.IdentifierName("_innerKey") })))),
+                                    SyntaxFactory.ExpressionStatement(
+                                        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                            SyntaxFactory.ElementAccessExpression(SyntaxFactory.IdentifierName("_gjLookup"),
+                                                SyntaxFactory.BracketedArgumentList(CreateSeparatedList(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("_innerKey"))))),
+                                            SyntaxFactory.ObjectCreationExpression(
+                                                SyntaxFactory.ParseTypeName(emptyListType),
+                                                CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)))),
+                                SyntaxFactory.ExpressionStatement(
+                                    SyntaxFactory.InvocationExpression(
+                                        SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                            SyntaxFactory.ElementAccessExpression(SyntaxFactory.IdentifierName("_gjLookup"),
+                                                SyntaxFactory.BracketedArgumentList(CreateSeparatedList(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("_innerKey"))))),
+                                            SyntaxFactory.IdentifierName("Add")),
+                                        CreateArguments(new[] { SyntaxFactory.IdentifierName("_innerItem") })))))
+                    },
+                    new[] { SyntaxFactory.ReturnStatement(listIdentifier) },
+                    collection,
+                    chain,
+                    (inv, arguments, param) =>
+                    {
+                        var outerItem = SyntaxFactory.IdentifierName(param.Identifier.ValueText);
+                        var outerKeyExpr = InlineOrCreateMethod(new Lambda(outerKeyLambda), SyntaxFactory.ParseTypeName(keyTypeName), arguments, param);
+                        var outerKeyVar = "_outerKey" + (++lastId);
+                        var matchedGroupVar = "_matchedGroup" + (++lastId);
+
+                        var resLambda = new Lambda(resultLambda);
+                        var outerParamName = resLambda.Parameters[0].Identifier.ValueText;
+                        var groupParamName = resLambda.Parameters[1].Identifier.ValueText;
+
+                        // var _matchedGroupN = _gjLookup.ContainsKey(key) ? _gjLookup[key] : new List<TInner>();
+                        var groupExpr = SyntaxFactory.ConditionalExpression(
+                            SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("_gjLookup"), SyntaxFactory.IdentifierName("ContainsKey")),
+                                CreateArguments(new[] { SyntaxFactory.IdentifierName(outerKeyVar) })),
+                            SyntaxFactory.ElementAccessExpression(SyntaxFactory.IdentifierName("_gjLookup"),
+                                SyntaxFactory.BracketedArgumentList(CreateSeparatedList(SyntaxFactory.Argument(SyntaxFactory.IdentifierName(outerKeyVar))))),
+                            SyntaxFactory.ObjectCreationExpression(
+                                SyntaxFactory.ParseTypeName(emptyListType),
+                                CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null));
+
+                        var resultVarName = "_gjPair" + (++lastId);
+
+                        return SyntaxFactory.Block(
+                            CreateLocalVariableDeclaration(outerKeyVar, outerKeyExpr),
+                            CreateLocalVariableDeclaration(matchedGroupVar, groupExpr),
+                            CreateLocalVariableDeclaration(resultVarName,
+                                InlineResultSelector(resLambda, outerParamName, param.Identifier.ValueText, groupParamName, matchedGroupVar)),
+                            CreateStatement(SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    listIdentifier, SyntaxFactory.IdentifierName("Add")),
+                                CreateArguments(new[] { SyntaxFactory.IdentifierName(resultVarName) }))));
+                    },
+                    additionalParameters: new[] { Tuple.Create(CreateParameter("_inner", SyntaxFactory.ParseTypeName("System.Collections.Generic.IEnumerable<" + innerTypeName + ">")), innerSeqExpr) }
+                );
+            }
+
             // --- SequenceEqual: element-by-element comparison of two sequences ---
             if (aggregationMethod == SequenceEqualMethod)
             {
@@ -984,6 +1183,27 @@ namespace CSharpToJava.Core.LinqRewrite
             }
 
             return (ExpressionSyntax)wrappedLambda.Body.ReplaceNodes(
+                replacements.Keys,
+                (orig, _) => SyntaxFactory.IdentifierName(replacements[orig]));
+        }
+
+        /// <summary>
+        /// Inline a 2-parameter result selector lambda: substitute param0 → name0, param1 → name1.
+        /// Used by Join and GroupJoin.
+        /// </summary>
+        private ExpressionSyntax InlineResultSelector(Lambda resLambda, string param0Name, string replacement0, string param1Name, string replacement1)
+        {
+            var replacements = new Dictionary<SyntaxNode, string>();
+            foreach (var id in resLambda.Body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            {
+                var sym = semantic.GetSymbolInfo(id).Symbol;
+                if (sym is IParameterSymbol ps)
+                {
+                    if (ps.Name == param0Name) replacements[id] = replacement0;
+                    else if (ps.Name == param1Name) replacements[id] = replacement1;
+                }
+            }
+            return (ExpressionSyntax)resLambda.Body.ReplaceNodes(
                 replacements.Keys,
                 (orig, _) => SyntaxFactory.IdentifierName(replacements[orig]));
         }
@@ -1619,6 +1839,10 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string MinByMethod = "System.Collections.Generic.IEnumerable<TSource>.MinBy<TSource, TKey>(System.Func<TSource, TKey>)";
         readonly static string MaxByMethod = "System.Collections.Generic.IEnumerable<TSource>.MaxBy<TSource, TKey>(System.Func<TSource, TKey>)";
         readonly static string ChunkMethod = "System.Collections.Generic.IEnumerable<TSource>.Chunk<TSource>(int)";
+
+        // Phase 5: Join / GroupJoin
+        readonly static string JoinMethod = "System.Collections.Generic.IEnumerable<TOuter>.Join<TOuter, TInner, TKey, TResult>(System.Collections.Generic.IEnumerable<TInner>, System.Func<TOuter, TKey>, System.Func<TInner, TKey>, System.Func<TOuter, TInner, TResult>)";
+        readonly static string GroupJoinMethod = "System.Collections.Generic.IEnumerable<TOuter>.GroupJoin<TOuter, TInner, TKey, TResult>(System.Collections.Generic.IEnumerable<TInner>, System.Func<TOuter, TKey>, System.Func<TInner, TKey>, System.Func<TOuter, System.Collections.Generic.IEnumerable<TInner>, TResult>)";
 
         readonly static string[] RootMethodsThatRequireYieldReturn = new[] {
             WhereMethod, SelectMethod, CastMethod, OfTypeMethod,
