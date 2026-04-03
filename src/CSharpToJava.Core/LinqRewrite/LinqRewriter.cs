@@ -164,9 +164,11 @@ namespace CSharpToJava.Core.LinqRewrite
                         });
                     }
                     // Require at least one lambda argument OR a non-lambda intermediate
-                    // (Skip, Take, Distinct) that benefits from procedural rewriting.
+                    // (Skip, Take, Distinct) OR a terminal that benefits from procedural rewriting
+                    // without lambdas (SequenceEqual).
                     if (!chain.Any(x => x.Arguments.Any(y => y is AnonymousFunctionExpressionSyntax))
-                        && !chain.Any(x => x.MethodName == SkipMethod || x.MethodName == TakeMethod || x.MethodName == DistinctMethod))
+                        && !chain.Any(x => x.MethodName == SkipMethod || x.MethodName == TakeMethod || x.MethodName == DistinctMethod)
+                        && !chain.Any(x => x.MethodName == SequenceEqualMethod))
                         return null;
                     if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName)) return null;
 

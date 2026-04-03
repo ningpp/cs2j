@@ -656,6 +656,77 @@ namespace CSharpToJava.Core.LinqRewrite
                 );
             }
 
+            // --- SequenceEqual: element-by-element comparison of two sequences ---
+            if (aggregationMethod == SequenceEqualMethod)
+            {
+                var itemType = GetItemType(semantic.GetTypeInfo(collection).Type);
+                var itemTypeStr = itemType.ToDisplayString();
+                var comparerIdentifier = ((SyntaxFactory.ParseTypeName(itemTypeStr) as NullableTypeSyntax)?.ElementType ?? SyntaxFactory.ParseTypeName(itemTypeStr)) is PredefinedTypeSyntax ? null : SyntaxFactory.IdentifierName("_seqComparer");
+
+                return RewriteAsLoop(
+                    CreatePrimitiveType(SyntaxKind.BoolKeyword),
+                    new StatementSyntax[] {
+                        CreateLocalVariableDeclaration("_seqList", SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + itemTypeStr + ">"),
+                            CreateArguments(new ExpressionSyntax[] { SyntaxFactory.IdentifierName("_second") }), null)),
+                        CreateLocalVariableDeclaration("_seqIndex", SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))),
+                    }.Concat(comparerIdentifier != null ? new[] { CreateLocalVariableDeclaration("_seqComparer", SyntaxFactory.ParseExpression("System.Collections.Generic.EqualityComparer<" + itemTypeStr + ">.Default")) } : Enumerable.Empty<StatementSyntax>()),
+                    new StatementSyntax[] {
+                        // After loop: if we consumed all of second → equal; otherwise lengths differ
+                        SyntaxFactory.ReturnStatement(
+                            SyntaxFactory.BinaryExpression(SyntaxKind.EqualsExpression,
+                                SyntaxFactory.IdentifierName("_seqIndex"),
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("_seqList"),
+                                    SyntaxFactory.IdentifierName("Count"))))
+                    },
+                    collection,
+                    chain,
+                    (inv, arguments, param) =>
+                    {
+                        var current = SyntaxFactory.IdentifierName(param.Identifier.ValueText);
+                        // if (_seqIndex >= _seqList.Count) return false;  // first is longer
+                        var lengthCheck = SyntaxFactory.IfStatement(
+                            SyntaxFactory.BinaryExpression(SyntaxKind.GreaterThanOrEqualExpression,
+                                SyntaxFactory.IdentifierName("_seqIndex"),
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("_seqList"),
+                                    SyntaxFactory.IdentifierName("Count"))),
+                            SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+
+                        // Compare current element with _seqList[_seqIndex]
+                        var secondElement = SyntaxFactory.ElementAccessExpression(
+                            SyntaxFactory.IdentifierName("_seqList"),
+                            SyntaxFactory.BracketedArgumentList(CreateSeparatedList(
+                                SyntaxFactory.Argument(SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                                    SyntaxFactory.IdentifierName("_seqIndex"))))));
+
+                        ExpressionSyntax condition;
+                        if (comparerIdentifier != null)
+                        {
+                            condition = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                                SyntaxFactory.ParenthesizedExpression(
+                                    SyntaxFactory.InvocationExpression(
+                                        SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                            comparerIdentifier, SyntaxFactory.IdentifierName("Equals")),
+                                        CreateArguments(current, secondElement))));
+                        }
+                        else
+                        {
+                            condition = SyntaxFactory.BinaryExpression(SyntaxKind.NotEqualsExpression, current, secondElement);
+                        }
+
+                        var mismatchCheck = SyntaxFactory.IfStatement(condition,
+                            SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+
+                        return SyntaxFactory.Block(lengthCheck, mismatchCheck);
+                    },
+                    additionalParameters: new[] { Tuple.Create(
+                        CreateParameter("_second", SyntaxFactory.ParseTypeName("System.Collections.Generic.IEnumerable<" + itemTypeStr + ">")),
+                        node.ArgumentList.Arguments.First().Expression) }
+                );
+            }
+
 #if false
 
             
@@ -1073,7 +1144,7 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string AggregateMethod = "System.Collections.Generic.IEnumerable<TSource>.Aggregate<TSource>(System.Func<TSource, TSource, TSource>)";
         readonly static string AggregateWithSeedMethod = "System.Collections.Generic.IEnumerable<TSource>.Aggregate<TSource, TAccumulate>(TAccumulate, System.Func<TAccumulate, TSource, TAccumulate>)";
         readonly static string ToHashSetMethod = "System.Collections.Generic.IEnumerable<TSource>.ToHashSet<TSource>()";
-        readonly static string SequenceEqualMethod = "System.Collections.Generic.IEnumerable<TFirst>.SequenceEqual<TFirst>(System.Collections.Generic.IEnumerable<TFirst>)";
+        readonly static string SequenceEqualMethod = "System.Collections.Generic.IEnumerable<TSource>.SequenceEqual<TSource>(System.Collections.Generic.IEnumerable<TSource>)";
 
         readonly static string[] RootMethodsThatRequireYieldReturn = new[] {
             WhereMethod, SelectMethod, CastMethod, OfTypeMethod,

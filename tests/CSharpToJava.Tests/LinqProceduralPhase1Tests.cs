@@ -82,6 +82,60 @@ class C {
         Assert.Contains("offset", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ─── SequenceEqual ───
+
+    [Fact]
+    public void SequenceEqual_IntLists_ProducesProcedural()
+    {
+        var result = ConvertProcedural(@"
+using System.Collections.Generic;
+using System.Linq;
+class C {
+    bool M() {
+        var a = new List<int> { 1, 2, 3 };
+        var b = new List<int> { 1, 2, 3 };
+        return a.SequenceEqual(b);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SequenceEqual_WithWhereChain_ProducesProcedural()
+    {
+        var result = ConvertProcedural(@"
+using System.Collections.Generic;
+using System.Linq;
+class C {
+    bool M() {
+        var a = new List<int> { 1, 2, 3, 4 };
+        var b = new List<int> { 2, 3, 4 };
+        return a.Where(x => x > 1).SequenceEqual(b);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SequenceEqual_StringLists_UsesComparer()
+    {
+        var result = ConvertProcedural(@"
+using System.Collections.Generic;
+using System.Linq;
+class C {
+    bool M() {
+        var a = new List<string> { ""a"", ""b"" };
+        var b = new List<string> { ""a"", ""b"" };
+        return a.SequenceEqual(b);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ─── Helpers ───
 
     private static ConversionResult ConvertProcedural(string sourceCode)
