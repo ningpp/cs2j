@@ -76,6 +76,7 @@ tests/
 ## Design Docs
 
 - [J2CL-informed Java-only architecture plan for large C# projects](docs/j2cl-architecture-upgrade.md)
+- [LINQ 重写引擎架构设计](docs/linq-rewrite-engine-architecture.md)
 
 ## License
 
