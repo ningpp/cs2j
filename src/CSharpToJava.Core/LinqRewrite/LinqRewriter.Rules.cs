@@ -363,33 +363,57 @@ namespace CSharpToJava.Core.LinqRewrite
 
 
 
-            if (aggregationMethod == FirstOrDefaultMethod || aggregationMethod == FirstOrDefaultWithConditionMethod)
+            if (aggregationMethod == FirstOrDefaultMethod || aggregationMethod == FirstOrDefaultWithConditionMethod
+                || aggregationMethod == FirstOrDefaultWithDefaultMethod || aggregationMethod == FirstOrDefaultWithConditionAndDefaultMethod)
             {
+                bool hasCondition = aggregationMethod == FirstOrDefaultWithConditionMethod
+                                 || aggregationMethod == FirstOrDefaultWithConditionAndDefaultMethod;
+                bool hasCustomDefault = aggregationMethod == FirstOrDefaultWithDefaultMethod
+                                     || aggregationMethod == FirstOrDefaultWithConditionAndDefaultMethod;
+                var defaultValueExpr = hasCustomDefault
+                    ? (hasCondition ? node.ArgumentList.Arguments[1].Expression : node.ArgumentList.Arguments[0].Expression)
+                    : null;
+                var additionalParams = hasCustomDefault
+                    ? new[] { Tuple.Create(CreateParameter("_defaultValue", returnType), defaultValueExpr) }
+                    : null;
                 return RewriteAsLoop(
                     returnType,
                     Enumerable.Empty<StatementSyntax>(),
-                    new[] { SyntaxFactory.ReturnStatement(SyntaxFactory.DefaultExpression(returnType)) },
+                    new[] { SyntaxFactory.ReturnStatement(hasCustomDefault ? (ExpressionSyntax)SyntaxFactory.IdentifierName("_defaultValue") : SyntaxFactory.DefaultExpression(returnType)) },
                     collection,
-                    MaybeAddFilter(chain, aggregationMethod == FirstOrDefaultWithConditionMethod),
+                    MaybeAddFilter(chain, hasCondition),
                     (inv, arguments, param) =>
                     {
                         return SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName(param.Identifier.ValueText));
-                    }
+                    },
+                    additionalParameters: additionalParams
                 );
             }
 
-            if (aggregationMethod == LastOrDefaultMethod || aggregationMethod == LastOrDefaultWithConditionMethod)
+            if (aggregationMethod == LastOrDefaultMethod || aggregationMethod == LastOrDefaultWithConditionMethod
+                || aggregationMethod == LastOrDefaultWithDefaultMethod || aggregationMethod == LastOrDefaultWithConditionAndDefaultMethod)
             {
+                bool hasCondition = aggregationMethod == LastOrDefaultWithConditionMethod
+                                 || aggregationMethod == LastOrDefaultWithConditionAndDefaultMethod;
+                bool hasCustomDefault = aggregationMethod == LastOrDefaultWithDefaultMethod
+                                     || aggregationMethod == LastOrDefaultWithConditionAndDefaultMethod;
+                var defaultValueExpr = hasCustomDefault
+                    ? (hasCondition ? node.ArgumentList.Arguments[1].Expression : node.ArgumentList.Arguments[0].Expression)
+                    : null;
+                var additionalParams = hasCustomDefault
+                    ? new[] { Tuple.Create(CreateParameter("_defaultValue", returnType), defaultValueExpr) }
+                    : null;
                 return RewriteAsLoop(
                     returnType,
-                    new[] { CreateLocalVariableDeclaration("_last", SyntaxFactory.DefaultExpression(returnType)) },
+                    new[] { CreateLocalVariableDeclaration("_last", hasCustomDefault ? (ExpressionSyntax)SyntaxFactory.IdentifierName("_defaultValue") : SyntaxFactory.DefaultExpression(returnType)) },
                     new[] { SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("_last")) },
                     collection,
-                    MaybeAddFilter(chain, aggregationMethod == LastOrDefaultWithConditionMethod),
+                    MaybeAddFilter(chain, hasCondition),
                     (inv, arguments, param) =>
                     {
                         return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName("_last"), SyntaxFactory.IdentifierName(param.Identifier.ValueText)));
-                    }
+                    },
+                    additionalParameters: additionalParams
                 );
             }
             if (aggregationMethod == LastMethod || aggregationMethod == LastWithConditionMethod)
@@ -425,21 +449,33 @@ namespace CSharpToJava.Core.LinqRewrite
                     }
                 );
             }
-            if (aggregationMethod == SingleOrDefaultMethod || aggregationMethod == SingleOrDefaultWithConditionMethod)
+            if (aggregationMethod == SingleOrDefaultMethod || aggregationMethod == SingleOrDefaultWithConditionMethod
+                || aggregationMethod == SingleOrDefaultWithDefaultMethod || aggregationMethod == SingleOrDefaultWithConditionAndDefaultMethod)
             {
+                bool hasCondition = aggregationMethod == SingleOrDefaultWithConditionMethod
+                                 || aggregationMethod == SingleOrDefaultWithConditionAndDefaultMethod;
+                bool hasCustomDefault = aggregationMethod == SingleOrDefaultWithDefaultMethod
+                                     || aggregationMethod == SingleOrDefaultWithConditionAndDefaultMethod;
+                var defaultValueExpr = hasCustomDefault
+                    ? (hasCondition ? node.ArgumentList.Arguments[1].Expression : node.ArgumentList.Arguments[0].Expression)
+                    : null;
+                var additionalParams = hasCustomDefault
+                    ? new[] { Tuple.Create(CreateParameter("_defaultValue", returnType), defaultValueExpr) }
+                    : null;
                 return RewriteAsLoop(
                     returnType,
-                    new[] { CreateLocalVariableDeclaration("_last", SyntaxFactory.DefaultExpression(returnType)), CreateLocalVariableDeclaration("_found", SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)) },
+                    new[] { CreateLocalVariableDeclaration("_last", hasCustomDefault ? (ExpressionSyntax)SyntaxFactory.IdentifierName("_defaultValue") : SyntaxFactory.DefaultExpression(returnType)), CreateLocalVariableDeclaration("_found", SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)) },
                     new StatementSyntax[] { SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("_last")) },
                     collection,
-                    MaybeAddFilter(chain, aggregationMethod == SingleOrDefaultWithConditionMethod),
+                    MaybeAddFilter(chain, hasCondition),
                     (inv, arguments, param) =>
                     {
                         return SyntaxFactory.Block(
                             SyntaxFactory.IfStatement(SyntaxFactory.IdentifierName("_found"), CreateThrowException("System.InvalidOperationException", "The sequence contains more than one element.")),
                             SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName("_found"), SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression))),
                             SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName("_last"), SyntaxFactory.IdentifierName(param.Identifier.ValueText))));
-                    }
+                    },
+                    additionalParameters: additionalParams
                 );
             }
 
@@ -1762,13 +1798,22 @@ namespace CSharpToJava.Core.LinqRewrite
         readonly static string LastMethod = "System.Collections.Generic.IEnumerable<TSource>.Last<TSource>()";
         readonly static string FirstOrDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.FirstOrDefault<TSource>()";
         readonly static string SingleOrDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>()";
-        readonly static string LastOrDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>(System.Func<TSource, bool>)";
+        readonly static string LastOrDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>()";
         readonly static string FirstWithConditionMethod = "System.Collections.Generic.IEnumerable<TSource>.First<TSource>(System.Func<TSource, bool>)";
         readonly static string SingleWithConditionMethod = "System.Collections.Generic.IEnumerable<TSource>.Single<TSource>(System.Func<TSource, bool>)";
         readonly static string LastWithConditionMethod = "System.Collections.Generic.IEnumerable<TSource>.Last<TSource>(System.Func<TSource, bool>)";
         readonly static string FirstOrDefaultWithConditionMethod = "System.Collections.Generic.IEnumerable<TSource>.FirstOrDefault<TSource>(System.Func<TSource, bool>)";
         readonly static string SingleOrDefaultWithConditionMethod = "System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>(System.Func<TSource, bool>)";
         readonly static string LastOrDefaultWithConditionMethod = "System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>(System.Func<TSource, bool>)";
+
+        // Phase 8: OrDefault with custom default value (.NET 6+)
+        readonly static string FirstOrDefaultWithDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.FirstOrDefault<TSource>(TSource)";
+        readonly static string FirstOrDefaultWithConditionAndDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.FirstOrDefault<TSource>(System.Func<TSource, bool>, TSource)";
+        readonly static string LastOrDefaultWithDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>(TSource)";
+        readonly static string LastOrDefaultWithConditionAndDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>(System.Func<TSource, bool>, TSource)";
+        readonly static string SingleOrDefaultWithDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>(TSource)";
+        readonly static string SingleOrDefaultWithConditionAndDefaultMethod = "System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>(System.Func<TSource, bool>, TSource)";
+
 
         readonly static string CountMethod = "System.Collections.Generic.IEnumerable<TSource>.Count<TSource>()";
         readonly static string CountWithConditionMethod = "System.Collections.Generic.IEnumerable<TSource>.Count<TSource>(System.Func<TSource, bool>)";

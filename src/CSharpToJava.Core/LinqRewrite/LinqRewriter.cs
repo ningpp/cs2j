@@ -343,7 +343,10 @@ namespace CSharpToJava.Core.LinqRewrite
                     || name == AppendMethod || name == PrependMethod || name == DefaultIfEmptyWithValueMethod
                     || name == UnionByMethod || name == IntersectByMethod || name == ExceptByMethod
                     || name == ChunkMethod
-                    || name == JoinMethod || name == GroupJoinMethod)
+                    || name == JoinMethod || name == GroupJoinMethod
+                    || name == FirstOrDefaultWithDefaultMethod || name == FirstOrDefaultWithConditionAndDefaultMethod
+                    || name == LastOrDefaultWithDefaultMethod || name == LastOrDefaultWithConditionAndDefaultMethod
+                    || name == SingleOrDefaultWithDefaultMethod || name == SingleOrDefaultWithConditionAndDefaultMethod)
                 {
                     // These accept non-lambda args, allow them
                 }
