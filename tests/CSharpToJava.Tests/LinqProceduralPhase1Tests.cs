@@ -136,6 +136,41 @@ class C {
         Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ─── ToDictionary (key-only overload) ───
+
+    [Fact]
+    public void ToDictionary_KeyOnly_ProducesProcedural()
+    {
+        var result = ConvertProcedural(@"
+using System.Collections.Generic;
+using System.Linq;
+class C {
+    Dictionary<int, string> M() {
+        var items = new List<string> { ""a"", ""bb"", ""ccc"" };
+        return items.ToDictionary(x => x.Length);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToDictionary_KeyOnly_WithWhere_ProducesProcedural()
+    {
+        var result = ConvertProcedural(@"
+using System.Collections.Generic;
+using System.Linq;
+class C {
+    Dictionary<int, string> M() {
+        var items = new List<string> { ""a"", ""bb"", ""ccc"" };
+        return items.Where(x => x.Length > 1).ToDictionary(x => x.Length);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ─── Helpers ───
 
     private static ConversionResult ConvertProcedural(string sourceCode)

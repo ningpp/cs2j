@@ -395,7 +395,7 @@ namespace CSharpToJava.Core.LinqRewrite
 
 
 
-            if (/*aggregationMethod == ToDictionaryWithKeyMethod || */aggregationMethod == ToDictionaryWithKeyValueMethod)
+            if (aggregationMethod == ToDictionaryWithKeyMethod || aggregationMethod == ToDictionaryWithKeyValueMethod)
             {
                 var dictIdentifier = SyntaxFactory.IdentifierName("_dict");
                 return RewriteAsLoop(
@@ -1076,7 +1076,7 @@ namespace CSharpToJava.Core.LinqRewrite
         }
 
 
-        //readonly static string ToDictionaryWithKeyMethod = "System.Collections.Generic.IEnumerable<TSource>.ToDictionary<TSource, TKey>(System.Func<TSource, TKey>)";
+        readonly static string ToDictionaryWithKeyMethod = "System.Collections.Generic.IEnumerable<TSource>.ToDictionary<TSource, TKey>(System.Func<TSource, TKey>)";
         readonly static string ToDictionaryWithKeyValueMethod = "System.Collections.Generic.IEnumerable<TSource>.ToDictionary<TSource, TKey, TElement>(System.Func<TSource, TKey>, System.Func<TSource, TElement>)";
         readonly static string ToArrayMethod = "System.Collections.Generic.IEnumerable<TSource>.ToArray<TSource>()";
         readonly static string ToListMethod = "System.Collections.Generic.IEnumerable<TSource>.ToList<TSource>()";
