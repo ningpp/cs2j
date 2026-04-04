@@ -66,6 +66,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
+        var facade = ExpressionTransformerFacade.Instance;
+
         // Simple identifier → structured JavaIdentifierExpression
         if (node is IdentifierNameSyntax id)
         {
@@ -78,22 +80,83 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     var name = ConversionContext.EscapeJavaKeyword(id.Identifier.Text);
                     return new JavaIdentifierExpression { Name = name };
                 }
+
+                // Property read → JavaMethodCallExpression for getter
+                if (symbol is IPropertySymbol identProp)
+                {
+                    bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
+                    if (!isLhsOfAssignment)
+                    {
+                        var getter = "get" + char.ToUpperInvariant(identProp.Name[0]) + identProp.Name[1..];
+                        return new JavaMethodCallExpression { Target = null, MethodName = getter };
+                    }
+                }
+
+                // Const field → JavaIdentifierExpression
+                if (symbol is IFieldSymbol { IsConst: true } constField)
+                {
+                    var code = Transform(node, context);
+                    return new JavaIdentifierExpression { Name = code };
+                }
             }
         }
 
-        // Member access → structured JavaMemberAccessExpression for simple cases
+        // Member access → structured IR for fields, properties, enums
         if (node is MemberAccessExpressionSyntax memberAccess)
         {
-            var code = Transform(node, context);
-            // For simple field/method accesses, decompose into target.member
             if (context.SemanticModel != null)
             {
                 var symbol = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
+
+                // Non-const field → JavaMemberAccessExpression
                 if (symbol is IFieldSymbol { IsConst: false })
                 {
-                    var target = ExpressionTransformerFacade.Instance.TransformToIR(memberAccess.Expression, context);
+                    var target = facade.TransformToIR(memberAccess.Expression, context);
                     var memberName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
                     return new JavaMemberAccessExpression { Target = target, MemberName = memberName };
+                }
+
+                // Enum member → JavaMemberAccessExpression
+                if (symbol is IFieldSymbol { IsStatic: true, ContainingType.TypeKind: TypeKind.Enum })
+                {
+                    var code = Transform(node, context);
+                    // The string form is "EnumType.MemberName" — split at the last dot
+                    var dotIdx = code.LastIndexOf('.');
+                    if (dotIdx > 0)
+                    {
+                        return new JavaMemberAccessExpression
+                        {
+                            Target = new JavaIdentifierExpression { Name = code[..dotIdx] },
+                            MemberName = code[(dotIdx + 1)..]
+                        };
+                    }
+                }
+
+                // Property access on member → JavaMethodCallExpression for getter
+                if (symbol is IPropertySymbol prop)
+                {
+                    bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgnM && asgnM.Left == node;
+                    if (!isLhsOfAssignment)
+                    {
+                        // Delegate to Transform() which handles static types, primitive boxed names, etc.
+                        var code = Transform(node, context);
+                        return new JavaRawExpression(code);
+                    }
+                }
+
+                // Const field on member → JavaMemberAccessExpression  
+                if (symbol is IFieldSymbol { IsConst: true } constMemberField)
+                {
+                    var code = Transform(node, context);
+                    var dotIdx = code.LastIndexOf('.');
+                    if (dotIdx > 0)
+                    {
+                        return new JavaMemberAccessExpression
+                        {
+                            Target = new JavaIdentifierExpression { Name = code[..dotIdx] },
+                            MemberName = code[(dotIdx + 1)..]
+                        };
+                    }
                 }
             }
         }

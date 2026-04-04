@@ -588,4 +588,224 @@ class T {
         Assert.Contains("(1 + 2)", result);
         Assert.Contains("* 3", result);
     }
+
+    // ── Phase 1 Deep IR: TypeOperationTransformer ──────────────────
+
+    [Fact]
+    public void TypeOp_InstanceOf_ProducesIR()
+    {
+        var ir = new JavaInstanceOfExpression
+        {
+            Expression = new JavaIdentifierExpression { Name = "obj" },
+            Type = "String"
+        };
+        Assert.Equal("obj instanceof String", ir.ToInlineString());
+    }
+
+    [Fact]
+    public void TypeOp_InstanceOfWithPatternVar_ProducesIR()
+    {
+        var ir = new JavaInstanceOfExpression
+        {
+            Expression = new JavaIdentifierExpression { Name = "obj" },
+            Type = "String",
+            PatternVariable = "s"
+        };
+        Assert.Equal("obj instanceof String s", ir.ToInlineString());
+    }
+
+    [Fact]
+    public void TypeOp_Is_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M(object obj) {
+        bool b = obj is string;
+    }
+}");
+        Assert.Contains("instanceof", result);
+        Assert.Contains("String", result);
+    }
+
+    [Fact]
+    public void TypeOp_IsPattern_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M(object obj) {
+        if (obj is string s) {
+            System.Console.WriteLine(s);
+        }
+    }
+}");
+        Assert.Contains("instanceof String s", result);
+    }
+
+    [Fact]
+    public void TypeOp_TypeOf_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        var t = typeof(string);
+    }
+}");
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int x = default(int);
+    }
+}");
+        Assert.Contains("0", result);
+    }
+
+    [Fact]
+    public void TypeOp_DefaultLiteral_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string s = default;
+    }
+}");
+        Assert.Contains("null", result);
+    }
+
+    // ── Phase 1 Deep IR: IdentifierExpressionTransformer ───────────
+
+    [Fact]
+    public void Identifier_PropertyGetter_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    public int Value { get; set; }
+    void M() {
+        int x = Value;
+    }
+}");
+        Assert.Contains("getValue()", result);
+    }
+
+    [Fact]
+    public void Identifier_EnumMember_EndToEnd()
+    {
+        var result = ConvertCode(@"
+enum Color { Red, Green, Blue }
+class T {
+    void M() {
+        var c = Color.Green;
+    }
+}");
+        Assert.Contains("Color.Green", result);
+    }
+
+    // ── Phase 1 Deep IR: ElementAccessTransformer ──────────────────
+
+    [Fact]
+    public void ElementAccess_ListGet_EndToEnd()
+    {
+        var result = ConvertCode(@"
+using System.Collections.Generic;
+class T {
+    void M() {
+        var list = new List<int>();
+        int x = list[0];
+    }
+}");
+        Assert.Contains(".get(0)", result);
+    }
+
+    [Fact]
+    public void ElementAccess_DictGet_EndToEnd()
+    {
+        var result = ConvertCode(@"
+using System.Collections.Generic;
+class T {
+    void M() {
+        var dict = new Dictionary<string, int>();
+        int x = dict[""key""];
+    }
+}");
+        Assert.Contains(".get(", result);
+    }
+
+    [Fact]
+    public void ElementAccess_StringCharAt_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string s = ""hello"";
+        char c = s[0];
+    }
+}");
+        Assert.Contains(".charAt(0)", result);
+    }
+
+    [Fact]
+    public void ElementAccess_MethodCallIR()
+    {
+        // Verify that list[i] produces JavaMethodCallExpression IR
+        var ir = new JavaMethodCallExpression
+        {
+            Target = new JavaIdentifierExpression { Name = "list" },
+            MethodName = "get"
+        };
+        ir.Arguments.Add(new JavaLiteralExpression { Value = "0" });
+        Assert.Equal("list.get(0)", ir.ToInlineString());
+    }
+
+    // ── Phase 1 Deep IR: BinaryExpressionTransformer ───────────────
+
+    [Fact]
+    public void Binary_StringEquals_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string a = ""x"";
+        string b = ""y"";
+        bool eq = a == b;
+    }
+}");
+        Assert.Contains("Objects.equals(", result);
+    }
+
+    [Fact]
+    public void Binary_StringNotEquals_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string a = ""x"";
+        string b = ""y"";
+        bool neq = a != b;
+    }
+}");
+        Assert.Contains("!Objects.equals(", result);
+    }
+
+    [Fact]
+    public void Binary_UserDefinedOperator_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class Point {
+    public int X;
+    public int Y;
+    public static Point operator +(Point a, Point b) => new Point();
 }
+class T {
+    void M() {
+        var p = new Point() + new Point();
+    }
+}");
+        Assert.Contains("add(", result);
+    }
+}
+

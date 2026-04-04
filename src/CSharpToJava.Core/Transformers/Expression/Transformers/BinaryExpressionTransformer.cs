@@ -76,6 +76,16 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (node is not BinaryExpressionSyntax binExpr)
             return new JavaRawExpression(Transform(node, context));
 
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // Coalesce (??) → JavaConditionalExpression
+        if (binExpr.IsKind(SyntaxKind.CoalesceExpression))
+        {
+            // Delegate to Transform because of temp var hoisting for side-effectful left
+            var code = Transform(node, context);
+            return new JavaRawExpression(code);
+        }
+
         // Map syntax kind to Java operator (null for special-cased kinds)
         var op = binExpr.Kind() switch
         {
@@ -101,21 +111,45 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             _ => null
         };
 
-        // Skip structured IR for coalesce (??), user-defined operators, string equality, event comparisons
         if (op == null)
             return new JavaRawExpression(Transform(node, context));
 
-        // Check for user-defined operators — fall back to raw for those
+        // Check for user-defined operators → JavaMethodCallExpression
         if (context.SemanticModel != null)
         {
             var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol ms
                 && ms.MethodKind == MethodKind.UserDefinedOperator
                 && ms.ContainingType != null && !IsBuiltInType(ms.ContainingType))
-                return new JavaRawExpression(Transform(node, context));
+            {
+                var javaMethodName = GetOperatorMethodName(ms);
+                var leftIR = facade.TransformToIR(binExpr.Left, context);
+                var rightIR = facade.TransformToIR(binExpr.Right, context);
+
+                var currentTypeName = context.CurrentType?.Name;
+                var operatorTypeName = ms.ContainingType.Name;
+
+                JavaExpression? target;
+                if (currentTypeName != null && operatorTypeName == currentTypeName)
+                {
+                    target = null; // unqualified call within same class
+                }
+                else
+                {
+                    var containingType = context.MapType(ms.ContainingType);
+                    var angleIdx = containingType.IndexOf('<');
+                    if (angleIdx > 0) containingType = containingType[..angleIdx];
+                    target = new JavaIdentifierExpression { Name = containingType };
+                }
+
+                var call = new JavaMethodCallExpression { Target = target, MethodName = javaMethodName };
+                call.Arguments.Add(leftIR);
+                call.Arguments.Add(rightIR);
+                return call;
+            }
         }
 
-        // Check for string equality (needs Objects.equals) — fall back to raw
+        // Check for string equality (needs Objects.equals) → JavaMethodCallExpression
         if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
             bool leftIsString = IsStringType(binExpr.Left, context.SemanticModel);
@@ -123,7 +157,20 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             bool leftIsNull = binExpr.Left.IsKind(SyntaxKind.NullLiteralExpression);
             bool rightIsNull = binExpr.Right.IsKind(SyntaxKind.NullLiteralExpression);
             if ((leftIsString || rightIsString) && !leftIsNull && !rightIsNull)
-                return new JavaRawExpression(Transform(node, context));
+            {
+                var leftIR = facade.TransformToIR(binExpr.Left, context);
+                var rightIR = facade.TransformToIR(binExpr.Right, context);
+                var equalsCall = new JavaMethodCallExpression
+                {
+                    Target = new JavaIdentifierExpression { Name = "Objects" },
+                    MethodName = "equals"
+                };
+                equalsCall.Arguments.Add(leftIR);
+                equalsCall.Arguments.Add(rightIR);
+                if (op == "!=")
+                    return new JavaUnaryExpression { Operator = "!", Operand = equalsCall, IsPostfix = false };
+                return equalsCall;
+            }
         }
 
         // Check for event comparisons — fall back to raw
@@ -136,15 +183,14 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Standard binary expression — produce structured IR
-        var facade = ExpressionTransformerFacade.Instance;
-        var leftIR = facade.TransformToIR(binExpr.Left, context);
-        var rightIR = facade.TransformToIR(binExpr.Right, context);
+        var standardLeftIR = facade.TransformToIR(binExpr.Left, context);
+        var standardRightIR = facade.TransformToIR(binExpr.Right, context);
 
         return new JavaBinaryExpression
         {
-            Left = leftIR,
+            Left = standardLeftIR,
             Operator = op,
-            Right = rightIR
+            Right = standardRightIR
         };
     }
 

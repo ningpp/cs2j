@@ -37,7 +37,7 @@ public class ElementAccessTransformer : IIRExpressionTransformer
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
-        // For simple array[index] access, produce structured JavaArrayAccessExpression
+        // For ElementAccessExpression with a single argument
         if (node is ElementAccessExpressionSyntax elemAccess
             && elemAccess.ArgumentList.Arguments.Count == 1)
         {
@@ -45,13 +45,53 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             // Skip range and from-end — those have special logic
             if (!arg.IsKind(SyntaxKind.RangeExpression) && !arg.IsKind(SyntaxKind.IndexExpression))
             {
+                var facade = ExpressionTransformerFacade.Instance;
                 var typeInfo = context.SemanticModel?.GetTypeInfo(elemAccess.Expression);
-                bool isArray = typeInfo?.Type is IArrayTypeSymbol;
+                var exprType = typeInfo?.Type;
+                bool isArray = exprType is IArrayTypeSymbol;
+                bool isString = exprType?.SpecialType == SpecialType.System_String;
+
                 if (isArray)
                 {
-                    var targetIR = ExpressionTransformerFacade.Instance.TransformToIR(elemAccess.Expression, context);
-                    var indexIR = ExpressionTransformerFacade.Instance.TransformToIR(arg, context);
+                    var targetIR = facade.TransformToIR(elemAccess.Expression, context);
+                    var indexIR = facade.TransformToIR(arg, context);
                     return new JavaArrayAccessExpression { Target = targetIR, Index = indexIR };
+                }
+
+                // List/Dict/String → JavaMethodCallExpression (get/charAt)
+                bool isList = false;
+                bool isMap = false;
+                if (exprType is INamedTypeSymbol named)
+                {
+                    var fullName = named.OriginalDefinition.ToDisplayString();
+                    isList = fullName is "System.Collections.Generic.List<T>"
+                        or "System.Collections.Generic.IList<T>"
+                        or "System.Collections.Generic.IReadOnlyList<T>"
+                        or "System.Collections.Immutable.ImmutableArray<T>";
+                    isMap = fullName is "System.Collections.Generic.Dictionary<TKey, TValue>"
+                        or "System.Collections.Generic.IDictionary<TKey, TValue>"
+                        or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>"
+                        or "System.Collections.Concurrent.ConcurrentDictionary<TKey, TValue>";
+                }
+
+                if (isString || isList || isMap)
+                {
+                    var targetIR = facade.TransformToIR(elemAccess.Expression, context);
+                    var indexIR = facade.TransformToIR(arg, context);
+                    var methodName = isString ? "charAt" : "get";
+                    var call = new JavaMethodCallExpression { Target = targetIR, MethodName = methodName };
+                    call.Arguments.Add(indexIR);
+                    return call;
+                }
+
+                // Unknown type — still try to produce get() call if it's not array-like
+                if (exprType != null && exprType.TypeKind != TypeKind.Array)
+                {
+                    var targetIR = facade.TransformToIR(elemAccess.Expression, context);
+                    var indexIR = facade.TransformToIR(arg, context);
+                    var call = new JavaMethodCallExpression { Target = targetIR, MethodName = "get" };
+                    call.Arguments.Add(indexIR);
+                    return call;
                 }
             }
         }

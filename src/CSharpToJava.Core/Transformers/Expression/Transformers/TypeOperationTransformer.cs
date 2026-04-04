@@ -54,6 +54,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
+        var facade = ExpressionTransformerFacade.Instance;
+
         // Simple cast → structured JavaCastExpression
         if (node is CastExpressionSyntax castExpr)
         {
@@ -61,7 +63,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // If the string-based result looks like a cast, produce structured IR
             if (code.StartsWith("(") && code.Contains(")"))
             {
-                var inner = ExpressionTransformerFacade.Instance.TransformToIR(castExpr.Expression, context);
+                var inner = facade.TransformToIR(castExpr.Expression, context);
                 var typeInfo = context.SemanticModel?.GetTypeInfo(castExpr.Type);
                 var targetSymbol = typeInfo.HasValue ? typeInfo!.Value.Type : null;
                 string targetType = targetSymbol != null ? context.MapType(targetSymbol) : castExpr.Type.ToString();
@@ -73,8 +75,79 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return new JavaRawExpression(code);
         }
 
-        // typeof → structured JavaRawExpression (no better IR node)
-        // default → structured JavaRawExpression
+        // is Type → JavaInstanceOfExpression
+        if (node is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpr)
+        {
+            var exprIR = facade.TransformToIR(isExpr.Left, context);
+            var typeInfo = context.SemanticModel?.GetTypeInfo(isExpr.Right);
+            string targetType;
+            if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                targetType = context.MapType(typeInfo.Value.Type);
+            else
+                targetType = context.MapTypeFromSyntax(isExpr.Right as TypeSyntax ?? throw new ArgumentException("Expected type"));
+            return new JavaInstanceOfExpression
+            {
+                Expression = exprIR,
+                Type = ToRuntimeTypeForInstanceOf(targetType)
+            };
+        }
+
+        // is Pattern (declaration pattern) → JavaInstanceOfExpression with PatternVariable
+        if (node is IsPatternExpressionSyntax isPatternExpr
+            && isPatternExpr.Pattern is DeclarationPatternSyntax declPattern
+            && (int)context.Options.TargetJavaVersion >= 16)
+        {
+            var exprIR = facade.TransformToIR(isPatternExpr.Expression, context);
+            var typeInfo = context.SemanticModel?.GetTypeInfo(declPattern.Type);
+            string targetType;
+            if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                targetType = context.MapType(typeInfo.Value.Type);
+            else
+                targetType = context.MapTypeFromSyntax(declPattern.Type);
+            var varName = ConversionContext.EscapeJavaKeyword(declPattern.Designation.ToString());
+            return new JavaInstanceOfExpression
+            {
+                Expression = exprIR,
+                Type = ToRuntimeTypeForInstanceOf(targetType),
+                PatternVariable = varName
+            };
+        }
+
+        // as Type → (expr instanceof Type ? (Type)expr : null)
+        if (node is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } asExpr)
+        {
+            // Delegate to Transform because of pre-statement hoisting for side-effectful expressions
+            var code = Transform(node, context);
+            return new JavaRawExpression(code);
+        }
+
+        // typeof(T) → T.class as JavaMemberAccessExpression
+        if (node is TypeOfExpressionSyntax typeOfExpr)
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(typeOfExpr.Type);
+            string typeName;
+            if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                typeName = context.MapType(typeInfo.Value.Type);
+            else
+                typeName = context.MapTypeFromSyntax(typeOfExpr.Type);
+            // Type parameter erasure warning — fall back to raw
+            if (typeInfo.HasValue && typeInfo.Value.Type is ITypeParameterSymbol)
+                return new JavaRawExpression(Transform(node, context));
+            return new JavaMemberAccessExpression
+            {
+                Target = new JavaIdentifierExpression { Name = typeName },
+                MemberName = "class"
+            };
+        }
+
+        // default(T) / default literal → JavaLiteralExpression
+        if (node.IsKind(SyntaxKind.DefaultExpression) || node.IsKind(SyntaxKind.DefaultLiteralExpression))
+        {
+            var code = Transform(node, context);
+            return new JavaLiteralExpression { Value = code };
+        }
+
+        // checked/unchecked/sizeof/complex patterns → raw fallback
         return new JavaRawExpression(Transform(node, context));
     }
 
