@@ -265,10 +265,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 : $"new AbstractMap.SimpleEntry{genericPart}({seArgs})";
             // Cast to Map.Entry interface so Java type inference sees the interface type
             // in stream pipelines, avoiding ArrayList<SimpleEntry> vs Iterable<Map.Entry> mismatch.
+            // Outer parens ensure correct precedence when member access is chained:
+            // ((Map.Entry<K,V>) new SE<K,V>(...)).getKey()  — NOT (Map.Entry<K,V>) new SE<K,V>(...).getKey()
             if (genericPart != "<>")
             {
                 context.AddImport("java.util.Map");
-                return $"(Map.Entry{genericPart}) {newExpr}";
+                return $"((Map.Entry{genericPart}) {newExpr})";
             }
             return newExpr;
         }

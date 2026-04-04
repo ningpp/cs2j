@@ -435,10 +435,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var earlyMethodSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
         // Replace receiver with mapped static type reference ONLY when the method is
-        // actually static (or unresolved).  Instance methods on fields/locals must keep
-        // the original expression as receiver — otherwise xmlTextReader.Close() would
-        // incorrectly become XmlTextReader.close() (static call syntax).
-        if (earlyMethodSymbol is not { IsStatic: false }
+        // confirmed static.  When the semantic model cannot resolve the method
+        // (earlyMethodSymbol is null, e.g. in project conversion with incomplete models),
+        // DO NOT assume static — instance methods on fields/locals must keep the
+        // original expression as receiver.
+        if (earlyMethodSymbol is { IsStatic: true }
             && ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
             memberAccess.Expression,
             context,
@@ -1466,10 +1467,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // AddRange(IEnumerable<T>) → Java addAll(Collection<T>): when the argument
-        // is a concrete class implementing only Iterable<T> (not Collection<T>), Java's
+        // is NOT a Collection<T>-compatible type (concrete class or interface), Java's
         // addAll() won't accept it.  Use arg.forEach(receiver::add) instead.
-        // Skip when the argument type IS IEnumerable<T>/IOrderedEnumerable<T> (LINQ chains)
-        // because those are stream-ified and .collect(toList()) produces a Collection.
+        // Keep addAll for: arrays, concrete Collection/List types, ICollection/IList interfaces.
+        // Use forEach for: IEnumerable-only interfaces (produce Stream in Java),
+        // concrete classes implementing only Iterable (not Collection).
         if (originalMethodName == "AddRange" && methodName == "addAll"
             && node.ArgumentList.Arguments.Count == 1
             && context.SemanticModel != null)
@@ -1478,15 +1480,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var argType = context.SemanticModel.GetTypeInfo(argExpr).Type;
             if (argType != null
                 && argType is not IArrayTypeSymbol
-                && argType.TypeKind is not TypeKind.Interface  // IEnumerable/LINQ chains → addAll OK
-                && !argType.AllInterfaces.Any(i =>
-                    i.OriginalDefinition.ToDisplayString() is
-                        "System.Collections.Generic.ICollection<T>" or
-                        "System.Collections.Generic.IList<T>")
-                && argType.OriginalDefinition.ToDisplayString() is not
-                    ("System.Collections.Generic.ICollection<T>" or
-                     "System.Collections.Generic.IList<T>" or
-                     "System.Collections.Generic.List<T>"))
+                && !IsCollectionCompatibleType(argType))
             {
                 var arg = facade.Transform(argExpr, context);
                 return $"{arg}.forEach({receiver}::add)";
@@ -3918,6 +3912,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Returns true if the type is a Collection-compatible type in Java:
+    /// ICollection&lt;T&gt;, IList&lt;T&gt;, List&lt;T&gt;, or any type implementing ICollection&lt;T&gt;.
+    /// These types map to java.util.Collection or its sub-interfaces, so addAll() works on them.
+    /// IEnumerable-only types (e.g. LINQ chain results, Cast&lt;T&gt;()) produce Streams in Java
+    /// and are NOT Collection-compatible.
+    /// </summary>
+    private static bool IsCollectionCompatibleType(ITypeSymbol type)
+    {
+        var display = type.OriginalDefinition.ToDisplayString();
+        if (display is "System.Collections.Generic.ICollection<T>"
+                    or "System.Collections.Generic.IList<T>"
+                    or "System.Collections.Generic.List<T>"
+                    or "System.Collections.Generic.ISet<T>"
+                    or "System.Collections.Generic.HashSet<T>"
+                    or "System.Collections.Generic.SortedSet<T>"
+                    or "System.Collections.Generic.LinkedList<T>")
+            return true;
+
+        return type.AllInterfaces.Any(i =>
+            i.OriginalDefinition.ToDisplayString() is
+                "System.Collections.Generic.ICollection<T>" or
+                "System.Collections.Generic.IList<T>");
     }
 
     /// <summary>

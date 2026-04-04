@@ -509,8 +509,9 @@ public class ArgumentTransformer
 
                 // If target is IEnumerable<T> but the transformed argument is already a Java Stream,
                 // materialize it so Java receives an Iterable/Collection value.
+                // Use depth-aware check to avoid false positives from nested stream args.
                 if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
-                    && LooksLikeJavaStreamExpression(transformedExpr))
+                    && Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
                 {
                     javaTargetNeedsCollection = true;
                 }
@@ -521,7 +522,7 @@ public class ArgumentTransformer
                 context.AddImport("java.util.ArrayList");
                 context.AddImport("java.util.stream.StreamSupport");
                 context.AddImport("java.util.stream.Collectors");
-                if (LooksLikeJavaStreamExpression(transformedExpr))
+                if (Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
                 {
                     if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
                     {
@@ -769,7 +770,10 @@ public class ArgumentTransformer
 
         bool argIsEnumerable = IsEnumerableOrLinqStreamType(argType);
 
-        if (!argIsEnumerable || !LooksLikeJavaStreamExpression(transformedExpr))
+        // Use depth-aware check: stream methods inside parenthesized arguments
+        // (e.g. gluedPolyline(x.stream().map(...).toArray(), y)) must NOT trigger
+        // collect on the outer method call which returns Iterable, not Stream.
+        if (!argIsEnumerable || !Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
             return transformedExpr;
 
         context.AddImport("java.util.stream.Collectors");

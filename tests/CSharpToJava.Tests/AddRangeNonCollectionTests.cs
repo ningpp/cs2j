@@ -71,4 +71,24 @@ class Sample {
         // List implements ICollection, should keep addAll
         Assert.Contains("addAll", code);
     }
+
+    [Fact]
+    public void AddRange_WithIEnumerableInterface_UsesForEach()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class Node { public int Id; public IEnumerable<Node> Children; }
+class Sample {
+    void Test(IEnumerable<Node> source, List<Node> target) {
+        target.AddRange(source.Where(n => n.Id > 0));
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // IEnumerable LINQ chain → Stream in Java, not Collection → use forEach
+        Assert.Contains("forEach(target::add)", code);
+        Assert.DoesNotContain("addAll", code);
+    }
 }

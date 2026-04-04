@@ -338,6 +338,9 @@ public partial class StatementTransformer
         {
             outerIterType = "var";
         }
+        // When the explicit from-clause type is a subtype of the collection element type,
+        // Java's for-each can't downcast. Wrap with double cast: (Iterable<Sub>)(Iterable<?>)(src)
+        outerSrc = WrapIfDowncastNeeded(outerIterType, outerSrcType, outerSrc);
         froms.Add((outerFrom.Identifier.ValueText, outerIterType, outerSrc));
 
         // Inner from-clauses
@@ -346,6 +349,7 @@ public partial class StatementTransformer
             if (clause is FromClauseSyntax innerFrom)
             {
                 var innerSrc = exprTransformer.Transform(innerFrom.Expression, context);
+                var innerSrcType = context.SemanticModel?.GetTypeInfo(innerFrom.Expression).Type;
                 string innerIterType;
                 if (innerFrom.Type is PredefinedTypeSyntax || innerFrom.Type?.IsKind(SyntaxKind.IdentifierName) == true)
                 {
@@ -356,6 +360,7 @@ public partial class StatementTransformer
                 {
                     innerIterType = "var";
                 }
+                innerSrc = WrapIfDowncastNeeded(innerIterType, innerSrcType, innerSrc);
                 froms.Add((innerFrom.Identifier.ValueText, innerIterType, innerSrc));
             }
             // Ignore orderby (TODO: sorting)
@@ -447,6 +452,47 @@ public partial class StatementTransformer
         }
 
         return new JavaStatementNode(sb.ToString());
+    }
+
+    /// <summary>
+    /// When the explicit from-clause type differs from the collection element type (downcast),
+    /// wraps the source expression with a double cast: (Iterable&lt;Sub&gt;)(Iterable&lt;?&gt;)(src)
+    /// so Java's for-each loop compiles despite the type mismatch.
+    /// </summary>
+    private static string WrapIfDowncastNeeded(string javaType, ITypeSymbol? collectionType, string sourceExpr)
+    {
+        if (javaType is "var" or "Object" || collectionType == null)
+            return sourceExpr;
+
+        // Extract element type from the collection (IEnumerable<T>, List<T>, etc.)
+        ITypeSymbol? elemType = null;
+        if (collectionType is INamedTypeSymbol named)
+        {
+            if (named.TypeArguments.Length == 1)
+                elemType = named.TypeArguments[0];
+            else
+                elemType = named.AllInterfaces
+                    .FirstOrDefault(i => i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
+                    ?.TypeArguments[0];
+        }
+        else if (collectionType is IArrayTypeSymbol arr)
+        {
+            elemType = arr.ElementType;
+        }
+
+        if (elemType == null)
+            return sourceExpr;
+
+        // Compare simple names: if the collection element type name differs from
+        // the declared loop variable type name, a downcast is needed.
+        var elemName = elemType.Name;
+        var javaSimpleName = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
+        if (elemName != javaSimpleName)
+        {
+            return $"(Iterable<{javaType}>)(Iterable<?>)({sourceExpr})";
+        }
+
+        return sourceExpr;
     }
 
     private JavaSyntaxNode TransformDoStatement(DoStatementSyntax stmt, ConversionContext context)

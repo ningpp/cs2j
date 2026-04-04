@@ -31,8 +31,8 @@ class Test
         var code = result.GeneratedCode;
         // Should have explicit generic args, not diamond inference
         Assert.Contains("new AbstractMap.SimpleEntry<IRectangle<Integer>, String>", code);
-        // Should cast to Map.Entry for interface compatibility
-        Assert.Contains("(Map.Entry<IRectangle<Integer>, String>)", code);
+        // Should cast to Map.Entry for interface compatibility, with outer parens for precedence
+        Assert.Contains("((Map.Entry<IRectangle<Integer>, String>)", code);
     }
 
     [Fact]
