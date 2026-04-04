@@ -1494,9 +1494,9 @@
                          },
                          {
                              "csharp":  "System.Tuple`2",
-                             "java":  "AbstractMap.SimpleEntry",
+                             "java":  "Map.Entry",
                              "imports":  [
-                                             "java.util.AbstractMap"
+                                             "java.util.Map"
                                          ]
                          },
                          {

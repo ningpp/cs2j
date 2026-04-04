@@ -200,6 +200,151 @@ public class D4IrRewriterTests
         Assert.Equal(0, rewriter.RewriteCount);
     }
 
+    [Fact]
+    public void MapEntryType_FieldDeclaration_ReplacesSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var field = new JavaFieldDeclaration
+        {
+            Type = "AbstractMap.SimpleEntry<String, Integer>",
+            Name = "entry",
+        };
+
+        var cu = WrapInClass(field);
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal("Map.Entry<String, Integer>", field.Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void MapEntryType_MethodReturnType_ReplacesSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var method = new JavaMethodDeclaration
+        {
+            ReturnType = "AbstractMap.SimpleEntry<String, Integer>",
+            Name = "getEntry",
+        };
+
+        var cu = WrapInClass(method);
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal("Map.Entry<String, Integer>", method.ReturnType);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void MapEntryType_MethodParameter_ReplacesSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var method = new JavaMethodDeclaration
+        {
+            ReturnType = "void",
+            Name = "process",
+        };
+        method.Parameters.Add(new JavaParameter("AbstractMap.SimpleEntry<String, Integer>", "entry"));
+
+        var cu = WrapInClass(method);
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal("Map.Entry<String, Integer>", method.Parameters[0].Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void MapEntryType_ConstructorParameter_ReplacesSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var ctor = new JavaConstructorDeclaration
+        {
+            ClassName = "MyClass",
+        };
+        ctor.Parameters.Add(new JavaParameter("AbstractMap.SimpleEntry<String, Integer>", "entry"));
+
+        var cu = WrapInClass(ctor);
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal("Map.Entry<String, Integer>", ctor.Parameters[0].Type);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void MapEntryType_NewExpression_ReplacesNestedSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var newExpr = new JavaNewExpression
+        {
+            Type = "ArrayList<AbstractMap.SimpleEntry<Integer, Integer>>",
+        };
+
+        var cu = WrapInClassWithStatement(new JavaVariableDeclarationStatement
+        {
+            Type = "var",
+            Name = "list",
+            Initializer = newExpr,
+        });
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal("ArrayList<Map.Entry<Integer, Integer>>", newExpr.Type);
+    }
+
+    [Fact]
+    public void MapEntryType_NewExpression_PreservesBareSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var newExpr = new JavaNewExpression
+        {
+            Type = "AbstractMap.SimpleEntry<Integer, Integer>",
+        };
+
+        var cu = WrapInClassWithStatement(new JavaVariableDeclarationStatement
+        {
+            Type = "var",
+            Name = "entry",
+            Initializer = newExpr,
+        });
+        rewriter.VisitCompilationUnit(cu);
+        // new AbstractMap.SimpleEntry<>() must be preserved — it's the concrete instantiation
+        Assert.Equal("AbstractMap.SimpleEntry<Integer, Integer>", newExpr.Type);
+    }
+
+    [Fact]
+    public void MapEntryType_ForEachWithoutEntrySet_ReplacesSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var forEach = new JavaForEachStatement
+        {
+            VariableType = "AbstractMap.SimpleEntry<String, Integer>",
+            VariableName = "entry",
+            Collection = new JavaIdentifierExpression("kvpList"),
+            Body = new JavaBlockStatement(),
+        };
+
+        var cu = WrapInClassWithStatement(forEach);
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal("Map.Entry<String, Integer>", forEach.VariableType);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void MapEntryType_RawStatement_ReplacesSimpleEntry()
+    {
+        var rewriter = new MapEntryTypeRewriter();
+
+        var raw = new JavaRawStatement
+        {
+            Code = "AbstractMap.SimpleEntry<String, Integer> entry = map.get(key);",
+        };
+
+        var cu = WrapInClassWithStatement(raw);
+        rewriter.VisitCompilationUnit(cu);
+        Assert.Equal("Map.Entry<String, Integer> entry = map.get(key);", raw.Code);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  Error 09: MemberwiseCloneRewriter
     // ═══════════════════════════════════════════════════════════
@@ -1223,5 +1368,41 @@ public class D4IrRewriterTests
         var cu = new JavaCompilationUnit();
         cu.TypeDeclarations.Add(classDecl);
         return cu;
+    }
+
+    /// <summary>Wrap a field declaration in a minimal compilation unit.</summary>
+    private static JavaCompilationUnit WrapInClass(JavaFieldDeclaration field)
+    {
+        var classDecl = new JavaClassDeclaration { Name = "TestClass" };
+        classDecl.Fields.Add(field);
+        var cu = new JavaCompilationUnit();
+        cu.TypeDeclarations.Add(classDecl);
+        return cu;
+    }
+
+    /// <summary>Wrap a method declaration in a minimal compilation unit.</summary>
+    private static JavaCompilationUnit WrapInClass(JavaMethodDeclaration method)
+    {
+        var classDecl = new JavaClassDeclaration { Name = "TestClass" };
+        classDecl.Methods.Add(method);
+        var cu = new JavaCompilationUnit();
+        cu.TypeDeclarations.Add(classDecl);
+        return cu;
+    }
+
+    /// <summary>Wrap a constructor declaration in a minimal compilation unit.</summary>
+    private static JavaCompilationUnit WrapInClass(JavaConstructorDeclaration ctor)
+    {
+        var classDecl = new JavaClassDeclaration { Name = "TestClass" };
+        classDecl.Constructors.Add(ctor);
+        var cu = new JavaCompilationUnit();
+        cu.TypeDeclarations.Add(classDecl);
+        return cu;
+    }
+
+    /// <summary>Wrap a statement inside a method body within a compilation unit.</summary>
+    private static JavaCompilationUnit WrapInClassWithStatement(JavaStatement statement)
+    {
+        return BuildCompilationUnit(statement);
     }
 }
