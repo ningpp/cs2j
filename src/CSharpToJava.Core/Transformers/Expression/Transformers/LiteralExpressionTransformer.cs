@@ -73,7 +73,10 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
         }
         if (literal.EndsWith("d") || literal.EndsWith("D"))
         {
-            return literal.TrimEnd('d', 'D');
+            var numPart = literal.TrimEnd('d', 'D');
+            // Ensure the result is still a double literal in Java.
+            // "1d" → "1.0" (not "1" which Java interprets as int).
+            return numPart.Contains('.') ? numPart : numPart + ".0";
         }
         // Fix 1: Map decimal (m/M suffix) to BigDecimal
         if (literal.EndsWith("m", StringComparison.OrdinalIgnoreCase))
