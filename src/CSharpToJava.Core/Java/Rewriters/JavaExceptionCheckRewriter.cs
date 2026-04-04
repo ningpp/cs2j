@@ -1,5 +1,7 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.TypeMapping.JavaModel;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Java.Rewriters;
@@ -32,6 +34,14 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
     /// During method traversal, collects checked exceptions that need to be declared.
     /// </summary>
     private readonly HashSet<string> _pendingExceptions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Populated between pass 1 and pass 2 of <see cref="VisitTypeDeclaration"/>.
+    /// Maps each method name in the current type to the checked exceptions it declares
+    /// (after pass 1 has run). Pass 2 uses this to propagate throws to callers of
+    /// sibling methods within the same class.
+    /// </summary>
+    private Dictionary<string, HashSet<string>> _siblingThrows = new(StringComparer.Ordinal);
 
     private int _diagnosticCount;
 
@@ -82,6 +92,61 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
 
         return base.VisitCompilationUnit(node);
     }
+
+    // ─── Two-pass sibling-throws propagation ───────────────────────────────
+
+    /// <summary>
+    /// Runs two traversals over each type: the first collects JDK-based checked
+    /// exceptions; the second propagates those throws to any sibling callers in the
+    /// same class. This handles cases like a default-parameter overload that delegates
+    /// to a full overload which carries <c>throws Exception</c>.
+    /// </summary>
+    public override JavaTypeDeclaration VisitTypeDeclaration(JavaTypeDeclaration node)
+    {
+        if (_javaLibrary is null)
+            return node;
+
+        // Save enclosing type's sibling map (supports nested types)
+        var outerSiblingThrows = _siblingThrows;
+        _siblingThrows = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+        // Pass 1: standard JDK-based throws propagation
+        node = base.VisitTypeDeclaration(node);
+
+        // Build sibling throws map from pass-1 results
+        bool hasSiblingThrows = false;
+        foreach (var method in EnumerateMethods(node))
+        {
+            if (method.ThrownExceptions.Count > 0)
+            {
+                if (!_siblingThrows.TryGetValue(method.Name, out var set))
+                    _siblingThrows[method.Name] = set = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var ex in method.ThrownExceptions)
+                {
+                    if (set.Add(ex))
+                        hasSiblingThrows = true;
+                }
+            }
+        }
+
+        // Pass 2: propagate sibling throws to callers (only when needed)
+        if (hasSiblingThrows)
+            node = base.VisitTypeDeclaration(node);
+
+        _siblingThrows = outerSiblingThrows;
+        return node;
+    }
+
+    private static IEnumerable<JavaMethodDeclaration> EnumerateMethods(JavaTypeDeclaration node) =>
+        node switch
+        {
+            JavaClassDeclaration c => c.Methods,
+            JavaInterfaceDeclaration i => i.Methods,
+            JavaEnumDeclaration e => e.Methods,
+            _ => Enumerable.Empty<JavaMethodDeclaration>(),
+        };
+
+    // ─── Method/constructor traversal ────────────────────────────────────────
 
     public override JavaMethodDeclaration VisitMethodDeclaration(JavaMethodDeclaration node)
     {
@@ -171,6 +236,14 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
                     CollectCheckedExceptions(canonicalName, node.MethodName);
                 }
             }
+        }
+
+        // Unqualified (no-target) call — may be a sibling method in the same class.
+        if (node.Target is null && _siblingThrows.TryGetValue(node.MethodName, out var siblings))
+        {
+            foreach (var ex in siblings)
+                if (!IsUnchecked(ex))
+                    _pendingExceptions.Add(ex);
         }
 
         return base.VisitMethodCallExpression(node);
@@ -307,6 +380,44 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
             }
         }
 
+        // Propagate throws from sibling method calls found in raw statement text.
+        // Raw statements are emitted as strings (e.g. default-param delegating overloads),
+        // so VisitMethodCallExpression is not invoked for them.
+        if (_siblingThrows.Count > 0)
+        {
+            foreach (var (methodName, throws) in _siblingThrows)
+            {
+                if (ContainsSiblingCall(node.Code, methodName))
+                {
+                    foreach (var ex in throws)
+                        if (!IsUnchecked(ex))
+                            _pendingExceptions.Add(ex);
+                }
+            }
+        }
+
         return node;
     }
+
+    /// <summary>
+    /// Returns true when <paramref name="code"/> contains a syntactically unqualified call
+    /// to <paramref name="methodName"/> (i.e. the character immediately before the name is
+    /// not an identifier character, ruling out longer identifiers that end with the same name).
+    /// </summary>
+    private static bool ContainsSiblingCall(string code, string methodName)
+    {
+        var pattern = methodName + "(";
+        var idx = code.IndexOf(pattern, StringComparison.Ordinal);
+        while (idx >= 0)
+        {
+            if (idx == 0 || !IsIdentifierChar(code[idx - 1]))
+                return true;
+            idx = code.IndexOf(pattern, idx + 1, StringComparison.Ordinal);
+        }
+        return false;
+    }
+
+    private static bool IsIdentifierChar(char c) =>
+        char.IsLetterOrDigit(c) || c == '_';
 }
+

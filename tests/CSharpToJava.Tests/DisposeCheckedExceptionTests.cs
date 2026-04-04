@@ -3,6 +3,8 @@ using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Java.Rewriters;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.TypeMapping.JavaModel;
+using System;
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -265,5 +267,90 @@ class GeometryGraphReader : IDisposable {
         Assert.Contains("throws Exception", cfLine);
         // Signature must be well-formed (no dangling comma)
         Assert.DoesNotContain("), ", cfLine);
+    }
+
+    [Fact]
+    public void SiblingCall_ThrowsPropagatedToCaller_ViaRewriter()
+    {
+        // Unit test for the two-pass sibling-throws propagation in JavaExceptionCheckRewriter.
+        // Method A (wrapper) calls method B (sibling). B already has throws Exception.
+        // After the rewriter runs, A should also declare throws Exception.
+        var javaLibrary = new JavaLibraryIndex(JavaConfigDir);
+        var diagnostics = new DiagnosticCollector();
+        var rewriter = new JavaExceptionCheckRewriter(javaLibrary, diagnostics);
+
+        // Method B: createFromFile(String, ObjectHolder) — already has throws Exception
+        // (simulating MethodTransformer's using-statement detection output)
+        var methodB = new JavaMethodDeclaration { Name = "createFromFile", ReturnType = "String" };
+        methodB.ThrownExceptions.Add("Exception");
+        methodB.StructuredBody = new JavaMethodBody();
+        methodB.StructuredBody.Statements.Add(new JavaRawStatement(
+            "try (InputStream stream = Files.newInputStream(path)) { return \"\"; }"));
+
+        // Method A: createFromFile(String) — wrapper, calls sibling overload, NO using statement
+        var methodA = new JavaMethodDeclaration { Name = "createFromFile", ReturnType = "String" };
+        methodA.StructuredBody = new JavaMethodBody();
+        methodA.StructuredBody.Statements.Add(new JavaRawStatement(
+            "return createFromFile(fileName, holder);"));
+
+        var clazz = new JavaClassDeclaration { Name = "GeometryGraphReader" };
+        clazz.Methods.Add(methodA); // wrapper first
+        clazz.Methods.Add(methodB); // full overload second
+
+        var cu = new JavaCompilationUnit();
+        cu.TypeDeclarations.Add(clazz);
+
+        rewriter.VisitCompilationUnit(cu);
+
+        _out.WriteLine("Method A (wrapper) throws: " + string.Join(", ", methodA.ThrownExceptions));
+        _out.WriteLine("Method B (full)    throws: " + string.Join(", ", methodB.ThrownExceptions));
+
+        Assert.Contains("Exception", methodB.ThrownExceptions);
+        // KEY assertion: wrapper should have Exception propagated from sibling call
+        Assert.Contains("Exception", methodA.ThrownExceptions);
+    }
+
+    [Fact]
+    public void FullPipeline_WrapperCallingMethodWithUsing_GetsThrowsException()
+    {
+        // End-to-end: a wrapper method that has no using statement itself, but calls
+        // a sibling overload that does, should get throws Exception in Java output.
+        var pipeline = new ConversionPipeline();
+        var r = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = @"
+using System;
+using System.IO;
+class GeometryReader {
+    public static string CreateFromFile(string fileName) {
+        return CreateFromFile(fileName, 0);
+    }
+    public static string CreateFromFile(string fileName, int settings) {
+        using (Stream stream = File.OpenRead(fileName)) {
+            return fileName;
+        }
+    }
+}",
+            FileName = "GeometryReader.cs",
+            Options = new ConversionOptions { JavaMetadataPath = JavaConfigDir },
+        });
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        // Full overload: has using statement → MethodTransformer adds throws Exception
+        var fullLine = code.Split('\n').FirstOrDefault(l =>
+            l.Contains("createFromFile") && l.Contains("int settings"));
+        _out.WriteLine($"Full overload line: {fullLine}");
+        Assert.NotNull(fullLine);
+        Assert.Contains("throws Exception", fullLine!);
+
+        // Wrapper: calls the sibling → JavaExceptionCheckRewriter should propagate throws
+        var wrapperLine = code.Split('\n').FirstOrDefault(l =>
+            l.Contains("createFromFile") && !l.Contains("int settings") &&
+            (l.Contains("static String") || l.Contains("throws")));
+        _out.WriteLine($"Wrapper line: {wrapperLine}");
+        Assert.NotNull(wrapperLine);
+        Assert.Contains("throws Exception", wrapperLine!);
     }
 }
