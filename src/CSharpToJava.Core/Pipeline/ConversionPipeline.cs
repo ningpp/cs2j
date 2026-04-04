@@ -431,7 +431,7 @@ public class ConversionPipeline
         if (string.IsNullOrEmpty(frameworkDir))
             yield break;
 
-        var supplemental = new[] { "System.Runtime.dll", "System.Collections.dll", "netstandard.dll" };
+        var supplemental = new[] { "System.Runtime.dll", "System.Collections.dll", "netstandard.dll", "System.Threading.dll", "System.Threading.Tasks.Parallel.dll" };
         foreach (var name in supplemental)
         {
             var path = Path.Combine(frameworkDir, name);

@@ -309,6 +309,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Threading.Tasks.ParallelOptions",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Collections.IEnumerable",
                              "java":  "Iterable",
                              "imports":  [
