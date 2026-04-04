@@ -219,17 +219,29 @@ public class ArgumentTransformer
                 var varName = ident.Identifier.Text;
                 var holderName = context.AllocateOutHolderName(varName);
                 var javaType = "Object";
+                var identResolved = false;
                 if (context.SemanticModel != null)
                 {
                     var typeInfo = context.SemanticModel.GetTypeInfo(ident);
                     if (typeInfo.Type != null)
+                    {
                         javaType = context.MapType(typeInfo.Type);
+                        identResolved = true;
+                    }
+                    else if (parameterSymbol?.Type != null)
+                        javaType = context.MapType(parameterSymbol.Type);
                 }
                 var holderType = HolderTypeResolver.GetHolderType(javaType);
                 var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.SetActiveRefHolder(varName, holderName);
-                context.AddPostStatement($"{varName} = {holderName}.value");
+                // If the variable couldn't be resolved, it may not be declared in the
+                // current scope (e.g. LINQ-rewriter extracted method with captured outer var).
+                // Declare it locally so the generated Java compiles.
+                if (identResolved)
+                    context.AddPostStatement($"{varName} = {holderName}.value");
+                else
+                    context.AddPostStatement($"var {varName} = {holderName}.value");
                 return holderName;
             }
 
