@@ -401,6 +401,25 @@ public class TypeMappingService
             && typeSymbol.ContainingType is INamedTypeSymbol outerType
             && outerType.TypeKind != TypeKind.Error)
         {
+            // Dictionary<K,V>.KeyCollection → Set<K>, Dictionary<K,V>.ValueCollection → Collection<V>
+            var outerOriginal = outerType.OriginalDefinition?.ToDisplayString() ?? "";
+            if (outerOriginal == "System.Collections.Generic.Dictionary<TKey, TValue>"
+                && outerType.TypeArguments.Length == 2)
+            {
+                if (name == "KeyCollection")
+                {
+                    var keyType = MapTypeForGeneric(outerType.TypeArguments[0]);
+                    AddImport("java.util.Set");
+                    return $"Set<{keyType}>";
+                }
+                if (name == "ValueCollection")
+                {
+                    var valueType = MapTypeForGeneric(outerType.TypeArguments[1]);
+                    AddImport("java.util.Collection");
+                    return $"Collection<{valueType}>";
+                }
+            }
+
             var nestedStr = $"{outerType.Name}.{MapSimpleTypeName(name)}";
             if (typeSymbol.TypeKind == TypeKind.Delegate)
             {
