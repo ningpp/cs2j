@@ -1576,10 +1576,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && enclosingType3.GetMembers(simpleTypeReceiver3.Identifier.Text).Any(m => m is not INamedTypeSymbol))
             {
                 var receiverSymbol3 = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
-                // Only override when the identifier is NOT a field/local/parameter reference.
+                // Only override when the identifier is NOT a field/local/parameter/property reference.
                 // e.g. field "xmlTextReader" has type XmlTextReader — we must NOT replace the
                 // receiver with the type name, or Java sees a static call on the class.
-                if (receiverSymbol3 is not (IFieldSymbol or ILocalSymbol or IParameterSymbol))
+                // Similarly, property "Multiedges" of type Dictionary must keep the getter call,
+                // not be replaced by the type name "System.Collections.Generic.Dictionary".
+                if (receiverSymbol3 is not (IFieldSymbol or ILocalSymbol or IParameterSymbol or IPropertySymbol))
                 {
                     var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
                     if (receiverType != null)
