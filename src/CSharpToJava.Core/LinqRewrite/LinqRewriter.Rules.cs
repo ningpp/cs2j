@@ -596,9 +596,41 @@ namespace CSharpToJava.Core.LinqRewrite
                     chain,
                     (inv, arguments, param) =>
                     {
-                        var lambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments.ElementAt(1).Expression;
-                        return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName("_acc"),
-                            InlineOrCreateMethod(new Lambda(lambda), returnType, arguments, param)));
+                        var lambdaExpr = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments.ElementAt(1).Expression;
+                        var lambda = new Lambda(lambdaExpr);
+                        var accParamName = GetLambdaParameter(lambda, 0).Identifier.ValueText;
+                        var elemParamName = GetLambdaParameter(lambda, 1).Identifier.ValueText;
+
+                        // Single-pass rename: accumulator → _acc, element → item variable name
+                        var tokensToRename = lambda.Body.DescendantNodesAndSelf()
+                            .Where(x =>
+                            {
+                                var sem = semantic.GetSymbolInfo(x).Symbol;
+                                return sem != null && (sem is ILocalSymbol || sem is IParameterSymbol)
+                                    && (sem.Name == accParamName || sem.Name == elemParamName);
+                            })
+                            .ToList();
+
+                        var renamedBody = lambda.Body.ReplaceNodes(tokensToRename, (original, rewritten) =>
+                        {
+                            var sem = semantic.GetSymbolInfo(original).Symbol;
+                            if (rewritten is IdentifierNameSyntax ide && sem != null)
+                            {
+                                if (sem.Name == accParamName)
+                                    return ide.WithIdentifier(SyntaxFactory.Identifier("_acc"));
+                                if (sem.Name == elemParamName)
+                                    return ide.WithIdentifier(SyntaxFactory.Identifier(param.Identifier.ValueText));
+                            }
+                            return rewritten;
+                        });
+
+                        if (renamedBody is ExpressionSyntax exprBody)
+                        {
+                            return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+                                SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName("_acc"), exprBody));
+                        }
+                        // Block body: wrap as statement
+                        return (StatementSyntax)renamedBody;
                     },
                     additionalParameters: new[] { Tuple.Create(CreateParameter("_seed", returnType), node.ArgumentList.Arguments.First().Expression) }
                 );
