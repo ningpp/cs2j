@@ -420,6 +420,19 @@ public class ArgumentTransformer
             }
         }
 
+        // ── Case 0: IGrouping<K,V> argument → parameter expects IEnumerable<V> / Iterable<V> ──
+        // C#: IGrouping<K,V> implements IEnumerable<V>, so it can be passed directly.
+        // Java: Map.Entry<K, List<V>> does NOT implement Iterable<V>.
+        // Fix: append .getValue() to extract the underlying List<V>.
+        if (argType is INamedTypeSymbol argGroupingType
+            && argGroupingType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true
+            && paramType is INamedTypeSymbol paramIterableType
+            && paramIterableType.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+            && paramIterableType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
+        {
+            return $"{transformedExpr}.getValue()";
+        }
+
         // ── Case 1: Array argument → parameter expects IEnumerable/ICollection/IList ──
         // In Java, arrays don't implement Iterable or Collection, so we must wrap.
         // Wrap array arguments when the parameter expects IEnumerable/ICollection interface.

@@ -179,6 +179,15 @@ public partial class StatementTransformer
             }
         }
 
+        // Detect: iterating over an IGrouping<K,V> (Map.Entry<K, List<V>>) in a foreach.
+        // C#: IGrouping implements IEnumerable<V>, so foreach (var x in group) works directly.
+        // Java: Map.Entry does NOT implement Iterable, so we must use group.getValue().
+        if (exprTypeInfo is INamedTypeSymbol groupingExprType &&
+            groupingExprType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
+        {
+            expression = $"{expression}.getValue()";
+        }
+
         // Pre-process: StreamSupport.stream(...).toArray() used in foreach can't be iterated (Object[]).
         // Convert to .collect(Collectors.toCollection(() -> new ArrayList<>())) so the list is Iterable<T> and foreach works.
         {
@@ -234,7 +243,8 @@ public partial class StatementTransformer
         {
             bool isLinqResult = csForeachType.Name is "IOrderedEnumerable" or "IOrderedQueryable" or "IQueryable"
                 || (csForeachType.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true
-                    && csForeachType.Name != "IEnumerable" && csForeachType.Name != "ICollection");
+                    && csForeachType.Name != "IEnumerable" && csForeachType.Name != "ICollection"
+                    && csForeachType.Name != "IGrouping");
             if (isLinqResult)
                 isStream = true;
         }
