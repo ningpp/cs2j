@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 
@@ -12,7 +13,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles identifier and member access expressions.
 /// </summary>
 [TransformerRegistration]
-public class IdentifierExpressionTransformer : IExpressionTransformer
+public class IdentifierExpressionTransformer : IIRExpressionTransformer
 {
     static IdentifierExpressionTransformer()
     {
@@ -61,6 +62,44 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             SyntaxKind.PointerMemberAccessExpression => TransformPointerMemberAccess((MemberAccessExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Identifier expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+    {
+        // Simple identifier → structured JavaIdentifierExpression
+        if (node is IdentifierNameSyntax id)
+        {
+            // Check for simple cases (local variables, parameters) — not properties/events
+            if (context.SemanticModel != null)
+            {
+                var symbol = context.SemanticModel.GetSymbolInfo(node).Symbol;
+                if (symbol is ILocalSymbol or IParameterSymbol)
+                {
+                    var name = ConversionContext.EscapeJavaKeyword(id.Identifier.Text);
+                    return new JavaIdentifierExpression { Name = name };
+                }
+            }
+        }
+
+        // Member access → structured JavaMemberAccessExpression for simple cases
+        if (node is MemberAccessExpressionSyntax memberAccess)
+        {
+            var code = Transform(node, context);
+            // For simple field/method accesses, decompose into target.member
+            if (context.SemanticModel != null)
+            {
+                var symbol = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
+                if (symbol is IFieldSymbol { IsConst: false })
+                {
+                    var target = ExpressionTransformerFacade.Instance.TransformToIR(memberAccess.Expression, context);
+                    var memberName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
+                    return new JavaMemberAccessExpression { Target = target, MemberName = memberName };
+                }
+            }
+        }
+
+        return new JavaRawExpression(Transform(node, context));
+    }
 
     private string TransformIdentifier(IdentifierNameSyntax node, ConversionContext context)
     {

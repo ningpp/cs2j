@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -12,7 +13,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles method invocation expressions.
 /// </summary>
 [TransformerRegistration]
-public class InvocationExpressionTransformer : IExpressionTransformer
+public class InvocationExpressionTransformer : IIRExpressionTransformer
 {
     static InvocationExpressionTransformer()
     {
@@ -46,6 +47,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+        => new JavaRawExpression(Transform(node, context));
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {

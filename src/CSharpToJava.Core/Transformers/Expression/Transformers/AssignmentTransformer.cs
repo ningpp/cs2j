@@ -13,7 +13,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles assignment expressions (simple, compound, and shifted assignments).
 /// </summary>
 [TransformerRegistration]
-public class AssignmentTransformer : IExpressionTransformer
+public class AssignmentTransformer : IIRExpressionTransformer
 {
     static AssignmentTransformer()
     {
@@ -55,6 +55,10 @@ public class AssignmentTransformer : IExpressionTransformer
             SyntaxKind.CoalesceAssignmentExpression => TransformCoalesceAssignment((AssignmentExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Assignment expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+        => new JavaRawExpression(Transform(node, context));
 
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {

@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Text;
 
@@ -12,7 +13,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles type-related expressions (cast, is, as, typeof, default, checked, unchecked).
 /// </summary>
 [TransformerRegistration]
-public class TypeOperationTransformer : IExpressionTransformer
+public class TypeOperationTransformer : IIRExpressionTransformer
 {
     static TypeOperationTransformer()
     {
@@ -49,6 +50,33 @@ public class TypeOperationTransformer : IExpressionTransformer
             SyntaxKind.SizeOfExpression => TransformSizeOf((SizeOfExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Type operation kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+    {
+        // Simple cast → structured JavaCastExpression
+        if (node is CastExpressionSyntax castExpr)
+        {
+            var code = Transform(node, context);
+            // If the string-based result looks like a cast, produce structured IR
+            if (code.StartsWith("(") && code.Contains(")"))
+            {
+                var inner = ExpressionTransformerFacade.Instance.TransformToIR(castExpr.Expression, context);
+                var typeInfo = context.SemanticModel?.GetTypeInfo(castExpr.Type);
+                var targetSymbol = typeInfo.HasValue ? typeInfo!.Value.Type : null;
+                string targetType = targetSymbol != null ? context.MapType(targetSymbol) : castExpr.Type.ToString();
+                if (!string.IsNullOrWhiteSpace(targetType))
+                {
+                    return new JavaCastExpression { Type = targetType, Expression = inner };
+                }
+            }
+            return new JavaRawExpression(code);
+        }
+
+        // typeof → structured JavaRawExpression (no better IR node)
+        // default → structured JavaRawExpression
+        return new JavaRawExpression(Transform(node, context));
+    }
 
     private string TransformCast(CastExpressionSyntax node, ConversionContext context)
     {

@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles object and array creation expressions.
 /// </summary>
 [TransformerRegistration]
-public class ObjectCreationTransformer : IExpressionTransformer
+public class ObjectCreationTransformer : IIRExpressionTransformer
 {
     static ObjectCreationTransformer()
     {
@@ -45,6 +46,10 @@ public class ObjectCreationTransformer : IExpressionTransformer
             SyntaxKind.StackAllocArrayCreationExpression => TransformStackAlloc((StackAllocArrayCreationExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Object creation kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+        => new JavaRawExpression(Transform(node, context));
 
     private string TransformNew(ImplicitObjectCreationExpressionSyntax node, ConversionContext context)
     {

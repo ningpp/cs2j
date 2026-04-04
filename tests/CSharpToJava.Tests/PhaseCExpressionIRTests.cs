@@ -398,4 +398,194 @@ class T {
         Assert.Contains("!= null", result);
         Assert.Contains("\"default\"", result);
     }
+
+    // ── Phase C Step 2 continued: all transformers migrated ────────
+
+    [Fact]
+    public void ControlFlowTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(ControlFlowTransformer.Instance);
+    }
+
+    [Fact]
+    public void TypeOperationTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(TypeOperationTransformer.Instance);
+    }
+
+    [Fact]
+    public void IdentifierExpressionTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(IdentifierExpressionTransformer.Instance);
+    }
+
+    [Fact]
+    public void AssignmentTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(AssignmentTransformer.Instance);
+    }
+
+    [Fact]
+    public void ObjectCreationTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(ObjectCreationTransformer.Instance);
+    }
+
+    [Fact]
+    public void InvocationExpressionTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(InvocationExpressionTransformer.Instance);
+    }
+
+    // ── Structured IR node tests for new migrations ────────────────
+
+    [Fact]
+    public void JavaConditionalExpression_ToInlineString()
+    {
+        var expr = new JavaConditionalExpression
+        {
+            Condition = new JavaIdentifierExpression { Name = "flag" },
+            WhenTrue = new JavaLiteralExpression("1"),
+            WhenFalse = new JavaLiteralExpression("2")
+        };
+        Assert.Equal("flag ? 1 : 2", expr.ToInlineString());
+    }
+
+    [Fact]
+    public void JavaParenthesizedExpression_ToInlineString()
+    {
+        var expr = new JavaParenthesizedExpression
+        {
+            InnerExpression = new JavaBinaryExpression
+            {
+                Left = new JavaLiteralExpression("a"),
+                Operator = "+",
+                Right = new JavaLiteralExpression("b")
+            }
+        };
+        Assert.Equal("(a + b)", expr.ToInlineString());
+    }
+
+    [Fact]
+    public void JavaCastExpression_ToInlineString()
+    {
+        var expr = new JavaCastExpression
+        {
+            Type = "int",
+            Expression = new JavaIdentifierExpression { Name = "value" }
+        };
+        Assert.Equal("(int) value", expr.ToInlineString());
+    }
+
+    [Fact]
+    public void JavaThisExpression_ToInlineString()
+    {
+        var thisExpr = new JavaThisExpression { IsSuper = false };
+        Assert.Equal("this", thisExpr.ToInlineString());
+        var superExpr = new JavaThisExpression { IsSuper = true };
+        Assert.Equal("super", superExpr.ToInlineString());
+    }
+
+    [Fact]
+    public void JavaMemberAccessExpression_ToInlineString()
+    {
+        var expr = new JavaMemberAccessExpression
+        {
+            Target = new JavaIdentifierExpression { Name = "obj" },
+            MemberName = "field"
+        };
+        Assert.Equal("obj.field", expr.ToInlineString());
+    }
+
+    // ── End-to-end tests for newly migrated transformers ───────────
+
+    [Fact]
+    public void TernaryExpression_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        bool flag = true;
+        int x = flag ? 1 : 2;
+    }
+}");
+        Assert.Contains("flag ? 1 : 2", result);
+    }
+
+    [Fact]
+    public void CastExpression_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        double d = 3.14;
+        int i = (int)d;
+    }
+}");
+        Assert.Contains("(int)", result);
+    }
+
+    [Fact]
+    public void TypeOfExpression_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        var t = typeof(string);
+    }
+}");
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void SimpleAssignment_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int x = 0;
+        x = 42;
+    }
+}");
+        Assert.Contains("x = 42", result);
+    }
+
+    [Fact]
+    public void ObjectCreation_EndToEnd()
+    {
+        var result = ConvertCode(@"
+using System.Collections.Generic;
+class T {
+    void M() {
+        var list = new List<string>();
+    }
+}");
+        Assert.Contains("ArrayList<", result);
+    }
+
+    [Fact]
+    public void MethodInvocation_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    int Add(int a, int b) { return a + b; }
+    void M() {
+        int r = Add(1, 2);
+    }
+}");
+        Assert.Contains("add(1, 2)", result);
+    }
+
+    [Fact]
+    public void ParenthesizedExpression_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int x = (1 + 2) * 3;
+    }
+}");
+        Assert.Contains("(1 + 2)", result);
+        Assert.Contains("* 3", result);
+    }
 }

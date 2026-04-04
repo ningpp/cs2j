@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -10,7 +11,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles control flow expressions (conditional, conditional access, await, throw, switch, this, base, etc.).
 /// </summary>
 [TransformerRegistration]
-public class ControlFlowTransformer : IExpressionTransformer
+public class ControlFlowTransformer : IIRExpressionTransformer
 {
     static ControlFlowTransformer()
     {
@@ -53,6 +54,40 @@ public class ControlFlowTransformer : IExpressionTransformer
             SyntaxKind.RangeExpression => TransformRangeExpression((RangeExpressionSyntax)node, context),  // Fix 2
             _ => throw new NotSupportedException($"Control flow expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+    {
+        // Ternary → structured JavaConditionalExpression
+        if (node is ConditionalExpressionSyntax ternary)
+        {
+            var facade = ExpressionTransformerFacade.Instance;
+            var condition = facade.TransformToIR(ternary.Condition, context);
+            var whenTrue = facade.TransformToIR(ternary.WhenTrue, context);
+            var whenFalse = facade.TransformToIR(ternary.WhenFalse, context);
+            return new JavaConditionalExpression
+            {
+                Condition = condition,
+                WhenTrue = whenTrue,
+                WhenFalse = whenFalse
+            };
+        }
+
+        // Parenthesized → structured JavaParenthesizedExpression
+        if (node is ParenthesizedExpressionSyntax paren)
+        {
+            var inner = ExpressionTransformerFacade.Instance.TransformToIR(paren.Expression, context);
+            return new JavaParenthesizedExpression { InnerExpression = inner };
+        }
+
+        // this/super → structured
+        if (node.IsKind(SyntaxKind.ThisExpression))
+            return new JavaThisExpression { IsSuper = false };
+        if (node.IsKind(SyntaxKind.BaseExpression))
+            return new JavaThisExpression { IsSuper = true };
+
+        return new JavaRawExpression(Transform(node, context));
+    }
 
     private string TransformConditional(ConditionalExpressionSyntax node, ConversionContext context)
     {
