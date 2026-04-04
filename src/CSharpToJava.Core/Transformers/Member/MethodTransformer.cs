@@ -125,6 +125,23 @@ public class MethodTransformer : IMemberTransformer
                     javaMethod.ReturnType = $"List<{elemType ?? "Object"}>";
                 }
                 var body = statementTransformer.TransformBlock(methodDecl.Body, context);
+
+                // After body transformation, anonymous-type records are now
+                // synthesized and registered.  If the element type was degraded
+                // to "Object" (from a LINQ anonymous type), try to infer the
+                // actual record name from yield return expression types.
+                if (elemType is null or "Object")
+                {
+                    var inferred = InferYieldElementType(methodDecl, context);
+                    if (inferred != null)
+                    {
+                        elemType = inferred;
+                        javaMethod.ReturnType = isIteratorReturn
+                            ? $"Iterator<{elemType}>"
+                            : $"List<{elemType}>";
+                    }
+                }
+
                 var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
                 var returnStmt = isIteratorReturn ? "return _yieldResult.iterator();" : "return _yieldResult;";
                 javaMethod.Body = $"{listType} _yieldResult = new {listType}();\n        {body}\n        {returnStmt}";
@@ -589,6 +606,37 @@ public class MethodTransformer : IMemberTransformer
         var m = System.Text.RegularExpressions.Regex.Match(javaType,
             @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
         return m.Success ? m.Groups[1].Value : null;
+    }
+
+    /// <summary>
+    /// After the method body has been transformed (so anonymous-type records are
+    /// synthesized), inspect yield return expressions to find the actual element
+    /// type.  Returns the Java record name if a synthesized record is found,
+    /// otherwise null.
+    /// </summary>
+    private static string? InferYieldElementType(MethodDeclarationSyntax methodDecl, ConversionContext context)
+    {
+        if (context.SemanticModel == null || methodDecl.Body == null)
+            return null;
+
+        foreach (var yieldStmt in methodDecl.Body.DescendantNodes().OfType<YieldStatementSyntax>())
+        {
+            if (yieldStmt.ReturnOrBreakKeyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.BreakKeyword))
+                continue;
+            if (yieldStmt.Expression == null)
+                continue;
+
+            var exprType = context.SemanticModel.GetTypeInfo(yieldStmt.Expression).Type;
+            if (exprType != null && exprType.IsAnonymousType)
+            {
+                // MapType checks the synthesized record store and returns the
+                // record name if one was registered for this anonymous type.
+                var mapped = context.MapType(exprType);
+                if (mapped != "Object")
+                    return mapped;
+            }
+        }
+        return null;
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)

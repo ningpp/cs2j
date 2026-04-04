@@ -142,6 +142,18 @@ public partial class StatementTransformer
         var expression = exprTransformer.Transform(stmt.Expression, context);
         var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
 
+        // When C# used implicit typing ('var') and the resolved type is 'Object'
+        // (e.g., from LINQ-rewritten anonymous types degraded to object), use
+        // Java 'var' so the Java compiler can infer the actual element type from
+        // the collection expression (which may return List<SynthesizedRecord>).
+        if (javaType == "Object"
+            && stmt.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax idName
+            && idName.Identifier.Text == "var")
+        {
+            javaType = "var";
+        }
+
+
         var stmtTransformer = new StatementTransformer();
         var body = stmt.Statement is BlockSyntax block
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"

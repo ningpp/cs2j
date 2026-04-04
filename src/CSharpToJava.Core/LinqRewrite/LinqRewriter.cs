@@ -538,6 +538,31 @@ namespace CSharpToJava.Core.LinqRewrite
             return (t.ToDisplayString().Contains("anonymous type:"));
         }
 
+        /// <summary>
+        /// Returns a valid C# type name string for <paramref name="type"/>,
+        /// replacing any anonymous type components with <c>object</c> so that
+        /// <see cref="SyntaxFactory.ParseTypeName"/> can produce a valid TypeSyntax.
+        /// </summary>
+        private string SanitizeAnonymousTypeDisplay(ITypeSymbol type)
+        {
+            if (IsAnonymousType(type))
+                return "object";
+
+            if (type is INamedTypeSymbol named && named.IsGenericType
+                && named.TypeArguments.Any(IsAnonymousType))
+            {
+                // Reconstruct with 'object' in place of anonymous type args.
+                var baseName = named.OriginalDefinition.ToDisplayString();
+                var idx = baseName.IndexOf('<');
+                if (idx >= 0) baseName = baseName.Substring(0, idx);
+                var args = string.Join(", ", named.TypeArguments.Select(a =>
+                    IsAnonymousType(a) ? "object" : a.ToDisplayString()));
+                return $"{baseName}<{args}>";
+            }
+
+            return type.ToDisplayString();
+        }
+
         private ThrowStatementSyntax CreateThrowException(string type, string message = null)
         {
             return SyntaxFactory.ThrowStatement(SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName(type), CreateArguments(message!=null? new[] { SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(message)) } :  new ExpressionSyntax[] { }), null));

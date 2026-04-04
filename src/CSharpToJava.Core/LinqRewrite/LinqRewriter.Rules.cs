@@ -36,7 +36,7 @@ namespace CSharpToJava.Core.LinqRewrite
 
         private ExpressionSyntax TryRewrite(string aggregationMethod, ExpressionSyntax collection, ITypeSymbol semanticReturnType, List<LinqStep> chain, InvocationExpressionSyntax node)
         {
-            var returnType = SyntaxFactory.ParseTypeName(semanticReturnType.ToDisplayString());
+            var returnType = SyntaxFactory.ParseTypeName(SanitizeAnonymousTypeDisplay(semanticReturnType));
 
             if (RootMethodsThatRequireYieldReturn.Contains(aggregationMethod))
             {
@@ -1412,7 +1412,7 @@ namespace CSharpToJava.Core.LinqRewrite
                 var newname = "_linqitem" + ++lastId;
                 var lambdaType = (INamedTypeSymbol)semantic.GetTypeInfo(lambda).ConvertedType;
                 var lambdaBodyType = lambdaType.TypeArguments.Last();
-                var newtype = IsAnonymousType(lambdaBodyType) ? null : SyntaxFactory.ParseTypeName(lambdaBodyType.ToDisplayString());
+                var newtype = SyntaxFactory.ParseTypeName(SanitizeAnonymousTypeDisplay(lambdaBodyType));
 
 
                 var local = CreateLocalVariableDeclaration(newname, InlineOrCreateMethod(new Lambda(lambda), newtype, arguments, CreateParameter(itemName, itemType)));
@@ -1431,7 +1431,7 @@ namespace CSharpToJava.Core.LinqRewrite
                 var idxVar = "_idx" + (++lastId);
                 var lambdaType = (INamedTypeSymbol)semantic.GetTypeInfo(lambda).ConvertedType;
                 var lambdaBodyType = lambdaType.TypeArguments.Last();
-                var newtype = IsAnonymousType(lambdaBodyType) ? null : SyntaxFactory.ParseTypeName(lambdaBodyType.ToDisplayString());
+                var newtype = SyntaxFactory.ParseTypeName(SanitizeAnonymousTypeDisplay(lambdaBodyType));
 
                 var idxDecl = CreateLocalVariableDeclaration(idxVar,
                     SyntaxFactory.PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
