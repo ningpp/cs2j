@@ -44,6 +44,22 @@ public class MethodTransformer : IMemberTransformer
         {
             javaMethod.Name += ConversionContext.GetErasureRenamedSuffix(methodInfo.TypeParameters.Length);
         }
+
+        // Cross-inheritance erasure conflict: parent class method has same erased signature
+        // but different generic type arguments — would cause compile error in Java.
+        if (methodInfo != null)
+        {
+            var inheritConflict = JavaNaming.FindCrossInheritanceErasureConflict(methodInfo);
+            if (inheritConflict != null)
+            {
+                context.Diagnostics.Warning(
+                    $"Method '{methodInfo.Name}' has cross-inheritance type-erasure conflict with '{inheritConflict}' — " +
+                    "Java type erasure makes these methods have the same erased signature",
+                    methodDecl.Identifier.GetLocation(),
+                    code: "CS2J1004",
+                    category: "TypeErasure");
+            }
+        }
         javaMethod.LeadingComment = context.GetDeclarationComments(methodDecl, methodInfo).ToCombinedComment();
         ApplyTestMethodAnnotations(methodDecl, javaMethod, context);
 

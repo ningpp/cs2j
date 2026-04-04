@@ -70,4 +70,49 @@ public static class JavaNaming
         INamedTypeSymbol named => named.OriginalDefinition.ContainingNamespace + "." + named.OriginalDefinition.Name,
         _ => type.ToDisplayString()
     };
+
+    /// <summary>
+    /// Checks whether a method in a derived class has a cross-inheritance type-erasure conflict.
+    /// Returns the name of the base-class method if the method's erased parameter signature
+    /// matches a base-class method with different generic type arguments.
+    /// </summary>
+    public static string? FindCrossInheritanceErasureConflict(IMethodSymbol method)
+    {
+        if (method.ContainingType?.BaseType == null) return null;
+
+        var erasedSig = GetErasedSignature(method);
+
+        var baseType = method.ContainingType.BaseType;
+        while (baseType != null)
+        {
+            foreach (var baseMember in baseType.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (baseMember.Name != method.Name) continue;
+                if (baseMember.Parameters.Length != method.Parameters.Length) continue;
+                if (baseMember.DeclaredAccessibility == Accessibility.Private) continue;
+
+                var baseErasedSig = GetErasedSignature(baseMember);
+                if (erasedSig == baseErasedSig && !HaveSameActualParameters(method, baseMember))
+                {
+                    return $"{baseType.Name}.{baseMember.Name}";
+                }
+            }
+            baseType = baseType.BaseType;
+        }
+
+        return null;
+    }
+
+    private static string GetErasedSignature(IMethodSymbol method)
+        => string.Join(",", method.Parameters.Select(p => GetErasedTypeName(p.Type)));
+
+    private static bool HaveSameActualParameters(IMethodSymbol a, IMethodSymbol b)
+    {
+        for (int i = 0; i < a.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(a.Parameters[i].Type, b.Parameters[i].Type))
+                return false;
+        }
+        return true;
+    }
 }
