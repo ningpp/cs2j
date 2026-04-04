@@ -551,7 +551,7 @@ public class ArgumentTransformer
         {
             var exprTrim = transformedExpr.Trim();
             bool isCollectionCtorTarget = IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol);
-            if (exprTrim.EndsWith(".keySet()", StringComparison.Ordinal)
+            if ((!isCollectionCtorTarget && exprTrim.EndsWith(".keySet()", StringComparison.Ordinal))
                 || (!isCollectionCtorTarget && exprTrim.EndsWith(".values()", StringComparison.Ordinal)))
             {
                 var javaParamType = context.MapType(paramType);
