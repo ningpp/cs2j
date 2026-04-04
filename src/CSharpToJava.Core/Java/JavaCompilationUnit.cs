@@ -26,17 +26,22 @@ public class JavaCompilationUnit : JavaSyntaxNode
             sb.AppendLine();
         }
 
-        // Collect wildcard package names to avoid emitting redundant explicit imports
-        var wildcardPackages = new HashSet<string>(
-            Imports.Where(i => i.IsWildcard && !i.IsStatic).Select(i => i.Name));
+        // Collect wildcard package names for standard Java packages to avoid emitting redundant explicit imports.
+        // Only dedup java.*/javax.* packages; project-specific explicit imports are preserved because
+        // CrossPackageImportResolver adds them deliberately to disambiguate against java.util.* conflicts
+        // (e.g., project Set vs java.util.Set).
+        var jdkWildcardPackages = new HashSet<string>(
+            Imports.Where(i => i.IsWildcard && !i.IsStatic
+                && (i.Name.StartsWith("java.") || i.Name.StartsWith("javax.")))
+                .Select(i => i.Name));
 
         foreach (var import in Imports)
         {
-            // Skip explicit (non-wildcard) imports whose package is already covered by a wildcard
+            // Skip explicit (non-wildcard) JDK imports whose package is already covered by a JDK wildcard
             if (!import.IsWildcard && !import.IsStatic)
             {
                 var lastDot = import.Name.LastIndexOf('.');
-                if (lastDot > 0 && wildcardPackages.Contains(import.Name[..lastDot]))
+                if (lastDot > 0 && jdkWildcardPackages.Contains(import.Name[..lastDot]))
                     continue;
             }
             sb.AppendLine(import.ToCodeString(indentation));

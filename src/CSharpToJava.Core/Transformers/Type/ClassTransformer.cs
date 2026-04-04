@@ -1128,8 +1128,19 @@ public class ClassTransformer : ITypeTransformer
         if (addMethod != null)
         {
             addMethod.ReturnType = "boolean";
-            if (addMethod.Body != null && !EndsWithTerminalStatement(addMethod.Body.TrimEnd()))
-                addMethod.Body = addMethod.Body.TrimEnd() + "\nreturn true;";
+            var trimmedBody = (addMethod.Body ?? addMethod.StructuredBody?.ToBodyString() ?? "").TrimEnd();
+            if (!EndsWithTerminalStatement(trimmedBody))
+            {
+                if (addMethod.StructuredBody != null)
+                {
+                    addMethod.StructuredBody.Statements.Add(
+                        new CSharpToJava.Core.Java.JavaRawStatement("return true;"));
+                }
+                else
+                {
+                    addMethod.Body = trimmedBody + "\nreturn true;";
+                }
+            }
         }
 
         // Fix: set(int, T) void → T set(int, T) { T _old = this.get(index); ...; return _old; }

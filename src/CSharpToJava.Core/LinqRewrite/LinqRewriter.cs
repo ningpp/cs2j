@@ -254,6 +254,19 @@ namespace CSharpToJava.Core.LinqRewrite
                                     if (lambdaParamNames.Contains(k.Name)) continue;
                                     if (!flowsOut.Contains(k)) flowsOut.Add(k);
                                 }
+                                // Also capture outer variables that are only written inside the
+                                // lambda (e.g. "out t" where t is never read after the chain).
+                                // Without this, the variable won't exist in the extracted method scope.
+                                if (dataFlow.Succeeded)
+                                {
+                                    foreach (var k in dataFlow.WrittenInside)
+                                    {
+                                        if (dataFlow.VariablesDeclared.Contains(k)) continue;
+                                        if (lambdaParamNames.Contains(k.Name)) continue;
+                                        if (!flowsIn.Contains(k) && !flowsOut.Contains(k))
+                                            flowsOut.Add(k);
+                                    }
+                                }
                             }
                             else
                             {
@@ -884,7 +897,27 @@ namespace CSharpToJava.Core.LinqRewrite
             if (collectionItemType == null) throw new NotSupportedException();
             var collectionSemanticType = semantic.GetTypeInfo(collection).Type;
 
-            var parameters =  new[] { CreateParameter(ItemsName, collectionSemanticType) }.Concat(currentFlow.Select(x => CreateParameter(x.Name, GetSymbolType(x.Symbol)).WithRef(x.Changes)));
+            // Indexed for-loop will be generated for List<T> and arrays
+            // (must match the condition in the indexed-vs-foreach branch below).
+            bool usesIndexedLoop = collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<")
+                                || collectionSemanticType is IArrayTypeSymbol;
+
+            // When indexed loop is used the parameter needs concrete type so that
+            // .Count/.Length and [_index] work.  For other collections use
+            // IEnumerable<T> (→ Iterable<T> in Java) to avoid concrete-type
+            // conflicts (e.g. java.util.Set vs project Set).
+            ITypeSymbol linqItemsParamType;
+            if (usesIndexedLoop)
+            {
+                linqItemsParamType = collectionSemanticType;
+            }
+            else
+            {
+                var ienumerableType = semantic.Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T);
+                linqItemsParamType = ienumerableType.Construct(collectionItemType);
+            }
+
+            var parameters =  new[] { CreateParameter(ItemsName, linqItemsParamType) }.Concat(currentFlow.Select(x => CreateParameter(x.Name, GetSymbolType(x.Symbol)).WithRef(x.Changes)));
             if (additionalParameters != null) parameters = parameters.Concat(additionalParameters.Select(x => x.Item1));
 
             // Add parameters for intermediates that need non-lambda arguments passed in

@@ -230,6 +230,23 @@ public class ArgumentTransformer
                     }
                     else if (parameterSymbol?.Type != null)
                         javaType = context.MapType(parameterSymbol.Type);
+                    else
+                    {
+                        // Final fallback: resolve the containing invocation to get the method's
+                        // parameter type. This handles LINQ-rewriter extracted methods where the
+                        // semantic model is stale and parameterSymbol is not supplied.
+                        var invocation = arg.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+                        if (invocation != null)
+                        {
+                            var methodSym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                            if (methodSym != null)
+                            {
+                                var argIndex = invocation.ArgumentList.Arguments.IndexOf(arg);
+                                if (argIndex >= 0 && argIndex < methodSym.Parameters.Length)
+                                    javaType = context.MapType(methodSym.Parameters[argIndex].Type);
+                            }
+                        }
+                    }
                 }
                 var holderType = HolderTypeResolver.GetHolderType(javaType);
                 var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
@@ -237,11 +254,11 @@ public class ArgumentTransformer
                 context.SetActiveRefHolder(varName, holderName);
                 // If the variable couldn't be resolved, it may not be declared in the
                 // current scope (e.g. LINQ-rewriter extracted method with captured outer var).
-                // Declare it locally so the generated Java compiles.
+                // Declare it locally with its resolved type so the generated Java compiles.
                 if (identResolved)
                     context.AddPostStatement($"{varName} = {holderName}.value");
                 else
-                    context.AddPostStatement($"var {varName} = {holderName}.value");
+                    context.AddPostStatement($"{javaType} {varName} = {holderName}.value");
                 return holderName;
             }
 
