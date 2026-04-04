@@ -435,6 +435,28 @@ public partial class StatementTransformer
             return new JavaStatementNode("// yield return (empty)");
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var expr = exprTransformer.Transform(stmt.Expression, context);
+
+        // Drain any pre/post-statements emitted during expression transformation
+        // (e.g., ref argument holder declarations and value write-backs).
+        if (context.HasPendingPreStatements || context.HasPendingPostStatements)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (context.HasPendingPreStatements)
+            {
+                var preStmts = context.DrainPreStatements();
+                sb.Append(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
+                sb.Append('\n');
+            }
+            sb.Append($"_yieldResult.add({expr});");
+            if (context.HasPendingPostStatements)
+            {
+                var postStmts = context.DrainPostStatements();
+                sb.Append('\n');
+                sb.Append(string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
+            }
+            return new JavaStatementNode(sb.ToString());
+        }
+
         return new JavaStatementNode($"_yieldResult.add({expr});");
     }
 
