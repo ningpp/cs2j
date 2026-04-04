@@ -1568,20 +1568,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Fallback for unresolved static calls: if a simple receiver name collides with a member
             // in the current type, but semantic type info still resolves it to a named type,
             // force fully-qualified type receiver to avoid Java member/type shadowing.
+            // Skip when the receiver identifier resolves to a field/local/parameter — it IS the
+            // member, not a type reference that happens to be shadowed.
             if (context.SemanticModel != null
                 && memberAccess.Expression is IdentifierNameSyntax simpleTypeReceiver3
                 && context.SemanticModel.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enclosingType3
                 && enclosingType3.GetMembers(simpleTypeReceiver3.Identifier.Text).Any(m => m is not INamedTypeSymbol))
             {
-                var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
-                if (receiverType != null)
+                var receiverSymbol3 = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
+                // Only override when the identifier is NOT a field/local/parameter reference.
+                // e.g. field "xmlTextReader" has type XmlTextReader — we must NOT replace the
+                // receiver with the type name, or Java sees a static call on the class.
+                if (receiverSymbol3 is not (IFieldSymbol or ILocalSymbol or IParameterSymbol))
                 {
-                    var ns3 = receiverType.ContainingNamespace?.ToDisplayString();
-                    if (ns3 == "<global namespace>")
-                        ns3 = string.Empty;
-                    receiver = string.IsNullOrWhiteSpace(ns3)
-                        ? receiverType.Name
-                        : $"{ns3}.{receiverType.Name}";
+                    var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+                    if (receiverType != null)
+                    {
+                        var ns3 = receiverType.ContainingNamespace?.ToDisplayString();
+                        if (ns3 == "<global namespace>")
+                            ns3 = string.Empty;
+                        receiver = string.IsNullOrWhiteSpace(ns3)
+                            ? receiverType.Name
+                            : $"{ns3}.{receiverType.Name}";
+                    }
                 }
             }
 
