@@ -3,7 +3,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
-using CSharpToJava.Core.Transformers.Type;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -60,10 +59,8 @@ public static class ExpressionTransformerRegistry
                     if (string.IsNullOrEmpty(javaType))
                         javaType = "Object";
 
-                    var holderType = DelegateTransformer.GetHolderType(javaType);
-                    var holderInit = holderType.StartsWith("ObjectHolder<", StringComparison.Ordinal)
-                        ? "new ObjectHolder<>()"
-                        : $"new {holderType}()";
+                    var holderType = HolderTypeResolver.GetHolderType(javaType);
+                    var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
 
                     ctx.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                     ctx.AddPostStatement($"{javaType} {varName} = {holderName}.value");

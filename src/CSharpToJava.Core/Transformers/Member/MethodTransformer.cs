@@ -510,7 +510,7 @@ public class MethodTransformer : IMemberTransformer
                         break;
                     }
                     // Convert ref/out to Holder pattern
-                    javaParam = new JavaParameter(GetHolderType(javaType), paramName);
+                    javaParam = new JavaParameter(HolderTypeResolver.GetHolderType(javaType), paramName);
                     // Add import for the holder type if needed (Holder classes are in the project package)
                     break;
                 case SyntaxKind.ParamsKeyword:
@@ -537,11 +537,6 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return javaParam;
-    }
-
-    private static string GetHolderType(string javaType)
-    {
-        return CSharpToJava.Core.Transformers.Type.DelegateTransformer.GetHolderType(javaType);
     }
 
     /// <summary>

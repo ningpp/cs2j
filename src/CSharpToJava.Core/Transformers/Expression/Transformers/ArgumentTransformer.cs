@@ -5,7 +5,6 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
-using CSharpToJava.Core.Transformers.Type;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -197,8 +196,8 @@ public class ArgumentTransformer
                 var varName = svd.Identifier.Text;
                 var holderName = context.AllocateOutHolderName(varName);
                 var javaType = ResolveOutVarType(outDecl, context);
-                var holderType = DelegateTransformer.GetHolderType(javaType);
-                var holderInit = GetHolderInstantiation(holderType);
+                var holderType = HolderTypeResolver.GetHolderType(javaType);
+                var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.SetActiveRefHolder(varName, holderName);
                 context.AddPostStatement($"{javaType} {varName} = {holderName}.value");
@@ -226,8 +225,8 @@ public class ArgumentTransformer
                     if (typeInfo.Type != null)
                         javaType = context.MapType(typeInfo.Type);
                 }
-                var holderType = DelegateTransformer.GetHolderType(javaType);
-                var holderInit = GetHolderInstantiation(holderType);
+                var holderType = HolderTypeResolver.GetHolderType(javaType);
+                var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.SetActiveRefHolder(varName, holderName);
                 context.AddPostStatement($"{varName} = {holderName}.value");
@@ -248,8 +247,8 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
 
-                var holderType = DelegateTransformer.GetHolderType(javaType);
-                var holderInit = GetHolderInstantiation(holderType);
+                var holderType = HolderTypeResolver.GetHolderType(javaType);
+                var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
 
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.AddPostStatement($"{exprText} = {holderName}.value");
@@ -301,10 +300,8 @@ public class ArgumentTransformer
                     if (typeInfo.Type != null)
                         javaType = context.MapType(typeInfo.Type);
                 }
-                var refHolderType = DelegateTransformer.GetHolderType(javaType);
-                var refHolderInit = refHolderType.StartsWith("ObjectHolder<")
-                    ? $"new ObjectHolder<>({varName})"
-                    : $"new {refHolderType}({varName})";
+                var refHolderType = HolderTypeResolver.GetHolderType(javaType);
+                var refHolderInit = HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
                 context.AddPostStatement($"{ConversionContext.EscapeJavaKeyword(varName)} = {refHolderName}.value");
                 return refHolderName;
@@ -325,10 +322,8 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
 
-                var holderType = DelegateTransformer.GetHolderType(javaType);
-                var holderInit = holderType.StartsWith("ObjectHolder<")
-                    ? $"new ObjectHolder<>({exprText})"
-                    : $"new {holderType}({exprText})";
+                var holderType = HolderTypeResolver.GetHolderType(javaType);
+                var holderInit = HolderTypeResolver.GetHolderInstantiationWithValue(holderType, exprText);
 
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.AddPostStatement($"{exprText} = {holderName}.value");
@@ -347,17 +342,6 @@ public class ArgumentTransformer
         }
 
         return transformer.Transform(arg.Expression, context);
-    }
-
-    /// <summary>
-    /// Returns the Java constructor call for a holder type.
-    /// Generic ObjectHolder&lt;T&gt; uses diamond type inference; primitive holders use default constructor.
-    /// </summary>
-    private static string GetHolderInstantiation(string holderType)
-    {
-        if (holderType.StartsWith("ObjectHolder<"))
-            return "new ObjectHolder<>()";
-        return $"new {holderType}()";
     }
 
     /// <summary>
