@@ -262,6 +262,12 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                 => $"({BuildSwitchArmCondition(expr, bin.Left, context)} && {BuildSwitchArmCondition(expr, bin.Right, context)})",
             BinaryPatternSyntax bin when bin.IsKind(SyntaxKind.OrPattern)
                 => $"({BuildSwitchArmCondition(expr, bin.Left, context)} || {BuildSwitchArmCondition(expr, bin.Right, context)})",
+            RecursivePatternSyntax recPattern
+                => BuildRecursivePatternCondition(expr, recPattern, context),
+            VarPatternSyntax varPattern
+                => BuildVarPatternCondition(expr, varPattern),
+            ParenthesizedPatternSyntax parenPattern
+                => BuildSwitchArmCondition(expr, parenPattern.Pattern, context),
             _ => $"/* TODO: pattern {pattern.GetType().Name} */ true"
         };
     }
@@ -276,6 +282,57 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             _ => "_unused"
         };
         return $"({expr} instanceof {mappedType} {designation})";
+    }
+
+    private string BuildRecursivePatternCondition(string expr, RecursivePatternSyntax pattern, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        string? typeName = null;
+        if (pattern.Type != null)
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
+            typeName = (typeInfo.HasValue && typeInfo.Value.Type != null)
+                ? context.MapType(typeInfo.Value.Type)
+                : context.MapTypeFromSyntax(pattern.Type);
+        }
+
+        var conditions = new List<string>();
+        if (typeName != null)
+            conditions.Add($"{expr} instanceof {typeName}");
+
+        if (pattern.PropertyPatternClause != null && typeName != null)
+        {
+            var cast = $"(({typeName}){expr})";
+            foreach (var sub in pattern.PropertyPatternClause.Subpatterns)
+            {
+                string? propName = sub.NameColon?.Name.Identifier.Text
+                    ?? (sub.ExpressionColon?.Expression is IdentifierNameSyntax idName ? idName.Identifier.Text : null);
+                if (propName == null) continue;
+                string getter = $"{cast}.get{char.ToUpperInvariant(propName[0])}{propName[1..]}()";
+                string cond = BuildSwitchArmCondition(getter, sub.Pattern, context);
+                conditions.Add(cond);
+            }
+        }
+
+        if (pattern.Designation is SingleVariableDesignationSyntax sv)
+        {
+            var varName = ConversionContext.EscapeJavaKeyword(sv.Identifier.Text);
+            if (typeName != null)
+                conditions.Add($"({varName} = ({typeName}){expr}) != null");
+        }
+
+        return conditions.Count > 0
+            ? string.Join(" && ", conditions)
+            : "true";
+    }
+
+    private string BuildVarPatternCondition(string expr, VarPatternSyntax pattern)
+    {
+        // `var x` always matches, assign x = expr
+        var designation = pattern.Designation.ToString();
+        if (designation != "_")
+            return $"({ConversionContext.EscapeJavaKeyword(designation)} = {expr}) != null || true";
+        return "true";
     }
 
     // with expression — for Java records, build a new record constructor call with overridden fields;

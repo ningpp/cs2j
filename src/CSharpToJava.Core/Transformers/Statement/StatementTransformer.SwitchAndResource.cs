@@ -18,6 +18,78 @@ public partial class StatementTransformer
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var expression = exprTransformer.Transform(stmt.Expression, context);
 
+        // Check if any section uses pattern-matching case labels — if so, convert the
+        // entire switch to an if-else chain since Java switch doesn't support arbitrary patterns.
+        bool hasPatternCases = stmt.Sections.Any(s =>
+            s.Labels.Any(l => l is CasePatternSwitchLabelSyntax));
+
+        if (hasPatternCases)
+            return TransformPatternSwitchToIfElse(stmt, expression, context);
+
+        return TransformPlainSwitch(stmt, expression, context);
+    }
+
+    private JavaSyntaxNode TransformPatternSwitchToIfElse(SwitchStatementSyntax stmt, string expression, ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var sb = new System.Text.StringBuilder();
+        bool first = true;
+
+        foreach (var section in stmt.Sections)
+        {
+            var stmtTransformer = new StatementTransformer();
+            var statements = section.Statements.Select(s =>
+                stmtTransformer.Transform(s, context).ToString("")).ToList();
+            // Strip trailing break statements (they're implicit in if-else)
+            statements = statements.Where(s => s.Trim() != "break;").ToList();
+            var body = string.Join("\n        ", statements);
+
+            foreach (var label in section.Labels)
+            {
+                if (label is DefaultSwitchLabelSyntax)
+                {
+                    sb.Append(" else {\n        ");
+                    sb.Append(body);
+                    sb.Append("\n    }");
+                }
+                else
+                {
+                    string condition;
+                    if (label is CasePatternSwitchLabelSyntax patternLabel)
+                    {
+                        condition = BuildCasePatternCondition(expression, patternLabel, context);
+                    }
+                    else if (label is CaseSwitchLabelSyntax caseLabel)
+                    {
+                        var transformedLabel = exprTransformer.Transform(caseLabel.Value, context);
+                        condition = $"java.util.Objects.equals({expression}, {transformedLabel})";
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
+                    if (first)
+                    {
+                        sb.Append($"if ({condition}) {{\n        ");
+                        first = false;
+                    }
+                    else
+                    {
+                        sb.Append($" else if ({condition}) {{\n        ");
+                    }
+                    sb.Append(body);
+                    sb.Append("\n    }");
+                }
+            }
+        }
+
+        return new JavaStatementNode(sb.ToString());
+    }
+
+    private JavaSyntaxNode TransformPlainSwitch(SwitchStatementSyntax stmt, string expression, ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var sections = new List<string>();
 
         foreach (var section in stmt.Sections)
@@ -219,5 +291,114 @@ public partial class StatementTransformer
     {
         // Fix 1: Java arithmetic is always unchecked; simply emit the inner block
         return new JavaStatementNode(TransformBlock(stmt.Block, context));
+    }
+
+    private string BuildCasePatternCondition(string expr, CasePatternSwitchLabelSyntax label, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var condition = BuildPatternCondition(expr, label.Pattern, context);
+
+        // Handle `when` clause
+        if (label.WhenClause != null)
+        {
+            var whenCond = facade.Transform(label.WhenClause.Condition, context);
+            condition = $"{condition} && {whenCond}";
+        }
+
+        return condition;
+    }
+
+    private string BuildPatternCondition(string expr, PatternSyntax pattern, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        return pattern switch
+        {
+            ConstantPatternSyntax cp when cp.Expression.IsKind(SyntaxKind.NullLiteralExpression)
+                => $"({expr} == null)",
+            ConstantPatternSyntax cp
+                => $"java.util.Objects.equals({expr}, {facade.Transform(cp.Expression, context)})",
+            DeclarationPatternSyntax dp
+                => BuildDeclPatternCondition(expr, dp, context),
+            TypePatternSyntax tp
+                => $"({expr} instanceof {context.MapTypeFromSyntax(tp.Type)})",
+            DiscardPatternSyntax
+                => "true",
+            UnaryPatternSyntax np when np.OperatorToken.IsKind(SyntaxKind.NotKeyword)
+                => $"!({BuildPatternCondition(expr, np.Pattern, context)})",
+            RelationalPatternSyntax rel
+                => $"({expr} {rel.OperatorToken.Text} {facade.Transform(rel.Expression, context)})",
+            BinaryPatternSyntax bin when bin.IsKind(SyntaxKind.AndPattern)
+                => $"({BuildPatternCondition(expr, bin.Left, context)} && {BuildPatternCondition(expr, bin.Right, context)})",
+            BinaryPatternSyntax bin when bin.IsKind(SyntaxKind.OrPattern)
+                => $"({BuildPatternCondition(expr, bin.Left, context)} || {BuildPatternCondition(expr, bin.Right, context)})",
+            RecursivePatternSyntax recPattern
+                => BuildRecursiveCondition(expr, recPattern, context),
+            VarPatternSyntax varPattern
+                => BuildVarCondition(expr, varPattern),
+            ParenthesizedPatternSyntax parenPattern
+                => BuildPatternCondition(expr, parenPattern.Pattern, context),
+            _ => $"/* TODO: pattern {pattern.GetType().Name} */ true"
+        };
+    }
+
+    private string BuildDeclPatternCondition(string expr, DeclarationPatternSyntax dp, ConversionContext context)
+    {
+        var mappedType = context.MapTypeFromSyntax(dp.Type);
+        var designation = dp.Designation switch
+        {
+            SingleVariableDesignationSyntax sv => ConversionContext.EscapeJavaKeyword(sv.Identifier.Text),
+            DiscardDesignationSyntax => "_",
+            _ => "_unused"
+        };
+        return $"({expr} instanceof {mappedType} {designation})";
+    }
+
+    private string BuildRecursiveCondition(string expr, RecursivePatternSyntax pattern, ConversionContext context)
+    {
+        string? typeName = null;
+        if (pattern.Type != null)
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
+            typeName = (typeInfo.HasValue && typeInfo.Value.Type != null)
+                ? context.MapType(typeInfo.Value.Type)
+                : context.MapTypeFromSyntax(pattern.Type);
+        }
+
+        var conditions = new List<string>();
+        if (typeName != null)
+            conditions.Add($"{expr} instanceof {typeName}");
+
+        if (pattern.PropertyPatternClause != null && typeName != null)
+        {
+            var cast = $"(({typeName}){expr})";
+            foreach (var sub in pattern.PropertyPatternClause.Subpatterns)
+            {
+                string? propName = sub.NameColon?.Name.Identifier.Text
+                    ?? (sub.ExpressionColon?.Expression is IdentifierNameSyntax idName ? idName.Identifier.Text : null);
+                if (propName == null) continue;
+                string getter = $"{cast}.get{char.ToUpperInvariant(propName[0])}{propName[1..]}()";
+                string cond = BuildPatternCondition(getter, sub.Pattern, context);
+                conditions.Add(cond);
+            }
+        }
+
+        if (pattern.Designation is SingleVariableDesignationSyntax sv)
+        {
+            var varName = ConversionContext.EscapeJavaKeyword(sv.Identifier.Text);
+            if (typeName != null)
+                conditions.Add($"({varName} = ({typeName}){expr}) != null");
+        }
+
+        return conditions.Count > 0
+            ? string.Join(" && ", conditions)
+            : "true";
+    }
+
+    private string BuildVarCondition(string expr, VarPatternSyntax pattern)
+    {
+        var designation = pattern.Designation.ToString();
+        if (designation != "_")
+            return $"({ConversionContext.EscapeJavaKeyword(designation)} = {expr}) != null || true";
+        return "true";
     }
 }

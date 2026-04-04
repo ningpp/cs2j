@@ -327,8 +327,69 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             DeclarationPatternSyntax declPattern => TransformDeclarationPattern(expression, declPattern, context),
             ConstantPatternSyntax constPattern => TransformConstantPattern(expression, constPattern, context),
             RecursivePatternSyntax recPattern => TransformRecursivePattern(expression, recPattern, context),
-            _ => $"/* TODO: complex pattern */ {expression}"
+            UnaryPatternSyntax unaryPattern when unaryPattern.OperatorToken.IsKind(SyntaxKind.NotKeyword)
+                => $"!({TransformIsPatternInner(expression, unaryPattern.Pattern, context)})",
+            BinaryPatternSyntax binPattern when binPattern.IsKind(SyntaxKind.AndPattern)
+                => $"({TransformIsPatternInner(expression, binPattern.Left, context)} && {TransformIsPatternInner(expression, binPattern.Right, context)})",
+            BinaryPatternSyntax binPattern when binPattern.IsKind(SyntaxKind.OrPattern)
+                => $"({TransformIsPatternInner(expression, binPattern.Left, context)} || {TransformIsPatternInner(expression, binPattern.Right, context)})",
+            RelationalPatternSyntax relPattern
+                => $"{expression} {relPattern.OperatorToken.Text} {facade.Transform(relPattern.Expression, context)}",
+            TypePatternSyntax typePattern
+                => $"{expression} instanceof {context.MapTypeFromSyntax(typePattern.Type)}",
+            VarPatternSyntax varPattern
+                => TransformVarPattern(expression, varPattern, context),
+            ParenthesizedPatternSyntax parenPattern
+                => TransformIsPatternInner(expression, parenPattern.Pattern, context),
+            DiscardPatternSyntax => "true",
+            _ => $"/* TODO: complex pattern {pattern.GetType().Name} */ {expression}"
         };
+    }
+
+    /// <summary>
+    /// Recursive helper for pattern matching — delegates to the same pattern dispatch logic.
+    /// Used by unary/binary/parenthesized patterns that nest other patterns.
+    /// </summary>
+    private string TransformIsPatternInner(string expression, PatternSyntax pattern, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        return pattern switch
+        {
+            DeclarationPatternSyntax declPattern => TransformDeclarationPattern(expression, declPattern, context),
+            ConstantPatternSyntax constPattern => TransformConstantPattern(expression, constPattern, context),
+            RecursivePatternSyntax recPattern => TransformRecursivePattern(expression, recPattern, context),
+            UnaryPatternSyntax unaryPattern when unaryPattern.OperatorToken.IsKind(SyntaxKind.NotKeyword)
+                => $"!({TransformIsPatternInner(expression, unaryPattern.Pattern, context)})",
+            BinaryPatternSyntax binPattern when binPattern.IsKind(SyntaxKind.AndPattern)
+                => $"({TransformIsPatternInner(expression, binPattern.Left, context)} && {TransformIsPatternInner(expression, binPattern.Right, context)})",
+            BinaryPatternSyntax binPattern when binPattern.IsKind(SyntaxKind.OrPattern)
+                => $"({TransformIsPatternInner(expression, binPattern.Left, context)} || {TransformIsPatternInner(expression, binPattern.Right, context)})",
+            RelationalPatternSyntax relPattern
+                => $"{expression} {relPattern.OperatorToken.Text} {facade.Transform(relPattern.Expression, context)}",
+            TypePatternSyntax typePattern
+                => $"{expression} instanceof {context.MapTypeFromSyntax(typePattern.Type)}",
+            VarPatternSyntax varPattern
+                => TransformVarPattern(expression, varPattern, context),
+            ParenthesizedPatternSyntax parenPattern
+                => TransformIsPatternInner(expression, parenPattern.Pattern, context),
+            DiscardPatternSyntax => "true",
+            _ => $"/* TODO: sub-pattern {pattern.GetType().Name} */ true"
+        };
+    }
+
+    private string TransformVarPattern(string expression, VarPatternSyntax pattern, ConversionContext context)
+    {
+        // `obj is var x` always matches; assign x = obj and evaluate to true.
+        // In Java, we can use inline assignment: (x = obj) != null || true
+        // But for simplicity, since `is var x` always matches, we generate `true`
+        // and rely on the enclosing context to handle the variable introduction.
+        var designation = pattern.Designation.ToString();
+        if (designation != "_")
+        {
+            // For named var patterns, the variable is effectively an alias
+            return $"({ConversionContext.EscapeJavaKeyword(designation)} = {expression}) != null || true";
+        }
+        return "true";
     }
 
     private string TransformDeclarationPattern(string expression, DeclarationPatternSyntax pattern, ConversionContext context)
