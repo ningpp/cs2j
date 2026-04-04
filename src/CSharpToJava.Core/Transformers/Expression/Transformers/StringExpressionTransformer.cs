@@ -36,7 +36,89 @@ public class StringExpressionTransformer : IIRExpressionTransformer
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
-        => new JavaRawExpression(Transform(node, context));
+    {
+        if (node is not InterpolatedStringExpressionSyntax interpNode)
+            return new JavaRawExpression(Transform(node, context));
+
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // Detect string kind
+        var startTokenKind = interpNode.StringStartToken.Kind();
+        var isVerbatim = startTokenKind == SyntaxKind.InterpolatedVerbatimStringStartToken;
+        var isRaw = startTokenKind == SyntaxKind.InterpolatedSingleLineRawStringStartToken
+                 || startTokenKind == SyntaxKind.InterpolatedMultiLineRawStringStartToken;
+
+        bool hasFormatSpecifiers = interpNode.Contents
+            .OfType<InterpolationSyntax>()
+            .Any(i => i.FormatClause != null);
+
+        // String.format path → JavaMethodCallExpression(String, "format", [...])
+        if (hasFormatSpecifiers)
+        {
+            var code = EmitStringFormat(interpNode, isVerbatim, isRaw, context);
+            return new JavaRawExpression(code);
+        }
+
+        // Concatenation path — collect parts as IR nodes
+        var parts = new List<JavaExpression>();
+        var currentText = new StringBuilder();
+
+        foreach (var content in interpNode.Contents)
+        {
+            if (content is InterpolatedStringTextSyntax textSyntax)
+            {
+                currentText.Append(GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw));
+            }
+            else if (content is InterpolationSyntax interpolation)
+            {
+                if (currentText.Length > 0)
+                {
+                    parts.Add(new JavaLiteralExpression { Value = $"\"{currentText}\"" });
+                    currentText.Clear();
+                }
+
+                var exprIR = facade.TransformToIR(interpolation.Expression, context);
+                var exprType = context.SemanticModel?.GetTypeInfo(interpolation.Expression);
+                if (exprType.HasValue && exprType.Value.Type != null)
+                {
+                    var typeName = context.MapType(exprType.Value.Type);
+                    if (!IsStringType(typeName) && !IsPrimitiveType(typeName))
+                    {
+                        // Wrap in String.valueOf(expr)
+                        var valueOf = new JavaMethodCallExpression
+                        {
+                            Target = new JavaIdentifierExpression { Name = "String" },
+                            MethodName = "valueOf"
+                        };
+                        valueOf.Arguments.Add(exprIR);
+                        exprIR = valueOf;
+                    }
+                }
+                parts.Add(exprIR);
+            }
+        }
+
+        if (currentText.Length > 0)
+            parts.Add(new JavaLiteralExpression { Value = $"\"{currentText}\"" });
+
+        if (parts.Count == 0) return new JavaLiteralExpression { Value = "\"\"" };
+        if (parts.Count == 1) return parts[0];
+
+        // 4+ parts → StringBuilder — fall back to raw (complex chain)
+        if (parts.Count >= 4)
+        {
+            var code = Transform(node, context);
+            return new JavaRawExpression(code);
+        }
+
+        // 2-3 parts → JavaBinaryExpression chain with "+"
+        JavaExpression result = parts[0];
+        for (int i = 1; i < parts.Count; i++)
+        {
+            result = new JavaBinaryExpression { Left = result, Operator = "+", Right = parts[i] };
+        }
+        return result;
+    }
 
     private string TransformInterpolatedString(InterpolatedStringExpressionSyntax node, ConversionContext context)
     {

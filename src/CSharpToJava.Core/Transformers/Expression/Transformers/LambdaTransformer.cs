@@ -41,7 +41,61 @@ public class LambdaTransformer : IIRExpressionTransformer
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
-        => new JavaRawExpression(Transform(node, context));
+    {
+        // For simple non-async, non-capture-mutating lambdas, produce JavaLambdaExpression
+        if (node is LambdaExpressionSyntax lambda)
+        {
+            bool isAsync = lambda.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword));
+            if (!isAsync && lambda.ExpressionBody != null)
+            {
+                var mutatedCaptures = GetMutatedCaptures(lambda, context);
+                if (mutatedCaptures.Count == 0)
+                {
+                    // Collect parameters
+                    IEnumerable<ParameterSyntax> parameters = lambda switch
+                    {
+                        SimpleLambdaExpressionSyntax simple => [simple.Parameter],
+                        ParenthesizedLambdaExpressionSyntax paren => paren.ParameterList.Parameters,
+                        _ => []
+                    };
+
+                    var javaParams = parameters
+                        .Select(p =>
+                        {
+                            string name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
+                            if (p.Type != null)
+                            {
+                                string javaType = context.MapTypeFromSyntax(p.Type);
+                                return $"{javaType} {name}";
+                            }
+                            return name;
+                        })
+                        .ToList();
+
+                    var facade = ExpressionTransformerFacade.Instance;
+
+                    // Check for pre-statements from expression body
+                    bool hadPendingPreBefore = context.HasPendingPreStatements;
+                    var bodyIR = facade.TransformToIR(lambda.ExpressionBody, context);
+
+                    bool hasNewPreStatements = !hadPendingPreBefore && context.HasPendingPreStatements;
+                    if (!hasNewPreStatements)
+                    {
+                        var lambdaIR = new JavaLambdaExpression
+                        {
+                            ExpressionBody = bodyIR
+                        };
+                        lambdaIR.Parameters.AddRange(javaParams);
+                        return lambdaIR;
+                    }
+                    // If pre-statements were generated, fall through to raw
+                    // (the pre-statements are already drained from context)
+                }
+            }
+        }
+
+        return new JavaRawExpression(Transform(node, context));
+    }
 
     private string TransformLambda(LambdaExpressionSyntax node, ConversionContext context)
     {

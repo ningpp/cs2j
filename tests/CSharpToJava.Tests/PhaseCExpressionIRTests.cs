@@ -807,5 +807,110 @@ class T {
 }");
         Assert.Contains("add(", result);
     }
+
+    // ── Phase 2: StringExpressionTransformer IR ────────────────────
+
+    [Fact]
+    public void String_SimpleConcat_ProducesBinaryIR()
+    {
+        // 2-part interpolation should produce JavaBinaryExpression chain
+        var ir = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression { Value = "\"Hello \"" },
+            Operator = "+",
+            Right = new JavaIdentifierExpression { Name = "name" }
+        };
+        Assert.Equal("\"Hello \" + name", ir.ToInlineString());
+    }
+
+    [Fact]
+    public void String_Interpolation_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string name = ""World"";
+        string s = $""Hello {name}"";
+    }
+}");
+        // Should contain string concatenation
+        Assert.Contains("Hello", result);
+        Assert.Contains("name", result);
+    }
+
+    [Fact]
+    public void String_InterpolationWithFormat_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        double d = 3.14;
+        string s = $""Value: {d:F2}"";
+    }
+}");
+        Assert.Contains("String.format", result);
+    }
+
+    // ── Phase 3: LambdaTransformer IR ──────────────────────────────
+
+    [Fact]
+    public void Lambda_ExpressionBody_ProducesIR()
+    {
+        var lambda = new JavaLambdaExpression
+        {
+            ExpressionBody = new JavaBinaryExpression
+            {
+                Left = new JavaIdentifierExpression { Name = "x" },
+                Operator = "+",
+                Right = new JavaLiteralExpression { Value = "1" }
+            }
+        };
+        lambda.Parameters.Add("x");
+        Assert.Equal("x -> x + 1", lambda.ToInlineString());
+    }
+
+    [Fact]
+    public void Lambda_MultiParam_ProducesIR()
+    {
+        var lambda = new JavaLambdaExpression
+        {
+            ExpressionBody = new JavaBinaryExpression
+            {
+                Left = new JavaIdentifierExpression { Name = "a" },
+                Operator = "+",
+                Right = new JavaIdentifierExpression { Name = "b" }
+            }
+        };
+        lambda.Parameters.Add("a");
+        lambda.Parameters.Add("b");
+        Assert.Equal("(a, b) -> a + b", lambda.ToInlineString());
+    }
+
+    [Fact]
+    public void Lambda_SimpleLambda_EndToEnd()
+    {
+        var result = ConvertCode(@"
+using System;
+class T {
+    void M() {
+        Func<int, int> f = x => x + 1;
+    }
+}");
+        Assert.Contains("->", result);
+        Assert.Contains("x + 1", result);
+    }
+
+    [Fact]
+    public void Lambda_ParenthesizedLambda_EndToEnd()
+    {
+        var result = ConvertCode(@"
+using System;
+class T {
+    void M() {
+        Func<int, int, int> f = (a, b) => a + b;
+    }
+}");
+        Assert.Contains("->", result);
+    }
 }
 
