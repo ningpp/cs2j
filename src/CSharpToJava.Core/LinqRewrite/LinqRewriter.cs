@@ -1042,7 +1042,28 @@ namespace CSharpToJava.Core.LinqRewrite
                         .NormalizeWhitespace();
             methodsToAddToCurrentType.Add(Tuple.Create(currentType, coreFunction));
 
-            IEnumerable<ArgumentSyntax> args = new[] { SyntaxFactory.Argument((ExpressionSyntax)Visit(collection)) }.Concat(arguments.Arguments.Skip(1));
+            // Java Map doesn't implement Iterable<Map.Entry> — need .entrySet()
+            // at the call site when a Dictionary is passed to Iterable<Entry> param.
+            var visitedCollection = (ExpressionSyntax)Visit(collection);
+            if (!usesIndexedLoop && collectionType is INamedTypeSymbol _namedDictType &&
+                (_namedDictType.OriginalDefinition.ToDisplayString() is
+                    "System.Collections.Generic.Dictionary<TKey, TValue>" or
+                    "System.Collections.Generic.IDictionary<TKey, TValue>" or
+                    "System.Collections.Generic.SortedDictionary<TKey, TValue>" or
+                    "System.Collections.Generic.SortedList<TKey, TValue>" or
+                    "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>" or
+                    "System.Collections.Concurrent.ConcurrentDictionary<TKey, TValue>" ||
+                 _namedDictType.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
+                    "System.Collections.Generic.IDictionary<TKey, TValue>")))
+            {
+                visitedCollection = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        visitedCollection,
+                        SyntaxFactory.IdentifierName("entrySet")));
+            }
+
+            IEnumerable<ArgumentSyntax> args = new[] { SyntaxFactory.Argument(visitedCollection) }.Concat(arguments.Arguments.Skip(1));
             if (additionalParameters != null) args = args.Concat(additionalParameters.Select(x => SyntaxFactory.Argument(x.Item2)));
             if (intermediateParams.Count > 0) args = args.Concat(intermediateParams.Select(x => SyntaxFactory.Argument(x.Item2)));
             var inv = SyntaxFactory.InvocationExpression(GetMethodNameSyntaxWithCurrentTypeParameters(functionName), CreateArguments(args));
