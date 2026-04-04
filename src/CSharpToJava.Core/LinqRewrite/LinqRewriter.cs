@@ -235,6 +235,26 @@ namespace CSharpToJava.Core.LinqRewrite
                                     if (!flowsOut.Contains(k)) flowsOut.Add(k);
                                 }
                             }
+                            else if (arg is AnonymousFunctionExpressionSyntax lambdaArg)
+                            {
+                                // Analyze the lambda BODY (not the whole expression) so that
+                                // variables written via 'out' inside the body are visible in
+                                // DataFlowsOut, and all captured reads appear in DataFlowsIn.
+                                var lambdaObj = new Lambda(lambdaArg);
+                                var dataFlow = semantic.AnalyzeDataFlow(lambdaObj.Body);
+                                var lambdaParamNames = new HashSet<string>(
+                                    lambdaObj.Parameters.Select(p => p.Identifier.ValueText));
+                                foreach (var k in dataFlow.DataFlowsIn)
+                                {
+                                    if (lambdaParamNames.Contains(k.Name)) continue;
+                                    if (!flowsIn.Contains(k)) flowsIn.Add(k);
+                                }
+                                foreach (var k in dataFlow.DataFlowsOut)
+                                {
+                                    if (lambdaParamNames.Contains(k.Name)) continue;
+                                    if (!flowsOut.Contains(k)) flowsOut.Add(k);
+                                }
+                            }
                             else
                             {
                                 var dataFlow = semantic.AnalyzeDataFlow(arg);
@@ -246,6 +266,23 @@ namespace CSharpToJava.Core.LinqRewrite
                                 {
                                     if (!flowsOut.Contains(k)) flowsOut.Add(k);
                                 }
+                            }
+                        }
+                    }
+
+                    // Also analyze the collection expression for captured variables
+                    // (e.g. cluster.Nodes — cluster must be captured too).
+                    {
+                        var collectionExpr = ((MemberAccessExpressionSyntax)lastNode.Expression).Expression;
+                        while (collectionExpr is ParenthesizedExpressionSyntax paren)
+                            collectionExpr = paren.Expression;
+                        var collectionDataFlow = semantic.AnalyzeDataFlow(collectionExpr);
+                        if (collectionDataFlow.Succeeded)
+                        {
+                            foreach (var k in collectionDataFlow.DataFlowsIn)
+                            {
+                                if ((k as IParameterSymbol)?.IsThis == true) continue;
+                                if (!flowsIn.Contains(k)) flowsIn.Add(k);
                             }
                         }
                     }
