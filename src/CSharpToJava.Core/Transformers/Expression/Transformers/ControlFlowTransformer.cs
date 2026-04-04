@@ -118,6 +118,12 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             }
         }
 
+        // In Java, assignment has lower precedence than the ternary operator.
+        // C# allows `cond ? a : b = expr` but Java parses it as `(cond ? a : b) = expr`.
+        // Wrap the false branch in parentheses when it contains an assignment.
+        if (node.WhenFalse is AssignmentExpressionSyntax)
+            falseExpr = $"({falseExpr})";
+
         return $"({condition} ? {trueExpr} : {falseExpr})";
     }
 
