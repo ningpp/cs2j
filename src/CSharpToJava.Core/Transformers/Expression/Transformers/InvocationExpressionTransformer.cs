@@ -431,7 +431,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var receiver = memberAccess.Expression is GenericNameSyntax genericReceiverName
             ? ConversionContext.EscapeJavaKeyword(genericReceiverName.Identifier.Text)
             : facade.Transform(memberAccess.Expression, context);
-        if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+        var originalMethodName = memberAccess.Name.Identifier.Text;
+        var earlyMethodSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+
+        // Replace receiver with mapped static type reference ONLY when the method is
+        // actually static (or unresolved).  Instance methods on fields/locals must keep
+        // the original expression as receiver — otherwise xmlTextReader.Close() would
+        // incorrectly become XmlTextReader.close() (static call syntax).
+        if (earlyMethodSymbol is not { IsStatic: false }
+            && ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
             memberAccess.Expression,
             context,
             boxJavaPrimitiveType: true,
@@ -440,8 +448,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             receiver = staticReceiver;
         }
-        var originalMethodName = memberAccess.Name.Identifier.Text;
-        var earlyMethodSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
         // C# Enum.HasFlag(flag) → Java bitwise check: (receiver & argument) != 0
         // [Flags] enums are mapped to int in Java, so bitwise operations are valid.
@@ -1466,7 +1472,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Guard: skip when the receiver is a GenericNameSyntax — it was already correctly
         // stripped of its type arguments by the fix above (e.g. DemoSet<string> → DemoSet),
         // and MapType on the containing type would re-introduce them (DemoSet<T>).
-        if (methodSymbol != null
+        // Guard: only for static methods — instance methods must keep the original receiver.
+        if (methodSymbol is { IsStatic: true }
             && ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
                 memberAccess.Expression,
                 context,
