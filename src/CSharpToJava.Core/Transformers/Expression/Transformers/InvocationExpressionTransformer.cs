@@ -1274,12 +1274,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var outArg = node.ArgumentList.Arguments[1];
             var outHolderArg = facade.Transform(outArg.Expression, context);
+            // Detect whether the out argument is a holder variable (needs .value access).
+            // This can be: (a) an explicitly-allocated holder (_xxxHolder), or
+            // (b) a method parameter that was converted from C# out/ref to a Java holder type.
+            bool isHolder = false;
             if (IsSimpleIdentifier(outHolderArg))
             {
-                // Detect whether the out argument is a holder variable (needs .value access).
-                // This can be: (a) an explicitly-allocated holder (_xxxHolder), or
-                // (b) a method parameter that was converted from C# out/ref to a Java holder type.
-                bool isHolder = outHolderArg.StartsWith("_", StringComparison.Ordinal)
+                isHolder = outHolderArg.StartsWith("_", StringComparison.Ordinal)
                     && outHolderArg.EndsWith("Holder", StringComparison.Ordinal);
                 if (!isHolder && context.SemanticModel != null)
                 {
@@ -1289,9 +1290,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
                 if (!isHolder)
                     isHolder = context.TryGetActiveRefHolder(outHolderArg, out _);
-                var assignTarget = isHolder ? $"{outHolderArg}.value" : outHolderArg;
-                return $"(({assignTarget} = {receiver}.get({keyArg})) != null || {receiver}.containsKey({keyArg}))";
             }
+            var assignTarget = isHolder ? $"{outHolderArg}.value" : outHolderArg;
+            return $"(({assignTarget} = {receiver}.get({keyArg})) != null || {receiver}.containsKey({keyArg}))";
         }
 
         // Fix: Array.GetLength(dim) → Java dimensional length access.

@@ -127,6 +127,42 @@ public partial class StatementTransformer
 
                 return new JavaStatementNode(ifSb2.ToString());
             }
+
+            // Case C: out complexTarget (e.g., Result[i], obj.Field — any non-identifier, non-declaration)
+            // For value-type targets, assignment of null (from get on missing key) would NPE on unboxing.
+            // Use containsKey approach: if (!dict.containsKey(key)) { thenBody } else { target = dict.get(key); }
+            {
+                var tvTarget = exprTransformer.Transform(tvIfMa.Expression, context);
+                var tvKey = exprTransformer.Transform(tvIfInvoc.ArgumentList.Arguments[0].Expression, context);
+                var outTarget = exprTransformer.Transform(tvOutArg.Expression, context);
+
+                var tvStmtTransformer3 = new StatementTransformer();
+                string thenBody;
+                if (stmt.Statement is BlockSyntax tvIfThenBlock3)
+                    thenBody = $"{{\n        {TransformBlock(tvIfThenBlock3, context)}\n    }}";
+                else
+                    thenBody = $"{{ {tvStmtTransformer3.Transform(stmt.Statement, context).ToString("")} }}";
+
+                var ifSb3 = new System.Text.StringBuilder();
+                ifSb3.Append($"if (!{tvTarget}.containsKey({tvKey})) {thenBody}");
+
+                string elseAssign = $"{outTarget} = {tvTarget}.get({tvKey});";
+                if (stmt.Else != null)
+                {
+                    string elseBody;
+                    if (stmt.Else.Statement is BlockSyntax tvIfElseBlock3)
+                        elseBody = TransformBlock(tvIfElseBlock3, context);
+                    else
+                        elseBody = tvStmtTransformer3.Transform(stmt.Else.Statement, context).ToString("");
+                    ifSb3.Append($" else {{\n        {elseAssign}\n        {elseBody}\n    }}");
+                }
+                else
+                {
+                    ifSb3.Append($" else {{\n        {elseAssign}\n    }}");
+                }
+
+                return new JavaStatementNode(ifSb3.ToString());
+            }
         }
 
         // Fix 5: Handle TryGetValue(key, out var value) or TryGetValue(key, out existingVar) in if condition
