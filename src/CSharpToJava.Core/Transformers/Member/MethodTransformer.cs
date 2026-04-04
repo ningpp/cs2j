@@ -648,11 +648,7 @@ public class MethodTransformer : IMemberTransformer
         bool isStreamExprType = exprType is INamedTypeSymbol exprNamed &&
             (exprNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" or "IGrouping" or "ILookup") &&
             exprNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
-        bool looksLikeStream = exprBody.Contains(".map(") || exprBody.Contains(".filter(") ||
-            exprBody.Contains(".flatMap(") || exprBody.Contains(".sorted(") ||
-            exprBody.Contains("stream(") || exprBody.Contains("Stream.concat") ||
-            exprBody.Contains(".distinct(") || exprBody.Contains(".limit(") ||
-            exprBody.Contains(".skip(") || exprBody.Contains(".peek(");
+        bool looksLikeStream = ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(exprBody);
 
         if (isStreamExprType && looksLikeStream)
         {

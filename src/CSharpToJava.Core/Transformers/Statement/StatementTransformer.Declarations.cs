@@ -314,13 +314,8 @@ public partial class StatementTransformer
                         // the variable is T[], not a stream, so do NOT register it as a stream variable.
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
                         && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
-                        && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
-                            initExpr.Contains(".map(") || initExpr.Contains(".flatMap(") ||
-                            initExpr.Contains("StreamSupport.stream(") || initExpr.Contains("Arrays.stream(") ||
-                            initExpr.Contains("IntStream.range(") ||
-                            initExpr.Contains(".stream()") || initExpr.Contains("Stream.concat(") ||
-                            initExpr.Contains(".distinct(") || initExpr.Contains(".limit(") ||
-                            initExpr.Contains(".skip(") || initExpr.Contains(".peek("));
+                        // Use top-level stream detection to avoid false positives from nested args
+                        && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(initExpr);
                     // Do NOT register if the variable's Java type is an array (e.g. Point[]).
                     // Arrays are directly iterable in Java; they are never Java streams.
                     bool isArrayJavaType = javaType.EndsWith("[]");

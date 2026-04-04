@@ -216,26 +216,14 @@ public partial class StatementTransformer
         // Use EndsWith check to avoid double-collecting an already-collected stream:
         // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
         // but we only skip if the OUTERMOST call is already .collect(Collectors.toCollection(() -> new ArrayList<>())).
+        // Use ContainsStreamMethodAtTopLevel to avoid false positives where stream calls
+        // appear only inside nested argument lists (e.g. method(x.stream().toArray(...))).
         bool isStream = !strippedTrailingStream
             && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
             && !EndsWithCollectCall(expression.TrimEnd())
             && !expression.TrimEnd().EndsWith(".toArray()")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
-            && (
-            expression.Contains("Stream.concat(") || expression.Contains("StreamSupport.stream(") ||
-            expression.Contains("Arrays.stream(") || expression.Contains("IntStream.range(") || expression.Contains(".stream()") ||
-            expression.Contains(".map(") ||
-            expression.Contains(".filter(") ||
-            expression.Contains(".flatMap(") ||
-            expression.Contains(".sorted(") ||
-            expression.Contains(".distinct(") ||
-            expression.Contains(".limit(") ||
-            expression.Contains(".skip(") ||
-            expression.Contains(".peek(") ||
-            expression.Contains(".mapToInt(") ||
-            expression.Contains(".mapToLong(") ||
-            expression.Contains(".mapToDouble(") ||
-            expression.Contains(".mapToObj("));
+            && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(expression);
 
         // Also detect by semantic type: if the C# expression type is IOrderedEnumerable or IQueryable
         // (both are always yielded as Java Streams by the LINQ translator), force-collect.
@@ -246,7 +234,14 @@ public partial class StatementTransformer
                     && csForeachType.Name != "IEnumerable" && csForeachType.Name != "ICollection"
                     && csForeachType.Name != "IGrouping");
             if (isLinqResult)
-                isStream = true;
+            {
+                // Guard: if the expression is a simple variable name that was NOT registered in
+                // StreamLocalVariables, its declaration already collected the stream.  Don't double-collect.
+                var exprTrimmed = expression.Trim();
+                bool isSimpleVar = !exprTrimmed.Contains('.') && !exprTrimmed.Contains('(');
+                if (!(isSimpleVar && !context.StreamLocalVariables.Contains(exprTrimmed)))
+                    isStream = true;
+            }
         }
 
         // Fallback: if the foreach expression is a locally-declared variable that was registered

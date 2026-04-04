@@ -1013,4 +1013,50 @@ public static class ExpressionTransformerHelpers
             SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte or
             SpecialType.System_Char;
     }
+
+    /// <summary>
+    /// Checks whether a Java expression contains stream-like method calls at the outermost
+    /// expression level (parenthesis depth 0), ignoring stream calls nested inside method
+    /// arguments.  This avoids false positives where e.g.
+    /// <c>createComponents(values().stream().toArray(...))</c> is incorrectly treated as a
+    /// stream expression.
+    /// </summary>
+    public static bool ContainsStreamMethodAtTopLevel(string expr)
+    {
+        if (string.IsNullOrEmpty(expr)) return false;
+
+        // Check top-level static factory calls (no leading dot)
+        // These are always at depth 0 if they start the expression.
+        int depth = 0;
+        for (int i = 0; i < expr.Length; i++)
+        {
+            char c = expr[i];
+            if (c == '(') depth++;
+            else if (c == ')') { depth--; if (depth < 0) depth = 0; }
+            else if (c == '.' && depth == 0 && i + 1 < expr.Length)
+            {
+                var rest = expr.AsSpan(i + 1);
+                if (StartsWithStreamMethod(rest))
+                    return true;
+            }
+        }
+
+        // Also check depth-0 top-level starts like Stream.concat(, StreamSupport.stream(, etc.
+        if (expr.StartsWith("Stream.concat(", StringComparison.Ordinal) ||
+            expr.StartsWith("StreamSupport.stream(", StringComparison.Ordinal) ||
+            expr.StartsWith("Arrays.stream(", StringComparison.Ordinal) ||
+            expr.StartsWith("IntStream.range(", StringComparison.Ordinal))
+            return true;
+
+        return false;
+    }
+
+    private static bool StartsWithStreamMethod(ReadOnlySpan<char> s)
+    {
+        return s.StartsWith("stream(") || s.StartsWith("map(") || s.StartsWith("filter(") ||
+               s.StartsWith("flatMap(") || s.StartsWith("sorted(") || s.StartsWith("distinct(") ||
+               s.StartsWith("limit(") || s.StartsWith("skip(") || s.StartsWith("peek(") ||
+               s.StartsWith("mapToInt(") || s.StartsWith("mapToLong(") || s.StartsWith("mapToDouble(") ||
+               s.StartsWith("mapToObj(") || s.StartsWith("select(") || s.StartsWith("concat(");
+    }
 }
