@@ -1766,6 +1766,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.append(String.format({fmtArgs}))";
         }
 
+        // Delegate .Invoke(args) fallback: when the semantic model couldn't identify this as
+        // MethodKind.DelegateInvoke (e.g. in project pipeline with incomplete assembly refs),
+        // use InferSamMethodName heuristic based on argument count and expression position.
+        // .Invoke() is almost exclusively used for C# delegate invocations.
+        if (methodName == "Invoke" && methodName == originalMethodName)
+        {
+            bool seemsVoid = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax;
+            int paramCount = node.ArgumentList.Arguments.Count;
+            methodName = Type.DelegateTransformer.InferSamMethodName(seemsVoid, paramCount);
+        }
+
         // Apply the same camelCase conversion at call sites that MethodTransformer applies at
         // declaration sites.  Only runs when no explicit TypeMappings override was found so that
         // hand-crafted renames (e.g. Add → add) are never double-processed.

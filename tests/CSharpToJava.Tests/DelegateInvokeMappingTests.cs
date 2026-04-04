@@ -1,0 +1,106 @@
+using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Pipeline;
+
+namespace CSharpToJava.Tests;
+
+/// <summary>
+/// Tests that C# delegate .Invoke() is mapped to the correct Java SAM method name
+/// instead of being lowercased to "invoke" (which doesn't exist on Java functional interfaces).
+/// </summary>
+public class DelegateInvokeMappingTests
+{
+    [Fact]
+    public void DelegateInvoke_VoidNoArgs_MappedToRun()
+    {
+        var result = Convert(@"
+using System;
+
+class Test
+{
+    Action handler;
+    void M()
+    {
+        handler.Invoke();
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain(".invoke()", result.GeneratedCode);
+        Assert.DoesNotContain(".Invoke()", result.GeneratedCode);
+        Assert.Contains(".run()", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void DelegateInvoke_VoidWithArgs_MappedToAccept()
+    {
+        var result = Convert(@"
+using System;
+
+class Test
+{
+    Action<int> handler;
+    void M()
+    {
+        handler.Invoke(42);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain(".invoke(", result.GeneratedCode);
+        Assert.DoesNotContain(".Invoke(", result.GeneratedCode);
+        Assert.Contains(".accept(42)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void DelegateInvoke_WithReturnValue_MappedToApply()
+    {
+        var result = Convert(@"
+using System;
+
+class Test
+{
+    Func<int, string> converter;
+    void M()
+    {
+        var result = converter.Invoke(42);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain(".invoke(", result.GeneratedCode);
+        Assert.DoesNotContain(".Invoke(", result.GeneratedCode);
+        Assert.Contains(".apply(42)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void CustomDelegate_Invoke_MappedToCorrectSAM()
+    {
+        var result = Convert(@"
+delegate void MyCallback();
+
+class Test
+{
+    MyCallback callback;
+    void M()
+    {
+        callback.Invoke();
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain(".invoke()", result.GeneratedCode);
+        Assert.DoesNotContain(".Invoke()", result.GeneratedCode);
+        Assert.Contains(".run()", result.GeneratedCode);
+    }
+
+    private static ConversionResult Convert(string sourceCode)
+    {
+        var pipeline = new ConversionPipeline();
+        return pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = sourceCode,
+            FileName = "Test.cs",
+            Options = new ConversionOptions(),
+        });
+    }
+}
