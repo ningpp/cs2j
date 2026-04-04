@@ -1421,11 +1421,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // TypeMappings.json uses the fully-qualified "System.Int32" form,
             // so the lookup with the keyword alias would miss. Try the FQN as a fallback.
             var receiverTypeName = methodSymbol.ContainingType.ToDisplayString();
-            var mapped = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
+            var paramCount = methodSymbol.Parameters.Length;
+            var mapped = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName, paramCount);
             if (mapped == null)
             {
                 var fqn = $"{methodSymbol.ContainingType.ContainingNamespace}.{methodSymbol.ContainingType.Name}";
-                mapped = context.TypeMappings.MapMethod(fqn, originalMethodName);
+                mapped = context.TypeMappings.MapMethod(fqn, originalMethodName, paramCount);
             }
             if (mapped != null)
                 methodName = mapped;

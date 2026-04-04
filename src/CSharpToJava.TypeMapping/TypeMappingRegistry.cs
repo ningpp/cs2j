@@ -96,7 +96,7 @@ public class TypeMappingRegistry
     private const string DefaultConfigSubDirectory = "config";
 
     private readonly Dictionary<string, TypeMappingEntry> _typeMappings = new();
-    private readonly Dictionary<(string TypeName, string MethodName), MethodMappingEntry> _methodMappings = new();
+    private readonly Dictionary<(string TypeName, string MethodName), List<MethodMappingEntry>> _methodMappings = new();
     private readonly Dictionary<string, string> _namespaceMappings = new();
 
     /// <summary>
@@ -192,7 +192,13 @@ public class TypeMappingRegistry
         // 加载方法映射
         foreach (var mapping in config.MethodMappings)
         {
-            _methodMappings[(mapping.TypeName, mapping.MethodName)] = mapping;
+            var key = (mapping.TypeName, mapping.MethodName);
+            if (!_methodMappings.TryGetValue(key, out var list))
+            {
+                list = new List<MethodMappingEntry>();
+                _methodMappings[key] = list;
+            }
+            list.Add(mapping);
         }
 
         // 加载命名空间映射
@@ -242,17 +248,26 @@ public class TypeMappingRegistry
     /// 映射方法名
     /// </summary>
     public string? MapMethod(string typeName, string methodName)
+        => MapMethod(typeName, methodName, paramCount: null);
+
+    /// <summary>
+    /// 映射方法名（参数数量感知重载）。
+    /// When multiple entries exist for the same (type, method) pair, uses <paramref name="paramCount"/>
+    /// and the <see cref="MethodMappingEntry.Signature"/> field to disambiguate.
+    /// </summary>
+    public string? MapMethod(string typeName, string methodName, int? paramCount)
     {
-        if (_methodMappings.TryGetValue((typeName, methodName), out var mapping))
+        if (_methodMappings.TryGetValue((typeName, methodName), out var entries))
         {
-            return mapping.JavaMethodName;
+            var resolved = ResolveMethodEntry(entries, paramCount);
+            if (resolved != null) return resolved.JavaMethodName;
         }
 
         // 尝试匹配类型的任何基类型
         // Handle generic type name format mismatch:
         //   Roslyn uses angle-bracket format: System.Collections.Generic.HashSet<T>
         //   JSON config uses backtick format:  System.Collections.Generic.HashSet`1
-        foreach (var (key, value) in _methodMappings)
+        foreach (var (key, entryList) in _methodMappings)
         {
             if (key.MethodName != methodName) continue;
 
@@ -261,7 +276,10 @@ public class TypeMappingRegistry
             // Generic type lookups with angle brackets should fall through to the backtick normalization below.
             if (typeName.StartsWith(key.TypeName)
                 && (typeName.Length == key.TypeName.Length || typeName[key.TypeName.Length] == '.'))
-                return value.JavaMethodName;
+            {
+                var resolved = ResolveMethodEntry(entryList, paramCount);
+                if (resolved != null) return resolved.JavaMethodName;
+            }
 
             // Normalize backtick suffix: "HashSet`1" → "HashSet", then match "HashSet<..."
             var backtickIdx = key.TypeName.LastIndexOf('`');
@@ -278,19 +296,28 @@ public class TypeMappingRegistry
                         if (typeName == baseKeyName)
                         {
                             // Non-generic usage — only match if expectedArity == 0 (no type params)
-                            if (expectedArity == 0) return value.JavaMethodName;
+                            if (expectedArity == 0)
+                            {
+                                var resolved = ResolveMethodEntry(entryList, paramCount);
+                                if (resolved != null) return resolved.JavaMethodName;
+                            }
                         }
                         else
                         {
                             // Count top-level commas inside <...> to determine actual arity.
                             // openAnglePos must point at the '<' character itself (not one past it).
                             int actualArity = CountTopLevelTypeArgs(typeName, baseKeyName.Length);
-                            if (actualArity == expectedArity) return value.JavaMethodName;
+                            if (actualArity == expectedArity)
+                            {
+                                var resolved = ResolveMethodEntry(entryList, paramCount);
+                                if (resolved != null) return resolved.JavaMethodName;
+                            }
                         }
                     }
                     else
                     {
-                        return value.JavaMethodName; // No arity in config key, use startsWith (legacy)
+                        var resolved = ResolveMethodEntry(entryList, paramCount);
+                        if (resolved != null) return resolved.JavaMethodName;
                     }
                 }
             }
@@ -315,6 +342,41 @@ public class TypeMappingRegistry
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Resolves the best matching method entry from a list, using <paramref name="paramCount"/>
+    /// to disambiguate when the <see cref="MethodMappingEntry.Signature"/> field is present.
+    /// Falls back to the first entry without a signature constraint.
+    /// </summary>
+    private static MethodMappingEntry? ResolveMethodEntry(List<MethodMappingEntry> entries, int? paramCount)
+    {
+        if (entries.Count == 1)
+            return entries[0];
+
+        // If paramCount is provided, try to match entries with a signature that specifies param count
+        if (paramCount.HasValue)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry.Signature != null
+                    && int.TryParse(entry.Signature, out var sigParamCount)
+                    && sigParamCount == paramCount.Value)
+                {
+                    return entry;
+                }
+            }
+        }
+
+        // Fall back to the entry without a signature (generic fallback)
+        foreach (var entry in entries)
+        {
+            if (string.IsNullOrEmpty(entry.Signature))
+                return entry;
+        }
+
+        // If all entries have signatures but none matched, return the first one
+        return entries[0];
     }
 
     /// <summary>
@@ -479,7 +541,7 @@ public class TypeMappingRegistry
         var config = new TypeMappingConfig
         {
             TypeMappings = _typeMappings.Values.ToList(),
-            MethodMappings = _methodMappings.Values.ToList(),
+            MethodMappings = _methodMappings.Values.SelectMany(list => list).ToList(),
             NamespaceMappings = _namespaceMappings.Select(kvp =>
                 new NamespaceMappingEntry
                 {
