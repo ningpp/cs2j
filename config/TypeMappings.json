@@ -2844,6 +2844,71 @@
                                "javaMethod":  "size"
                            },
                            {
+                               "type":  "System.Collections.Generic.IReadOnlyCollection`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IReadOnlyCollection`1",
+                               "method":  "Contains",
+                               "javaMethod":  "contains"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IReadOnlyList`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IReadOnlyDictionary`2",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IReadOnlyDictionary`2",
+                               "method":  "ContainsKey",
+                               "javaMethod":  "containsKey"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.ISet`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.ISet`1",
+                               "method":  "Contains",
+                               "javaMethod":  "contains"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.ISet`1",
+                               "method":  "Add",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.ISet`1",
+                               "method":  "Remove",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.SortedSet`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.SortedSet`1",
+                               "method":  "Contains",
+                               "javaMethod":  "contains"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.SortedSet`1",
+                               "method":  "Add",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.SortedSet`1",
+                               "method":  "Remove",
+                               "javaMethod":  "remove"
+                           },
+                           {
                                "type":  "System.Collections.Generic.List`1",
                                "method":  "RemoveAt",
                                "javaMethod":  "remove"

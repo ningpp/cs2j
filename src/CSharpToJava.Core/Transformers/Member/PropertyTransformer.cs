@@ -125,6 +125,20 @@ public class PropertyTransformer : IMemberTransformer
                 IsBodyExpression = isExpressionBodiedProperty || getAccessor?.ExpressionBody != null
             };
 
+            // Expression-bodied property getters skip TransformReturnStatement, so
+            // Stream/Array wrapping for Iterable/Collection/List return types must be done here.
+            if (getter.IsBodyExpression && getter.Body != null)
+            {
+                var csExpr = isExpressionBodiedProperty
+                    ? propDecl.ExpressionBody!.Expression
+                    : getAccessor?.ExpressionBody?.Expression;
+                if (csExpr != null)
+                {
+                    getter.Body = MethodTransformer.WrapExpressionBodyForIterableReturn(
+                        getter.Body, csExpr, propDecl.Type, context);
+                }
+            }
+
             // 处理显式 getter 主体
             if (getAccessor?.Body != null)
             {

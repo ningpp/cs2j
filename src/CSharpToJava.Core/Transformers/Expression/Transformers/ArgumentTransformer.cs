@@ -433,10 +433,11 @@ public class ArgumentTransformer
         // C# AddRange(IEnumerable<T>) maps to Java addAll(Collection<T>).
         // C# IEnumerable<T> maps to Iterable<T> which does NOT extend Collection.
         // Also applies to ICollection/IList params where the arg is IEnumerable (Iterable).
+        // LINQ types (IOrderedEnumerable, IGrouping, IQueryable, ILookup) are also converted
+        // to Java Streams and need the same treatment.
         if (argType is INamedTypeSymbol argNamed && !IsCollectionType(argType))
         {
-            bool argIsEnumerable = argNamed.Name is "IEnumerable"
-                && argNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+            bool argIsEnumerable = IsEnumerableOrLinqStreamType(argNamed);
             // Check: does the C# parameter itself or the Java target require Collection?
             bool javaTargetNeedsCollection = false;
 
@@ -651,6 +652,15 @@ public class ArgumentTransformer
         => type.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
            && type.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
 
+    /// <summary>
+    /// Returns true if the type is IEnumerable or a LINQ result type that maps to Java Stream.
+    /// These types all need Stream materialisation when passed where Iterable/Collection is expected.
+    /// </summary>
+    private static bool IsEnumerableOrLinqStreamType(INamedTypeSymbol type)
+        => type.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" or "IOrderedQueryable"
+               or "IGrouping" or "ILookup" or "ParallelQuery"
+           && type.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+
     private static bool IsPrimitiveSpecialType(SpecialType st)
         => st is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
             or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
@@ -715,8 +725,7 @@ public class ArgumentTransformer
         if (argType == null)
             return transformedExpr;
 
-        bool argIsEnumerable = argType.Name == "IEnumerable"
-            && argType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+        bool argIsEnumerable = IsEnumerableOrLinqStreamType(argType);
 
         if (!argIsEnumerable || !LooksLikeJavaStreamExpression(transformedExpr))
             return transformedExpr;

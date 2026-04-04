@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Transformers.Type;
 
 namespace CSharpToJava.Core.Transformers.Member;
@@ -137,6 +138,12 @@ public class MethodTransformer : IMemberTransformer
         else if (methodDecl.ExpressionBody != null)
         {
             var exprBody = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
+
+            // Expression-bodied methods skip TransformReturnStatement, so Stream/Array wrapping
+            // for IEnumerable/ICollection/IList return types must be handled here.
+            exprBody = WrapExpressionBodyForIterableReturn(exprBody, methodDecl.ExpressionBody.Expression,
+                methodDecl.ReturnType, context);
+
             bool hasPending = context.HasPendingPreStatements || context.HasPendingPostStatements;
 
             if (!hasPending)
@@ -597,5 +604,69 @@ public class MethodTransformer : IMemberTransformer
             result &= ~JavaModifiers.Public;
 
         return result;
+    }
+
+    /// <summary>
+    /// When an expression-bodied method/property returns IEnumerable/ICollection/IList
+    /// (mapped to Iterable/Collection/List in Java), the expression may produce a Stream
+    /// or an array — neither of which is assignable to Iterable in Java.
+    /// This method wraps the expression with .collect() or Arrays.asList() as needed.
+    /// </summary>
+    internal static string WrapExpressionBodyForIterableReturn(
+        string exprBody,
+        ExpressionSyntax csExpression,
+        TypeSyntax returnTypeSyntax,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return exprBody;
+
+        var returnTypeInfo = context.SemanticModel.GetTypeInfo(returnTypeSyntax).Type;
+        if (returnTypeInfo is not INamedTypeSymbol returnNamed)
+            return exprBody;
+
+        // Only wrap when return type is IEnumerable/ICollection/IList — mapped to Iterable/Collection/List
+        bool returnsIterableLike = returnNamed.Name is "IEnumerable" or "ICollection" or "IList"
+                                       or "IReadOnlyCollection" or "IReadOnlyList"
+            && returnNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+        if (!returnsIterableLike)
+            return exprBody;
+
+        var exprType = context.SemanticModel.GetTypeInfo(csExpression).Type;
+
+        // Case 1: Expression returns an array — wrap with Arrays.asList() or stream boxing
+        if (exprType is IArrayTypeSymbol arrayType)
+        {
+            // Don't double-wrap
+            if (exprBody.Contains("Arrays.asList(") || exprBody.Contains("Arrays.stream(")
+                || exprBody.Contains("IntStream.range(") || exprBody.Contains(".collect("))
+                return exprBody;
+            return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(exprBody, arrayType, context);
+        }
+
+        // Case 2: Expression produces a Stream (LINQ chain) — add .collect()
+        bool isStreamExprType = exprType is INamedTypeSymbol exprNamed &&
+            (exprNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" or "IGrouping" or "ILookup") &&
+            exprNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+        bool looksLikeStream = exprBody.Contains(".map(") || exprBody.Contains(".filter(") ||
+            exprBody.Contains(".flatMap(") || exprBody.Contains(".sorted(") ||
+            exprBody.Contains("stream(") || exprBody.Contains("Stream.concat") ||
+            exprBody.Contains(".distinct(") || exprBody.Contains(".limit(") ||
+            exprBody.Contains(".skip(") || exprBody.Contains(".peek(");
+
+        if (isStreamExprType && looksLikeStream)
+        {
+            // Don't double-collect
+            bool alreadyCollected = exprBody.Contains(".collect(") || exprBody.EndsWith(".toList())")
+                || exprBody.EndsWith("new ArrayList<>()))");
+            if (!alreadyCollected)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.ArrayList");
+                return $"{exprBody}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+            }
+        }
+
+        return exprBody;
     }
 }

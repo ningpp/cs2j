@@ -629,6 +629,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 var fqn = $"{prop.ContainingType.ContainingNamespace}.{prop.ContainingType.Name}";
                 mappedMethod = context.TypeMappings.MapMethod(fqn, prop.Name);
             }
+            // Interface hierarchy fallback: when the containing type itself has no mapping,
+            // check its implemented interfaces (e.g. IReadOnlyCollection<T> → .Count → size).
+            // Roslyn may resolve a property through any interface in the hierarchy, so we must
+            // walk AllInterfaces to find a matching TypeMappings entry.
+            if (mappedMethod == null && prop.ContainingType.AllInterfaces.Length > 0)
+            {
+                foreach (var iface in prop.ContainingType.AllInterfaces)
+                {
+                    mappedMethod = context.TypeMappings.MapMethod(iface.ToDisplayString(), prop.Name);
+                    if (mappedMethod == null)
+                        mappedMethod = context.TypeMappings.MapMethod(
+                            $"{iface.ContainingNamespace}.{iface.Name}", prop.Name);
+                    if (mappedMethod != null)
+                        break;
+                }
+            }
             // For static properties, remap the target to the Java type name regardless of
             // which lookup path succeeded (e.g. DateTime.Now → LocalDateTime.now()).
             if (mappedMethod != null && prop.IsStatic)
@@ -697,6 +713,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 var mm3 = context.TypeMappings.MapMethod(tn3, memberName);
                 if (mm3 == null && exprType.ContainingNamespace != null)
                     mm3 = context.TypeMappings.MapMethod($"{exprType.ContainingNamespace}.{exprType.Name}", memberName);
+                // Interface hierarchy fallback for Fix 3 path
+                if (mm3 == null && exprType is INamedTypeSymbol namedForIface)
+                {
+                    foreach (var iface in namedForIface.AllInterfaces)
+                    {
+                        mm3 = context.TypeMappings.MapMethod(iface.ToDisplayString(), memberName);
+                        if (mm3 == null)
+                            mm3 = context.TypeMappings.MapMethod(
+                                $"{iface.ContainingNamespace}.{iface.Name}", memberName);
+                        if (mm3 != null) break;
+                    }
+                }
                 if (mm3 != null)
                 {
                     if (mm3 == "getValues") return $"{target}.values()";
