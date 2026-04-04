@@ -520,6 +520,27 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         // C#: obj as Type  → Java doesn't have direct equivalent
         // We use: obj instanceof Type ? (Type)obj : null
+        //
+        // Special case: C# allows "IEnumerable<T> as T[]" because C# arrays implement
+        // IEnumerable<T>. Java arrays do NOT implement Iterable<T>, so this cast is
+        // always impossible in Java — emit null directly instead of invalid instanceof.
+        if (targetType.EndsWith("[]", StringComparison.Ordinal))
+        {
+            var sourceType = context.SemanticModel?.GetTypeInfo(node.Left).Type;
+            if (sourceType is INamedTypeSymbol sourceNamed
+                && (sourceNamed.Name is "IEnumerable" or "ICollection" or "IList"
+                    or "IReadOnlyList" or "IReadOnlyCollection"
+                    || sourceNamed.AllInterfaces.Any(i => i.Name is "IEnumerable")))
+            {
+                var javaSourceType = context.MapType(sourceType);
+                if (javaSourceType.StartsWith("Iterable<", StringComparison.Ordinal)
+                    || javaSourceType.StartsWith("Collection<", StringComparison.Ordinal)
+                    || javaSourceType.StartsWith("List<", StringComparison.Ordinal))
+                {
+                    return "null";
+                }
+            }
+        }
         return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null) /* result may be null — check before use */";
     }
 
