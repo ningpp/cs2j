@@ -39,7 +39,8 @@ public static class ExpressionTransformerRegistry
                 var tuple = (TupleExpressionSyntax)node;
                 var elements = string.Join(", ", tuple.Arguments.Select(a =>
                     ExpressionTransformerFacade.Instance.Transform(a.Expression, ctx)));
-                return $"/* TODO: tuple */ new Object[]{{ {elements} }}";
+                ctx.AddImport("io.vavr.Tuple");
+                return $"Tuple.of({elements})";
             }));
 
         Register(new[] { SyntaxKind.DeclarationExpression },

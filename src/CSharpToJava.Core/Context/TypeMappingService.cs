@@ -81,6 +81,19 @@ public class TypeMappingService
     public string MapTypeFromSyntax(TypeSyntax typeSyntax)
     {
         if (typeSyntax == null) return "Object";
+
+        // Handle C# tuple types: (int, string) → Tuple2<Integer, String>
+        if (typeSyntax is TupleTypeSyntax tupleType)
+        {
+            var arity = tupleType.Elements.Count;
+            var mappedElements = tupleType.Elements
+                .Select(e => BoxPrimitive(MapTypeFromSyntax(e.Type)))
+                .ToList();
+            var typeArgs = string.Join(", ", mappedElements);
+            AddImport($"io.vavr.Tuple{arity}");
+            return $"Tuple{arity}<{typeArgs}>";
+        }
+
         return MapTypeFromSyntaxString(typeSyntax.ToString().Trim());
     }
 
@@ -459,19 +472,24 @@ public class TypeMappingService
     private string MapTypeForGeneric(ITypeSymbol typeSymbol)
     {
         var result = MapType(typeSymbol);
-        return result switch
-        {
-            "int" => "Integer",
-            "long" => "Long",
-            "short" => "Short",
-            "byte" => "Byte",
-            "float" => "Float",
-            "double" => "Double",
-            "boolean" => "Boolean",
-            "char" => "Character",
-            _ => result
-        };
+        return BoxPrimitive(result);
     }
+
+    /// <summary>
+    /// Boxes a Java primitive type name to its wrapper type for use in generic type arguments.
+    /// </summary>
+    private static string BoxPrimitive(string typeName) => typeName switch
+    {
+        "int" => "Integer",
+        "long" => "Long",
+        "short" => "Short",
+        "byte" => "Byte",
+        "float" => "Float",
+        "double" => "Double",
+        "boolean" => "Boolean",
+        "char" => "Character",
+        _ => typeName
+    };
 
     private void AddImportsForType(string csharpType)
     {

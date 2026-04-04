@@ -1556,6 +1556,48 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.ValueTuple`3",
+                             "java":  "Tuple3",
+                             "imports":  [
+                                             "io.vavr.Tuple3"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ValueTuple`4",
+                             "java":  "Tuple4",
+                             "imports":  [
+                                             "io.vavr.Tuple4"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ValueTuple`5",
+                             "java":  "Tuple5",
+                             "imports":  [
+                                             "io.vavr.Tuple5"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ValueTuple`6",
+                             "java":  "Tuple6",
+                             "imports":  [
+                                             "io.vavr.Tuple6"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ValueTuple`7",
+                             "java":  "Tuple7",
+                             "imports":  [
+                                             "io.vavr.Tuple7"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ValueTuple`8",
+                             "java":  "Tuple8",
+                             "imports":  [
+                                             "io.vavr.Tuple8"
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Nullable`1",
                              "java":  "Optional",
                              "imports":  [
@@ -2908,6 +2950,76 @@
                            },
                            {
                                "type":  "System.Tuple`5",
+                               "method":  "Item5",
+                               "javaMethod":  "_5"
+                           },
+                           {
+                               "type":  "System.ValueTuple`2",
+                               "method":  "Item1",
+                               "javaMethod":  "_1"
+                           },
+                           {
+                               "type":  "System.ValueTuple`2",
+                               "method":  "Item2",
+                               "javaMethod":  "_2"
+                           },
+                           {
+                               "type":  "System.ValueTuple`3",
+                               "method":  "Item1",
+                               "javaMethod":  "_1"
+                           },
+                           {
+                               "type":  "System.ValueTuple`3",
+                               "method":  "Item2",
+                               "javaMethod":  "_2"
+                           },
+                           {
+                               "type":  "System.ValueTuple`3",
+                               "method":  "Item3",
+                               "javaMethod":  "_3"
+                           },
+                           {
+                               "type":  "System.ValueTuple`4",
+                               "method":  "Item1",
+                               "javaMethod":  "_1"
+                           },
+                           {
+                               "type":  "System.ValueTuple`4",
+                               "method":  "Item2",
+                               "javaMethod":  "_2"
+                           },
+                           {
+                               "type":  "System.ValueTuple`4",
+                               "method":  "Item3",
+                               "javaMethod":  "_3"
+                           },
+                           {
+                               "type":  "System.ValueTuple`4",
+                               "method":  "Item4",
+                               "javaMethod":  "_4"
+                           },
+                           {
+                               "type":  "System.ValueTuple`5",
+                               "method":  "Item1",
+                               "javaMethod":  "_1"
+                           },
+                           {
+                               "type":  "System.ValueTuple`5",
+                               "method":  "Item2",
+                               "javaMethod":  "_2"
+                           },
+                           {
+                               "type":  "System.ValueTuple`5",
+                               "method":  "Item3",
+                               "javaMethod":  "_3"
+                           },
+                           {
+                               "type":  "System.ValueTuple`5",
+                               "method":  "Item4",
+                               "javaMethod":  "_4"
+                           },
+                           {
+                               "type":  "System.ValueTuple`5",
                                "method":  "Item5",
                                "javaMethod":  "_5"
                            },

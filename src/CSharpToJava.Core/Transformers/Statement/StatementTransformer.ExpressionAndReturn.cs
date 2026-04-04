@@ -209,7 +209,7 @@ public partial class StatementTransformer
             sbTuple.AppendLine($"var {tempVar} = {rhsExpr};");
             for (int i = 0; i < names.Count; i++)
             {
-                string getter = i == 0 ? "getFirst" : i == 1 ? "getSecond" : $"getItem{i + 1}";
+                string getter = $"_{i + 1}";
                 if (i < names.Count - 1)
                     sbTuple.AppendLine($"var {ConversionContext.EscapeJavaKeyword(names[i])} = {tempVar}.{getter}();");
                 else
