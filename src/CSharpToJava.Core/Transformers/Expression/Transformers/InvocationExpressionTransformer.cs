@@ -1465,6 +1465,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 methodName = mapped;
         }
 
+        // AddRange(IEnumerable<T>) → Java addAll(Collection<T>): when the argument
+        // is a concrete class implementing only Iterable<T> (not Collection<T>), Java's
+        // addAll() won't accept it.  Use arg.forEach(receiver::add) instead.
+        // Skip when the argument type IS IEnumerable<T>/IOrderedEnumerable<T> (LINQ chains)
+        // because those are stream-ified and .collect(toList()) produces a Collection.
+        if (originalMethodName == "AddRange" && methodName == "addAll"
+            && node.ArgumentList.Arguments.Count == 1
+            && context.SemanticModel != null)
+        {
+            var argExpr = node.ArgumentList.Arguments[0].Expression;
+            var argType = context.SemanticModel.GetTypeInfo(argExpr).Type;
+            if (argType != null
+                && argType is not IArrayTypeSymbol
+                && argType.TypeKind is not TypeKind.Interface  // IEnumerable/LINQ chains → addAll OK
+                && !argType.AllInterfaces.Any(i =>
+                    i.OriginalDefinition.ToDisplayString() is
+                        "System.Collections.Generic.ICollection<T>" or
+                        "System.Collections.Generic.IList<T>")
+                && argType.OriginalDefinition.ToDisplayString() is not
+                    ("System.Collections.Generic.ICollection<T>" or
+                     "System.Collections.Generic.IList<T>" or
+                     "System.Collections.Generic.List<T>"))
+            {
+                var arg = facade.Transform(argExpr, context);
+                return $"{arg}.forEach({receiver}::add)";
+            }
+        }
+
         // Fix: Static type receiver remapping — e.g. System.Console → System.
         // When the receiver expression resolves to a named type symbol (static call site),
         // replace the syntactically-derived receiver string with the TypeMappings Java name
