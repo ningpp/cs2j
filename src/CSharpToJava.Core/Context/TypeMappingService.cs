@@ -159,6 +159,18 @@ public class TypeMappingService
 
             if (!string.IsNullOrEmpty(errorName) && errorName != "?" && errorName != "var")
             {
+                // Try short-name lookup in TypeMappings.json before falling back to the raw name.
+                var shortMapped = _typeMappings.MapType(errorName);
+                if (shortMapped != errorName)
+                {
+                    _diagnostics.Warning(
+                        $"Unresolved type '{errorName}' mapped via short name lookup to '{shortMapped}'",
+                        code: "CS2J1001",
+                        category: "TypeResolution");
+                    AddImportsForType(errorName);
+                    return MapSimpleTypeName(shortMapped);
+                }
+
                 _diagnostics.Warning(
                     $"Unresolved type '{errorName}' — using short name (cross-namespace collision possible)",
                     code: "CS2J1001",

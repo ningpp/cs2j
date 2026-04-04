@@ -103,7 +103,9 @@ public static class ProjectCompilationBuilder
             "System.Collections.dll",
             "System.Collections.NonGeneric.dll",  // System.Collections.Queue, Stack, Hashtable, ArrayList
             "System.Linq.dll",
+            "System.Threading.dll",
             "System.Threading.Tasks.dll",
+            "System.Threading.Tasks.Parallel.dll", // ParallelOptions, Parallel.ForEach, etc.
             "netstandard.dll",
         };
 
