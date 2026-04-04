@@ -436,6 +436,13 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
 
+        // If the left operand is always null (e.g. from 'IEnumerable as T[]' which
+        // always yields null in Java), simplify to just the right operand.
+        if (left == "null")
+        {
+            return right;
+        }
+
         // Avoid evaluating the left operand twice when it has side effects.
         // Simple identifiers and single-level member accesses are safe to repeat.
         bool isSafeToRepeat = node.Left is IdentifierNameSyntax
