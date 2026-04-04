@@ -38,11 +38,35 @@ public sealed class LinqQueryDesugarer : CSharpSyntaxRewriter
 
     private static ExpressionSyntax? TryDesugar(QueryExpressionSyntax query)
     {
-        return ProcessQueryBody(
-            query.FromClause.Expression,
-            query.FromClause.Identifier,
-            query.Body);
+        var outerSource = query.FromClause.Expression;
+
+        // When the outer from-clause carries an explicit type annotation
+        // (e.g. `from Derived a in bases`), C# semantics are equivalent to
+        // `bases.Cast<Derived>()`.  We represent that as a Select-cast so the
+        // rebuilt semantic model gives the lambda parameter the correct type:
+        //   bases.Select(a => (Derived)a) ...
+        // Without this, the rebuilt model types `a` as the collection element
+        // type (e.g. Base), causing downstream anonymous-record fields to carry
+        // the wrong type and failing Java compilation.
+        if (!IsVarOrImplicit(query.FromClause.Type))
+        {
+            outerSource = MakeCall(outerSource, "Select",
+                MakeLambda(query.FromClause.Identifier,
+                    SyntaxFactory.CastExpression(
+                        query.FromClause.Type,
+                        SyntaxFactory.IdentifierName(query.FromClause.Identifier))));
+        }
+
+        return ProcessQueryBody(outerSource, query.FromClause.Identifier, query.Body);
     }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="type"/> is absent
+    /// or is the implicitly-typed <c>var</c> keyword.
+    /// </summary>
+    private static bool IsVarOrImplicit(TypeSyntax? type) =>
+        type is null ||
+        (type is IdentifierNameSyntax id && id.Identifier.Text == "var");
 
     private static ExpressionSyntax? ProcessQueryBody(
         ExpressionSyntax source,
@@ -115,6 +139,19 @@ public sealed class LinqQueryDesugarer : CSharpSyntaxRewriter
                     // wrapped inside .SelectMany(outerVar => innerChain).
                     // Outer variables are captured by closure in the inner lambdas.
                     var innerSource = Substitute(from.Expression, letBindings);
+
+                    // If the inner from-clause has an explicit type annotation,
+                    // insert a cast-select so the element type is preserved:
+                    //   from Derived b in others  →  others.Select(b => (Derived)b)
+                    if (!IsVarOrImplicit(from.Type))
+                    {
+                        innerSource = MakeCall(innerSource, "Select",
+                            MakeLambda(from.Identifier,
+                                SyntaxFactory.CastExpression(
+                                    from.Type,
+                                    SyntaxFactory.IdentifierName(from.Identifier))));
+                    }
+
                     var innerResult = DesugarBodyClauses(
                         innerSource, from.Identifier,
                         clauses, i + 1, selectOrGroup,

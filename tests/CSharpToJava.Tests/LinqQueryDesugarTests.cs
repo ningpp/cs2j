@@ -358,6 +358,69 @@ class Sample {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // Explicit from-clause type (downcast): from DerivedType x in baseCollection
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void QuerySyntax_ExplicitFromType_MultiFromOrderBy_PreservesDowncastType()
+    {
+        // AGL regression: multi-from + orderby + explicit type annotation.
+        // After desugaring, both `a` and `b` should be Derived (not Base).
+        // Without the fix, the desugarer drops explicit type annotations and the
+        // anonymous record gets Base fields, causing a Java compile error.
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Base { public int X; }
+class Derived : Base { public int Y; }
+class Test {
+    void Process(IEnumerable<Base> bases, IEnumerable<Base> others) {
+        foreach (var pair in
+            from Derived a in bases
+            from Derived b in others
+            orderby a.Y + b.Y
+            select new { av = a, bv = b })
+        {
+            int x = pair.av.Y;
+        }
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+
+        var code = result.GeneratedCode ?? "";
+        // The anonymous record fields must be typed Derived, not Base
+        Assert.Contains("Derived av", code, StringComparison.Ordinal);
+        Assert.Contains("Derived bv", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_ExplicitFromType_OuterFromOnly_InsertsDowncast()
+    {
+        // A single from-clause with explicit type: from Derived a in bases select a.Y
+        // The desugarer should insert a cast so `a` has type Derived in subsequent ops.
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Base { }
+class Derived : Base { public int Y; }
+class Test {
+    List<int> GetValues(IEnumerable<Base> bases) {
+        return (from Derived a in bases select a.Y).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+
+        var code = result.GeneratedCode ?? "";
+        // The Y field access must be on Derived — a cast to Derived must appear
+        Assert.True(
+            code.Contains("(Derived)", StringComparison.Ordinal) ||
+            code.Contains("Derived a", StringComparison.Ordinal),
+            $"Expected Derived cast or variable in:\n{code}");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Phase 6: let, multi-from, join, join-into, query continuation
     // ─────────────────────────────────────────────────────────────────────
 
