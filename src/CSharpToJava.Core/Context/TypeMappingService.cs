@@ -108,13 +108,55 @@ public class TypeMappingService
 
     private string MapTypeInternal(ITypeSymbol typeSymbol)
     {
-        // IErrorTypeSymbol: unresolved type — preserve the type name from syntax
-        // rather than degrading to "Object", so that generated code keeps meaningful names.
+        // IErrorTypeSymbol: unresolved type — try candidate symbols first for
+        // better resolution, then fall back to qualified/short name from syntax.
         if (typeSymbol is IErrorTypeSymbol errorType)
         {
+            // If Roslyn found exactly one candidate type, use it for accurate mapping.
+            if (errorType.CandidateSymbols.Length == 1
+                && errorType.CandidateSymbols[0] is ITypeSymbol candidateType
+                && candidateType is not IErrorTypeSymbol)
+            {
+                _diagnostics.Warning(
+                    $"Type '{errorType.ToDisplayString()}' resolved via single candidate symbol (reason: {errorType.CandidateReason})",
+                    code: "CS2J1001",
+                    category: "TypeResolution");
+                return MapType(candidateType);
+            }
+
             var errorName = errorType.Name;
+
+            // Try to use a namespace-qualified name to avoid cross-namespace collisions.
+            var errorNs = errorType.ContainingNamespace?.ToDisplayString();
+            if (!string.IsNullOrEmpty(errorNs) && errorNs != "<global namespace>"
+                && !string.IsNullOrEmpty(errorName) && errorName != "?" && errorName != "var")
+            {
+                var qualifiedName = $"{errorNs}.{errorName}";
+                var qualifiedMapped = _typeMappings.MapType(qualifiedName);
+                if (qualifiedMapped != qualifiedName)
+                {
+                    _diagnostics.Warning(
+                        $"Unresolved type '{qualifiedName}' mapped via qualified name lookup",
+                        code: "CS2J1001",
+                        category: "TypeResolution");
+                    AddImportsForType(qualifiedName);
+                    return MapSimpleTypeName(qualifiedMapped);
+                }
+            }
+
             if (!string.IsNullOrEmpty(errorName) && errorName != "?" && errorName != "var")
+            {
+                _diagnostics.Warning(
+                    $"Unresolved type '{errorName}' — using short name (cross-namespace collision possible)",
+                    code: "CS2J1001",
+                    category: "TypeResolution");
                 return MapSimpleTypeName(errorName);
+            }
+
+            _diagnostics.Warning(
+                "Completely unresolved type degraded to Object",
+                code: "CS2J1001",
+                category: "TypeResolution");
             return "Object";
         }
 
