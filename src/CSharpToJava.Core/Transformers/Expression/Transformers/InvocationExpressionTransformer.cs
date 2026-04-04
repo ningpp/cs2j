@@ -400,6 +400,33 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ConversionContext context,
         ExpressionTransformerFacade facade)
     {
+        // Nullable<T>.GetValueOrDefault() → null-coalescing with default value.
+        // The LINQ rewriter generates ((items as ICollection<T>)?.Count).GetValueOrDefault()
+        // which must become (expr != null ? expr : 0) in Java.
+        if (memberAccess.Name.Identifier.Text == "GetValueOrDefault")
+        {
+            var gvdReceiver = facade.Transform(memberAccess.Expression, context);
+            if (node.ArgumentList.Arguments.Count == 0)
+            {
+                // Determine default from method return type if available
+                var methodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var defaultVal = (methodSym?.ReturnType.SpecialType) switch
+                {
+                    SpecialType.System_Int64 => "0L",
+                    SpecialType.System_Double => "0.0",
+                    SpecialType.System_Single => "0.0f",
+                    SpecialType.System_Boolean => "false",
+                    _ => "0"
+                };
+                return $"({gvdReceiver} != null ? {gvdReceiver} : {defaultVal})";
+            }
+            else if (node.ArgumentList.Arguments.Count == 1)
+            {
+                var defaultArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"({gvdReceiver} != null ? {gvdReceiver} : {defaultArg})";
+            }
+        }
+
         // Fix: Generic type static method call — C# DemoSet<T>.Method() → Java DemoSet.Method().
         // Java forbids type arguments on the class name at a static call site; strip them.
         var receiver = memberAccess.Expression is GenericNameSyntax genericReceiverName
