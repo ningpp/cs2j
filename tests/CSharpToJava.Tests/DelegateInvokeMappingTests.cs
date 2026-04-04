@@ -93,6 +93,32 @@ class Test
         Assert.Contains(".run()", result.GeneratedCode);
     }
 
+    /// <summary>
+    /// Conditional access ?.Invoke() should also map to the correct SAM method.
+    /// The conditional access handler in StatementTransformer.ExpressionAndReturn.cs must detect
+    /// "Invoke" and map it, not emit it verbatim.
+    /// </summary>
+    [Fact]
+    public void ConditionalAccess_DelegateInvoke_MappedToAccept()
+    {
+        var result = Convert(@"
+using System;
+
+class Test
+{
+    Action<int, int, int> handler;
+    void M()
+    {
+        handler?.Invoke(1, 2, 3);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain(".Invoke(", result.GeneratedCode);
+        Assert.DoesNotContain(".invoke(", result.GeneratedCode);
+        Assert.Contains(".accept(", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

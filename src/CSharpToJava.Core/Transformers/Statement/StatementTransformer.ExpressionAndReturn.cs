@@ -30,8 +30,17 @@ public partial class StatementTransformer
                     innerCall = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(binding.Name.Identifier.Text)};";
                     break;
                 case InvocationExpressionSyntax invocation when invocation.Expression is MemberBindingExpressionSyntax invokeBinding:
+                    var methodName = ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text);
+                    // Delegate .Invoke() → SAM method: Invoke is not a valid Java method
+                    // on functional interfaces. Map to run/accept/get/apply based on usage.
+                    if (methodName == "Invoke")
+                    {
+                        int paramCount = invocation.ArgumentList.Arguments.Count;
+                        methodName = Transformers.Type.DelegateTransformer.InferSamMethodName(
+                            returnsVoid: true, paramCount); // statement context is always void
+                    }
                     var args = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => exprTransformer.Transform(a.Expression, context)));
-                    innerCall = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text)}({args});";
+                    innerCall = $"{objExpr}.{methodName}({args});";
                     break;
                 default:
                     // General case: ?.a.b(...) — recursively substitute the member binding with objExpr
