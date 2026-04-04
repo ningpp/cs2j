@@ -261,10 +261,14 @@ public partial class StatementTransformer
 
         if (isStream)
         {
-            // Collect stream to list so that break/return/continue work in loop body
-            context.AddImport("java.util.ArrayList");
-            context.AddImport("java.util.stream.Collectors");
-            expression = $"{expression}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+            // Only add .collect() if the expression doesn't already end with one.
+            // The LINQ rewriter may have already materialized the stream to a collection.
+            if (ExpressionTransformerHelpers.StripCollect(expression) == expression)
+            {
+                context.AddImport("java.util.ArrayList");
+                context.AddImport("java.util.stream.Collectors");
+                expression = $"{expression}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+            }
         }
 
         // Iterating a raw (non-generic) IEnumerable with a typed loop variable: in Java, iterating

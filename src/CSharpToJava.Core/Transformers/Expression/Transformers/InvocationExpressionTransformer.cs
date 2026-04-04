@@ -2112,6 +2112,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // ArrayList<T> (not the List<T> interface returned by Collectors.toList()).
             if (originalMethodName == "ToList")
             {
+                // If receiver already ends with .collect() (e.g., LINQ rewriter already materialized),
+                // return as-is — calling .collect() on an ArrayList is invalid Java.
+                if (Utilities.ExpressionTransformerHelpers.StripCollect(receiver) != receiver)
+                    return receiver;
+
                 if (receiver.EndsWith(".stream()", StringComparison.Ordinal))
                 {
                     context.AddImport("java.util.stream.StreamSupport");
