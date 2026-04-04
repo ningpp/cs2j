@@ -122,9 +122,10 @@ class Sample
         });
 
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        // The new expression should use AbstractMap.SimpleEntry (concrete), but
-        // all type-reference positions (variable decl, collection generic arg) must use Map.Entry.
-        Assert.Contains("new AbstractMap.SimpleEntry<>", result.GeneratedCode);
+        // The new expression should use AbstractMap.SimpleEntry with explicit generic types
+        // and cast to Map.Entry for generic invariance compatibility.
+        // All type-reference positions (variable decl, collection generic arg) must use Map.Entry.
+        Assert.Contains("new AbstractMap.SimpleEntry<Integer, Integer>", result.GeneratedCode);
         Assert.DoesNotContain("ArrayList<AbstractMap.SimpleEntry", result.GeneratedCode);
     }
 

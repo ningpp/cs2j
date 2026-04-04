@@ -247,6 +247,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Map.Entry is an interface — instantiate via AbstractMap.SimpleEntry instead.
         // This handles C# `new KeyValuePair<K,V>(key, value)` construction.
         // typeName may include generics (e.g. "Map.Entry<Foo, Bar>"), so strip them.
+        // When explicit generic type arguments are present, preserve them to avoid
+        // generic invariance issues (ArrayList<SimpleEntry<A,B>> ≠ Iterable<Map.Entry<A,B>>).
+        // Also cast to Map.Entry<K,V> so the expression's type is the interface, not the
+        // concrete class — this is necessary for stream .map() lambdas that feed into
+        // generic collections expecting Map.Entry element types.
         var bareTypeName = typeName.Contains('<') ? typeName.Substring(0, typeName.IndexOf('<')) : typeName;
         if (bareTypeName is "Map.Entry")
         {
@@ -254,9 +259,18 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             var seArgs = argumentList != null
                 ? ArgumentTransformer.TransformArgumentList(argumentList, context, ExpressionTransformerFacade.Instance)
                 : "";
-            return string.IsNullOrWhiteSpace(seArgs)
-                ? "new AbstractMap.SimpleEntry<>()"
-                : $"new AbstractMap.SimpleEntry<>({seArgs})";
+            var genericPart = typeName.Contains('<') ? typeName[typeName.IndexOf('<')..] : "<>";
+            var newExpr = string.IsNullOrWhiteSpace(seArgs)
+                ? $"new AbstractMap.SimpleEntry{genericPart}()"
+                : $"new AbstractMap.SimpleEntry{genericPart}({seArgs})";
+            // Cast to Map.Entry interface so Java type inference sees the interface type
+            // in stream pipelines, avoiding ArrayList<SimpleEntry> vs Iterable<Map.Entry> mismatch.
+            if (genericPart != "<>")
+            {
+                context.AddImport("java.util.Map");
+                return $"(Map.Entry{genericPart}) {newExpr}";
+            }
+            return newExpr;
         }
 
         // Exception / ApplicationException → RuntimeException (unchecked in Java)
