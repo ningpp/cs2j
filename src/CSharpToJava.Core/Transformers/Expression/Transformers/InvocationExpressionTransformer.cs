@@ -41,12 +41,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ["Char"]    = "char",
     };
 
-    public string Transform(ExpressionSyntax node, ConversionContext context)
-        => node.Kind() switch
-        {
-            SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
-            _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
-        };
+    public string Transform(ExpressionSyntax node, ConversionContext context) => node.Kind() switch
+    {
+        SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
+        _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
+    };
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
@@ -2521,13 +2520,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // Arrays.stream(T[]) for reference T produces Stream<T>, not IntStream.
                 if (!selectOnPrimitiveStream && methodSymbol.TypeArguments.Length >= 2
                     && PrimitiveStreamCategory(methodSymbol.TypeArguments[0].SpecialType) != ""
-                    && (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
-                        || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
                     && !receiver.Contains(".boxed()", StringComparison.Ordinal)
                     && !receiver.Contains(".mapToObj(", StringComparison.Ordinal))
                 {
-                    selectSrcCat = "int"; // IntStream is the most common case
-                    selectOnPrimitiveStream = true;
+                    if (receiver.Contains("IntStream.range(", StringComparison.Ordinal))
+                    {
+                        selectSrcCat = "int";
+                        selectOnPrimitiveStream = true;
+                    }
+                    else if (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal))
+                    {
+                        // Walk back to verify the Arrays.stream() source is a primitive array.
+                        var srcExpr = memberAccess.Expression;
+                        while (srcExpr is InvocationExpressionSyntax chainedInv
+                            && chainedInv.Expression is MemberAccessExpressionSyntax innerMa)
+                            srcExpr = innerMa.Expression;
+                        var srcTypeInfo = context.SemanticModel?.GetTypeInfo(srcExpr).Type;
+                        if (srcTypeInfo is IArrayTypeSymbol srcArr
+                            && PrimitiveStreamCategory(srcArr.ElementType.SpecialType) != "")
+                        {
+                            selectSrcCat = PrimitiveStreamCategory(srcArr.ElementType.SpecialType);
+                            selectOnPrimitiveStream = true;
+                        }
+                    }
                 }
 
                 if (selectOnPrimitiveStream)
@@ -3739,9 +3754,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Method 3: From the assignment/declaration context
         if (elementType == null && context.SemanticModel != null)
         {
-            var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
-            if (convertedType is IArrayTypeSymbol targetArray)
+            var typeInfo3 = context.SemanticModel.GetTypeInfo(node);
+            if (typeInfo3.ConvertedType is IArrayTypeSymbol targetArray)
                 elementType = targetArray.ElementType;
+            else if (typeInfo3.Type is IArrayTypeSymbol typeArray)
+                elementType = typeArray.ElementType;
+        }
+
+        // Method 4: From the receiver expression's IEnumerable<T> type (when methodSymbol is null)
+        if (elementType == null && context.SemanticModel != null)
+        {
+            var receiverTypeInfo = context.SemanticModel.GetTypeInfo(memberAccess.Expression);
+            if (receiverTypeInfo.Type is INamedTypeSymbol receiverType4)
+                elementType = ExtractEnumerableElementType(receiverType4);
+            else if (receiverTypeInfo.ConvertedType is INamedTypeSymbol receiverConverted4)
+                elementType = ExtractEnumerableElementType(receiverConverted4);
         }
 
         if (elementType == null)
@@ -3955,8 +3982,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && !receiver.Contains(".boxed()", StringComparison.Ordinal)
             && !receiver.Contains(".mapToObj(", StringComparison.Ordinal))
         {
-            if (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
-                || receiver.Contains("IntStream.range(", StringComparison.Ordinal)
+            if (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal))
+            {
+                // Arrays.stream(refArray) produces Stream<T> (reference), not a primitive stream.
+                // Walk back through chained LINQ calls to find the original source expression
+                // and verify it's actually a primitive array.
+                var srcExpr = memberAccess.Expression;
+                while (srcExpr is InvocationExpressionSyntax chainedInv
+                    && chainedInv.Expression is MemberAccessExpressionSyntax innerMa)
+                    srcExpr = innerMa.Expression;
+                var srcTypeInfo = context.SemanticModel?.GetTypeInfo(srcExpr).Type;
+                if (srcTypeInfo is IArrayTypeSymbol srcArr
+                    && PrimitiveStreamCategory(srcArr.ElementType.SpecialType) != "")
+                {
+                    return PrimitiveStreamCategory(named.TypeArguments[0].SpecialType);
+                }
+            }
+            else if (receiver.Contains("IntStream.range(", StringComparison.Ordinal)
                 || receiver.Contains("IntStream.rangeClosed(", StringComparison.Ordinal))
             {
                 return PrimitiveStreamCategory(named.TypeArguments[0].SpecialType);
@@ -3997,13 +4039,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             return false;
         }
-        if ((receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
-                || receiver.Contains("IntStream.range(", StringComparison.Ordinal)
+        if ((receiver.Contains("IntStream.range(", StringComparison.Ordinal)
                 || receiver.Contains("IntStream.rangeClosed(", StringComparison.Ordinal))
             && !receiver.Contains(".boxed()", StringComparison.Ordinal)
             && !receiver.Contains(".mapToObj(", StringComparison.Ordinal))
         {
             return true;
+        }
+
+        // Arrays.stream(): verify the source is actually a primitive array.
+        if (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+            && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+            && !receiver.Contains(".mapToObj(", StringComparison.Ordinal))
+        {
+            var srcExpr = memberAccess.Expression;
+            while (srcExpr is InvocationExpressionSyntax chainedInv
+                && chainedInv.Expression is MemberAccessExpressionSyntax innerMa)
+                srcExpr = innerMa.Expression;
+            var srcTypeInfo = context.SemanticModel?.GetTypeInfo(srcExpr).Type;
+            if (srcTypeInfo is IArrayTypeSymbol srcArr
+                && PrimitiveStreamCategory(srcArr.ElementType.SpecialType) != "")
+            {
+                return true;
+            }
         }
 
         return false;
