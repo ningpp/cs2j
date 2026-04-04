@@ -233,11 +233,27 @@ public class LambdaTransformer : IIRExpressionTransformer
             }
             else
             {
+                // Detect whether this lambda targets a void-returning delegate (Action, Consumer, etc.)
+                bool isVoidLambda = false;
+                if (context.SemanticModel != null)
+                {
+                    var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+                    if (convertedType is INamedTypeSymbol namedType)
+                    {
+                        var invokeMethod = namedType.DelegateInvokeMethod;
+                        if (invokeMethod != null && invokeMethod.ReturnsVoid)
+                            isVoidLambda = true;
+                    }
+                }
+
                 // If there are pre-statements, convert to block body
                 if (preStatements.Count > 0)
                 {
                     var blockBody = string.Join("\n", preStatementsWithSemis);
-                    result = $"{paramStr} -> {{\n{blockBody}\nreturn {body};\n}}";
+                    if (isVoidLambda)
+                        result = $"{paramStr} -> {{\n{blockBody}\n}}";
+                    else
+                        result = $"{paramStr} -> {{\n{blockBody}\nreturn {body};\n}}";
                 }
                 else
                 {
