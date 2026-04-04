@@ -318,6 +318,7 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
     private static void RunStructureRewriters(Java.JavaCompilationUnit compilation)
     {
         new VariableNameDeduplicationRewriter().VisitCompilationUnit(compilation);
+        new ImplicitCastCompletionRewriter().VisitCompilationUnit(compilation);
     }
 
     /// <summary>
