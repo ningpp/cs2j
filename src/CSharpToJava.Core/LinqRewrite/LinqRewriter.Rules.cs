@@ -621,13 +621,22 @@ namespace CSharpToJava.Core.LinqRewrite
                 );
             }
 
-            // --- GroupBy (as terminal): collect into Dictionary<TKey, List<TSource>> ---
+            // --- GroupBy (as terminal): collect into Dictionary<TKey, IList<TElement>> ---
+            // Use IList (not List) as the dict value type so that in Java the entrySet()
+            // generic types (Map.Entry<K, List<V>>) match the method return type exactly.
+            // Java generics are invariant: Map.Entry<K, ArrayList<V>> != Map.Entry<K, List<V>>.
             if (aggregationMethod == GroupByMethod)
             {
                 var dictIdentifier = SyntaxFactory.IdentifierName("_dict");
+                // Use GetItemType to extract the element type from the source collection.
+                // Without this, the source collection type itself (e.g. IEnumerable<int>) is used
+                // as the list value type, producing Dictionary<K, List<IEnumerable<int>>> instead
+                // of the correct Dictionary<K, List<int>>.
+                var sourceCollectionType = semantic.GetTypeInfo(((MemberAccessExpressionSyntax)node.Expression).Expression).Type;
+                var elementTypeName = GetItemType(sourceCollectionType).ToDisplayString();
                 return RewriteAsLoop(
                     returnType,
-                    new[] { CreateLocalVariableDeclaration("_dict", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.Dictionary<" + GetLambdaReturnType((AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments.First().Expression).ToDisplayString() + ", System.Collections.Generic.List<" + semantic.GetTypeInfo(((MemberAccessExpressionSyntax)node.Expression).Expression).Type.ToDisplayString() + ">>"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)) },
+                    new[] { CreateLocalVariableDeclaration("_dict", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.Dictionary<" + GetLambdaReturnType((AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments.First().Expression).ToDisplayString() + ", System.Collections.Generic.IList<" + elementTypeName + ">>"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)) },
                     new[] { SyntaxFactory.ReturnStatement(dictIdentifier) },
                     collection,
                     chain,
@@ -646,7 +655,7 @@ namespace CSharpToJava.Core.LinqRewrite
                                 SyntaxFactory.ExpressionStatement(
                                     SyntaxFactory.InvocationExpression(
                                         SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, dictIdentifier, SyntaxFactory.IdentifierName("Add")),
-                                        CreateArguments(new ExpressionSyntax[] { SyntaxFactory.IdentifierName(keyVar), SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + semantic.GetTypeInfo(((MemberAccessExpressionSyntax)node.Expression).Expression).Type.ToDisplayString() + ">"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null) })))),
+                                        CreateArguments(new ExpressionSyntax[] { SyntaxFactory.IdentifierName(keyVar), SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + elementTypeName + ">"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null) })))),
                             SyntaxFactory.ExpressionStatement(
                                 SyntaxFactory.InvocationExpression(
                                     SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,

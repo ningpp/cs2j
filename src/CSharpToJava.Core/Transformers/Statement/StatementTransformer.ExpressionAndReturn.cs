@@ -376,6 +376,27 @@ public partial class StatementTransformer
                     expr = $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
                 }
             }
+
+            // Detect when a Dictionary/Map is returned from a method that expects
+            // Iterable<Map.Entry<K,V>> (e.g. GroupBy procedural rewrite returns Dictionary
+            // from method with IEnumerable<IGrouping<K,V>> return type).
+            // In Java, LinkedHashMap does not implement Iterable<Map.Entry<K,V>>,
+            // so we need to append .entrySet().
+            if (retExprType is INamedTypeSymbol dictRetType &&
+                (dictRetType.Name is "Dictionary" or "SortedDictionary" or "IDictionary" ||
+                 dictRetType.AllInterfaces.Any(i => i.Name is "IDictionary")))
+            {
+                var enclosing2 = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                ITypeSymbol? enclosingRetType2 = enclosing2 != null
+                    ? context.SemanticModel?.GetTypeInfo(enclosing2.ReturnType).Type
+                    : null;
+                if (enclosingRetType2 is INamedTypeSymbol encRet2 &&
+                    encRet2.Name is "IEnumerable" or "ICollection" or "IList" or "Iterable")
+                {
+                    context.AddImport("java.util.Map");
+                    expr = $"{expr}.entrySet()";
+                }
+            }
         }
 
         // Struct value copy: when returning a user-defined struct expression that is not a temporary,
