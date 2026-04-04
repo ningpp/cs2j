@@ -385,6 +385,23 @@ public class ClassTransformer : ITypeTransformer
         foreach (var typeParam in classDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
         {
             javaClass.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
+
+            if (typeParam.VarianceKeyword.IsKind(SyntaxKind.OutKeyword))
+            {
+                context.Diagnostics.Warning(
+                    $"Covariant type parameter 'out {typeParam.Identifier.Text}' — Java uses use-site variance; declaration-site variance dropped",
+                    typeParam.GetLocation(),
+                    code: "CS2J1003",
+                    category: "GenericVariance");
+            }
+            else if (typeParam.VarianceKeyword.IsKind(SyntaxKind.InKeyword))
+            {
+                context.Diagnostics.Warning(
+                    $"Contravariant type parameter 'in {typeParam.Identifier.Text}' — Java uses use-site variance; declaration-site variance dropped",
+                    typeParam.GetLocation(),
+                    code: "CS2J1003",
+                    category: "GenericVariance");
+            }
         }
 
         // Propagate generic type parameter constraints (where T : IBound)
@@ -506,7 +523,38 @@ public class ClassTransformer : ITypeTransformer
                             jtp.Bounds.Add(bound);
                     }
                 }
-                // ClassConstraint, StructConstraint, ConstructorConstraint have no Java equivalent
+                else if (constraint is ClassOrStructConstraintSyntax classOrStruct)
+                {
+                    if (classOrStruct.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword))
+                    {
+                        context.Diagnostics.Warning(
+                            $"Generic constraint 'where {paramName} : struct' has no Java equivalent — constraint dropped",
+                            constraint.GetLocation(),
+                            code: "CS2J1002",
+                            category: "GenericConstraint");
+                    }
+                    // 'class' constraint: Java types are always reference types, no action needed
+                }
+                else if (constraint is ConstructorConstraintSyntax)
+                {
+                    context.Diagnostics.Warning(
+                        $"Generic constraint 'where {paramName} : new()' has no Java equivalent — constraint dropped",
+                        constraint.GetLocation(),
+                        code: "CS2J1002",
+                        category: "GenericConstraint");
+                }
+                else if (constraint is DefaultConstraintSyntax)
+                {
+                    // 'default' constraint (C# 9): no Java equivalent
+                }
+                else
+                {
+                    context.Diagnostics.Warning(
+                        $"Unsupported generic constraint on '{paramName}': {constraint.GetType().Name} — constraint dropped",
+                        constraint.GetLocation(),
+                        code: "CS2J1002",
+                        category: "GenericConstraint");
+                }
             }
         }
     }

@@ -86,6 +86,23 @@ public class DelegateTransformer : IDelegateTransformer
                 javaInterface.TypeParameters.Add(jtp);
                 allTypeParams.Add(typeParam.Identifier.Text);
             }
+
+            if (typeParam.VarianceKeyword.IsKind(SyntaxKind.OutKeyword))
+            {
+                context.Diagnostics.Warning(
+                    $"Covariant type parameter 'out {typeParam.Identifier.Text}' — Java uses use-site variance; declaration-site variance dropped",
+                    typeParam.GetLocation(),
+                    code: "CS2J1003",
+                    category: "GenericVariance");
+            }
+            else if (typeParam.VarianceKeyword.IsKind(SyntaxKind.InKeyword))
+            {
+                context.Diagnostics.Warning(
+                    $"Contravariant type parameter 'in {typeParam.Identifier.Text}' — Java uses use-site variance; declaration-site variance dropped",
+                    typeParam.GetLocation(),
+                    code: "CS2J1003",
+                    category: "GenericVariance");
+            }
         }
 
         // Propagate type parameter constraints
@@ -208,30 +225,7 @@ public class DelegateTransformer : IDelegateTransformer
     private void ApplyTypeParameterConstraints(DelegateDeclarationSyntax node, JavaInterfaceDeclaration javaInterface, ConversionContext context)
     {
         if (node.ConstraintClauses.Count == 0) return;
-
-        foreach (var clause in node.ConstraintClauses)
-        {
-            var paramName = clause.Name.Identifier.Text;
-            var jtp = javaInterface.TypeParameters.FirstOrDefault(tp => tp.Name == paramName);
-            if (jtp == null) continue;
-
-            foreach (var constraint in clause.Constraints)
-            {
-                if (constraint is TypeConstraintSyntax typeConstraint)
-                {
-                    var typeInfo = context.SemanticModel?.GetTypeInfo(typeConstraint.Type);
-                    if (typeInfo.HasValue && typeInfo.Value.Type != null)
-                    {
-                        var bound = context.MapType(typeInfo.Value.Type);
-                        if (!string.IsNullOrEmpty(bound) && bound != "Object")
-                        {
-                            jtp.Bounds.Add(bound);
-                        }
-                    }
-                }
-                // ClassConstraint (struct/class) and ConstructorConstraint have no Java equivalent
-            }
-        }
+        ClassTransformer.ApplyTypeParameterConstraints(node.ConstraintClauses, javaInterface.TypeParameters, context);
     }
 
     /// <summary>

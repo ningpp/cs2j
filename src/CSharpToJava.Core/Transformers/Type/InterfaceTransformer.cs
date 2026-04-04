@@ -46,6 +46,23 @@ public class InterfaceTransformer : ITypeTransformer
         foreach (var typeParam in interfaceDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
         {
             javaInterface.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
+
+            if (typeParam.VarianceKeyword.IsKind(SyntaxKind.OutKeyword))
+            {
+                context.Diagnostics.Warning(
+                    $"Covariant type parameter 'out {typeParam.Identifier.Text}' — Java uses use-site variance; declaration-site variance dropped",
+                    typeParam.GetLocation(),
+                    code: "CS2J1003",
+                    category: "GenericVariance");
+            }
+            else if (typeParam.VarianceKeyword.IsKind(SyntaxKind.InKeyword))
+            {
+                context.Diagnostics.Warning(
+                    $"Contravariant type parameter 'in {typeParam.Identifier.Text}' — Java uses use-site variance; declaration-site variance dropped",
+                    typeParam.GetLocation(),
+                    code: "CS2J1003",
+                    category: "GenericVariance");
+            }
         }
 
         // Propagate generic type parameter constraints
