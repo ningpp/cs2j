@@ -545,6 +545,20 @@ public class AssignmentTransformer : IIRExpressionTransformer
             rightStr = StructCloneHelper.CloneStructValueIfNeeded(rightNode, rightStr, rhsTypeForClone, context);
             var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
             rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsType, context);
+
+            // Stream → Iterable/Collection: when LHS is IEnumerable/ICollection/IList (Java Iterable/Collection)
+            // and RHS is a Java stream expression (from LINQ .Where/.Select), collect the stream.
+            // Java Stream does NOT implement Iterable, so direct assignment would fail.
+            if (lhsType is INamedTypeSymbol lhsNamed
+                && lhsNamed.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+                && lhsNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true
+                && IsLikelyStreamExpression(rightStr)
+                && !rightStr.Contains(".collect("))
+            {
+                rightStr = $"{rightStr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.ArrayList");
+            }
         }
 
         return $"{left} {op} {rightStr}";
@@ -789,6 +803,19 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Check namespace - should be from System.Collections.Generic
         var ns = type.ContainingNamespace?.ToDisplayString() ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
         return ns != null && ns.StartsWith("System.Collections.Generic");
+    }
+
+    /// <summary>
+    /// Heuristic check: does the transformed Java expression look like an unmaterialized Stream?
+    /// Matches common Java Stream API method calls that appear when LINQ is converted.
+    /// </summary>
+    private static bool IsLikelyStreamExpression(string expr)
+    {
+        return expr.Contains(".filter(") || expr.Contains(".map(") || expr.Contains(".flatMap(")
+            || expr.Contains(".sorted(") || expr.Contains(".distinct(") || expr.Contains(".limit(")
+            || expr.Contains(".skip(") || expr.Contains(".peek(")
+            || expr.Contains("StreamSupport.stream(") || expr.Contains("Arrays.stream(")
+            || expr.Contains("Stream.concat(") || expr.Contains(".stream()");
     }
 
     /// <summary>
