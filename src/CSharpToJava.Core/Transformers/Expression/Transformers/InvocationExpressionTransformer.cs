@@ -2023,18 +2023,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"Stream.generate(() -> {elemArg}).limit({countArg})";
             }
 
-            // Enumerable.Empty<T>() → Stream.<T>empty()
+            // Enumerable.Empty<T>() → Collections.<T>emptyList()
+            // Using Collections.emptyList() instead of Stream.<T>empty() because
+            // Stream does not implement Iterable in Java and is incompatible with
+            // materialized collections (ArrayList, List) in ternary expressions.
             if (originalMethodName == "Empty")
             {
-                context.AddImport("java.util.stream.Stream");
+                context.AddImport("java.util.Collections");
                 if (node.Expression is MemberAccessExpressionSyntax ma
                     && ma.Name is GenericNameSyntax gns
                     && gns.TypeArgumentList.Arguments.Count > 0)
                 {
                     var typeArg = facade.Transform(gns.TypeArgumentList.Arguments[0], context);
-                    return $"Stream.<{typeArg}>empty()";
+                    return $"Collections.<{typeArg}>emptyList()";
                 }
-                return "Stream.empty()";
+                return "Collections.emptyList()";
             }
         }
 
