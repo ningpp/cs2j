@@ -381,6 +381,56 @@ public partial class StatementTransformer
             localDeclPostCode = "\n" + string.Join("\n", pendingPost.Select(s => s.TrimEnd(';') + ";"));
         }
 
+        // Produce structured JavaVariableDeclarationStatement for simple single-variable cases.
+        // This enables downstream IR rewriters (e.g. ImplicitCastCompletionRewriter) to inspect
+        // declared types and initializer types without string parsing.
+        if (stmt.Declaration.Variables.Count == 1
+            && string.IsNullOrEmpty(localDeclPreCode)
+            && string.IsNullOrEmpty(localDeclPostCode))
+        {
+            var singleVar = stmt.Declaration.Variables[0];
+            var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
+
+            // Determine initializer expression as IR node
+            JavaExpression? initializerIR = null;
+            string? resolvedInitType = null;
+            if (singleVar.Initializer != null)
+            {
+                // Re-extract the init expression from the declarations string.
+                // declarations is "varName = initExpr" — extract after " = ".
+                var declStr = declarations;
+                var eqIdx = declStr.IndexOf(" = ", StringComparison.Ordinal);
+                if (eqIdx >= 0)
+                {
+                    var initStr = declStr[(eqIdx + 3)..];
+                    initializerIR = new JavaRawExpression(initStr);
+                }
+
+                // Resolve initializer type from semantic model
+                if (context.SemanticModel != null)
+                {
+                    var initTypeInfo = context.SemanticModel.GetTypeInfo(singleVar.Initializer.Value);
+                    var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
+                    if (initType != null && initType.TypeKind != TypeKind.Error)
+                    {
+                        var mapped = context.MapType(initType);
+                        if (!string.IsNullOrWhiteSpace(mapped))
+                            resolvedInitType = mapped;
+                    }
+                }
+            }
+
+            var structured = new JavaVariableDeclarationStatement
+            {
+                Type = javaType,
+                Name = varName,
+                Initializer = initializerIR,
+                IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
+                ResolvedInitializerType = resolvedInitType
+            };
+            return structured;
+        }
+
         return new JavaStatementNode($"{localDeclPreCode}{javaType} {declarations};{localDeclPostCode}");
     }
 
