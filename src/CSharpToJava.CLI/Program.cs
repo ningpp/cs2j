@@ -40,6 +40,7 @@ class Program
             {
                 TargetJavaVersion = Enum.Parse<JavaVersion>(opts.JavaVersion, true),
                 TypeMappingConfigPath = opts.MappingConfig,
+                JavaMetadataPath = ResolveJavaMetadataPath(opts.MappingConfig),
                 GenerateJavaDoc = opts.GenerateJavaDoc,
                 UseRecords = opts.UseRecords,
                 UseOptionalForNullable = opts.UseOptionalForNullable,
@@ -138,6 +139,7 @@ class Program
             {
                 TargetJavaVersion = Enum.Parse<JavaVersion>(opts.JavaVersion, true),
                 TypeMappingConfigPath = opts.MappingConfig,
+                JavaMetadataPath = ResolveJavaMetadataPath(opts.MappingConfig),
                 GenerateJavaDoc = opts.GenerateJavaDoc,
                 UseRecords = opts.UseRecords,
                 UseOptionalForNullable = opts.UseOptionalForNullable,
@@ -1079,42 +1081,6 @@ class Program
             generatedCode = generatedCode.Replace(
                 "var innerEx = ex.getInnerException() != null ? ex.getInnerException() : ex;",
                 "var innerEx = ex.getCause() != null ? ex.getCause() : ex;",
-                StringComparison.Ordinal);
-        }
-
-        if (string.Equals(fileNameOnly, "GeometryGraphReader.cs", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(fileNameOnly, "GeometryGraphReader.java", StringComparison.OrdinalIgnoreCase))
-        {
-            generatedCode = generatedCode.Replace("createFromFile(String fileName) throws Exception", "createFromFile(String fileName)", StringComparison.Ordinal);
-            generatedCode = generatedCode.Replace("createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) throws Exception", "createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings)", StringComparison.Ordinal);
-            generatedCode = generatedCode.Replace("firstCharacter(String fileName) throws Exception", "firstCharacter(String fileName)", StringComparison.Ordinal);
-
-            generatedCode = System.Text.RegularExpressions.Regex.Replace(
-                generatedCode,
-                @"public\s+static\s+GeometryGraph\s+createFromFile\(String fileName\)\s+throws Exception\s*\{",
-                "public static GeometryGraph createFromFile(String fileName) {",
-                System.Text.RegularExpressions.RegexOptions.Multiline);
-
-            generatedCode = System.Text.RegularExpressions.Regex.Replace(
-                generatedCode,
-                @"public\s+static\s+GeometryGraph\s+createFromFile\(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings\)\s+throws Exception\s*\{\s*if \(firstCharacter\(fileName\) != '<'\) \{\s*settings\.value = null;\s*return null;\s*\}\s*try \(InputStream stream = FileHelper\.openRead\(fileName\)\) \{\s*var graphReader = new GeometryGraphReader\(stream\);\s*GeometryGraph graph = graphReader\.read\(\);\s*settings\.value = graphReader\.getSettings\(\);\s*return graph;\s*\}\s*\}",
-                "public static GeometryGraph createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) {\n        try {\n        if (firstCharacter(fileName) != '<') {\n        settings.value = null;\n        return null;\n        }\n        InputStream stream = null;\n        try {\n        stream = FileHelper.openRead(fileName);\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        } finally {\n        if (stream != null) {\n        try {\n        stream.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        }\n    }",
-                System.Text.RegularExpressions.RegexOptions.Singleline);
-
-            generatedCode = System.Text.RegularExpressions.Regex.Replace(
-                generatedCode,
-                @"static\s+char\s+firstCharacter\(String fileName\)\s+throws Exception\s*\{\s*try \(TextReader reader = FileHelper\.openText\(fileName\)\) \{\s*var first = \(char\)\(reader\.peek\(\)\);\s*return first;\s*\}\s*\}",
-                "static char firstCharacter(String fileName) {\n        TextReader reader = null;\n        try {\n        reader = FileHelper.openText(fileName);\n        var first = (char)(reader.peek());\n        return first;\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        } finally {\n        if (reader != null) {\n        try {\n        reader.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }\n    }",
-                System.Text.RegularExpressions.RegexOptions.Singleline);
-
-            generatedCode = generatedCode.Replace(
-                "try (InputStream stream = FileHelper.openRead(fileName)) {\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        }",
-                "InputStream stream = null;\n        try {\n        stream = FileHelper.openRead(fileName);\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        } finally {\n        if (stream != null) {\n        try {\n        stream.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }",
-                StringComparison.Ordinal);
-
-            generatedCode = generatedCode.Replace(
-                "try (TextReader reader = FileHelper.openText(fileName)) {\n        var first = (char)(reader.peek());\n        return first;\n        }",
-                "TextReader reader = null;\n        try {\n        reader = FileHelper.openText(fileName);\n        var first = (char)(reader.peek());\n        return first;\n        } finally {\n        if (reader != null) {\n        try {\n        reader.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }",
                 StringComparison.Ordinal);
         }
 
@@ -2214,6 +2180,28 @@ class Program
         return File.Exists(fullPath)
             ? Path.GetDirectoryName(fullPath) ?? fullPath
             : fullPath;
+    }
+
+    /// <summary>
+    /// Auto-discovers the Java standard-library metadata directory (<c>config/java/</c>)
+    /// as a sibling of the type mapping configuration file.
+    /// </summary>
+    private static string? ResolveJavaMetadataPath(string? mappingConfig)
+    {
+        // Determine the config base directory from the mapping config path
+        string configDir;
+        if (!string.IsNullOrEmpty(mappingConfig))
+        {
+            var fullPath = Path.IsPathRooted(mappingConfig) ? mappingConfig : Path.Combine(Directory.GetCurrentDirectory(), mappingConfig);
+            configDir = Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory();
+        }
+        else
+        {
+            configDir = Path.Combine(Directory.GetCurrentDirectory(), "config");
+        }
+
+        var javaDir = Path.Combine(configDir, "java");
+        return Directory.Exists(Path.Combine(javaDir, "java.base")) ? javaDir : null;
     }
 
     private static string GetCommonRoot(IEnumerable<string> paths)

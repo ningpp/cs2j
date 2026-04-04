@@ -220,6 +220,18 @@ public class MethodTransformer : IMemberTransformer
             if (!javaMethod.ThrownExceptions.Contains("Exception"))
                 javaMethod.ThrownExceptions.Add("Exception");
         }
+
+        // C# using statements → Java try-with-resources. The implicit close() call
+        // from AutoCloseable can throw checked exceptions. Add throws Exception so
+        // the generated Java compiles even when the exception check rewriter cannot
+        // resolve the resource type.
+        if (methodDecl.Body != null
+            && methodDecl.Body.DescendantNodes().OfType<UsingStatementSyntax>().Any())
+        {
+            if (!javaMethod.ThrownExceptions.Contains("Exception"))
+                javaMethod.ThrownExceptions.Add("Exception");
+        }
+
         context.LeaveMethod();
 
         // Java 规则：静态方法不能引用外部类的类型参数。

@@ -125,4 +125,145 @@ class Simple : IDisposable {
         _out.WriteLine("ThrownExceptions: " + string.Join(", ", method.ThrownExceptions));
         Assert.Contains("Exception", method.ThrownExceptions);
     }
+
+    [Fact]
+    public void FullPipeline_StaticMethodWithUsing_GetsThrowsException()
+    {
+        // Test that the full pipeline with Java library metadata adds throws
+        // to a static method containing a using statement
+        var r = Convert(@"
+using System;
+using System.IO;
+class GeometryReader : IDisposable {
+    StreamReader xmlReader;
+    static char FirstCharacter(string fileName) {
+        using (TextReader reader = File.OpenText(fileName)) {
+            var first = (char)reader.Peek();
+            return first;
+        }
+    }
+    protected virtual void Dispose(bool disposing) {
+        if (disposing)
+            xmlReader.Close();
+    }
+    public void Dispose() {
+        Dispose(true);
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Check that close methods get throws Exception
+        Assert.Contains("void close(boolean disposing) throws Exception", code);
+        // Check firstCharacter: in the simple pipeline (no Java library), 
+        // the rewriter won't detect try-with-resources exceptions.
+        // Just verify the Dispose→close fix works.
+        _out.WriteLine("--- firstCharacter section ---");
+        var fcIdx = code.IndexOf("firstCharacter");
+        if (fcIdx >= 0)
+        {
+            var snippet = code.Substring(Math.Max(0, fcIdx - 20), Math.Min(200, code.Length - Math.Max(0, fcIdx - 20)));
+            _out.WriteLine(snippet);
+        }
+        // Phase 4: UsingStatementSyntax detection should add throws Exception
+        Assert.Contains("firstCharacter(String fileName) throws Exception", code);
+    }
+
+    [Fact]
+    public void OutParamMethodWithUsing_GetsThrowsException()
+    {
+        // A method with an out parameter and a using statement should get throws Exception
+        var r = Convert(@"
+using System;
+using System.IO;
+class GraphReader : IDisposable {
+    StreamReader xmlReader;
+    public static string CreateFromFile(string fileName, out int settings) {
+        if (fileName == null) {
+            settings = 0;
+            return null;
+        }
+        using (Stream stream = File.OpenRead(fileName)) {
+            settings = stream.ReadByte();
+            return ""ok"";
+        }
+    }
+    protected virtual void Dispose(bool disposing) {
+        if (disposing) xmlReader.Close();
+    }
+    public void Dispose() { Dispose(true); }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Method with out param + using should have throws Exception
+        Assert.Contains("throws Exception", code);
+        // Check the method signature is well-formed (no dangling comma before exception)
+        Assert.DoesNotContain("), ", code.Split('\n').FirstOrDefault(l => l.Contains("createFromFile")) ?? "");
+    }
+
+    [Fact]
+    public async Task ProjectPipeline_MethodWithUsing_GetsThrowsException()
+    {
+        // Test with the project conversion pipeline (not single-file)
+        var source = @"
+using System;
+using System.IO;
+class GeometryGraphReader : IDisposable {
+    StreamReader xmlReader;
+    public static string CreateFromFile(string fileName) {
+        int settings;
+        return CreateFromFile(fileName, out settings);
+    }
+    public static string CreateFromFile(string fileName, out int settings) {
+        if (FirstCharacter(fileName) != '<') {
+            settings = 0;
+            return null;
+        }
+        using (Stream stream = File.OpenRead(fileName)) {
+            settings = stream.ReadByte();
+            return ""ok"";
+        }
+    }
+    static char FirstCharacter(string fileName) {
+        using (TextReader reader = File.OpenText(fileName)) {
+            var first = (char)reader.Peek();
+            return first;
+        }
+    }
+    protected virtual void Dispose(bool disposing) {
+        if (disposing) xmlReader.Close();
+    }
+    public void Dispose() { Dispose(true); }
+}";
+        var options = new ConversionOptions();
+        var pipeline = new ProjectConversionPipeline(options);
+        var sourceFiles = new List<SourceFile>
+        {
+            new SourceFile { FilePath = "GeometryGraphReader.cs", Content = source }
+        };
+        var results = await pipeline.ConvertProjectAsync(sourceFiles,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { System.IO.Path.GetFullPath("GeometryGraphReader.cs") });
+
+        var result = results.FirstOrDefault(r => r.FileName?.Contains("GeometryGraphReader") == true);
+        Assert.NotNull(result);
+        _out.WriteLine(result.GeneratedCode ?? "FAILED");
+        Assert.True(result.Success);
+        var code = result.GeneratedCode ?? "";
+
+        // All close methods should have throws Exception
+        Assert.Contains("void close(boolean disposing) throws Exception", code);
+        Assert.Contains("void close() throws Exception", code);
+
+        // FirstCharacter has using statement → should have throws Exception
+        Assert.Contains("firstCharacter(String fileName) throws Exception", code);
+
+        // CreateFromFile(String, out int) has using statement → should have throws Exception
+        var cfLine = code.Split('\n').FirstOrDefault(l => l.Contains("createFromFile") && l.Contains("IntHolder"));
+        _out.WriteLine($"createFromFile line: {cfLine}");
+        Assert.NotNull(cfLine);
+        Assert.Contains("throws Exception", cfLine);
+        // Signature must be well-formed (no dangling comma)
+        Assert.DoesNotContain("), ", cfLine);
+    }
 }
