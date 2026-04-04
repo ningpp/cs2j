@@ -135,9 +135,12 @@ public partial class StatementTransformer
         }
 
         var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Type);
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
         var identifier = ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text);
+        // Transform the collection expression FIRST so that any anonymous-type
+        // record synthesis (from `select new { ... }`) registers the record
+        // before we resolve the foreach variable type via MapType.
         var expression = exprTransformer.Transform(stmt.Expression, context);
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
 
         var stmtTransformer = new StatementTransformer();
         var body = stmt.Statement is BlockSyntax block
