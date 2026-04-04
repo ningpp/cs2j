@@ -62,11 +62,13 @@ public partial class StatementTransformer
         if (expr is ParenthesizedExpressionSyntax paren)
             return ContainsLambdaOrMethodRef(paren.Expression);
         if (expr is CastExpressionSyntax cast)
-            return ContainsLambdaOrMethodRef(cast.Expression);
+            // A cast in a ternary branch (e.g., (DelegateType)MethodGroup) signals delegate conversion.
+            // Return true conservatively — forces explicit type instead of var, which is always safe.
+            return true;
         return expr is SimpleLambdaExpressionSyntax
             or ParenthesizedLambdaExpressionSyntax
             or AnonymousMethodExpressionSyntax
-            || (expr is MemberAccessExpressionSyntax && expr.Parent is ArgumentSyntax);
+            || expr is MemberAccessExpressionSyntax;
     }
 
     /// <summary>
