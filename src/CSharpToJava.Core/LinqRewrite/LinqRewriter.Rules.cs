@@ -1290,44 +1290,19 @@ namespace CSharpToJava.Core.LinqRewrite
             var collectionType = semantic.GetTypeInfo(collection).Type;
             if (collectionType is IArrayTypeSymbol)
             {
+                // Arrays always use indexed for-loop with concrete parameter type — .Length is valid.
                 return SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName(ItemsName), SyntaxFactory.IdentifierName("Length"));
             }
-            if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.IReadOnlyCollection<") || collectionType.AllInterfaces.Any(x => x.ToDisplayString().StartsWith("System.Collections.Generic.IReadOnlyCollection<")))
+            // Direct .Count access is only valid when the helper-method parameter retains
+            // a concrete type that exposes Count. Only List<T> gets an indexed for-loop
+            // with the concrete parameter type. Other ICollection/IReadOnlyCollection
+            // implementors use foreach with IEnumerable<T> parameter, where .Count is
+            // unresolvable and the converter falls through to an invalid method reference.
+            if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<"))
             {
                 return SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName(ItemsName), SyntaxFactory.IdentifierName("Count"));
             }
-            if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.ICollection<") || collectionType.AllInterfaces.Any(x => x.ToDisplayString().StartsWith("System.Collections.Generic.ICollection<")))
-            {
-                return SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName(ItemsName), SyntaxFactory.IdentifierName("Count"));
-            }
-            if (allowUnknown)
-            {
-                var items = new int[] { };
-                if (collectionType.IsValueType) return null;
-                var itemType = GetItemType(collectionType);
-                if (itemType == null) return null;
-                return
-                    SyntaxFactory.InvocationExpression(
-                        SyntaxFactory.MemberAccessExpression(
-                            SyntaxKind.SimpleMemberAccessExpression,
-                            SyntaxFactory.ParenthesizedExpression(
-                                SyntaxFactory.ConditionalAccessExpression(
-                                    SyntaxFactory.ParenthesizedExpression(
-                                        SyntaxFactory.BinaryExpression(
-                                            SyntaxKind.AsExpression,
-                                            SyntaxFactory.IdentifierName(ItemsName),
-                                            SyntaxFactory.ParseTypeName("System.Collections.Generic.ICollection<" + itemType.ToDisplayString() + ">")
-                                        )
-                                    ),
-                                    SyntaxFactory.MemberBindingExpression(
-                                        SyntaxFactory.IdentifierName("Count")
-                                    )
-                                )
-                            ),
-                            SyntaxFactory.IdentifierName("GetValueOrDefault")
-                        )
-                    );
-            }
+            // For non-List, non-array types, skip the capacity hint entirely.
             return null;
         }
 
