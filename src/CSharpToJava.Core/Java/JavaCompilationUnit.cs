@@ -26,8 +26,19 @@ public class JavaCompilationUnit : JavaSyntaxNode
             sb.AppendLine();
         }
 
+        // Collect wildcard package names to avoid emitting redundant explicit imports
+        var wildcardPackages = new HashSet<string>(
+            Imports.Where(i => i.IsWildcard && !i.IsStatic).Select(i => i.Name));
+
         foreach (var import in Imports)
         {
+            // Skip explicit (non-wildcard) imports whose package is already covered by a wildcard
+            if (!import.IsWildcard && !import.IsStatic)
+            {
+                var lastDot = import.Name.LastIndexOf('.');
+                if (lastDot > 0 && wildcardPackages.Contains(import.Name[..lastDot]))
+                    continue;
+            }
             sb.AppendLine(import.ToCodeString(indentation));
         }
 
