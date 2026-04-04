@@ -772,9 +772,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
             // Issue 5: detect reduced extension method; set isExtensionInStaticPath = true
             // when promoting to a static call so the receiver is not double-passed as arg[0].
-            // Currently instance-call form is kept, so isExtensionInStaticPath stays false.
+            // For user-defined extension methods (not System.Linq.Enumerable/Queryable), activate
+            // static lowering: HostClass.method(receiver, args...) instead of receiver.method(args...).
             if (methodSymbol is { IsExtensionMethod: true, MethodKind: MethodKind.ReducedExtension })
-                isExtensionInStaticPath = false;
+            {
+                var containingTypeDisplay = methodSymbol.ContainingType.ToDisplayString();
+                bool isLinqExtension = containingTypeDisplay is "System.Linq.Enumerable" or "System.Linq.Queryable";
+                // Only activate static lowering for user-defined extension methods.
+                // LINQ extension methods are handled by the dedicated Stream API block below.
+                isExtensionInStaticPath = !isLinqExtension;
+            }
         }
 
         // MSTest Assert.* -> JUnit Assertions.*
@@ -1799,6 +1806,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         if (originalMethodName == "CreateRectangleNodeOnData"
+            && !isExtensionInStaticPath
             && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
         {
             var firstArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
@@ -3226,6 +3234,35 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             || methodName.StartsWith("System.getenv", StringComparison.Ordinal))
         {
             return $"{methodName}({args})";
+        }
+
+        // User-defined extension method static lowering:
+        // Rewrite receiver.method(args) → HostClass.method(receiver, args)
+        // Uses ReducedFrom to get the original unreduced method symbol and its containing type.
+        if (isExtensionInStaticPath
+            && methodSymbol is { IsExtensionMethod: true, MethodKind: MethodKind.ReducedExtension })
+        {
+            var originalMethod = methodSymbol.ReducedFrom ?? methodSymbol;
+            var hostType = originalMethod.ContainingType;
+            var hostTypeName = hostType.Name;
+
+            // Add import for the host class
+            var hostNs = hostType.ContainingNamespace?.ToDisplayString();
+            if (hostNs is not null and not "<global namespace>" and not "")
+            {
+                var hostPackage = context.NamespaceToPackage(hostNs);
+                if (!string.IsNullOrEmpty(hostPackage))
+                    context.AddImport($"{hostPackage}.{hostType.Name}");
+            }
+
+            // Transform arguments using the *reduced* method symbol (whose parameters match
+            // the call-site arguments — receiver is NOT in node.ArgumentList for ReducedExtension).
+            var extensionArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, 0, methodSymbol);
+            var allArgs = string.IsNullOrEmpty(extensionArgs)
+                ? receiver
+                : $"{receiver}, {extensionArgs}";
+            return $"{hostTypeName}.{methodName}({allArgs})";
         }
 
         return $"{receiver}.{methodName}({args})";

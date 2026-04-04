@@ -37,6 +37,12 @@ public sealed class Cs2jLibrary : IDisposable
     public bool IsEmpty => Documents.Count == 0;
     public CSharpCompilation? PrimaryCompilation => Projects.FirstOrDefault()?.Compilation;
 
+    /// <summary>
+    /// Cross-project extension method index built during pre-conversion scanning.
+    /// Populated before per-project conversion begins; consumed by transformers and validation passes.
+    /// </summary>
+    public ExtensionMethodIndex ExtensionMethodIndex { get; set; } = ExtensionMethodIndex.Empty;
+
     public void Dispose() => _disposeAction?.Invoke();
 }
 

@@ -589,6 +589,97 @@ public sealed class ProjectCompatibilityEmitPass : ICs2jPass<ProjectPassState>
     }
 }
 
+/// <summary>
+/// Validates extension method bindings across the current project.
+/// Checks that all extension method call sites resolve to a host that is either:
+/// - in the current project
+/// - in a referenced project within the conversion graph
+/// - in a known type mapping
+/// Produces diagnostics for unresolvable extension method calls.
+/// </summary>
+public sealed class ProjectExtensionMethodCheckPass : ICs2jPass<ProjectPassState>
+{
+    public string Name => nameof(ProjectExtensionMethodCheckPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Check;
+
+    public void Execute(ProjectPassState state)
+    {
+        var index = state.Library.ExtensionMethodIndex;
+        if (index.Count == 0)
+            return;
+
+        var syntaxTrees = state.Compilation.SyntaxTrees
+            .Where(st => !string.IsNullOrWhiteSpace(st.FilePath)
+                         && !st.FilePath.StartsWith("<", StringComparison.Ordinal))
+            .ToList();
+
+        var analysisResults = ProjectPassParallelism.RunDeterministic(
+            syntaxTrees,
+            state.Context.Options.EnableParallelProjectPasses,
+            syntaxTree => AnalyzeSyntaxTree(syntaxTree, state));
+
+        foreach (var (filePath, diagnostics) in analysisResults)
+        {
+            if (diagnostics.Count == 0)
+                continue;
+
+            foreach (var diagnostic in diagnostics)
+            {
+                state.Context.Diagnostics.Warning(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+            }
+
+            // Extension method diagnostics are warnings, not blocking
+            state.RegisterFileDiagnostics(filePath, diagnostics, blockEmit: false);
+        }
+    }
+
+    private static ProjectSyntaxTreeDiagnosticsResult AnalyzeSyntaxTree(
+        SyntaxTree syntaxTree,
+        ProjectPassState state)
+    {
+        var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
+        var diagnostics = new List<Context.DiagnosticMessage>();
+        var root = syntaxTree.GetRoot();
+        var index = state.Library.ExtensionMethodIndex;
+
+        foreach (var invocation in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>())
+        {
+            var symbolInfo = semanticModel.GetSymbolInfo(invocation);
+            if (symbolInfo.Symbol is not IMethodSymbol { IsExtensionMethod: true, MethodKind: MethodKind.ReducedExtension } methodSymbol)
+                continue;
+
+            // Skip LINQ extension methods — handled by dedicated Stream API rewriting
+            var containingType = methodSymbol.ContainingType.ToDisplayString();
+            if (containingType is "System.Linq.Enumerable" or "System.Linq.Queryable")
+                continue;
+
+            // Check if the extension method is in a known mapping
+            var mappedMethod = state.Context.TypeMappings.MapMethod(containingType, methodSymbol.Name);
+            if (mappedMethod != null)
+                continue;
+
+            // Check if the extension method is in the conversion graph index
+            var originalMethod = methodSymbol.ReducedFrom ?? methodSymbol;
+            var docId = originalMethod.GetDocumentationCommentId();
+            if (!string.IsNullOrEmpty(docId) && index.FindByDocCommentId(docId) != null)
+                continue;
+
+            // Extension method host not found in conversion graph or mappings
+            diagnostics.Add(new Context.DiagnosticMessage(
+                Context.DiagnosticSeverity.Warning,
+                $"Extension method '{methodSymbol.Name}' on type '{methodSymbol.ContainingType.Name}' "
+                + $"is not in the current conversion graph or known mappings. "
+                + $"The generated Java code may reference an unavailable static host class.",
+                invocation.GetLocation(),
+                "CS2J_EXT001",
+                "ExtensionMethod"
+            ));
+        }
+
+        return new ProjectSyntaxTreeDiagnosticsResult(syntaxTree.FilePath, diagnostics);
+    }
+}
+
 public sealed class ProjectCrossPackageImportEmitPass : ICs2jPass<ProjectPassState>
 {
     public string Name => nameof(ProjectCrossPackageImportEmitPass);

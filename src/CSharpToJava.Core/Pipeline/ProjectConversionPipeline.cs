@@ -131,6 +131,7 @@ public class ProjectConversionPipeline
             new ProjectUnsupportedDomainCheckPass(),
             new ProjectPlatformBoundaryCheckPass(),
             new ProjectNativeInteropCheckPass(),
+            new ProjectExtensionMethodCheckPass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
             new ProjectCompatibilityEmitPass(),
@@ -154,6 +155,17 @@ public class ProjectConversionPipeline
         ConversionContext context,
         ISet<string>? emitFilePaths)
     {
+        // Phase 1: In multi-project mode, RewriteExtensionMethods (instance promotion)
+        // is incompatible — it would require back-patching already-emitted projects.
+        // Force-disable and emit a warning so callers get a clear signal.
+        if (!library.IsSingleProject && context.Options.RewriteExtensionMethods)
+        {
+            context.Diagnostics.Warning(
+                "RewriteExtensionMethods is not supported in multi-project mode and has been disabled. "
+                + "Extension methods will be kept as static host methods with static call-site lowering.");
+            context.Options.RewriteExtensionMethods = false;
+        }
+
         var passMetrics = new List<Cs2jPassMetric>();
         var passState = new ProjectPassState
         {
@@ -162,6 +174,23 @@ public class ProjectConversionPipeline
             Compilation = compilation,
             EmitFilePaths = emitFilePaths,
         };
+
+        // Phase 2: Build extension method index if not already populated.
+        // In single-project mode, scan the current compilation.
+        // In multi-project mode, the caller (CLI) should pre-populate library.ExtensionMethodIndex.
+        if (library.ExtensionMethodIndex.Count == 0)
+        {
+            var index = new ExtensionMethodIndex();
+            foreach (var project in library.Projects)
+            {
+                ExtensionMethodIndex.ScanCompilation(
+                    index,
+                    project.Compilation,
+                    project.Name,
+                    context.NamespaceToPackage);
+            }
+            library.ExtensionMethodIndex = index;
+        }
 
         try
         {
