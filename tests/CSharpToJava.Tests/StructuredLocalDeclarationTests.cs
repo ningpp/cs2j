@@ -25,6 +25,124 @@ public class StructuredLocalDeclarationTests
         return result.GeneratedCode;
     }
 
+    private static string CreateRbTreeRegressionCode()
+    {
+        return @"
+enum RBColor { Red, Black }
+
+class RBNode<T> {
+    internal RBColor color;
+    internal T Item;
+    internal RBNode<T> left;
+    internal RBNode<T> right;
+    internal RBNode<T> parent;
+}
+
+class RbTree<T> {
+    RBNode<T> nil;
+    RBNode<T> root;
+
+    void LeftRotate(RBNode<T> x) { }
+    void RightRotate(RBNode<T> x) { }
+
+    void DeleteFixup(RBNode<T> x) {
+        while (x != root && x.color == RBColor.Black) {
+            if (x == x.parent.left) {
+                RBNode<T> w = x.parent.right;
+                if (w.color == RBColor.Red) {
+                    w.color = RBColor.Black;
+                    x.parent.color = RBColor.Red;
+                    LeftRotate(x.parent);
+                    w = x.parent.right;
+                }
+                if (w.left.color == RBColor.Black && w.right.color == RBColor.Black) {
+                    w.color = RBColor.Red;
+                    x = x.parent;
+                } else {
+                    if (w.right.color == RBColor.Black) {
+                        w.left.color = RBColor.Black;
+                        w.color = RBColor.Red;
+                        RightRotate(w);
+                        w = x.parent.right;
+                    }
+                    w.color = x.parent.color;
+                    x.parent.color = RBColor.Black;
+                    w.right.color = RBColor.Black;
+                    LeftRotate(x.parent);
+                    x = root;
+                }
+            } else {
+                RBNode<T> w = x.parent.left;
+                if (w.color == RBColor.Red) {
+                    w.color = RBColor.Black;
+                    x.parent.color = RBColor.Red;
+                    RightRotate(x.parent);
+                    w = x.parent.left;
+                }
+                if (w.right.color == RBColor.Black && w.left.color == RBColor.Black) {
+                    w.color = RBColor.Red;
+                    x = x.parent;
+                } else {
+                    if (w.left.color == RBColor.Black) {
+                        w.right.color = RBColor.Black;
+                        w.color = RBColor.Red;
+                        LeftRotate(w);
+                        w = x.parent.left;
+                    }
+                    w.color = x.parent.color;
+                    x.parent.color = RBColor.Black;
+                    w.left.color = RBColor.Black;
+                    RightRotate(x.parent);
+                    x = root;
+                }
+            }
+        }
+        x.color = RBColor.Black;
+    }
+
+    void InsertPrivate(RBNode<T> x) {
+        x.color = RBColor.Red;
+        while (x != root && x.parent.color == RBColor.Red) {
+            if (x.parent == x.parent.parent.left) {
+                RBNode<T> y = x.parent.parent.right;
+                if (y.color == RBColor.Red) {
+                    x.parent.color = RBColor.Black;
+                    y.color = RBColor.Black;
+                    x.parent.parent.color = RBColor.Red;
+                    x = x.parent.parent;
+                } else {
+                    if (x == x.parent.right) {
+                        x = x.parent;
+                        LeftRotate(x);
+                    }
+                    x.parent.color = RBColor.Black;
+                    x.parent.parent.color = RBColor.Red;
+                    RightRotate(x.parent.parent);
+                }
+            } else {
+                RBNode<T> y = x.parent.parent.left;
+                if (y.color == RBColor.Red) {
+                    x.parent.color = RBColor.Black;
+                    y.color = RBColor.Black;
+                    x.parent.parent.color = RBColor.Red;
+                    x = x.parent.parent;
+                } else {
+                    if (x == x.parent.left) {
+                        x = x.parent;
+                        RightRotate(x);
+                    }
+                    x.parent.color = RBColor.Black;
+                    x.parent.parent.color = RBColor.Red;
+                    LeftRotate(x.parent.parent);
+                }
+            }
+        }
+
+        root.color = RBColor.Black;
+    }
+}";
+    }
+
     // ── Basic structured declarations still produce correct output ──
 
     [Fact]
@@ -245,5 +363,55 @@ class T {
     }
 }");
         Assert.Contains("var x = getValue()", result);
+    }
+
+    [Fact]
+    public void DeleteFixup_RealRbTreePattern_PreservesNestedLocalDeclaration()
+    {
+        var result = ConvertCode(CreateRbTreeRegressionCode());
+
+        Assert.Contains("RBNode<T> w = x.parent.right;", result);
+        Assert.Contains("RBNode<T> w = x.parent.left;", result);
+    }
+
+    [Fact]
+    public void InsertPrivate_RealRbTreePattern_PreservesNestedLocalDeclaration()
+    {
+        var result = ConvertCode(CreateRbTreeRegressionCode());
+
+        Assert.Contains("RBNode<T> y = x.parent.parent.right;", result);
+        Assert.Contains("RBNode<T> y = x.parent.parent.left;", result);
+    }
+
+    [Fact]
+    public void ConstructorBody_PreservesStructuredLocalDeclaration()
+    {
+        var result = ConvertCode(@"
+class T {
+    int f;
+
+    T() {
+        int x = 42;
+        f = x;
+    }
+}");
+
+        Assert.Contains("int x = 42;", result);
+    }
+
+    [Fact]
+    public void StaticConstructorBody_PreservesStructuredLocalDeclaration()
+    {
+        var result = ConvertCode(@"
+class T {
+    static int f;
+
+    static T() {
+        int x = 42;
+        f = x;
+    }
+}");
+
+        Assert.Contains("int x = 42;", result);
     }
 }

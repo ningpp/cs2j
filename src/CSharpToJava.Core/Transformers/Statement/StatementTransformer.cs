@@ -88,21 +88,24 @@ public partial class StatementTransformer : IStatementTransformer
                 foreach (var member in collection.Members)
                 {
                     var memberText = member.ToString("");
-                    if (!string.IsNullOrWhiteSpace(memberText) &&
-                        !memberText.TrimStart().StartsWith("#") &&
-                        !memberText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
+                    if (ShouldEmitStatementText(memberText))
                     {
                         results.Add(AttachStatementComments(statement, memberText));
                     }
                 }
             }
+            else if (result is Java.JavaStatement javaStmt)
+            {
+                var stmtText = javaStmt.ToString("");
+                if (ShouldEmitStatementText(stmtText))
+                {
+                    results.Add(AttachStatementComments(statement, stmtText));
+                }
+            }
             else if (result is JavaStatementNode stmt)
             {
                 var stmtText = stmt.ToString("");
-                // 过滤掉空语句和 C# 预处理器指令残留
-                if (!string.IsNullOrWhiteSpace(stmtText) &&
-                    !stmtText.TrimStart().StartsWith("#") &&
-                    !stmtText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
+                if (ShouldEmitStatementText(stmtText))
                 {
                     results.Add(AttachStatementComments(statement, stmtText));
                 }
@@ -130,9 +133,7 @@ public partial class StatementTransformer : IStatementTransformer
                 foreach (var member in collection.Members)
                 {
                     var memberText = member.ToString("");
-                    if (!string.IsNullOrWhiteSpace(memberText) &&
-                        !memberText.TrimStart().StartsWith("#") &&
-                        !memberText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
+                    if (ShouldEmitStatementText(memberText))
                     {
                         var text = AttachStatementComments(statement, memberText);
                         results.Add(new Java.JavaRawStatement(text));
@@ -150,9 +151,7 @@ public partial class StatementTransformer : IStatementTransformer
             else if (result is JavaStatementNode stmt)
             {
                 var stmtText = stmt.ToString("");
-                if (!string.IsNullOrWhiteSpace(stmtText) &&
-                    !stmtText.TrimStart().StartsWith("#") &&
-                    !stmtText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
+                if (ShouldEmitStatementText(stmtText))
                 {
                     var text = AttachStatementComments(statement, stmtText);
                     results.Add(new Java.JavaRawStatement(text));
@@ -180,6 +179,13 @@ public partial class StatementTransformer : IStatementTransformer
         }
 
         return result;
+    }
+
+    private static bool ShouldEmitStatementText(string? statementText)
+    {
+        return !string.IsNullOrWhiteSpace(statementText)
+            && !statementText.TrimStart().StartsWith("#")
+            && !statementText.TrimStart().StartsWith("/* TODO: UncheckedStatement");
     }
 
 }
