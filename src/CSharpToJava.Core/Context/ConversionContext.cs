@@ -167,6 +167,15 @@ public class ConversionContext
     public void AddImport(string typeName)
     {
         if (typeName.StartsWith("java.lang.")) return;
+        // Reject bare package names (e.g. "java.util.stream") — Java requires class-level
+        // or wildcard imports ("java.util.stream.Collectors" or "java.util.stream.*").
+        // Bare package imports like "import java.util.stream;" are compile errors.
+        if (!typeName.EndsWith(".*") && typeName.Count(c => c == '.') >= 2)
+        {
+            var lastSegment = typeName.Substring(typeName.LastIndexOf('.') + 1);
+            if (lastSegment.Length > 0 && char.IsLower(lastSegment[0]))
+                return; // Skip — looks like a package path, not a type
+        }
         ImportedTypes.Add(typeName);
     }
 
