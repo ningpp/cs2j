@@ -2048,6 +2048,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 || (methodSymbol.IsExtensionMethod
                     && methodSymbol.ContainingType.ToDisplayString() is "System.Linq.Queryable" or "System.Linq.Enumerable")))
         {
+            // When stripping AsEnumerable on an array receiver, wrap with Arrays.asList()
+            // because Java arrays don't implement Iterable (unlike C# arrays which implement IEnumerable).
+            var rcvType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            if (rcvType is IArrayTypeSymbol arrayType)
+            {
+                return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(receiver, arrayType, context);
+            }
             return receiver;
         }
 
