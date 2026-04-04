@@ -132,14 +132,42 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     }
                 }
 
-                // Property access on member → JavaMethodCallExpression for getter
+                // Property access on member → prefer structured IR
                 if (symbol is IPropertySymbol prop)
                 {
                     bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgnM && asgnM.Left == node;
                     if (!isLhsOfAssignment)
                     {
-                        // Delegate to Transform() which handles static types, primitive boxed names, etc.
                         var code = Transform(node, context);
+                        // Convert getter calls to JavaMethodCallExpression when possible
+                        if (code.EndsWith("()"))
+                        {
+                            var parenIdx = code.LastIndexOf('(');
+                            var callPart = code[..parenIdx];
+                            var dotIdx = callPart.LastIndexOf('.');
+                            if (dotIdx > 0)
+                            {
+                                return new JavaMethodCallExpression
+                                {
+                                    Target = new JavaIdentifierExpression { Name = callPart[..dotIdx] },
+                                    MethodName = callPart[(dotIdx + 1)..]
+                                };
+                            }
+                            return new JavaMethodCallExpression { Target = null, MethodName = callPart };
+                        }
+                        // Fallback for non-method-call patterns (e.g., field access, .length)
+                        if (!code.Contains('(') && !code.Contains('[') && !code.Contains(' '))
+                        {
+                            var dotIdx = code.LastIndexOf('.');
+                            if (dotIdx > 0)
+                            {
+                                return new JavaMemberAccessExpression
+                                {
+                                    Target = new JavaIdentifierExpression { Name = code[..dotIdx] },
+                                    MemberName = code[(dotIdx + 1)..]
+                                };
+                            }
+                        }
                         return new JavaRawExpression(code);
                     }
                 }
@@ -161,7 +189,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        return new JavaRawExpression(Transform(node, context));
+        // General fallback: prefer structured IR over raw when possible
+        var fallbackCode = Transform(node, context);
+        if (!fallbackCode.Contains('(') && !fallbackCode.Contains('[') && !fallbackCode.Contains(' '))
+        {
+            var dotIdx = fallbackCode.LastIndexOf('.');
+            if (dotIdx > 0)
+            {
+                return new JavaMemberAccessExpression
+                {
+                    Target = new JavaIdentifierExpression { Name = fallbackCode[..dotIdx] },
+                    MemberName = fallbackCode[(dotIdx + 1)..]
+                };
+            }
+            return new JavaIdentifierExpression { Name = fallbackCode };
+        }
+        return new JavaRawExpression(fallbackCode);
     }
 
     private string TransformIdentifier(IdentifierNameSyntax node, ConversionContext context)
