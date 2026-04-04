@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Statement;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles lambda and anonymous method expressions.
 /// </summary>
 [TransformerRegistration]
-public class LambdaTransformer : IExpressionTransformer
+public class LambdaTransformer : IIRExpressionTransformer
 {
     static LambdaTransformer()
     {
@@ -37,6 +38,10 @@ public class LambdaTransformer : IExpressionTransformer
             SyntaxKind.AnonymousMethodExpression => TransformAnonymousMethod((AnonymousMethodExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Lambda expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+        => new JavaRawExpression(Transform(node, context));
 
     private string TransformLambda(LambdaExpressionSyntax node, ConversionContext context)
     {
@@ -77,6 +82,16 @@ public class LambdaTransformer : IExpressionTransformer
         foreach (var (capName, capType) in mutatedCaptures)
         {
             context.AddPreStatement($"{capType}[] _{capName} = {{ {capName} }};");
+        }
+
+        // Register captures in the lambda capture registry for downstream rewriter queries
+        if (mutatedCaptures.Count > 0)
+        {
+            var lambdaKey = $"{node.SpanStart}:{node.Span.Length}";
+            var captureInfos = mutatedCaptures
+                .Select(c => new MethodConversionState.CaptureInfo(c.Name, c.JavaType, IsMutable: true))
+                .ToList();
+            context.MethodState.RegisterLambdaCaptures(lambdaKey, captureInfos);
         }
 
         // Generate body
