@@ -212,14 +212,15 @@ public class EventFieldTransformer : IEventFieldTransformer
                     pNames.Add(pName);
                 }
                 sig.InvokeCallArguments = string.Join(", ", pNames);
-                sig.InvokeMethodName = "invoke";
+                bool isVoid = invokeMethod.ReturnsVoid;
+                sig.InvokeMethodName = Type.DelegateTransformer.InferSamMethodName(isVoid, invokeMethod.Parameters.Length);
             }
             else
             {
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter("Object", "args"));
                 sig.InvokeCallArguments = "sender, args";
-                sig.InvokeMethodName = "invoke";
+                sig.InvokeMethodName = Type.DelegateTransformer.InferSamMethodName(true, 2);
             }
 
             return sig;
@@ -260,7 +261,7 @@ public class EventFieldTransformer : IEventFieldTransformer
         sig.Parameters.Add(new JavaParameter("Object", "sender"));
         sig.Parameters.Add(new JavaParameter("Object", "args"));
         sig.InvokeCallArguments = "sender, args";
-        sig.InvokeMethodName = "invoke";
+        sig.InvokeMethodName = Type.DelegateTransformer.InferSamMethodName(true, 2);
 
         return sig;
     }
