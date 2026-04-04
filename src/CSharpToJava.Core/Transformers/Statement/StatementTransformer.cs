@@ -67,11 +67,11 @@ public partial class StatementTransformer : IStatementTransformer
         if (block == null) return body;
 
         context.MethodState.PushScope();
-        var statements = TransformStatements(block.Statements, context);
+        var irStatements = TransformStatementsToIR(block.Statements, context);
         context.MethodState.PopScope();
-        foreach (var stmt in statements)
+        foreach (var stmt in irStatements)
         {
-            body.Statements.Add(new Java.JavaRawStatement(stmt));
+            body.Statements.Add(stmt);
         }
         return body;
     }
@@ -105,6 +105,57 @@ public partial class StatementTransformer : IStatementTransformer
                     !stmtText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
                 {
                     results.Add(AttachStatementComments(statement, stmtText));
+                }
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Transforms statements to structured IR nodes. For statements that are already
+    /// <see cref="Java.JavaStatement"/> subclasses, they are preserved as-is.
+    /// Other results are wrapped in <see cref="Java.JavaRawStatement"/>.
+    /// </summary>
+    public List<Java.JavaStatement> TransformStatementsToIR(SyntaxList<StatementSyntax> statements, ConversionContext context)
+    {
+        var results = new List<Java.JavaStatement>();
+
+        foreach (var statement in statements)
+        {
+            var result = Transform(statement, context);
+
+            if (result is JavaMemberCollection collection)
+            {
+                foreach (var member in collection.Members)
+                {
+                    var memberText = member.ToString("");
+                    if (!string.IsNullOrWhiteSpace(memberText) &&
+                        !memberText.TrimStart().StartsWith("#") &&
+                        !memberText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
+                    {
+                        var text = AttachStatementComments(statement, memberText);
+                        results.Add(new Java.JavaRawStatement(text));
+                    }
+                }
+            }
+            else if (result is Java.JavaStatement javaStmt)
+            {
+                // Structured IR node produced by the transformer — keep as-is
+                var comments = CommentConversion.ExtractStatementLeadingComments(statement);
+                if (!string.IsNullOrWhiteSpace(comments))
+                    javaStmt.LeadingComment = comments;
+                results.Add(javaStmt);
+            }
+            else if (result is JavaStatementNode stmt)
+            {
+                var stmtText = stmt.ToString("");
+                if (!string.IsNullOrWhiteSpace(stmtText) &&
+                    !stmtText.TrimStart().StartsWith("#") &&
+                    !stmtText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
+                {
+                    var text = AttachStatementComments(statement, stmtText);
+                    results.Add(new Java.JavaRawStatement(text));
                 }
             }
         }

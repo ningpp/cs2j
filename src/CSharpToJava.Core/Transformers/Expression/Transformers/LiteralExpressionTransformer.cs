@@ -3,15 +3,18 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using System.Text;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
 /// Handles literal expressions (numeric, string, char, null, true/false).
+/// Implements <see cref="IIRExpressionTransformer"/> to produce structured
+/// <see cref="JavaLiteralExpression"/> IR nodes.
 /// </summary>
 [TransformerRegistration]
-public class LiteralExpressionTransformer : IExpressionTransformer
+public class LiteralExpressionTransformer : IIRExpressionTransformer
 {
     // Self-register on type initialization
     static LiteralExpressionTransformer()
@@ -43,6 +46,15 @@ public class LiteralExpressionTransformer : IExpressionTransformer
             SyntaxKind.Utf8StringLiteralExpression => TransformUtf8StringLiteral((LiteralExpressionSyntax)node),
             _ => throw new NotSupportedException($"Literal kind {node.Kind()} not supported.")
         };
+
+    /// <summary>
+    /// Produces a structured <see cref="JavaLiteralExpression"/> IR node for the literal.
+    /// </summary>
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+    {
+        var code = Transform(node, context);
+        return new JavaLiteralExpression(code);
+    }
 
     private string TransformNumericLiteral(LiteralExpressionSyntax node, ConversionContext context)
     {

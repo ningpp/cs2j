@@ -33,6 +33,20 @@ public interface IExpressionTransformer : ITransformer<ExpressionSyntax, string>
 }
 
 /// <summary>
+/// Expression transformer that can produce structured IR nodes instead of raw strings.
+/// Implementors return <see cref="Java.JavaExpression"/> from <see cref="TransformToIR"/>;
+/// the facade falls back to wrapping <see cref="IExpressionTransformer.Transform"/> in
+/// <see cref="Java.JavaRawExpression"/> for transformers that don't implement this interface.
+/// </summary>
+public interface IIRExpressionTransformer : IExpressionTransformer
+{
+    /// <summary>
+    /// Transform a C# expression syntax node to a structured Java IR expression.
+    /// </summary>
+    Java.JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context);
+}
+
+/// <summary>
 /// 类型声明转换器接口
 /// </summary>
 public interface ITypeTransformer : ITransformer<TypeDeclarationSyntax, Java.JavaTypeDeclaration>
