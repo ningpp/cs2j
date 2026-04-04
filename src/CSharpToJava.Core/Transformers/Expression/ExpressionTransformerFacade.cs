@@ -150,6 +150,40 @@ public class ExpressionTransformerFacade : IExpressionTransformer
             }
 
             case InvocationExpressionSyntax invocation:
+                // LINQ methods inside conditional access: ?.Select(...), ?.Where(...)
+                // These won't be processed by InvocationExpressionTransformer's LINQ fallback,
+                // so handle them here by building a stream pipeline.
+                if (invocation.Expression is MemberBindingExpressionSyntax linqBinding
+                    && linqBinding.Name.Identifier.Text is "Select" or "Where"
+                    && invocation.ArgumentList.Arguments.Count >= 1)
+                {
+                    var linqMethodName = linqBinding.Name.Identifier.Text;
+                    var streamOp = linqMethodName == "Where" ? "filter" : "map";
+                    var linqArg = Transform(invocation.ArgumentList.Arguments[0].Expression, context);
+
+                    // Determine receiver type for BuildStreamExpression
+                    ITypeSymbol? receiverType = null;
+                    if (context.SemanticModel != null
+                        && invocation.Parent is ConditionalAccessExpressionSyntax condParent)
+                    {
+                        receiverType = context.SemanticModel.GetTypeInfo(condParent.Expression).Type;
+                    }
+                    var streamExpr = Transformers.Expression.Utilities.ExpressionTransformerHelpers
+                        .BuildStreamExpression(objExpr, receiverType, context);
+
+                    // Add .collect() terminal when this is the outermost expression
+                    bool needsCollect = invocation.Parent is not MemberAccessExpressionSyntax;
+                    var terminal = "";
+                    if (needsCollect)
+                    {
+                        context.AddImport("java.util.stream.Collectors");
+                        context.AddImport("java.util.ArrayList");
+                        terminal = ".collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    }
+
+                    return $"{streamExpr}.{streamOp}({linqArg}){terminal}";
+                }
+
                 var invokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
                 var invArgs = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
                 return $"{invokedTarget}({invArgs})";

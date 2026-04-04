@@ -1649,7 +1649,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && node.ArgumentList.Arguments.Count >= 1)
             {
                 var unresolvedLinqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
-                if (ImplementsIEnumerable(unresolvedLinqReceiverType) || unresolvedLinqReceiverType is IArrayTypeSymbol)
+                if (ImplementsIEnumerable(unresolvedLinqReceiverType)
+                    || unresolvedLinqReceiverType is IArrayTypeSymbol
+                    // Fallback: when the type is null or an error type, Select/Where are almost
+                    // certainly LINQ extension methods — assume IEnumerable and build a stream pipeline.
+                    || unresolvedLinqReceiverType == null
+                    || unresolvedLinqReceiverType is IErrorTypeSymbol)
                 {
                     // Skip .stream() injection if the receiver is already a stream pipeline
                     // (e.g. chained unresolved LINQ: items.Where(...).Select(...))
