@@ -99,7 +99,22 @@ public class ExpressionTransformerFacade : IExpressionTransformer
         switch (expr)
         {
             case MemberBindingExpressionSyntax binding:
-                return $"{objExpr}.{ConversionContext.EscapeJavaKeyword(binding.Name.Identifier.Text)}";
+            {
+                var memberName = binding.Name.Identifier.Text;
+                // Check property-to-method mapping (e.g., Count → size()) via semantic model
+                if (context.SemanticModel?.GetSymbolInfo(binding).Symbol is IPropertySymbol prop)
+                {
+                    var mapped = TryMapPropertyToMethod(prop, context);
+                    if (mapped != null)
+                    {
+                        if (mapped.Contains('.')) return mapped;
+                        if (prop.ContainingType?.SpecialType == SpecialType.System_Array)
+                            return $"{objExpr}.{mapped}";
+                        return $"{objExpr}.{mapped}()";
+                    }
+                }
+                return $"{objExpr}.{ConversionContext.EscapeJavaKeyword(memberName)}";
+            }
 
             case InvocationExpressionSyntax invocation:
                 var invokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
@@ -124,5 +139,33 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 // for unregistered kinds rather than throwing.
                 return Transform(expr, context);
         }
+    }
+
+    /// <summary>
+    /// Attempts to map a C# property symbol to a Java method name via TypeMappings.
+    /// Checks the property's containing type, then its FQN, then walks all implemented interfaces.
+    /// Returns null when no mapping is found.
+    /// </summary>
+    private static string? TryMapPropertyToMethod(IPropertySymbol prop, ConversionContext context)
+    {
+        var typeName = prop.ContainingType.ToDisplayString();
+        var mapped = context.TypeMappings.MapMethod(typeName, prop.Name);
+        if (mapped == null)
+        {
+            var fqn = $"{prop.ContainingType.ContainingNamespace}.{prop.ContainingType.Name}";
+            mapped = context.TypeMappings.MapMethod(fqn, prop.Name);
+        }
+        if (mapped == null && prop.ContainingType.AllInterfaces.Length > 0)
+        {
+            foreach (var iface in prop.ContainingType.AllInterfaces)
+            {
+                mapped = context.TypeMappings.MapMethod(iface.ToDisplayString(), prop.Name);
+                if (mapped == null)
+                    mapped = context.TypeMappings.MapMethod(
+                        $"{iface.ContainingNamespace}.{iface.Name}", prop.Name);
+                if (mapped != null) break;
+            }
+        }
+        return mapped;
     }
 }
