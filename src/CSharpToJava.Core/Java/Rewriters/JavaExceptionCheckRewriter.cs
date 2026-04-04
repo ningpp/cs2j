@@ -1,5 +1,6 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.TypeMapping.JavaModel;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Java.Rewriters;
 
@@ -263,5 +264,49 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
             return "java.io." + typeName;
 
         return null;
+    }
+
+    // ─── Try-with-resources detection in raw statements ─────────
+
+    // Matches the resource type in: try (Type varName = ...) or try (Type<Gen> varName = ...)
+    private static readonly Regex TryWithResourcesTypePattern = new(
+        @"try\s*\(\s*(\w+)(?:<[^>]*>)?\s+\w+\s*=",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Scans raw statements for try-with-resources patterns.
+    /// The <c>using</c>-statement transformer emits raw strings, so the structured
+    /// <see cref="JavaTryCatchStatement"/> path does not cover them.
+    /// When a resource type is found, its <c>close()</c> declared exceptions are collected.
+    /// </summary>
+    public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
+    {
+        if (_javaLibrary is not null && node.Code.Contains("try ("))
+        {
+            var matches = TryWithResourcesTypePattern.Matches(node.Code);
+            foreach (Match match in matches)
+            {
+                var typeName = match.Groups[1].Value;
+                if (typeName == "var")
+                {
+                    // Cannot determine resource type — conservatively add Exception
+                    _pendingExceptions.Add("Exception");
+                    continue;
+                }
+
+                var canonical = ResolveCanonical(typeName);
+                if (canonical is not null)
+                {
+                    CollectCheckedExceptions(canonical, "close");
+                }
+                else
+                {
+                    // Unknown / converted type — AutoCloseable.close() declares throws Exception
+                    _pendingExceptions.Add("Exception");
+                }
+            }
+        }
+
+        return node;
     }
 }

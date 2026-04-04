@@ -213,7 +213,13 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.Body = null;
             }
         }
-
+        // Dispose → close: AutoCloseable.close() declares throws Exception, so any
+        // implementation that converts from C# IDisposable.Dispose() must declare it too.
+        if (methodDecl.Identifier.Text == "Dispose" && javaMethod.Name == "close")
+        {
+            if (!javaMethod.ThrownExceptions.Contains("Exception"))
+                javaMethod.ThrownExceptions.Add("Exception");
+        }
         context.LeaveMethod();
 
         // Java 规则：静态方法不能引用外部类的类型参数。
