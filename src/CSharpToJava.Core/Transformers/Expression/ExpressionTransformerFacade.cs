@@ -113,6 +113,39 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                         return $"{objExpr}.{mapped}()";
                     }
                 }
+                // Fallback: when the semantic model can't resolve the member binding symbol
+                // (e.g., in LINQ-rewritten code where synthesized syntax nodes lack symbol info),
+                // resolve the type from the parent ConditionalAccessExpression and check TypeMappings.
+                if (context.SemanticModel != null && binding.Parent is ConditionalAccessExpressionSyntax parentCond)
+                {
+                    var exprTypeInfo = context.SemanticModel.GetTypeInfo(parentCond.Expression);
+                    var exprType = exprTypeInfo.Type ?? exprTypeInfo.ConvertedType;
+                    if (exprType is INamedTypeSymbol namedExprType)
+                    {
+                        var mm = context.TypeMappings.MapMethod(namedExprType.ToDisplayString(), memberName);
+                        if (mm == null)
+                            mm = context.TypeMappings.MapMethod(
+                                $"{namedExprType.ContainingNamespace}.{namedExprType.Name}", memberName);
+                        if (mm == null)
+                        {
+                            foreach (var iface in namedExprType.AllInterfaces)
+                            {
+                                mm = context.TypeMappings.MapMethod(iface.ToDisplayString(), memberName);
+                                if (mm == null)
+                                    mm = context.TypeMappings.MapMethod(
+                                        $"{iface.ContainingNamespace}.{iface.Name}", memberName);
+                                if (mm != null) break;
+                            }
+                        }
+                        if (mm != null)
+                        {
+                            if (mm.Contains('.')) return mm;
+                            if (exprType.SpecialType == SpecialType.System_Array)
+                                return $"{objExpr}.{mm}";
+                            return $"{objExpr}.{mm}()";
+                        }
+                    }
+                }
                 return $"{objExpr}.{ConversionContext.EscapeJavaKeyword(memberName)}";
             }
 
