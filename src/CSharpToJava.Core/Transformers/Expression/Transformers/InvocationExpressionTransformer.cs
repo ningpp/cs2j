@@ -2899,13 +2899,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"{receiver}.collect(Collectors.toSet())";
             }
 
-            // Reverse() → collect to list, reverse, re-stream
+            // Reverse() → collect to list, reverse in-place.
+            // When chained into further LINQ operations (e.g., .Reverse().ToList()), return list.stream()
+            // so subsequent stream operators can chain.  When used standalone (method argument, assignment,
+            // foreach), return list directly — List<T> IS Iterable<T>.
             if (originalMethodName == "Reverse")
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
                 context.AddImport("java.util.Collections");
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); return list.stream(); }}))";
+                bool isChained = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax parentAccess
+                    && parentAccess.Expression == node;
+                var finisher = isChained ? "return list.stream();" : "return list;";
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); {finisher} }}))";
             }
 
             // Append(item) → Stream.concat(stream, Stream.of(item))
