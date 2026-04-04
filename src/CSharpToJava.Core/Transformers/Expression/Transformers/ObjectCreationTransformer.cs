@@ -49,7 +49,108 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
-        => new JavaRawExpression(Transform(node, context));
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // ObjectCreationExpression: new Type(args) — handle simple cases as JavaNewExpression
+        if (node is ObjectCreationExpressionSyntax objCreation
+            && objCreation.Initializer == null)
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(node);
+            ITypeSymbol? createdType = typeInfo?.Type;
+
+            // Skip special types that need non-standard IR handling
+            if (createdType?.TypeKind != TypeKind.Delegate
+                && createdType is not ITypeParameterSymbol)
+            {
+                string typeName = createdType != null
+                    ? context.MapType(createdType)
+                    : (objCreation.Type is TypeSyntax ts ? context.MapTypeFromSyntax(ts) : "Object");
+
+                if (!NeedsSpecialCreationHandling(typeName, objCreation, context)
+                    && !HasComplexArguments(objCreation.ArgumentList))
+                {
+                    var ir = new JavaNewExpression { Type = typeName };
+                    if (objCreation.ArgumentList != null)
+                    {
+                        foreach (var arg in objCreation.ArgumentList.Arguments)
+                            ir.Arguments.Add(facade.TransformToIR(arg.Expression, context));
+                    }
+                    return ir;
+                }
+            }
+        }
+
+        // ImplicitObjectCreationExpression: new() — target-typed
+        if (node is ImplicitObjectCreationExpressionSyntax implicitNew)
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(node);
+            if (typeInfo?.Type != null)
+            {
+                var typeName = context.MapType(typeInfo.Value.Type);
+                if (!HasComplexArguments(implicitNew.ArgumentList))
+                {
+                    var ir = new JavaNewExpression { Type = typeName };
+                    foreach (var arg in implicitNew.ArgumentList.Arguments)
+                        ir.Arguments.Add(facade.TransformToIR(arg.Expression, context));
+                    return ir;
+                }
+            }
+        }
+
+        // Array creation, anonymous objects, initializers, special types → raw
+        return new JavaRawExpression(Transform(node, context));
+    }
+
+    /// <summary>
+    /// Returns true if the type requires special handling in the string path that would
+    /// produce output different from a simple <c>new Type(args)</c>.
+    /// </summary>
+    private static bool NeedsSpecialCreationHandling(
+        string typeName,
+        ObjectCreationExpressionSyntax node,
+        ConversionContext context)
+    {
+        var bareTypeName = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+
+        // Types remapped to different constructors
+        if (bareTypeName is "Map.Entry") return true;
+        if (typeName is "Exception" or "ApplicationException") return true;
+
+        // Functional interfaces → delegate construction
+        if (IsJavaFunctionalInterfaceType(typeName)) return true;
+        if (node.ArgumentList?.Arguments.Count == 1)
+        {
+            var ctorSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            if (ctorSym?.ContainingType.TypeKind == TypeKind.Delegate) return true;
+        }
+
+        // Types with argument reshaping
+        if (bareTypeName.EndsWith("LineSegment", StringComparison.Ordinal)) return true;
+        if (bareTypeName.EndsWith("BufferedReader", StringComparison.Ordinal)) return true;
+
+        // Java collection types need argument coercion (Arrays.asList wrapping)
+        if (IsJavaCollectionType(typeName)) return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true if any argument uses named parameters or ref/out/in keywords.
+    /// </summary>
+    private static bool HasComplexArguments(ArgumentListSyntax? argList)
+    {
+        if (argList == null) return false;
+        foreach (var arg in argList.Arguments)
+        {
+            if (arg.NameColon != null) return true;
+            if (arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                || arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                || arg.RefKindKeyword.IsKind(SyntaxKind.InKeyword))
+                return true;
+        }
+        return false;
+    }
 
     private string TransformNew(ImplicitObjectCreationExpressionSyntax node, ConversionContext context)
     {

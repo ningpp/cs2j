@@ -58,7 +58,69 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
-        => new JavaRawExpression(Transform(node, context));
+    {
+        if (node is not AssignmentExpressionSyntax assignment)
+            return new JavaRawExpression(Transform(node, context));
+
+        // Coalesce assignment (??=) always needs special handling
+        if (assignment.Kind() == SyntaxKind.CoalesceAssignmentExpression)
+            return new JavaRawExpression(Transform(node, context));
+
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // Only produce structured IR for simple identifier assignments to local/field/param
+        if (assignment.Left is IdentifierNameSyntax ident)
+        {
+            var symbol = context.SemanticModel?.GetSymbolInfo(ident).Symbol;
+
+            // Property, event → setter calls, complex handling
+            if (symbol is IPropertySymbol or IEventSymbol)
+                return new JavaRawExpression(Transform(node, context));
+
+            // Out/ref param → .value = rhs
+            if (symbol is IParameterSymbol param
+                && (param.RefKind == RefKind.Out || param.RefKind == RefKind.Ref))
+                return new JavaRawExpression(Transform(node, context));
+
+            string op = GetOperatorForKind(assignment.Kind());
+
+            // User-defined operator on compound assignment → static method call
+            if (op != "=" && context.SemanticModel != null)
+            {
+                var symbolInfo = context.SemanticModel.GetSymbolInfo(assignment);
+                if (symbolInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
+                    return new JavaRawExpression(Transform(node, context));
+            }
+
+            var leftIR = facade.TransformToIR(ident, context);
+            var rightIR = facade.TransformToIR(assignment.Right, context);
+            return new JavaAssignmentExpression
+            {
+                Target = leftIR,
+                Operator = op,
+                Value = rightIR
+            };
+        }
+
+        // MemberAccess, IndexerAccess, this assignments → complex property/indexer handling
+        return new JavaRawExpression(Transform(node, context));
+    }
+
+    private static string GetOperatorForKind(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.SimpleAssignmentExpression => "=",
+        SyntaxKind.AddAssignmentExpression => "+=",
+        SyntaxKind.SubtractAssignmentExpression => "-=",
+        SyntaxKind.MultiplyAssignmentExpression => "*=",
+        SyntaxKind.DivideAssignmentExpression => "/=",
+        SyntaxKind.ModuloAssignmentExpression => "%=",
+        SyntaxKind.AndAssignmentExpression => "&=",
+        SyntaxKind.OrAssignmentExpression => "|=",
+        SyntaxKind.ExclusiveOrAssignmentExpression => "^=",
+        SyntaxKind.LeftShiftAssignmentExpression => "<<=",
+        SyntaxKind.RightShiftAssignmentExpression => ">>=",
+        _ => "="
+    };
 
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {

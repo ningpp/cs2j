@@ -912,5 +912,213 @@ class T {
 }");
         Assert.Contains("->", result);
     }
-}
 
+    // ── Phase 4: InvocationExpressionTransformer IR ────────────────
+
+    [Fact]
+    public void Invocation_Nameof_ProducesLiteralIR()
+    {
+        // nameof(x) should produce a JavaLiteralExpression
+        var ctx = new ConversionContext(new ConversionOptions(), new CSharpToJava.TypeMapping.TypeMappingRegistry(new CSharpToJava.TypeMapping.TypeMappingConfig()));
+        var facade = ExpressionTransformerFacade.Instance;
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            "class T { void M() { var s = nameof(T); } }");
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>()
+            .First();
+        var ir = facade.TransformToIR(invocation, ctx);
+        Assert.IsType<JavaLiteralExpression>(ir);
+        Assert.Contains("\"T\"", ir.ToInlineString());
+    }
+
+    [Fact]
+    public void Invocation_Nameof_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string s = nameof(T);
+    }
+}");
+        Assert.Contains("\"T\"", result);
+    }
+
+    [Fact]
+    public void Invocation_BareMethodCall_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void DoWork(int x) { }
+    void M() {
+        DoWork(42);
+    }
+}");
+        Assert.Contains("doWork(42)", result);
+    }
+
+    [Fact]
+    public void Invocation_BareMethodCall_ProducesMethodCallIR()
+    {
+        var ctx = new ConversionContext(new ConversionOptions(), new CSharpToJava.TypeMapping.TypeMappingRegistry(new CSharpToJava.TypeMapping.TypeMappingConfig()));
+        var facade = ExpressionTransformerFacade.Instance;
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            "class T { void DoWork(int x) { } void M() { DoWork(42); } }");
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>()
+            .First();
+        var ir = facade.TransformToIR(invocation, ctx);
+        Assert.IsType<JavaMethodCallExpression>(ir);
+        var call = (JavaMethodCallExpression)ir;
+        Assert.Equal("doWork", call.MethodName);
+        Assert.Single(call.Arguments);
+    }
+
+    [Fact]
+    public void Invocation_BareMultiArg_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    int Max(int a, int b) { return a > b ? a : b; }
+    void M() {
+        int x = Max(3, 5);
+    }
+}");
+        Assert.Contains("max(3, 5)", result);
+    }
+
+    [Fact]
+    public void Invocation_MemberAccess_StaysCorrect()
+    {
+        // Member access invocations should still produce correct output (via raw fallback)
+        var result = ConvertCode(@"
+using System;
+class T {
+    void M() {
+        string s = ""hello"";
+        int len = s.Length;
+    }
+}");
+        Assert.Contains("length()", result);
+    }
+
+    [Fact]
+    public void Invocation_GenericMethod_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    U Convert<U>(object o) { return (U)o; }
+    void M() {
+        int x = Convert<int>(42);
+    }
+}");
+        // Generic type arguments are stripped in Java, result should be convert(42)
+        Assert.Contains("convert(42)", result);
+    }
+
+    // ── Phase 5: ObjectCreationTransformer IR ──────────────────────
+
+    [Fact]
+    public void ObjectCreation_SimpleNew_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class Foo { }
+class T {
+    void M() {
+        Foo f = new Foo();
+    }
+}");
+        Assert.Contains("new Foo()", result);
+    }
+
+    [Fact]
+    public void ObjectCreation_NewWithArgs_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class Foo {
+    public Foo(int x, string y) { }
+}
+class T {
+    void M() {
+        Foo f = new Foo(42, ""hello"");
+    }
+}");
+        Assert.Contains("new Foo(42, \"hello\")", result);
+    }
+
+    [Fact]
+    public void ObjectCreation_ProducesJavaNewExpressionIR()
+    {
+        var ctx = new ConversionContext(new ConversionOptions(), new CSharpToJava.TypeMapping.TypeMappingRegistry(new CSharpToJava.TypeMapping.TypeMappingConfig()));
+        var facade = ExpressionTransformerFacade.Instance;
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            "class Foo { } class T { void M() { var f = new Foo(); } }");
+        var root = tree.GetRoot();
+        var creation = root.DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax>()
+            .First();
+        var ir = facade.TransformToIR(creation, ctx);
+        Assert.IsType<JavaNewExpression>(ir);
+        Assert.Contains("new Foo()", ir.ToInlineString());
+    }
+
+    // ── Phase 6: AssignmentTransformer IR ──────────────────────────
+
+    [Fact]
+    public void Assignment_SimpleVariable_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int x = 0;
+        x = 42;
+    }
+}");
+        Assert.Contains("x = 42", result);
+    }
+
+    [Fact]
+    public void Assignment_CompoundAdd_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int x = 0;
+        x += 10;
+    }
+}");
+        Assert.Contains("x += 10", result);
+    }
+
+    [Fact]
+    public void Assignment_ProducesAssignmentIR()
+    {
+        var ctx = new ConversionContext(new ConversionOptions(), new CSharpToJava.TypeMapping.TypeMappingRegistry(new CSharpToJava.TypeMapping.TypeMappingConfig()));
+        var facade = ExpressionTransformerFacade.Instance;
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            "class T { void M() { int x = 0; x = 42; } }");
+        var root = tree.GetRoot();
+        var assignment = root.DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.AssignmentExpressionSyntax>()
+            .First();
+        var ir = facade.TransformToIR(assignment, ctx);
+        Assert.IsType<JavaAssignmentExpression>(ir);
+        var assign = (JavaAssignmentExpression)ir;
+        Assert.Equal("=", assign.Operator);
+    }
+
+    [Fact]
+    public void Assignment_PropertySetter_StaysCorrect()
+    {
+        // Property assignments should produce setter calls (via raw fallback)
+        var result = ConvertCode(@"
+class T {
+    public int X { get; set; }
+    void M() {
+        X = 42;
+    }
+}");
+        Assert.Contains("setX(42)", result);
+    }
+}

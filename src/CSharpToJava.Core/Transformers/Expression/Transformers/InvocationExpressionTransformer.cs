@@ -50,7 +50,117 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
-        => new JavaRawExpression(Transform(node, context));
+    {
+        if (node is not InvocationExpressionSyntax invocation)
+            return new JavaRawExpression(Transform(node, context));
+
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // nameof(x) → "x" string literal
+        if (invocation.Expression is IdentifierNameSyntax { Identifier.Text: "nameof" }
+            && invocation.ArgumentList.Arguments.Count == 1)
+        {
+            var nameofResult = TransformNameof(invocation.ArgumentList.Arguments[0].Expression);
+            return new JavaLiteralExpression { Value = nameofResult };
+        }
+
+        // ReferenceEquals(a, b) → a == b
+        if (invocation.Expression is IdentifierNameSyntax { Identifier.Text: "ReferenceEquals" }
+            && invocation.ArgumentList.Arguments.Count == 2)
+        {
+            return new JavaBinaryExpression
+            {
+                Left = facade.TransformToIR(invocation.ArgumentList.Arguments[0].Expression, context),
+                Operator = "==",
+                Right = facade.TransformToIR(invocation.ArgumentList.Arguments[1].Expression, context)
+            };
+        }
+
+        // Static Equals(a, b) → Objects.equals(a, b)
+        if (invocation.Expression is IdentifierNameSyntax { Identifier.Text: "Equals" }
+            && invocation.ArgumentList.Arguments.Count == 2
+            && IsStaticNullSafeEqualsMethod(context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol))
+        {
+            context.AddImport("java.util.Objects");
+            var call = new JavaMethodCallExpression
+            {
+                Target = new JavaIdentifierExpression { Name = "Objects" },
+                MethodName = "equals"
+            };
+            call.Arguments.Add(facade.TransformToIR(invocation.ArgumentList.Arguments[0].Expression, context));
+            call.Arguments.Add(facade.TransformToIR(invocation.ArgumentList.Arguments[1].Expression, context));
+            return call;
+        }
+
+        // Generic method call: Method<T>(args) → method(args)
+        if (invocation.Expression is GenericNameSyntax genericMethodName
+            && !HasComplexArguments(invocation.ArgumentList))
+        {
+            var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, invocation, context);
+            var bareMethodSym = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (bareMethodSym != null && ConversionContext.HasTypeErasureConflict(bareMethodSym))
+                methodName += ConversionContext.GetErasureRenamedSuffix(bareMethodSym.TypeParameters.Length);
+            var call = new JavaMethodCallExpression { MethodName = methodName };
+            AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
+            return call;
+        }
+
+        // Bare identifier call (non-delegate, non-member-access)
+        if (invocation.Expression is IdentifierNameSyntax bareIdent
+            && !HasComplexArguments(invocation.ArgumentList))
+        {
+            // Check for delegate invocation — fall back to raw (complex logic)
+            if (context.SemanticModel != null)
+            {
+                var symInfo = context.SemanticModel.GetSymbolInfo(invocation);
+                if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke })
+                    return new JavaRawExpression(Transform(node, context));
+            }
+
+            var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, invocation, context);
+            var bareMethodSym2 = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (bareMethodSym2 != null && ConversionContext.HasTypeErasureConflict(bareMethodSym2))
+                methodName += ConversionContext.GetErasureRenamedSuffix(bareMethodSym2.TypeParameters.Length);
+            var call = new JavaMethodCallExpression { MethodName = methodName };
+            AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
+            return call;
+        }
+
+        // MemberAccess invocations and all other complex paths → raw
+        return new JavaRawExpression(Transform(node, context));
+    }
+
+    /// <summary>
+    /// Returns true if any argument uses named parameters or ref/out/in keywords,
+    /// which require special handling only available in the string path.
+    /// </summary>
+    private static bool HasComplexArguments(ArgumentListSyntax argList)
+    {
+        foreach (var arg in argList.Arguments)
+        {
+            if (arg.NameColon != null) return true;
+            if (arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                || arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                || arg.RefKindKeyword.IsKind(SyntaxKind.InKeyword))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Transforms each argument expression to IR and adds to the method call.
+    /// </summary>
+    private static void AddArgumentsAsIR(
+        JavaMethodCallExpression call,
+        ArgumentListSyntax argList,
+        ConversionContext context,
+        ExpressionTransformerFacade facade)
+    {
+        foreach (var arg in argList.Arguments)
+        {
+            call.Arguments.Add(facade.TransformToIR(arg.Expression, context));
+        }
+    }
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
