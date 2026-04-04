@@ -332,7 +332,7 @@ public partial class StatementTransformer
                         isSemanticArrayType = localSymForStream?.Type is IArrayTypeSymbol;
                     }
                     if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType)
-                        context.StreamLocalVariables.Add(v.Identifier.Text);
+                        context.MethodState.AddStreamVariable(v.Identifier.Text);
                 }
                 // Struct value copy: In C# struct assignment copies the value; in Java it copies the reference.
                 // Insert .clone() for user-defined struct initializers that are not fresh temporaries.

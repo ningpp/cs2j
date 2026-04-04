@@ -67,6 +67,19 @@ public class JavaVariableDeclarationStatement : JavaStatement
     public JavaExpression? Initializer { get; set; }
     public bool IsFinal { get; set; }
 
+    /// <summary>
+    /// When set, indicates this variable is a holder (ref/out parameter wrapper).
+    /// HolderType is the concrete holder type (e.g. "IntHolder", "ObjectHolder&lt;String&gt;"),
+    /// DefaultInit is the default initialization expression (e.g. "new IntHolder()").
+    /// </summary>
+    public (string HolderType, string DefaultInit)? HolderInfo { get; set; }
+
+    /// <summary>
+    /// The resolved Java type of the initializer expression, when known.
+    /// Used by IR validation rewriters to check type compatibility.
+    /// </summary>
+    public string? ResolvedInitializerType { get; set; }
+
     public override string ToString(string indentation)
     {
         var sb = new StringBuilder();

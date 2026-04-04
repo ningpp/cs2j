@@ -256,6 +256,9 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
         // Run built-in compatibility IR rewriters (D4: migrated from PostGenerationRewriteEngine)
         RunBuiltInRewriters(javaCompilation);
 
+        // Run built-in IR structure rewriters (variable deduplication, etc.)
+        RunStructureRewriters(javaCompilation);
+
         // Run built-in Java metadata validation rewriters when metadata is available
         var javaLibrary = state.Context.TypeMappings.JavaLibrary;
         if (javaLibrary is not null)
@@ -266,6 +269,9 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
             var exceptionChecker = new JavaExceptionCheckRewriter(javaLibrary, state.Context.Diagnostics);
             exceptionChecker.VisitCompilationUnit(javaCompilation);
         }
+
+        // Run IR validation rewriters (diagnostics only — no tree modifications)
+        RunValidationRewriters(javaCompilation, state.Context.Diagnostics);
 
         var code = javaCompilation.ToString("");
         if (string.IsNullOrWhiteSpace(code) && state.Request.FileName != null)
@@ -303,5 +309,25 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
         new StringConcatRewriter().VisitCompilationUnit(compilation);
         new EventHandlerLambdaRewriter().VisitCompilationUnit(compilation);
         new ExceptionApiRewriter().VisitCompilationUnit(compilation);
+    }
+
+    /// <summary>
+    /// Runs IR structure rewriters that fix structural issues (variable name conflicts, etc.)
+    /// before final code emission.
+    /// </summary>
+    private static void RunStructureRewriters(Java.JavaCompilationUnit compilation)
+    {
+        new VariableNameDeduplicationRewriter().VisitCompilationUnit(compilation);
+    }
+
+    /// <summary>
+    /// Runs purely diagnostic IR validation rewriters that check for potential compilation
+    /// errors in the generated Java code. These rewriters do not modify the IR tree.
+    /// </summary>
+    private static void RunValidationRewriters(Java.JavaCompilationUnit compilation, Context.DiagnosticCollector diagnostics)
+    {
+        new JavaVariableReferenceValidationRewriter(diagnostics).VisitCompilationUnit(compilation);
+        new JavaStaticContextValidationRewriter(diagnostics).VisitCompilationUnit(compilation);
+        new JavaTypeParameterValidationRewriter(diagnostics).VisitCompilationUnit(compilation);
     }
 }

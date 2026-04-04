@@ -51,7 +51,9 @@ public partial class StatementTransformer : IStatementTransformer
     {
         if (block == null) return "{}";
 
+        context.MethodState.PushScope();
         var statements = TransformStatements(block.Statements, context);
+        context.MethodState.PopScope();
         return string.Join("\n        ", statements);
     }
 
@@ -64,7 +66,9 @@ public partial class StatementTransformer : IStatementTransformer
         var body = new Java.JavaMethodBody();
         if (block == null) return body;
 
+        context.MethodState.PushScope();
         var statements = TransformStatements(block.Statements, context);
+        context.MethodState.PopScope();
         foreach (var stmt in statements)
         {
             body.Statements.Add(new Java.JavaRawStatement(stmt));

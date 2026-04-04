@@ -206,6 +206,12 @@ public class JavaLambdaExpression : JavaExpression
     /// </summary>
     public JavaBlockStatement? BlockBody { get; set; }
 
+    /// <summary>
+    /// Variables captured by this lambda from enclosing scopes.
+    /// Populated by the LambdaTransformer when capture analysis is performed.
+    /// </summary>
+    public List<(string Name, string Type, bool IsMutable)> CapturedVariables { get; } = new();
+
     public override string ToInlineString()
     {
         var sb = new StringBuilder();
@@ -316,10 +322,21 @@ public class JavaRawExpression : JavaExpression
 {
     public string Code { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The resolved Java type of this expression, when known.
+    /// Used by IR validation and cast-completion rewriters.
+    /// </summary>
+    public string? ResolvedType { get; set; }
+
     public JavaRawExpression() { }
     public JavaRawExpression(string code)
     {
         Code = code;
+    }
+    public JavaRawExpression(string code, string? resolvedType)
+    {
+        Code = code;
+        ResolvedType = resolvedType;
     }
 
     public override string ToInlineString() => Code;
