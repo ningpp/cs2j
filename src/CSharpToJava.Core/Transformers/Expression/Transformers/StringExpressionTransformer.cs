@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +14,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles string expressions (interpolated strings).
 /// </summary>
 [TransformerRegistration]
-public class StringExpressionTransformer : IExpressionTransformer
+public class StringExpressionTransformer : IIRExpressionTransformer
 {
     static StringExpressionTransformer()
     {
@@ -32,6 +33,10 @@ public class StringExpressionTransformer : IExpressionTransformer
             SyntaxKind.InterpolatedStringExpression => TransformInterpolatedString((InterpolatedStringExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"String expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+        => new JavaRawExpression(Transform(node, context));
 
     private string TransformInterpolatedString(InterpolatedStringExpressionSyntax node, ConversionContext context)
     {

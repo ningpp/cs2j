@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -11,7 +12,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles binary expressions (arithmetic, logical, bitwise, comparison, coalesce).
 /// </summary>
 [TransformerRegistration]
-public class BinaryExpressionTransformer : IExpressionTransformer
+public class BinaryExpressionTransformer : IIRExpressionTransformer
 {
     static BinaryExpressionTransformer()
     {
@@ -68,6 +69,84 @@ public class BinaryExpressionTransformer : IExpressionTransformer
             SyntaxKind.UnsignedRightShiftExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, ">>>", context),
             _ => throw new NotSupportedException($"Binary expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+    {
+        if (node is not BinaryExpressionSyntax binExpr)
+            return new JavaRawExpression(Transform(node, context));
+
+        // Map syntax kind to Java operator (null for special-cased kinds)
+        var op = binExpr.Kind() switch
+        {
+            SyntaxKind.AddExpression => "+",
+            SyntaxKind.SubtractExpression => "-",
+            SyntaxKind.MultiplyExpression => "*",
+            SyntaxKind.DivideExpression => "/",
+            SyntaxKind.ModuloExpression => "%",
+            SyntaxKind.GreaterThanExpression => ">",
+            SyntaxKind.GreaterThanOrEqualExpression => ">=",
+            SyntaxKind.LessThanExpression => "<",
+            SyntaxKind.LessThanOrEqualExpression => "<=",
+            SyntaxKind.EqualsExpression => "==",
+            SyntaxKind.NotEqualsExpression => "!=",
+            SyntaxKind.LogicalAndExpression => "&&",
+            SyntaxKind.LogicalOrExpression => "||",
+            SyntaxKind.BitwiseAndExpression => "&",
+            SyntaxKind.BitwiseOrExpression => "|",
+            SyntaxKind.ExclusiveOrExpression => "^",
+            SyntaxKind.LeftShiftExpression => "<<",
+            SyntaxKind.RightShiftExpression => ">>",
+            SyntaxKind.UnsignedRightShiftExpression => ">>>",
+            _ => null
+        };
+
+        // Skip structured IR for coalesce (??), user-defined operators, string equality, event comparisons
+        if (op == null)
+            return new JavaRawExpression(Transform(node, context));
+
+        // Check for user-defined operators — fall back to raw for those
+        if (context.SemanticModel != null)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            if (symbolInfo.Symbol is IMethodSymbol ms
+                && ms.MethodKind == MethodKind.UserDefinedOperator
+                && ms.ContainingType != null && !IsBuiltInType(ms.ContainingType))
+                return new JavaRawExpression(Transform(node, context));
+        }
+
+        // Check for string equality (needs Objects.equals) — fall back to raw
+        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        {
+            bool leftIsString = IsStringType(binExpr.Left, context.SemanticModel);
+            bool rightIsString = IsStringType(binExpr.Right, context.SemanticModel);
+            bool leftIsNull = binExpr.Left.IsKind(SyntaxKind.NullLiteralExpression);
+            bool rightIsNull = binExpr.Right.IsKind(SyntaxKind.NullLiteralExpression);
+            if ((leftIsString || rightIsString) && !leftIsNull && !rightIsNull)
+                return new JavaRawExpression(Transform(node, context));
+        }
+
+        // Check for event comparisons — fall back to raw
+        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        {
+            var leftSym = context.SemanticModel.GetSymbolInfo(binExpr.Left).Symbol;
+            var rightSym = context.SemanticModel.GetSymbolInfo(binExpr.Right).Symbol;
+            if (leftSym is IEventSymbol || rightSym is IEventSymbol)
+                return new JavaRawExpression(Transform(node, context));
+        }
+
+        // Standard binary expression — produce structured IR
+        var facade = ExpressionTransformerFacade.Instance;
+        var leftIR = facade.TransformToIR(binExpr.Left, context);
+        var rightIR = facade.TransformToIR(binExpr.Right, context);
+
+        return new JavaBinaryExpression
+        {
+            Left = leftIR,
+            Operator = op,
+            Right = rightIR
+        };
+    }
 
     private string TransformBinaryExpression(BinaryExpressionSyntax node, string op, ConversionContext context)
     {

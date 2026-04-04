@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -11,7 +12,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles unary expressions (prefix/postfix operators, address of, pointer indirection).
 /// </summary>
 [TransformerRegistration]
-public class UnaryExpressionTransformer : IExpressionTransformer
+public class UnaryExpressionTransformer : IIRExpressionTransformer
 {
     static UnaryExpressionTransformer()
     {
@@ -50,6 +51,64 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             SyntaxKind.SuppressNullableWarningExpression => ExpressionTransformerFacade.Instance.Transform(((PostfixUnaryExpressionSyntax)node).Operand, context),
             _ => throw new NotSupportedException($"Unary expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+    {
+        // For simple prefix/postfix ops that map 1:1 to Java, produce structured IR
+        var (op, isPostfix) = node.Kind() switch
+        {
+            SyntaxKind.UnaryPlusExpression => ("+", false),
+            SyntaxKind.UnaryMinusExpression => ("-", false),
+            SyntaxKind.LogicalNotExpression => ("!", false),
+            SyntaxKind.BitwiseNotExpression => ("~", false),
+            SyntaxKind.PostIncrementExpression => ("++", true),
+            SyntaxKind.PostDecrementExpression => ("--", true),
+            SyntaxKind.PreIncrementExpression => ("++", false),
+            SyntaxKind.PreDecrementExpression => ("--", false),
+            _ => (null, false)
+        };
+
+        if (op != null)
+        {
+            // Check for user-defined operators or property increment — fall back to raw for those
+            bool isUserDefined = false;
+            if (context.SemanticModel != null)
+            {
+                var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+                if (symbolInfo.Symbol is IMethodSymbol ms && ms.ContainingType != null && !IsBuiltInType(ms.ContainingType))
+                    isUserDefined = true;
+            }
+
+            if (!isUserDefined)
+            {
+                var operandSyntax = node switch
+                {
+                    PrefixUnaryExpressionSyntax prefix => prefix.Operand,
+                    PostfixUnaryExpressionSyntax postfix => postfix.Operand,
+                    _ => null
+                };
+
+                // Property/indexer increment needs complex hoisting — use raw fallback
+                bool isPropertyTarget = operandSyntax != null && context.SemanticModel != null
+                    && context.SemanticModel.GetSymbolInfo(operandSyntax).Symbol is IPropertySymbol;
+
+                if (!isPropertyTarget && operandSyntax != null)
+                {
+                    var operandIR = ExpressionTransformerFacade.Instance.TransformToIR(operandSyntax, context);
+                    return new JavaUnaryExpression
+                    {
+                        Operator = op,
+                        Operand = operandIR,
+                        IsPostfix = isPostfix
+                    };
+                }
+            }
+        }
+
+        // Complex cases: fall back to string-based transform
+        return new JavaRawExpression(Transform(node, context));
+    }
 
     private string TransformUnaryExpression(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {

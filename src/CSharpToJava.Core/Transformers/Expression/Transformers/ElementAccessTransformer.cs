@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -11,7 +12,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles element access expressions (array/index access, index expressions).
 /// </summary>
 [TransformerRegistration]
-public class ElementAccessTransformer : IExpressionTransformer
+public class ElementAccessTransformer : IIRExpressionTransformer
 {
     static ElementAccessTransformer()
     {
@@ -32,6 +33,31 @@ public class ElementAccessTransformer : IExpressionTransformer
             SyntaxKind.IndexExpression => TransformFromEndIndex((PrefixUnaryExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Element access kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+    {
+        // For simple array[index] access, produce structured JavaArrayAccessExpression
+        if (node is ElementAccessExpressionSyntax elemAccess
+            && elemAccess.ArgumentList.Arguments.Count == 1)
+        {
+            var arg = elemAccess.ArgumentList.Arguments[0].Expression;
+            // Skip range and from-end — those have special logic
+            if (!arg.IsKind(SyntaxKind.RangeExpression) && !arg.IsKind(SyntaxKind.IndexExpression))
+            {
+                var typeInfo = context.SemanticModel?.GetTypeInfo(elemAccess.Expression);
+                bool isArray = typeInfo?.Type is IArrayTypeSymbol;
+                if (isArray)
+                {
+                    var targetIR = ExpressionTransformerFacade.Instance.TransformToIR(elemAccess.Expression, context);
+                    var indexIR = ExpressionTransformerFacade.Instance.TransformToIR(arg, context);
+                    return new JavaArrayAccessExpression { Target = targetIR, Index = indexIR };
+                }
+            }
+        }
+        // Fallback to raw expression
+        return new JavaRawExpression(Transform(node, context));
+    }
 
     private string TransformElementAccess(ElementAccessExpressionSyntax node, ConversionContext context)
     {

@@ -162,4 +162,240 @@ class TestClass {
 }");
         Assert.Contains("return 42", result);
     }
+
+    // ── Phase C Step 2: Migrated transformers implement IIRExpressionTransformer ──
+
+    [Fact]
+    public void QueryTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(QueryExpressionTransformer.Instance);
+    }
+
+    [Fact]
+    public void StringTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(StringExpressionTransformer.Instance);
+    }
+
+    [Fact]
+    public void UnaryTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(UnaryExpressionTransformer.Instance);
+    }
+
+    [Fact]
+    public void ElementAccessTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(ElementAccessTransformer.Instance);
+    }
+
+    [Fact]
+    public void BinaryExpressionTransformer_ImplementsIIRExpressionTransformer()
+    {
+        Assert.IsAssignableFrom<IIRExpressionTransformer>(BinaryExpressionTransformer.Instance);
+    }
+
+    // ── UnaryExpression IR node tests ──────────────────────────────
+
+    [Fact]
+    public void JavaUnaryExpression_PrefixNegation()
+    {
+        var expr = new JavaUnaryExpression
+        {
+            Operator = "-",
+            Operand = new JavaLiteralExpression("5"),
+            IsPostfix = false
+        };
+        Assert.Equal("-5", expr.ToInlineString());
+    }
+
+    [Fact]
+    public void JavaUnaryExpression_PostfixIncrement()
+    {
+        var expr = new JavaUnaryExpression
+        {
+            Operator = "++",
+            Operand = new JavaIdentifierExpression { Name = "i" },
+            IsPostfix = true
+        };
+        Assert.Equal("i++", expr.ToInlineString());
+    }
+
+    [Fact]
+    public void JavaUnaryExpression_LogicalNot()
+    {
+        var expr = new JavaUnaryExpression
+        {
+            Operator = "!",
+            Operand = new JavaIdentifierExpression { Name = "flag" },
+            IsPostfix = false
+        };
+        Assert.Equal("!flag", expr.ToInlineString());
+    }
+
+    // ── BinaryExpression IR node tests ─────────────────────────────
+
+    [Fact]
+    public void JavaBinaryExpression_Addition()
+    {
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression("1"),
+            Operator = "+",
+            Right = new JavaLiteralExpression("2")
+        };
+        Assert.Equal("1 + 2", expr.ToInlineString());
+    }
+
+    [Fact]
+    public void JavaBinaryExpression_NestedExpressions()
+    {
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaBinaryExpression
+            {
+                Left = new JavaIdentifierExpression { Name = "a" },
+                Operator = "+",
+                Right = new JavaIdentifierExpression { Name = "b" }
+            },
+            Operator = "*",
+            Right = new JavaLiteralExpression("2")
+        };
+        Assert.Equal("a + b * 2", expr.ToInlineString());
+    }
+
+    // ── ArrayAccess IR node tests ──────────────────────────────────
+
+    [Fact]
+    public void JavaArrayAccessExpression_SimpleAccess()
+    {
+        var expr = new JavaArrayAccessExpression
+        {
+            Target = new JavaIdentifierExpression { Name = "arr" },
+            Index = new JavaLiteralExpression("0")
+        };
+        Assert.Equal("arr[0]", expr.ToInlineString());
+    }
+
+    // ── End-to-end IR conversion tests ─────────────────────────────
+
+    [Fact]
+    public void UnaryNegation_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int x = 5;
+        int y = -x;
+    }
+}");
+        Assert.Contains("-x", result);
+    }
+
+    [Fact]
+    public void BinaryArithmetic_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int a = 1;
+        int b = 2;
+        int c = a + b;
+        int d = a * b - c;
+    }
+}");
+        Assert.Contains("a + b", result);
+        Assert.Contains("a * b - c", result);
+    }
+
+    [Fact]
+    public void BitwiseOperators_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int x = 0xFF;
+        int y = ~x;
+        int z = x & 0x0F;
+        int w = x | 0xF0;
+    }
+}");
+        Assert.Contains("~x", result);
+        Assert.Contains("&", result);    // x & 0x0F (hex case may change)
+        Assert.Contains("|", result);    // x | 0xF0
+    }
+
+    [Fact]
+    public void ArrayElementAccess_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int[] arr = new int[] {1, 2, 3};
+        int x = arr[0];
+        int y = arr[1];
+    }
+}");
+        Assert.Contains("arr[0]", result);
+        Assert.Contains("arr[1]", result);
+    }
+
+    [Fact]
+    public void PostfixIncrement_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        int i = 0;
+        i++;
+    }
+}");
+        Assert.Contains("i++", result);
+    }
+
+    [Fact]
+    public void InterpolatedString_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string name = ""World"";
+        string msg = $""Hello {name}"";
+    }
+}");
+        // Should produce concatenation
+        Assert.Contains("\"Hello \"", result);
+        Assert.Contains("name", result);
+    }
+
+    [Fact]
+    public void LogicalOperators_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        bool a = true;
+        bool b = false;
+        bool c = a && b;
+        bool d = a || !b;
+    }
+}");
+        Assert.Contains("a && b", result);
+        Assert.Contains("!b", result);
+    }
+
+    [Fact]
+    public void CoalesceExpression_StillWorksAsRawFallback()
+    {
+        var result = ConvertCode(@"
+class T {
+    void M() {
+        string s = null;
+        string t = s ?? ""default"";
+    }
+}");
+        // Coalesce should produce ternary: s != null ? s : "default"
+        Assert.Contains("!= null", result);
+        Assert.Contains("\"default\"", result);
+    }
 }

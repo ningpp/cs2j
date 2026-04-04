@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -11,7 +12,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// Handles LINQ query expressions.
 /// </summary>
 [TransformerRegistration]
-public class QueryExpressionTransformer : IExpressionTransformer
+public class QueryExpressionTransformer : IIRExpressionTransformer
 {
     static QueryExpressionTransformer()
     {
@@ -30,6 +31,10 @@ public class QueryExpressionTransformer : IExpressionTransformer
             SyntaxKind.QueryExpression => TransformQuery((QueryExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Query expression kind {node.Kind()} not supported.")
         };
+
+    /// <inheritdoc />
+    public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
+        => new JavaRawExpression(Transform(node, context));
 
     private string TransformQuery(QueryExpressionSyntax node, ConversionContext context)
     {
