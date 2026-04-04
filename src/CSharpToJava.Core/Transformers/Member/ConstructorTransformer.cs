@@ -143,19 +143,26 @@ public class ConstructorTransformer : IMemberTransformer
 
     private List<string> GetInitializerArguments(ConstructorInitializerSyntax initializer, ConversionContext context)
     {
-        var args = new List<string>();
+        if (initializer.ArgumentList == null || initializer.ArgumentList.Arguments.Count == 0)
+            return new List<string>();
 
-        if (initializer.ArgumentList != null)
+        // Resolve the target constructor symbol for argument type coercion
+        // (e.g., arrays passed to IEnumerable<T> params need Arrays.asList() wrapping).
+        IMethodSymbol? ctorSymbol = null;
+        if (context.SemanticModel != null)
         {
-            var exprTransformer = ExpressionTransformerFacade.Instance;
-            foreach (var arg in initializer.ArgumentList.Arguments)
-            {
-                // ArgumentSyntax 包含 Expression 属性
-                args.Add(exprTransformer.Transform(arg.Expression, context));
-            }
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(initializer);
+            ctorSymbol = symbolInfo.Symbol as IMethodSymbol;
         }
 
-        return args;
+        var transformed = ArgumentTransformer.TransformArgumentList(
+            initializer.ArgumentList,
+            context,
+            ExpressionTransformerFacade.Instance,
+            argStartIndex: 0,
+            methodSymbol: ctorSymbol);
+
+        return transformed.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries).ToList();
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
