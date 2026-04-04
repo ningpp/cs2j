@@ -257,6 +257,33 @@ public class LambdaTransformer : IIRExpressionTransformer
                 }
                 else
                 {
+                    // If the lambda target's return type is Iterable/Collection-like but the body
+                    // is an uncollected stream pipeline, materialize it with .collect().
+                    // Java's Stream<T> does NOT implement Iterable<T>, unlike C# IEnumerable<T>.
+                    if (!isVoidLambda && context.SemanticModel != null)
+                    {
+                        var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+                        if (convertedType is INamedTypeSymbol namedType)
+                        {
+                            var invokeMethod = namedType.DelegateInvokeMethod;
+                            if (invokeMethod != null && !invokeMethod.ReturnsVoid)
+                            {
+                                var retType = invokeMethod.ReturnType;
+                                var retDisplay = retType?.OriginalDefinition.ToDisplayString();
+                                bool expectsIterable = retDisplay is
+                                    "System.Collections.Generic.IEnumerable<T>" or
+                                    "System.Collections.IEnumerable" or
+                                    "System.Collections.Generic.ICollection<T>" or
+                                    "System.Collections.Generic.IList<T>";
+                                if (expectsIterable && LooksLikeUncollectedStream(body))
+                                {
+                                    context.AddImport("java.util.stream.Collectors");
+                                    context.AddImport("java.util.ArrayList");
+                                    body = $"{body}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                                }
+                            }
+                        }
+                    }
                     result = $"{paramStr} -> {body}";
                 }
             }
@@ -308,6 +335,25 @@ public class LambdaTransformer : IIRExpressionTransformer
                 return invokeMethod.ReturnType.SpecialType == SpecialType.System_Void;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Detects whether a transformed expression string looks like an uncollected Java stream pipeline.
+    /// Used to add .collect() when the lambda's target type expects Iterable/Collection.
+    /// </summary>
+    private static bool LooksLikeUncollectedStream(string expr)
+    {
+        if (string.IsNullOrWhiteSpace(expr)) return false;
+        bool streamLike = expr.Contains(".stream(", StringComparison.Ordinal)
+            || expr.Contains("StreamSupport.stream(", StringComparison.Ordinal)
+            || expr.Contains("Arrays.stream(", StringComparison.Ordinal)
+            || expr.Contains(".map(", StringComparison.Ordinal)
+            || expr.Contains(".filter(", StringComparison.Ordinal)
+            || expr.Contains(".sorted(", StringComparison.Ordinal)
+            || expr.Contains(".flatMap(", StringComparison.Ordinal);
+        if (!streamLike) return false;
+        return !expr.Contains(".collect(", StringComparison.Ordinal)
+            && !expr.EndsWith(".toList()", StringComparison.Ordinal);
     }
 
     /// <summary>
