@@ -49,6 +49,13 @@ public class EnumTransformer : ITypeTransformer
                 : $"{context.CurrentNamespace}.{enumDecl.Identifier.Text}";
             if (fqn != enumDecl.Identifier.Text)
                 context.RegisterFlagsEnum(fqn);
+            if (context.CurrentType is { Name: var containingTypeName })
+            {
+                var nestedFqn = string.IsNullOrEmpty(context.CurrentNamespace)
+                    ? $"{containingTypeName}.{enumDecl.Identifier.Text}"
+                    : $"{context.CurrentNamespace}.{containingTypeName}.{enumDecl.Identifier.Text}";
+                context.RegisterFlagsEnum(nestedFqn);
+            }
 
             // Determine if the underlying type is long/ulong → use "long" for constants and methods
             bool useLong = false;
@@ -184,6 +191,13 @@ public class EnumTransformer : ITypeTransformer
                 : $"{context.CurrentNamespace}.{enumDecl.Identifier.Text}";
             if (fqn != enumDecl.Identifier.Text)
                 context.RegisterExplicitValueEnum(fqn);
+            if (context.CurrentType is { Name: var containingTypeName })
+            {
+                var nestedFqn = string.IsNullOrEmpty(context.CurrentNamespace)
+                    ? $"{containingTypeName}.{enumDecl.Identifier.Text}"
+                    : $"{context.CurrentNamespace}.{containingTypeName}.{enumDecl.Identifier.Text}";
+                context.RegisterExplicitValueEnum(nestedFqn);
+            }
 
             // Add private final int value field
             javaEnum.Fields.Add(new JavaFieldDeclaration

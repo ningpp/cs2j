@@ -376,12 +376,46 @@ public partial class StatementTransformer
             localDeclPostCode = "\n" + string.Join("\n", pendingPost.Select(s => s.TrimEnd(';') + ";"));
         }
 
+        // Enum array default value fill: C# new EnumType[n] initializes to default(EnumType)
+        // (the member with value 0), but Java initializes to null. Add Arrays.fill() to bridge
+        // the semantic gap.
+        string? enumArrayFillStmt = null;
+        if (stmt.Declaration.Variables.Count == 1 && context.SemanticModel != null)
+        {
+            var singleVarCheck = stmt.Declaration.Variables[0];
+            if (singleVarCheck.Initializer?.Value is ArrayCreationExpressionSyntax arrCreation
+                && arrCreation.Initializer == null)
+            {
+                var varTypeInfo = context.SemanticModel.GetTypeInfo(stmt.Declaration.Type);
+                if (varTypeInfo.Type is IArrayTypeSymbol arrayType
+                    && arrayType.ElementType.TypeKind == TypeKind.Enum
+                    && arrayType.ElementType is INamedTypeSymbol enumNamedType)
+                {
+                    bool isFlags = context.IsFlagsEnum(enumNamedType.Name)
+                        || enumNamedType.GetAttributes().Any(a =>
+                            a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+                    if (!isFlags)
+                    {
+                        var varNameFill = ConversionContext.EscapeJavaKeyword(singleVarCheck.Identifier.Text);
+                        var enumTypeRef = BuildEnumTypeReference(enumNamedType);
+                        var zeroMember = FindEnumMemberByValue(enumNamedType, 0);
+                        string fillValue = zeroMember != null
+                            ? $"{enumTypeRef}.{zeroMember}"
+                            : $"{enumTypeRef}.values()[0]";
+                        enumArrayFillStmt = $"Arrays.fill({varNameFill}, {fillValue});";
+                        context.AddImport("java.util.Arrays");
+                    }
+                }
+            }
+        }
+
         // Produce structured JavaVariableDeclarationStatement for simple single-variable cases.
         // This enables downstream IR rewriters (e.g. ImplicitCastCompletionRewriter) to inspect
         // declared types and initializer types without string parsing.
         if (stmt.Declaration.Variables.Count == 1
             && string.IsNullOrEmpty(localDeclPreCode)
-            && string.IsNullOrEmpty(localDeclPostCode))
+            && string.IsNullOrEmpty(localDeclPostCode)
+            && enumArrayFillStmt == null)
         {
             var singleVar = stmt.Declaration.Variables[0];
             var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
@@ -426,7 +460,85 @@ public partial class StatementTransformer
             return structured;
         }
 
+        // When enum array fill is needed, return declaration + fill as a JavaMemberCollection
+        if (enumArrayFillStmt != null && stmt.Declaration.Variables.Count == 1
+            && string.IsNullOrEmpty(localDeclPreCode)
+            && string.IsNullOrEmpty(localDeclPostCode))
+        {
+            var singleVar = stmt.Declaration.Variables[0];
+            var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
+
+            JavaExpression? initializerIR = null;
+            string? resolvedInitType = null;
+            if (singleVar.Initializer != null)
+            {
+                var declStr = declarations;
+                var eqIdx = declStr.IndexOf(" = ", StringComparison.Ordinal);
+                if (eqIdx >= 0)
+                {
+                    var initStr = declStr[(eqIdx + 3)..];
+                    initializerIR = new JavaRawExpression(initStr);
+                }
+
+                if (context.SemanticModel != null)
+                {
+                    var initTypeInfo = context.SemanticModel.GetTypeInfo(singleVar.Initializer.Value);
+                    var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
+                    if (initType != null && initType.TypeKind != TypeKind.Error)
+                    {
+                        var mapped = context.MapType(initType);
+                        if (!string.IsNullOrWhiteSpace(mapped))
+                            resolvedInitType = mapped;
+                    }
+                }
+            }
+
+            var decl = new JavaVariableDeclarationStatement
+            {
+                Type = javaType,
+                Name = varName,
+                Initializer = initializerIR,
+                IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
+                ResolvedInitializerType = resolvedInitType
+            };
+            return new JavaMemberCollection(decl, new JavaStatementNode(enumArrayFillStmt));
+        }
+
         return new JavaStatementNode($"{localDeclPreCode}{javaType} {declarations};{localDeclPostCode}");
+    }
+
+    private static string BuildEnumTypeReference(INamedTypeSymbol enumType)
+    {
+        return enumType.ContainingType is INamedTypeSymbol parentType
+            ? $"{BuildEnumTypeReference(parentType)}.{enumType.Name}"
+            : enumType.Name;
+    }
+
+    private static string? FindEnumMemberByValue(INamedTypeSymbol enumType, long value)
+    {
+        foreach (var member in enumType.GetMembers())
+        {
+            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field)
+            {
+                if (field.ConstantValue is int intVal && intVal == value)
+                    return field.Name;
+                if (field.ConstantValue is long longVal && longVal == value)
+                    return field.Name;
+                if (field.ConstantValue is short shortVal && shortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is byte byteVal && byteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is sbyte sbyteVal && sbyteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ushort ushortVal && ushortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is uint uintVal && uintVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ulong ulongVal && ulongVal == (ulong)value)
+                    return field.Name;
+            }
+        }
+        return null;
     }
 
     private JavaSyntaxNode TransformYieldReturn(YieldStatementSyntax? stmt, ConversionContext context)

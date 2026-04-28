@@ -199,6 +199,120 @@ public class Sample
         Assert.DoesNotContain("hasFlag", result.GeneratedCode, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void EnumArray_FillsDefaultZeroMember()
+    {
+        var result = Convert(@"
+public class Program
+{
+    enum VertStatus
+    {
+        NotVisited,
+        InStack,
+        Visited,
+    }
+
+    public static void Main(string[] args)
+    {
+        VertStatus[] status = new VertStatus[3];
+        System.Console.WriteLine(status[1]);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Arrays.fill(status, Program.VertStatus.NotVisited)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import java.util.Arrays;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumArray_FlagsEnum_NoFillNeeded()
+    {
+        var result = Convert(@"
+using System;
+
+public class Program
+{
+    [Flags]
+    enum Permissions
+    {
+        None = 0,
+        Read = 1,
+        Write = 2
+    }
+
+    public static void Main(string[] args)
+    {
+        Permissions[] perms = new Permissions[3];
+        System.Console.WriteLine(perms[1]);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.fill", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumArray_ExplicitValueEnumNoZeroMember_FillsWithFirstValue()
+    {
+        var result = Convert(@"
+public class Program
+{
+    enum Status
+    {
+        Open = 10,
+        Closed = 20
+    }
+
+    public static void Main(string[] args)
+    {
+        Status[] statuses = new Status[3];
+        System.Console.WriteLine(statuses[1]);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Arrays.fill(statuses, Program.Status.values()[0])", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import java.util.Arrays;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumArray_WithInitializerList_NoFillNeeded()
+    {
+        var result = Convert(@"
+public class Program
+{
+    enum Direction { North, South, East, West }
+
+    public static void Main(string[] args)
+    {
+        Direction[] dirs = new Direction[] { Direction.North, Direction.South };
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.fill", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumArray_TopLevelEnum_FillsWithZeroMember()
+    {
+        var result = Convert(@"
+public enum Color { Red, Green, Blue }
+
+public class Sample
+{
+    public static void Main(string[] args)
+    {
+        Color[] colors = new Color[5];
+        System.Console.WriteLine(colors[0]);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Arrays.fill(colors, Color.Red)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import java.util.Arrays;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

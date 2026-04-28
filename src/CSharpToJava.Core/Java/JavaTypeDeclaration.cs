@@ -106,6 +106,7 @@ public class JavaClassDeclaration : JavaTypeDeclaration
 
         JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
+        sb.Append(indentation);
         WriteAnnotations(sb);
         WriteModifiers(sb);
 
@@ -195,7 +196,7 @@ public class JavaClassDeclaration : JavaTypeDeclaration
             sb.Append(nested.ToString(innerIndentation));
         }
 
-        sb.AppendLine("}");
+        sb.Append(indentation).AppendLine("}");
 
         return sb.ToString();
     }
@@ -218,6 +219,7 @@ public class JavaInterfaceDeclaration : JavaTypeDeclaration
 
         JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
+        sb.Append(indentation);
         WriteAnnotations(sb);
         WriteModifiers(sb);
         sb.Append("interface ");
@@ -255,7 +257,7 @@ public class JavaInterfaceDeclaration : JavaTypeDeclaration
             sb.Append(nested.ToString(innerIndentation));
         }
 
-        sb.AppendLine("}");
+        sb.Append(indentation).AppendLine("}");
 
         return sb.ToString();
     }
@@ -274,6 +276,7 @@ public class JavaEnumDeclaration : JavaTypeDeclaration
 
         JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
+        sb.Append(indentation);
         WriteAnnotations(sb);
         WriteModifiers(sb);
         sb.Append("enum ");
@@ -327,7 +330,7 @@ public class JavaEnumDeclaration : JavaTypeDeclaration
             }
         }
 
-        sb.AppendLine("}");
+        sb.Append(indentation).AppendLine("}");
 
         return sb.ToString();
     }
