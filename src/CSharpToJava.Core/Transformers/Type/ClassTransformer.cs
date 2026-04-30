@@ -831,7 +831,7 @@ public class ClassTransformer : ITypeTransformer
             Modifiers = JavaModifiers.Protected,
             ReturnType = "Object",
             Name = "memberwiseClone",
-            Body = "try {\n            return super.clone();\n        } catch (CloneNotSupportedException __e) {\n            throw new RuntimeException(__e);\n        }"
+            Body = "try {\n            return super.clone();\n        } catch (Exception __e) {\n            throw new RuntimeException(__e);\n        }"
         });
     }
 
