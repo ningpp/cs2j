@@ -78,6 +78,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (symbol is ILocalSymbol or IParameterSymbol)
                 {
                     var name = ConversionContext.EscapeJavaKeyword(id.Identifier.Text);
+                    // Lambda capture holder: replace references to externally-reassigned
+                    // captured variables with holder element access (_varNameCap[0]).
+                    if (symbol is ILocalSymbol && context.MethodState.TryGetActiveLambdaCaptureHolder(id.Identifier.Text, out var irHolderName))
+                        return new JavaArrayAccessExpression { Target = new JavaIdentifierExpression { Name = irHolderName }, Index = new JavaLiteralExpression { Value = "0" } };
                     return new JavaIdentifierExpression { Name = name };
                 }
 
@@ -217,6 +221,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         if (context.TryGetActiveRefHolder(name, out var activeHolderName))
             return $"{activeHolderName}.value";
+
+        // Lambda capture holder: if this variable was captured by a lambda and externally
+        // reassigned, replace all references with holder element access (_varName[0]).
+        if (context.MethodState.TryGetActiveLambdaCaptureHolder(name, out var captureHolderName))
+            return $"{captureHolderName}[0]";
 
         // Check for using aliases — Fix 5: chain alias resolution through type-registry
         if (context.IsAlias(name))

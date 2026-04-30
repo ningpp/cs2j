@@ -376,6 +376,24 @@ public partial class StatementTransformer
             localDeclPostCode = "\n" + string.Join("\n", pendingPost.Select(s => s.TrimEnd(';') + ";"));
         }
 
+        // Lambda capture holder: for variables captured by lambdas and externally reassigned,
+        // emit a holder declaration right after the variable declaration and activate the mapping.
+        // This allows IdentifierExpressionTransformer to replace subsequent references with _varName[0].
+        string? lambdaCaptureHolderCode = null;
+        if (stmt.Declaration.Variables.Count == 1)
+        {
+            var varName = ConversionContext.EscapeJavaKeyword(stmt.Declaration.Variables[0].Identifier.Text);
+            if (context.MethodState.HasPendingLambdaCaptureHolder(stmt.Declaration.Variables[0].Identifier.Text))
+            {
+                var origName = stmt.Declaration.Variables[0].Identifier.Text;
+                if (context.MethodState.TryGetPendingLambdaCaptureHolder(origName, out var capType, out var holderName))
+                {
+                    lambdaCaptureHolderCode = $"{capType}[] {holderName} = {{ {varName} }};";
+                    context.MethodState.ActivateLambdaCaptureHolder(origName);
+                }
+            }
+        }
+
         // Enum array default value fill: C# new EnumType[n] initializes to default(EnumType)
         // (the member with value 0), but Java initializes to null. Add Arrays.fill() to bridge
         // the semantic gap.
@@ -415,7 +433,8 @@ public partial class StatementTransformer
         if (stmt.Declaration.Variables.Count == 1
             && string.IsNullOrEmpty(localDeclPreCode)
             && string.IsNullOrEmpty(localDeclPostCode)
-            && enumArrayFillStmt == null)
+            && enumArrayFillStmt == null
+            && lambdaCaptureHolderCode == null)
         {
             var singleVar = stmt.Declaration.Variables[0];
             var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
@@ -463,7 +482,8 @@ public partial class StatementTransformer
         // When enum array fill is needed, return declaration + fill as a JavaMemberCollection
         if (enumArrayFillStmt != null && stmt.Declaration.Variables.Count == 1
             && string.IsNullOrEmpty(localDeclPreCode)
-            && string.IsNullOrEmpty(localDeclPostCode))
+            && string.IsNullOrEmpty(localDeclPostCode)
+            && lambdaCaptureHolderCode == null)
         {
             var singleVar = stmt.Declaration.Variables[0];
             var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
@@ -502,6 +522,51 @@ public partial class StatementTransformer
                 ResolvedInitializerType = resolvedInitType
             };
             return new JavaMemberCollection(decl, new JavaStatementNode(enumArrayFillStmt));
+        }
+
+        // Lambda capture holder + variable declaration as JavaMemberCollection
+        if (lambdaCaptureHolderCode != null && stmt.Declaration.Variables.Count == 1
+            && string.IsNullOrEmpty(localDeclPreCode)
+            && string.IsNullOrEmpty(localDeclPostCode)
+            && enumArrayFillStmt == null)
+        {
+            var singleVar = stmt.Declaration.Variables[0];
+            var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
+
+            JavaExpression? initializerIR = null;
+            string? resolvedInitType = null;
+            if (singleVar.Initializer != null)
+            {
+                var declStr = declarations;
+                var eqIdx = declStr.IndexOf(" = ", StringComparison.Ordinal);
+                if (eqIdx >= 0)
+                {
+                    var initStr = declStr[(eqIdx + 3)..];
+                    initializerIR = new JavaRawExpression(initStr);
+                }
+
+                if (context.SemanticModel != null)
+                {
+                    var initTypeInfo = context.SemanticModel.GetTypeInfo(singleVar.Initializer.Value);
+                    var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
+                    if (initType != null && initType.TypeKind != TypeKind.Error)
+                    {
+                        var mapped = context.MapType(initType);
+                        if (!string.IsNullOrWhiteSpace(mapped))
+                            resolvedInitType = mapped;
+                    }
+                }
+            }
+
+            var decl = new JavaVariableDeclarationStatement
+            {
+                Type = javaType,
+                Name = varName,
+                Initializer = initializerIR,
+                IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
+                ResolvedInitializerType = resolvedInitType
+            };
+            return new JavaMemberCollection(decl, new JavaStatementNode(lambdaCaptureHolderCode));
         }
 
         return new JavaStatementNode($"{localDeclPreCode}{javaType} {declarations};{localDeclPostCode}");

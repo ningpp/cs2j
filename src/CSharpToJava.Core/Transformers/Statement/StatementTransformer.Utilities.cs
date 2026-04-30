@@ -103,4 +103,161 @@ public partial class StatementTransformer
         if (string.IsNullOrEmpty(name)) return name;
         return char.ToUpper(name[0]) + name.Substring(1);
     }
+
+    /// <summary>
+    /// Pre-scans a method body block to identify local variables that are captured by lambdas
+    /// and also externally reassigned. For such variables, registers a pending holder mapping
+    /// so that a <c>Type[] _varName = { varName }</c> declaration is emitted right after
+    /// the variable declaration, and all subsequent references are replaced with <c>_varName[0]</c>.
+    /// <para>
+    /// This handles the Java effectively-final constraint for the case where a variable is
+    /// reassigned outside the lambda (the existing <c>GetMutatedCaptures</c> in LambdaTransformer
+    /// only handles mutations inside the lambda body).
+    /// </para>
+    /// </summary>
+    private static void PreScanLambdaCaptures(BlockSyntax block, ConversionContext context)
+    {
+        if (context.SemanticModel == null) return;
+
+        // Collect all lambda and anonymous method nodes in the method body
+        var lambdas = block.DescendantNodes()
+            .Where(n => n is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)
+            .ToList();
+
+        if (lambdas.Count == 0) return;
+
+        // For each lambda, collect captured local variable names
+        // Use a list to handle variable shadowing (same name, different symbols)
+        var capturedLocals = new List<(string Name, ILocalSymbol Symbol)>();
+        var seenSymbols = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var lambda in lambdas)
+        {
+            // Collect lambda/anonymous-method parameter names to exclude
+            var paramNames = lambda switch
+            {
+                SimpleLambdaExpressionSyntax s => new HashSet<string> { s.Parameter.Identifier.Text },
+                ParenthesizedLambdaExpressionSyntax p =>
+                    new HashSet<string>(p.ParameterList.Parameters.Select(pm => pm.Identifier.Text)),
+                AnonymousMethodExpressionSyntax a when a.ParameterList != null =>
+                    new HashSet<string>(a.ParameterList.Parameters.Select(pm => pm.Identifier.Text)),
+                _ => new HashSet<string>()
+            };
+
+            // For anonymous methods, the body is always a Block; for lambdas, block or expression
+            SyntaxNode? body = lambda switch
+            {
+                LambdaExpressionSyntax l => (SyntaxNode?)l.Block ?? l.ExpressionBody,
+                AnonymousMethodExpressionSyntax am => am.Block,
+                _ => null
+            };
+            if (body == null) continue;
+
+            foreach (var node in body.DescendantNodesAndSelf())
+            {
+                if (node is IdentifierNameSyntax id && !paramNames.Contains(id.Identifier.Text))
+                {
+                    var symbol = context.SemanticModel.GetSymbolInfo(id).Symbol;
+                    if (symbol is ILocalSymbol local && !seenSymbols.Contains(local))
+                    {
+                        // Confirm the declaration is outside the lambda span
+                        var declLocation = local.Locations.FirstOrDefault();
+                        if (declLocation != null && !lambda.Span.Contains(declLocation.SourceSpan))
+                        {
+                            // Skip variables declared in for-loop initializers — they are
+                            // not processed by TransformLocalDeclaration, so pending holders
+                            // can never be activated for them.
+                            // KNOWN LIMITATION: for-loop iteration variables (e.g. "i" in
+                            // "for (int i=0; ...; i++)") captured by lambdas are NOT handled
+                            // by either path — pre-scan excludes them here, and GetMutatedCaptures
+                            // only detects mutations INSIDE the lambda body. The increment "i++"
+                            // is external to the lambda but inside the for-statement, so it falls
+                            // through both checks. This produces Java code that violates the
+                            // effectively-final constraint for for-loop iteration variables.
+                            if (IsDeclaredInForInitializer(local))
+                                continue;
+
+                            seenSymbols.Add(local);
+                            capturedLocals.Add((local.Name, local));
+                        }
+                    }
+                }
+            }
+        }
+
+        if (capturedLocals.Count == 0) return;
+
+        // Build a set of all lambda/anonymous-method spans for O(1) containment check
+        var lambdaSpanSet = new HashSet<SyntaxNode>(lambdas);
+        static bool IsInsideAnyLambda(SyntaxNode node, HashSet<SyntaxNode> lambdaNodes)
+        {
+            var current = node.Parent;
+            while (current != null)
+            {
+                if (lambdaNodes.Contains(current))
+                    return true;
+                current = current.Parent;
+            }
+            return false;
+        }
+
+        // For each captured local, check if it is reassigned outside any lambda
+        foreach (var (varName, localSymbol) in capturedLocals)
+        {
+            bool isExternallyReassigned = false;
+
+            foreach (var node in block.DescendantNodes())
+            {
+                // Check if this node is inside any lambda body — if so, skip
+                if (IsInsideAnyLambda(node, lambdaSpanSet))
+                    continue;
+
+                // Detect reassignment: assignment target, prefix/postfix ++/--
+                IdentifierNameSyntax? targetId = node switch
+                {
+                    AssignmentExpressionSyntax assign when assign.Left is IdentifierNameSyntax aid => aid,
+                    PrefixUnaryExpressionSyntax pre when
+                        (pre.IsKind(SyntaxKind.PreIncrementExpression) || pre.IsKind(SyntaxKind.PreDecrementExpression)) &&
+                        pre.Operand is IdentifierNameSyntax pid => pid,
+                    PostfixUnaryExpressionSyntax post when
+                        (post.IsKind(SyntaxKind.PostIncrementExpression) || post.IsKind(SyntaxKind.PostDecrementExpression)) &&
+                        post.Operand is IdentifierNameSyntax ppid => ppid,
+                    _ => null
+                };
+
+                if (targetId == null) continue;
+                if (targetId.Identifier.Text != varName) continue;
+
+                // Verify it refers to the same local symbol
+                var refSymbol = context.SemanticModel.GetSymbolInfo(targetId).Symbol;
+                if (refSymbol is ILocalSymbol refLocal &&
+                    SymbolEqualityComparer.Default.Equals(refLocal, localSymbol))
+                {
+                    isExternallyReassigned = true;
+                    break;
+                }
+            }
+
+            if (isExternallyReassigned)
+            {
+                var javaType = context.MapType(localSymbol.Type);
+                context.MethodState.RegisterPendingLambdaCaptureHolder(varName, javaType);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Checks whether a local variable is declared inside a for-loop initializer.
+    /// For-loop variables are not processed by <c>TransformLocalDeclaration</c>,
+    /// so pending holders registered for them can never be activated. They should
+    /// be handled by <c>GetMutatedCaptures</c> instead.
+    /// </summary>
+    private static bool IsDeclaredInForInitializer(ILocalSymbol local)
+    {
+        var declRef = local.DeclaringSyntaxReferences.FirstOrDefault();
+        if (declRef == null) return false;
+        var declSyntax = declRef.GetSyntax();
+        // VariableDeclaratorSyntax → VariableDeclarationSyntax → ForStatementSyntax
+        return declSyntax.Parent?.Parent is ForStatementSyntax;
+    }
 }

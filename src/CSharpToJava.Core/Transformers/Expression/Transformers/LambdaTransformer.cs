@@ -135,6 +135,12 @@ public class LambdaTransformer : IIRExpressionTransformer
         var mutatedCaptures = GetMutatedCaptures(node, context);
         foreach (var (capName, capType) in mutatedCaptures)
         {
+            // Skip variables already handled by the lambda capture pre-scan
+            // (externally reassigned variables get their holder from StatementTransformer)
+            // Only skip if the holder is active (declared) — pending holders for for-loop
+            // variables may never be activated, so GetMutatedCaptures must still handle them.
+            if (context.MethodState.HasActiveLambdaCaptureHolder(capName))
+                continue;
             context.AddPreStatement($"{capType}[] _{capName} = {{ {capName} }};");
         }
 
@@ -155,8 +161,12 @@ public class LambdaTransformer : IIRExpressionTransformer
             string body = stmtTransformer.TransformBlock(node.Block, context);
 
             // Fix 3: replace mutated captured variable usages with array-element access
+            // Skip variables already handled by the lambda capture pre-scan — their identifiers
+            // are replaced by IdentifierExpressionTransformer during statement processing.
             foreach (var (capName, _) in mutatedCaptures)
             {
+                if (context.MethodState.HasLambdaCaptureHolder(capName))
+                    continue;
                 body = Regex.Replace(body, $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
                 // Avoid self-referential holder initialization after replacement:
                 // int[] _x = { _x[0] };  -> int[] _x = { x };
@@ -196,8 +206,12 @@ public class LambdaTransformer : IIRExpressionTransformer
                 : new List<string>();
 
             // Fix 3: replace mutated captured variable usages with array-element access
+            // Skip variables already handled by the lambda capture pre-scan — their identifiers
+            // are replaced by IdentifierExpressionTransformer during expression processing.
             foreach (var (capName, _) in mutatedCaptures)
             {
+                if (context.MethodState.HasActiveLambdaCaptureHolder(capName))
+                    continue;
                 body = Regex.Replace(body, $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
                 body = Regex.Replace(
                     body,
@@ -360,6 +374,15 @@ public class LambdaTransformer : IIRExpressionTransformer
     /// Fix 3: Identifies local variables from enclosing scopes that are mutated inside the lambda body.
     /// Java requires captured variables to be effectively final; mutated ones must be wrapped in a
     /// single-element array holder to allow mutation via the array element.
+    /// <para>
+    /// KNOWN LIMITATION: This method only detects mutations INSIDE the lambda body. External
+    /// reassignments (outside the lambda) are handled by <c>PreScanLambdaCaptures</c> in
+    /// StatementTransformer. However, for-loop iteration variables (e.g. <c>i</c> in
+    /// <c>for (int i=0; ...; i++)</c>) fall through both paths: pre-scan excludes them
+    /// (pending holders can never be activated for for-loop variables), and this method
+    /// does not detect <c>i++</c> as an internal mutation. This produces Java code that
+    /// violates the effectively-final constraint for for-loop iteration variables.
+    /// </para>
     /// </summary>
     private static IReadOnlyList<(string Name, string JavaType)> GetMutatedCaptures(
         LambdaExpressionSyntax lambda, ConversionContext context)

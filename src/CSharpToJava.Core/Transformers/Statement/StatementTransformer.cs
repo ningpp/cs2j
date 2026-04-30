@@ -51,6 +51,15 @@ public partial class StatementTransformer : IStatementTransformer
     {
         if (block == null) return "{}";
 
+        // Pre-scan for lambda capture analysis at method body level (scope depth 0).
+        // This identifies variables captured by lambdas that are externally reassigned,
+        // so we can create holder declarations right after variable declarations.
+        if (context.MethodState.ScopeDepth == 0 && !context.MethodState.LambdaCapturePreScanDone)
+        {
+            PreScanLambdaCaptures(block, context);
+            context.MethodState.LambdaCapturePreScanDone = true;
+        }
+
         context.MethodState.PushScope();
         var statements = TransformStatements(block.Statements, context);
         context.MethodState.PopScope();
@@ -65,6 +74,13 @@ public partial class StatementTransformer : IStatementTransformer
     {
         var body = new Java.JavaMethodBody();
         if (block == null) return body;
+
+        // Pre-scan for lambda capture analysis at method body level (scope depth 0).
+        if (context.MethodState.ScopeDepth == 0 && !context.MethodState.LambdaCapturePreScanDone)
+        {
+            PreScanLambdaCaptures(block, context);
+            context.MethodState.LambdaCapturePreScanDone = true;
+        }
 
         context.MethodState.PushScope();
         var irStatements = TransformStatementsToIR(block.Statements, context);
