@@ -239,16 +239,16 @@ public partial class StatementTransformer
                 if (stmt.Statement is BlockSyntax tvIfThenBlock4)
                 {
                     var bodyStr = TransformBlock(tvIfThenBlock4, context);
-                    thenBody2 = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
+                    thenBody2 = $"{{\n        {bodyStr}\n    }}";
                 }
                 else
                 {
                     var bodyStr = tvStmtTransformer4.Transform(stmt.Statement, context).ToString("");
-                    thenBody2 = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
+                    thenBody2 = $"{{\n        {bodyStr}\n    }}";
                 }
 
                 var ifSb4 = new System.Text.StringBuilder();
-                ifSb4.Append($"if ({tvTarget2}.containsKey({tvKey2})) {thenBody2}");
+                ifSb4.Append($"{assignTarget} = {tvTarget2}.get({tvKey2});\nif ({tvTarget2}.containsKey({tvKey2})) {thenBody2}");
 
                 if (stmt.Else != null)
                 {
