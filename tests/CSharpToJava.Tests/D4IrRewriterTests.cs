@@ -374,8 +374,11 @@ public class D4IrRewriterTests
         rewriter.VisitMethodDeclaration(method);
 
         Assert.Equal("clone", call.MethodName);
-        Assert.Contains("CloneNotSupportedException", method.ThrownExceptions);
         Assert.Equal(1, rewriter.RewriteCount);
+        // Body should be wrapped with try-catch instead of adding throws
+        Assert.Empty(method.ThrownExceptions);
+        Assert.Single(method.StructuredBody.Statements);
+        Assert.IsType<JavaTryCatchStatement>(method.StructuredBody.Statements[0]);
     }
 
     [Fact]

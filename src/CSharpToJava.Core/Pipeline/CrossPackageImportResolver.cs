@@ -70,13 +70,6 @@ public static class CrossPackageImportResolver
             allPackages.Sort(StringComparer.Ordinal);
         }
 
-        if (!string.IsNullOrWhiteSpace(sharedCompatibilityPackage)
-            && !allPackages.Contains(CompatibilityClassGenerator.MSTestCompatibilityPackage, StringComparer.Ordinal))
-        {
-            allPackages.Add(CompatibilityClassGenerator.MSTestCompatibilityPackage);
-            allPackages.Sort(StringComparer.Ordinal);
-        }
-
         if (allPackages.Count == 0) return;
 
         // Build a map of simple class name -> list of packages containing that class.
@@ -172,9 +165,10 @@ public static class CrossPackageImportResolver
             }
         }
 
-        // Add cross-package wildcard imports
+        // Add cross-package wildcard imports (skip own package)
         foreach (var pkg in allPackages)
         {
+            if (pkg == r.Package) continue;
             cu.Imports.Add(new JavaImport(pkg, isWildcard: true));
         }
 
@@ -207,10 +201,13 @@ public static class CrossPackageImportResolver
         Dictionary<string, string> conflictCanonical,
         string? sharedCompatibilityPackage)
     {
-        // Build the cross-package import block
+        // Build the cross-package import block (skip own package)
         var crossImports = new System.Text.StringBuilder();
         foreach (var pkg in allPackages)
+        {
+            if (pkg == r.Package) continue;
             crossImports.AppendLine($"import {pkg}.*;");
+        }
         var crossImportBlock = crossImports.ToString();
 
         // Find insertion point: after the last existing import/package line

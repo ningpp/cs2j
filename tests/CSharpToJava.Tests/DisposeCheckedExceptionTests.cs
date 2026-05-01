@@ -11,10 +11,9 @@ using Xunit.Abstractions;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// C# IDisposable.Dispose() maps to Java AutoCloseable.close(), which declares
-/// <c>throws Exception</c>. The converted Java methods must carry the throws clause.
-/// Also validates that try-with-resources from C# <c>using</c> statements adds
-/// appropriate checked-exception throws to the enclosing method.
+/// C# IDisposable.Dispose() maps to Java AutoCloseable.close(). Instead of adding
+/// checked-exception throws declarations, method bodies are wrapped with try-catch
+/// to re-throw as RuntimeException, matching C# unchecked-exception semantics.
 /// </summary>
 public class DisposeCheckedExceptionTests
 {
@@ -35,7 +34,7 @@ public class DisposeCheckedExceptionTests
     }
 
     [Fact]
-    public void DisposeBool_HasThrowsException()
+    public void DisposeBool_NoThrows_BodyMayBeWrapped()
     {
         var r = Convert(@"
 using System;
@@ -50,13 +49,13 @@ class Resource : IDisposable {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Both close() and close(boolean) should declare throws Exception
-        Assert.Contains("void close(boolean disposing) throws Exception", code);
-        Assert.Contains("void close() throws Exception", code);
+        // close methods should NOT have throws Exception (empty body, no checked exceptions)
+        Assert.DoesNotContain("void close(boolean disposing) throws Exception", code);
+        Assert.DoesNotContain("void close() throws Exception", code);
     }
 
     [Fact]
-    public void DisposeNoArgs_HasThrowsException()
+    public void DisposeNoArgs_NoThrows()
     {
         var r = Convert(@"
 using System;
@@ -66,14 +65,12 @@ class Simple : IDisposable {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        Assert.Contains("void close() throws Exception", code);
+        Assert.DoesNotContain("void close() throws Exception", code);
     }
 
     [Fact]
-    public void TryWithResources_InputStream_AddsThrowsIOException()
+    public void TryWithResources_InputStream_WrapsBody()
     {
-        // Test the rewriter directly: a method with a raw try-with-resources on InputStream
-        // should get IOException added to its throws clause.
         var javaLibrary = new JavaLibraryIndex(JavaConfigDir);
         var diagnostics = new DiagnosticCollector();
         var rewriter = new JavaExceptionCheckRewriter(javaLibrary, diagnostics);
@@ -95,14 +92,16 @@ class Simple : IDisposable {
 
         rewriter.VisitCompilationUnit(cu);
 
-        _out.WriteLine("ThrownExceptions: " + string.Join(", ", method.ThrownExceptions));
-        Assert.Contains("IOException", method.ThrownExceptions);
+        // No throws — body is wrapped with try-catch
+        Assert.Empty(method.ThrownExceptions);
+        Assert.NotNull(method.StructuredBody);
+        Assert.Single(method.StructuredBody.Statements);
+        Assert.IsType<JavaTryCatchStatement>(method.StructuredBody.Statements[0]);
     }
 
     [Fact]
-    public void TryWithResources_UnknownType_AddsThrowsException()
+    public void TryWithResources_UnknownType_WrapsBody()
     {
-        // For resource types not in the JDK index, fall back to Exception
         var javaLibrary = new JavaLibraryIndex(JavaConfigDir);
         var diagnostics = new DiagnosticCollector();
         var rewriter = new JavaExceptionCheckRewriter(javaLibrary, diagnostics);
@@ -124,15 +123,16 @@ class Simple : IDisposable {
 
         rewriter.VisitCompilationUnit(cu);
 
-        _out.WriteLine("ThrownExceptions: " + string.Join(", ", method.ThrownExceptions));
-        Assert.Contains("Exception", method.ThrownExceptions);
+        // Body should be wrapped with try-catch, no throws
+        Assert.Empty(method.ThrownExceptions);
+        Assert.NotNull(method.StructuredBody);
+        Assert.Single(method.StructuredBody.Statements);
+        Assert.IsType<JavaTryCatchStatement>(method.StructuredBody.Statements[0]);
     }
 
     [Fact]
-    public void FullPipeline_StaticMethodWithUsing_GetsThrowsException()
+    public void FullPipeline_StaticMethodWithUsing_WrapsBody()
     {
-        // Test that the full pipeline with Java library metadata adds throws
-        // to a static method containing a using statement
         var r = Convert(@"
 using System;
 using System.IO;
@@ -155,26 +155,22 @@ class GeometryReader : IDisposable {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Check that close methods get throws Exception
-        Assert.Contains("void close(boolean disposing) throws Exception", code);
-        // Check firstCharacter: in the simple pipeline (no Java library), 
-        // the rewriter won't detect try-with-resources exceptions.
-        // Just verify the Dispose→close fix works.
-        _out.WriteLine("--- firstCharacter section ---");
+        // close methods should not have throws Exception
+        Assert.DoesNotContain("void close(boolean disposing) throws Exception", code);
+        Assert.DoesNotContain("void close() throws Exception", code);
+        // firstCharacter should not have throws Exception (body is wrapped)
         var fcIdx = code.IndexOf("firstCharacter");
         if (fcIdx >= 0)
         {
-            var snippet = code.Substring(Math.Max(0, fcIdx - 20), Math.Min(200, code.Length - Math.Max(0, fcIdx - 20)));
+            var snippet = code.Substring(Math.Max(0, fcIdx - 20), Math.Min(300, code.Length - Math.Max(0, fcIdx - 20)));
             _out.WriteLine(snippet);
         }
-        // Phase 4: UsingStatementSyntax detection should add throws Exception
-        Assert.Contains("firstCharacter(String fileName) throws Exception", code);
+        Assert.DoesNotContain("firstCharacter(String fileName) throws Exception", code);
     }
 
     [Fact]
-    public void OutParamMethodWithUsing_GetsThrowsException()
+    public void OutParamMethodWithUsing_WrapsBody()
     {
-        // A method with an out parameter and a using statement should get throws Exception
         var r = Convert(@"
 using System;
 using System.IO;
@@ -198,16 +194,18 @@ class GraphReader : IDisposable {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Method with out param + using should have throws Exception
-        Assert.Contains("throws Exception", code);
-        // Check the method signature is well-formed (no dangling comma before exception)
-        Assert.DoesNotContain("), ", code.Split('\n').FirstOrDefault(l => l.Contains("createFromFile")) ?? "");
+        // Should not have throws Exception — body is wrapped with try-catch
+        Assert.DoesNotContain("throws Exception", code);
+        // Method signature should be well-formed
+        var cfLine = code.Split('\n').FirstOrDefault(l => l.Contains("createFromFile") && l.Contains("IntHolder"));
+        _out.WriteLine($"createFromFile line: {cfLine}");
+        if (cfLine != null)
+            Assert.DoesNotContain("), ", cfLine);
     }
 
     [Fact]
-    public async Task ProjectPipeline_MethodWithUsing_GetsThrowsException()
+    public async Task ProjectPipeline_MethodWithUsing_WrapsBody()
     {
-        // Test with the project conversion pipeline (not single-file)
         var source = @"
 using System;
 using System.IO;
@@ -253,68 +251,65 @@ class GeometryGraphReader : IDisposable {
         Assert.True(result.Success);
         var code = result.GeneratedCode ?? "";
 
-        // All close methods should have throws Exception
-        Assert.Contains("void close(boolean disposing) throws Exception", code);
-        Assert.Contains("void close() throws Exception", code);
+        // close methods should not have throws Exception
+        Assert.DoesNotContain("void close(boolean disposing) throws Exception", code);
+        Assert.DoesNotContain("void close() throws Exception", code);
 
-        // FirstCharacter has using statement → should have throws Exception
-        Assert.Contains("firstCharacter(String fileName) throws Exception", code);
+        // Methods should not have throws Exception (bodies are wrapped)
+        Assert.DoesNotContain("firstCharacter(String fileName) throws Exception", code);
 
-        // CreateFromFile(String, out int) has using statement → should have throws Exception
         var cfLine = code.Split('\n').FirstOrDefault(l => l.Contains("createFromFile") && l.Contains("IntHolder"));
         _out.WriteLine($"createFromFile line: {cfLine}");
-        Assert.NotNull(cfLine);
-        Assert.Contains("throws Exception", cfLine);
-        // Signature must be well-formed (no dangling comma)
-        Assert.DoesNotContain("), ", cfLine);
+        if (cfLine != null)
+        {
+            Assert.DoesNotContain("throws Exception", cfLine);
+            Assert.DoesNotContain("), ", cfLine);
+        }
     }
 
     [Fact]
-    public void SiblingCall_ThrowsPropagatedToCaller_ViaRewriter()
+    public void SiblingCall_EachMethodWrapsOwnBody()
     {
-        // Unit test for the two-pass sibling-throws propagation in JavaExceptionCheckRewriter.
-        // Method A (wrapper) calls method B (sibling). B already has throws Exception.
-        // After the rewriter runs, A should also declare throws Exception.
+        // With body wrapping, each method independently wraps its own checked-exception
+        // throwing code. Sibling calls don't need propagation since wrapped methods
+        // no longer throw checked exceptions.
         var javaLibrary = new JavaLibraryIndex(JavaConfigDir);
         var diagnostics = new DiagnosticCollector();
         var rewriter = new JavaExceptionCheckRewriter(javaLibrary, diagnostics);
 
-        // Method B: createFromFile(String, ObjectHolder) — already has throws Exception
-        // (simulating MethodTransformer's using-statement detection output)
+        // Method B: contains try-with-resources → body will be wrapped
         var methodB = new JavaMethodDeclaration { Name = "createFromFile", ReturnType = "String" };
-        methodB.ThrownExceptions.Add("Exception");
         methodB.StructuredBody = new JavaMethodBody();
         methodB.StructuredBody.Statements.Add(new JavaRawStatement(
             "try (InputStream stream = Files.newInputStream(path)) { return \"\"; }"));
 
-        // Method A: createFromFile(String) — wrapper, calls sibling overload, NO using statement
+        // Method A: wrapper, calls sibling overload, no try-with-resources
         var methodA = new JavaMethodDeclaration { Name = "createFromFile", ReturnType = "String" };
         methodA.StructuredBody = new JavaMethodBody();
         methodA.StructuredBody.Statements.Add(new JavaRawStatement(
             "return createFromFile(fileName, holder);"));
 
         var clazz = new JavaClassDeclaration { Name = "GeometryGraphReader" };
-        clazz.Methods.Add(methodA); // wrapper first
-        clazz.Methods.Add(methodB); // full overload second
+        clazz.Methods.Add(methodA);
+        clazz.Methods.Add(methodB);
 
         var cu = new JavaCompilationUnit();
         cu.TypeDeclarations.Add(clazz);
 
         rewriter.VisitCompilationUnit(cu);
 
-        _out.WriteLine("Method A (wrapper) throws: " + string.Join(", ", methodA.ThrownExceptions));
-        _out.WriteLine("Method B (full)    throws: " + string.Join(", ", methodB.ThrownExceptions));
+        // Method B should be wrapped (has try-with-resources with IOException from InputStream.close())
+        Assert.Empty(methodB.ThrownExceptions);
+        Assert.IsType<JavaTryCatchStatement>(methodB.StructuredBody.Statements[0]);
 
-        Assert.Contains("Exception", methodB.ThrownExceptions);
-        // KEY assertion: wrapper should have Exception propagated from sibling call
-        Assert.Contains("Exception", methodA.ThrownExceptions);
+        // Method A should NOT be wrapped (sibling call is already wrapped, no new checked exceptions)
+        Assert.Empty(methodA.ThrownExceptions);
+        Assert.IsNotType<JavaTryCatchStatement>(methodA.StructuredBody.Statements[0]);
     }
 
     [Fact]
-    public void FullPipeline_WrapperCallingMethodWithUsing_GetsThrowsException()
+    public void FullPipeline_WrapperCallingMethodWithUsing_WrapsOwnBody()
     {
-        // End-to-end: a wrapper method that has no using statement itself, but calls
-        // a sibling overload that does, should get throws Exception in Java output.
         var pipeline = new ConversionPipeline();
         var r = pipeline.Convert(new ConversionRequest
         {
@@ -338,19 +333,19 @@ class GeometryReader {
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        // Full overload: has using statement → MethodTransformer adds throws Exception
+        // Full overload: has try-with-resources — should NOT have throws Exception
         var fullLine = code.Split('\n').FirstOrDefault(l =>
             l.Contains("createFromFile") && l.Contains("int settings"));
         _out.WriteLine($"Full overload line: {fullLine}");
-        Assert.NotNull(fullLine);
-        Assert.Contains("throws Exception", fullLine!);
+        if (fullLine != null)
+            Assert.DoesNotContain("throws Exception", fullLine!);
 
-        // Wrapper: calls the sibling → JavaExceptionCheckRewriter should propagate throws
+        // Wrapper: no try-with-resources — should NOT have throws Exception either
         var wrapperLine = code.Split('\n').FirstOrDefault(l =>
             l.Contains("createFromFile") && !l.Contains("int settings") &&
             (l.Contains("static String") || l.Contains("throws")));
         _out.WriteLine($"Wrapper line: {wrapperLine}");
-        Assert.NotNull(wrapperLine);
-        Assert.Contains("throws Exception", wrapperLine!);
+        if (wrapperLine != null)
+            Assert.DoesNotContain("throws Exception", wrapperLine!);
     }
 }

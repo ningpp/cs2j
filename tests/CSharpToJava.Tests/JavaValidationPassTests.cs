@@ -154,9 +154,10 @@ public class JavaValidationPassTests
     // ──────────────────────────────────────────────────────────
 
     [Fact]
-    public void ExceptionCheck_MethodWithCheckedException_AddsThrows()
+    public void ExceptionCheck_MethodWithCheckedException_WrapsBody()
     {
-        // Thread.join() throws InterruptedException (checked)
+        // Thread.join() throws InterruptedException (checked) — method body should
+        // be wrapped with try-catch instead of adding a throws declaration.
         var (rewriter, diagnostics) = CreateExceptionChecker();
         var cu = new JavaCompilationUnit();
         var call = new JavaMethodCallExpression
@@ -178,7 +179,12 @@ public class JavaValidationPassTests
 
         rewriter.VisitCompilationUnit(cu);
 
-        Assert.Contains("InterruptedException", method.ThrownExceptions);
+        // No throws declarations — body is wrapped instead
+        Assert.Empty(method.ThrownExceptions);
+        // Structured body should contain a JavaTryCatchStatement wrapping the original body
+        Assert.NotNull(method.StructuredBody);
+        Assert.Single(method.StructuredBody.Statements);
+        Assert.IsType<JavaTryCatchStatement>(method.StructuredBody.Statements[0]);
     }
 
     [Fact]

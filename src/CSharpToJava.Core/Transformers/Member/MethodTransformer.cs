@@ -230,24 +230,9 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.Body = null;
             }
         }
-        // Dispose → close: AutoCloseable.close() declares throws Exception, so any
-        // implementation that converts from C# IDisposable.Dispose() must declare it too.
-        if (methodDecl.Identifier.Text == "Dispose" && javaMethod.Name == "close")
-        {
-            if (!javaMethod.ThrownExceptions.Contains("Exception"))
-                javaMethod.ThrownExceptions.Add("Exception");
-        }
-
-        // C# using statements → Java try-with-resources. The implicit close() call
-        // from AutoCloseable can throw checked exceptions. Add throws Exception so
-        // the generated Java compiles even when the exception check rewriter cannot
-        // resolve the resource type.
-        if (methodDecl.Body != null
-            && methodDecl.Body.DescendantNodes().OfType<UsingStatementSyntax>().Any())
-        {
-            if (!javaMethod.ThrownExceptions.Contains("Exception"))
-                javaMethod.ThrownExceptions.Add("Exception");
-        }
+        // Checked exceptions from try-with-resources (close()) or Dispose→close
+        // are handled by JavaExceptionCheckRewriter which wraps method bodies
+        // with try-catch instead of adding throws declarations.
 
         context.LeaveMethod();
 

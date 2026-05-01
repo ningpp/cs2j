@@ -209,39 +209,98 @@ public partial class StatementTransformer
 
     private JavaSyntaxNode TransformUsingStatement(UsingStatementSyntax stmt, ConversionContext context)
     {
-        // Java 使用 try-with-resources
-        var stmtTransformer = new StatementTransformer();
         var exprTransformer = ExpressionTransformerFacade.Instance;
 
+        // Walk stacked using statements to collect all resources into a single
+        // try-with-resources block (C# stacked usings become nested UsingStatementSyntax).
         var resources = new List<string>();
-
-        if (stmt.Declaration != null)
+        UsingStatementSyntax? currentStmt = stmt;
+        while (currentStmt != null)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration.Type);
-            var resourceType = typeInfo.HasValue ? typeInfo.Value.Type : null;
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "AutoCloseable";
-
-            foreach (var variable in stmt.Declaration.Variables)
+            if (currentStmt.Declaration != null)
             {
-                var resourceInit = variable.Initializer != null
-                    ? ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                        variable.Initializer.Value,
-                        exprTransformer.Transform(variable.Initializer.Value, context),
-                        resourceType,
-                        context)
-                    : string.Empty;
-                var init = variable.Initializer != null
-                    ? $" = {resourceInit}"
-                    : "";
-                resources.Add($"{javaType} {variable.Identifier}{init}");
+                foreach (var variable in currentStmt.Declaration.Variables)
+                {
+                    var javaType = GetResourceJavaType(currentStmt, variable, context);
+                    var resourceInit = variable.Initializer != null
+                        ? ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                            variable.Initializer.Value,
+                            exprTransformer.Transform(variable.Initializer.Value, context),
+                            context.SemanticModel?.GetTypeInfo(currentStmt.Declaration.Type).Type,
+                            context)
+                        : string.Empty;
+                    var init = variable.Initializer != null ? $" = {resourceInit}" : "";
+                    resources.Add($"{javaType} {variable.Identifier}{init}");
+                }
+            }
+
+            if (currentStmt.Statement is UsingStatementSyntax innerUsing)
+            {
+                currentStmt = innerUsing;
+            }
+            else
+            {
+                break;
             }
         }
 
-        var body = stmt.Statement is BlockSyntax block
+        // currentStmt is the innermost using; its Statement is the actual body.
+        var stmtTransformer = new StatementTransformer();
+        var body = currentStmt!.Statement is BlockSyntax block
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+            : $"{{ {stmtTransformer.Transform(currentStmt.Statement, context).ToString("")} }}";
 
         return new JavaStatementNode($"try ({string.Join("; ", resources)}) {body}");
+    }
+
+    /// <summary>
+    /// Determines the Java type for a using-statement resource variable.
+    /// When the variable is initialized by a method call whose mapped Java return type
+    /// differs from the C# type mapping, the Java return type is used.
+    /// </summary>
+    private static string GetResourceJavaType(
+        UsingStatementSyntax stmt,
+        VariableDeclaratorSyntax variable,
+        ConversionContext context)
+    {
+        var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration!.Type);
+
+        // When the initializer is a method call, resolve the Java return type of the
+        // mapped method so the variable type matches what the expression actually produces.
+        if (variable.Initializer?.Value is InvocationExpressionSyntax invocation)
+        {
+            var methodSymbol = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (methodSymbol != null)
+            {
+                var mappedType = ResolveMethodReturnJavaType(methodSymbol, context);
+                if (mappedType != null)
+                    return mappedType;
+            }
+        }
+
+        return typeInfo.HasValue && typeInfo.Value.Type != null
+            ? context.MapType(typeInfo.Value.Type)
+            : "AutoCloseable";
+    }
+
+    private static string? ResolveMethodReturnJavaType(IMethodSymbol method, ConversionContext context)
+    {
+        var containingType = method.ContainingType?.ToDisplayString();
+        if (containingType == null)
+            return null;
+
+        return containingType switch
+        {
+            // File.Create() → FileHelper.create() → OutputStream
+            "System.IO.File" => method.Name switch
+            {
+                "Create" => "OutputStream",
+                "OpenRead" => "InputStream",
+                "Open" => "InputStream",
+                _ => null
+            },
+            _ => null
+        };
     }
 
     private JavaSyntaxNode TransformLockStatement(LockStatementSyntax stmt, ConversionContext context)

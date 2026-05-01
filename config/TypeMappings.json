@@ -962,9 +962,9 @@
                          },
                          {
                              "csharp":  "System.IO.TextWriter",
-                             "java":  "Writer",
+                             "java":  "PrintWriter",
                              "imports":  [
-                                             "java.io.Writer"
+                                             "java.io.PrintWriter"
                                          ]
                          },
                          {
