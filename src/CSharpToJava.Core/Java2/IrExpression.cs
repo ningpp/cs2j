@@ -141,7 +141,7 @@ public class IrLambdaExpression : IrExpression
 {
     public List<IrLambdaParameter> Parameters { get; } = new();
     public IrExpression? ExpressionBody { get; set; }
-    public IrNode? BlockBody { get; set; }
+    public IrBlockStatement? BlockBody { get; set; }
     public override void Accept(IIrVisitor visitor) => visitor.Visit(this);
     public override T Accept<T>(IIrVisitor<T> visitor) => visitor.Visit(this);
 }
