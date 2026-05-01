@@ -57,6 +57,21 @@ CSharpToJavaConverter/
     └── TypeMappings.json           # Default type mappings
 ```
 
+### Architecture (v2 — in progress)
+
+The new conversion engine follows a five-phase pipeline:
+1. **Frontend**: C# parsing + LINQ rewrite + partial type merging
+2. **HIR Generation**: C# Syntax Tree -> C#-flavored Java IR (`src/CSharpToJava.Core/HIR/`)
+3. **Lowering**: 12 semantic lowering passes eliminate C#-specific semantics (`src/CSharpToJava.Core/Lowering/`)
+4. **Validation**: Diagnostics-only IR checks
+5. **CodeGen**: Pure Java IR -> formatted Java source (`src/CSharpToJava.Core/Java2/CodeGen/`)
+
+New code locations:
+- `src/CSharpToJava.Core/Java2/` — New IR model (IrNode, IrExpression, IrStatement, IrDeclaration) + CodeGen
+- `src/CSharpToJava.Core/HIR/` — HIR Generator
+- `src/CSharpToJava.Core/Lowering/` — Semantic lowering passes
+- `src/CSharpToJava.Core/Pipeline/NewConversionPipeline.cs` — New pipeline entry point
+
 ### Conversion Pipeline
 
 The conversion follows a **three-phase pipeline**:
