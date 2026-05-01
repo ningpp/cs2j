@@ -58,7 +58,7 @@ public class HIRStatementGenerator
                 Body = Generate(us.Statement)!,
             },
             YieldStatementSyntax ys => GenerateYield(ys),
-            _ => new IrExpressionStatement { Expression = new IrLiteralExpression { Value = "/* TODO stmt: " + stmt.Kind() + " */" } },
+            _ => new IrExpressionStatement { Expression = new IrIdentifierExpression { Name = "/* ERROR: unsupported statement " + stmt.Kind() + " */" } },
         };
     }
 

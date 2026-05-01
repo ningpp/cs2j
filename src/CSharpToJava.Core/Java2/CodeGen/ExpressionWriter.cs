@@ -130,7 +130,12 @@ public class ExpressionWriter
         if (lam.ExpressionBody != null)
             sb.Append(Write(lam.ExpressionBody));
         else if (lam.BlockBody != null)
-            sb.Append("{}");  // Block rendering done by StatementWriter
+        {
+            var stmtWriter = new StatementWriter();
+            var innerWriter = new IndentedWriter();
+            stmtWriter.Write(lam.BlockBody, innerWriter);
+            sb.Append(innerWriter.ToString().Trim());
+        }
         return sb.ToString();
     }
 }

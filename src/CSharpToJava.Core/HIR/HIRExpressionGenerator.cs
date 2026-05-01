@@ -35,7 +35,7 @@ public class HIRExpressionGenerator
             BaseExpressionSyntax bas => new IrThisExpression { IsSuper = true, Symbol = GetSymbol(bas) },
             IsPatternExpressionSyntax isPat => GenerateIsPattern(isPat),
             ConditionalAccessExpressionSyntax condAcc => GenerateConditionalAccess(condAcc),
-            _ => new IrLiteralExpression { Value = "/* TODO expr: " + expr.Kind() + " */" },
+            _ => new IrIdentifierExpression { Name = "/* ERROR: unsupported expression " + expr.Kind() + " */" },
         };
     }
 
