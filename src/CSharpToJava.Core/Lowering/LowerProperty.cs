@@ -49,13 +49,15 @@ public class LowerProperty : ILoweringPass
                     Symbol = prop.Symbol, JavaType = prop.JavaType,
                 };
             case IrAssignmentExpression asgn when asgn.Target is IrCSharpPropertyAccessExpression setProp:
-                var lowered = (IrInvocationExpression)LowerExpression(setProp);
-                lowered.Arguments.Add(LowerExpression(asgn.Value));
-                return lowered;
-            case IrCSharpIndexerAccessExpression idx:
-                var inv = new IrInvocationExpression { Target = LowerExpression(idx.Target), MethodName = idx.IsSetter ? "set" : "get", Symbol = idx.Symbol };
-                foreach (var i in idx.Indices) inv.Arguments.Add(LowerExpression(i));
-                return inv;
+                var javaSetterName = char.ToUpper(setProp.PropertyName[0]) + setProp.PropertyName.Substring(1);
+                return new IrInvocationExpression
+                {
+                    Target = LowerExpression(setProp.Target),
+                    MethodName = "set" + javaSetterName,
+                    Arguments = { LowerExpression(asgn.Value) },
+                    Symbol = setProp.Symbol,
+                };
+            // IrCSharpIndexerAccessExpression handled by LowerIndexer
             case IrInvocationExpression call:
                 if (call.Target != null) call.Target = LowerExpression(call.Target);
                 for (int i = 0; i < call.Arguments.Count; i++) call.Arguments[i] = LowerExpression(call.Arguments[i]);

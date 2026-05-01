@@ -60,7 +60,22 @@ public class LowerRefOut : ILoweringPass
                     if (inv.Arguments[i] is IrCSharpRefOutExpression refOut)
                     {
                         if (refOut.IsOut)
-                            inv.Arguments[i] = new IrNewExpression { TypeName = "IntHolder" };
+                        {
+                            var holderType = refOut.Inner.JavaType switch
+                            {
+                                "int" or "Integer" => "IntHolder",
+                                "long" or "Long" => "LongHolder",
+                                "double" or "Double" => "DoubleHolder",
+                                "float" or "Float" => "FloatHolder",
+                                "boolean" or "Boolean" => "BooleanHolder",
+                                "short" or "Short" => "ShortHolder",
+                                "byte" or "Byte" => "ByteHolder",
+                                "char" or "Character" => "CharHolder",
+                                not null => "ObjectHolder<" + refOut.Inner.JavaType + ">",
+                                _ => "ObjectHolder",
+                            };
+                            inv.Arguments[i] = new IrNewExpression { TypeName = holderType };
+                        }
                         else if (refOut.IsRef || refOut.IsReadOnlyRef)
                             inv.Arguments[i] = LowerExpression(refOut.Inner);
                     }

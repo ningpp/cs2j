@@ -29,19 +29,33 @@ public class LowerIndexer : ILoweringPass
             case IrBlockStatement b: LowerBlock(b); return b;
             case IrExpressionStatement es: es.Expression = LowerExpression(es.Expression); return es;
             case IrReturnStatement rs: if (rs.Expression != null) rs.Expression = LowerExpression(rs.Expression); return rs;
+            case IrIfStatement ifs: ifs.Condition = LowerExpression(ifs.Condition); ifs.ThenBody = LowerStatement(ifs.ThenBody); if (ifs.ElseBody != null) ifs.ElseBody = LowerStatement(ifs.ElseBody); return ifs;
             default: return stmt;
         }
     }
 
     private IrExpression LowerExpression(IrExpression expr)
     {
-        if (expr is IrAssignmentExpression asgn && asgn.Target is IrCSharpIndexerAccessExpression idx)
+        // Handle getter: obj[index] -> obj.get(index)
+        if (expr is IrCSharpIndexerAccessExpression idxGet && !idxGet.IsSetter)
+        {
+            var inv = new IrInvocationExpression
+            {
+                Target = LowerExpression(idxGet.Target),
+                MethodName = "get",
+                Symbol = idxGet.Symbol
+            };
+            foreach (var i in idxGet.Indices) inv.Arguments.Add(LowerExpression(i));
+            return inv;
+        }
+        // Handle setter: obj[index] = value -> obj.set(index, value)
+        if (expr is IrAssignmentExpression asgn && asgn.Target is IrCSharpIndexerAccessExpression idxSet)
         {
             return new IrInvocationExpression
             {
-                Target = LowerExpression(idx.Target),
+                Target = LowerExpression(idxSet.Target),
                 MethodName = "set",
-                Arguments = { LowerExpression(idx.Indices[0]), LowerExpression(asgn.Value) },
+                Arguments = { LowerExpression(idxSet.Indices[0]), LowerExpression(asgn.Value) },
             };
         }
         return expr;

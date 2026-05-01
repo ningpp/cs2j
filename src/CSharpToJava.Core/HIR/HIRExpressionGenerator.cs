@@ -286,16 +286,23 @@ public class HIRExpressionGenerator
     private IrExpression GenerateConditionalAccess(ConditionalAccessExpressionSyntax node)
     {
         var target = Generate(node.Expression, _ctx);
-        IrExpression whenNotNull = node.WhenNotNull switch
+        IrExpression whenNotNull;
+        if (node.WhenNotNull is MemberBindingExpressionSyntax mb)
         {
-            MemberBindingExpressionSyntax mb => new IrMemberAccessExpression
+            whenNotNull = new IrMemberAccessExpression
             {
-                Target = new IrIdentifierExpression { Name = "_tmp" },
+                Target = target,
                 MemberName = mb.Name.Identifier.Text,
-            },
-            InvocationExpressionSyntax inv => Generate(inv, _ctx),
-            _ => Generate((ExpressionSyntax)node.WhenNotNull, _ctx),
-        };
+            };
+        }
+        else if (node.WhenNotNull is InvocationExpressionSyntax inv)
+        {
+            whenNotNull = Generate(inv, _ctx);
+        }
+        else
+        {
+            whenNotNull = Generate((ExpressionSyntax)node.WhenNotNull, _ctx);
+        }
         return new IrConditionalExpression
         {
             Condition = new IrBinaryExpression

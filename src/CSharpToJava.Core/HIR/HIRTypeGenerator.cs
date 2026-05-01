@@ -134,7 +134,7 @@ public class HIRTypeGenerator
         return enm;
     }
 
-    public IrClassDeclaration? GenerateDelegate(DelegateDeclarationSyntax node, ConversionContext ctx)
+    public IrInterfaceDeclaration? GenerateDelegate(DelegateDeclarationSyntax node, ConversionContext ctx)
     {
         var sym = ctx.SemanticModel?.GetDeclaredSymbol(node);
         if (sym is not INamedTypeSymbol namedType) return null;
@@ -147,7 +147,7 @@ public class HIRTypeGenerator
             Modifiers = IrModifiers.Public | IrModifiers.Abstract,
         };
         delegateMethod.Parameters.AddRange(invokeMethod.Parameters.Select(p => new IrParameter { Type = ctx.MapType(p.Type), Name = p.Name }));
-        return new IrClassDeclaration
+        return new IrInterfaceDeclaration
         {
             Name = ctx.MapType(namedType),
             Modifiers = IrModifiers.Public,

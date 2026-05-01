@@ -95,6 +95,9 @@ public class ExpressionWriter
     {
         var op = UnaryOpStrings[un.Operator];
         var operand = Write(un.Operand);
+        // Parenthesize binary expressions under unary operators
+        if (un.Operand is IrBinaryExpression or IrConditionalExpression or IrAssignmentExpression)
+            operand = "(" + operand + ")";
         return un.Operator is IrUnaryOp.PostIncrement or IrUnaryOp.PostDecrement
             ? operand + op : op + operand;
     }

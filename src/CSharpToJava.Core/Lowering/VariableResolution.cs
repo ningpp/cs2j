@@ -15,52 +15,130 @@ public class VariableResolution : ILoweringPass
 
     private void LowerType(IrTypeDeclaration type)
     {
-        foreach (var method in type.Methods) if (method.Body != null) RenameDuplicates(method.Body);
-        if (type is IrClassDeclaration cls) foreach (var ctor in cls.Constructors) if (ctor.Body != null) RenameDuplicates(ctor.Body);
+        foreach (var method in type.Methods) if (method.Body != null) DeduplicateInBlock(method.Body);
+        if (type is IrClassDeclaration cls) foreach (var ctor in cls.Constructors) if (ctor.Body != null) DeduplicateInBlock(ctor.Body);
         foreach (var nested in type.NestedTypes) LowerType(nested);
     }
 
-    private void RenameDuplicates(IrBlockStatement block)
+    private static void DeduplicateInBlock(IrBlockStatement block)
     {
-        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
-        var renames = new Dictionary<string, string>(StringComparer.Ordinal);
-        FindDeclaredVars(block, seen, renames);
-        if (renames.Count > 0) ApplyRenames(block, renames);
+        var scopeNames = new Dictionary<string, int>(StringComparer.Ordinal);
+        // First pass: rename declarations
+        RenameDeclarationsInBlock(block, scopeNames);
+        // Second pass: rename references in expressions
+        RenameReferencesInBlock(block, scopeNames);
     }
 
-    private void FindDeclaredVars(IrBlockStatement block, Dictionary<string, int> seen, Dictionary<string, string> renames)
+    private static void RenameDeclarationsInBlock(IrBlockStatement block, Dictionary<string, int> scopeNames)
     {
         foreach (var stmt in block.Statements)
         {
             if (stmt is IrVariableDeclarationStatement vd)
             {
-                if (seen.TryGetValue(vd.Name, out var count))
+                if (scopeNames.TryGetValue(vd.Name, out var count))
                 {
-                    seen[vd.Name] = count + 1;
-                    var newName = vd.Name + "_" + count;
-                    renames[vd.Name] = newName;
-                    vd.Name = newName;
+                    count++;
+                    scopeNames[vd.Name] = count;
+                    vd.Name = vd.Name + "_" + count;
                 }
-                else seen[vd.Name] = 0;
+                else
+                {
+                    scopeNames[vd.Name] = 0;
+                }
             }
-            if (stmt is IrBlockStatement inner) FindDeclaredVars(inner, seen, renames);
+            if (stmt is IrBlockStatement inner) RenameDeclarationsInBlock(inner, scopeNames);
+            if (stmt is IrForEachStatement fe && scopeNames.TryGetValue(fe.VariableName, out var feCount))
+            {
+                feCount++;
+                scopeNames[fe.VariableName] = feCount;
+                fe.VariableName = fe.VariableName + "_" + feCount;
+            }
         }
     }
 
-    private void ApplyRenames(IrBlockStatement block, Dictionary<string, string> renames)
+    private static void RenameReferencesInBlock(IrBlockStatement block, Dictionary<string, int> scopeNames)
     {
         foreach (var stmt in block.Statements)
         {
-            if (stmt is IrExpressionStatement es) es.Expression = RenameInExpr(es.Expression, renames);
-            if (stmt is IrReturnStatement rs && rs.Expression != null) rs.Expression = RenameInExpr(rs.Expression, renames);
-            if (stmt is IrBlockStatement b) ApplyRenames(b, renames);
+            switch (stmt)
+            {
+                case IrExpressionStatement es: es.Expression = RenameInExpr(es.Expression, scopeNames); break;
+                case IrReturnStatement rs: if (rs.Expression != null) rs.Expression = RenameInExpr(rs.Expression, scopeNames); break;
+                case IrVariableDeclarationStatement vd: if (vd.Initializer != null) vd.Initializer = RenameInExpr(vd.Initializer, scopeNames); break;
+                case IrIfStatement ifs:
+                    ifs.Condition = RenameInExpr(ifs.Condition, scopeNames);
+                    RenameReferencesInStatement(ifs.ThenBody, scopeNames);
+                    if (ifs.ElseBody != null) RenameReferencesInStatement(ifs.ElseBody, scopeNames);
+                    break;
+                case IrForEachStatement fe:
+                    fe.Collection = RenameInExpr(fe.Collection, scopeNames);
+                    RenameReferencesInStatement(fe.Body, scopeNames);
+                    break;
+                case IrForStatement f:
+                    if (f.Condition != null) f.Condition = RenameInExpr(f.Condition, scopeNames);
+                    RenameReferencesInStatement(f.Body, scopeNames);
+                    break;
+                case IrWhileStatement w:
+                    w.Condition = RenameInExpr(w.Condition, scopeNames);
+                    RenameReferencesInStatement(w.Body, scopeNames);
+                    break;
+                case IrBlockStatement b: RenameReferencesInBlock(b, scopeNames); break;
+            }
         }
     }
 
-    private IrExpression RenameInExpr(IrExpression expr, Dictionary<string, string> renames)
+    private static void RenameReferencesInStatement(IrStatement stmt, Dictionary<string, int> scopeNames)
     {
-        if (expr is IrIdentifierExpression id && renames.TryGetValue(id.Name, out var newName))
-            id.Name = newName;
-        return expr;
+        if (stmt is IrBlockStatement b) RenameReferencesInBlock(b, scopeNames);
+        else if (stmt is IrExpressionStatement es) es.Expression = RenameInExpr(es.Expression, scopeNames);
+        else if (stmt is IrReturnStatement rs && rs.Expression != null) rs.Expression = RenameInExpr(rs.Expression, scopeNames);
+    }
+
+    private static IrExpression RenameInExpr(IrExpression expr, Dictionary<string, int> scopeNames)
+    {
+        switch (expr)
+        {
+            case IrIdentifierExpression id:
+                if (scopeNames.TryGetValue(id.Name, out var count) && count > 0)
+                    id.Name = id.Name + "_" + count;
+                return id;
+            case IrBinaryExpression bin:
+                bin.Left = RenameInExpr(bin.Left, scopeNames);
+                bin.Right = RenameInExpr(bin.Right, scopeNames);
+                return bin;
+            case IrUnaryExpression un:
+                un.Operand = RenameInExpr(un.Operand, scopeNames);
+                return un;
+            case IrConditionalExpression cond:
+                cond.Condition = RenameInExpr(cond.Condition, scopeNames);
+                cond.WhenTrue = RenameInExpr(cond.WhenTrue, scopeNames);
+                cond.WhenFalse = RenameInExpr(cond.WhenFalse, scopeNames);
+                return cond;
+            case IrCastExpression cast:
+                cast.Expression = RenameInExpr(cast.Expression, scopeNames);
+                return cast;
+            case IrNewExpression n:
+                for (int i = 0; i < n.Arguments.Count; i++) n.Arguments[i] = RenameInExpr(n.Arguments[i], scopeNames);
+                return n;
+            case IrMemberAccessExpression mem:
+                mem.Target = RenameInExpr(mem.Target, scopeNames);
+                return mem;
+            case IrInvocationExpression inv:
+                if (inv.Target != null) inv.Target = RenameInExpr(inv.Target, scopeNames);
+                for (int i = 0; i < inv.Arguments.Count; i++) inv.Arguments[i] = RenameInExpr(inv.Arguments[i], scopeNames);
+                return inv;
+            case IrAssignmentExpression asgn:
+                asgn.Target = RenameInExpr(asgn.Target, scopeNames);
+                asgn.Value = RenameInExpr(asgn.Value, scopeNames);
+                return asgn;
+            case IrArrayAccessExpression arr:
+                arr.Target = RenameInExpr(arr.Target, scopeNames);
+                arr.Index = RenameInExpr(arr.Index, scopeNames);
+                return arr;
+            case IrInstanceOfExpression inst:
+                inst.Expression = RenameInExpr(inst.Expression, scopeNames);
+                return inst;
+            default: return expr;
+        }
     }
 }

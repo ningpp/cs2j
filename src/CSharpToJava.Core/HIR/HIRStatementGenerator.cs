@@ -53,6 +53,9 @@ public class HIRStatementGenerator
                 {
                     Type = _ctx.MapTypeFromSyntax(us.Declaration.Type),
                     Name = us.Declaration.Variables[0].Identifier.Text,
+                    Initializer = us.Declaration.Variables[0].Initializer != null
+                        ? ExprGen.Generate(us.Declaration.Variables[0].Initializer.Value, _ctx)
+                        : null,
                 } : null,
                 ResourceExpression = us.Expression != null ? ExprGen.Generate(us.Expression, _ctx) : null,
                 Body = Generate(us.Statement)!,
