@@ -138,7 +138,8 @@ public class IndexerTransformer : IMemberTransformer
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
                 var body = statementTransformer.TransformBlock(setterAccessor.Body, context);
                 // Fix 2: normalise multi-dim bracket syntax in setter body as well.
-                setter.Body = (isMultiParam ? FixMultiDimBrackets(body) : body) + returnStatement;
+                body = isMultiParam ? FixMultiDimBrackets(body) : body;
+                setter.Body = EndsWithTerminalStatement(body) ? body : body + returnStatement;
             }
             else if (setterAccessor.ExpressionBody != null)
             {
@@ -146,7 +147,7 @@ public class IndexerTransformer : IMemberTransformer
                     setterAccessor.ExpressionBody.Expression, context);
                 body = isMultiParam ? FixMultiDimBrackets(body) : body;
                 setter.IsBodyExpression = false; // need a block with return
-                setter.Body = body + ";" + returnStatement;
+                setter.Body = EndsWithTerminalStatement(body) ? body + ";" : body + ";" + returnStatement;
             }
 
             results.Add(setter);
@@ -165,6 +166,16 @@ public class IndexerTransformer : IMemberTransformer
         // Match two-argument bracket expressions: [expr1, expr2]
         // Avoid matching array/collection literals with more commas.
         return Regex.Replace(body, @"\[([^\[\],]+),\s*([^\[\],]+)\]", "[$1][$2]");
+    }
+
+    /// <summary>
+    /// Checks if the body already ends with a terminal statement (throw/return),
+    /// in which case appending a synthetic return would create unreachable code.
+    /// </summary>
+    private static bool EndsWithTerminalStatement(string body)
+    {
+        var lastLine = body.Split('\n').LastOrDefault()?.Trim();
+        return lastLine != null && (lastLine.StartsWith("throw ") || lastLine.StartsWith("return "));
     }
 
     private JavaModifiers GetAccessorModifiers(AccessorDeclarationSyntax? accessor, SyntaxTokenList modifiers)
