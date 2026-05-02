@@ -1035,6 +1035,11 @@ class Program
             .Replace("System.String.Concat(", "StringHelper.concat(", StringComparison.Ordinal)
             .Replace("String.Concat(", "StringHelper.concat(", StringComparison.Ordinal);
 
+        // Post-processing: Map.spliterator() → entrySet().spliterator()
+        generatedCode = generatedCode
+            .Replace("_railsOfEdges.spliterator()", "_railsOfEdges.entrySet().spliterator()")
+            .Replace("_edgeTrajectories.spliterator()", "_edgeTrajectories.entrySet().spliterator()");
+
         generatedCode = System.Text.RegularExpressions.Regex.Replace(
             generatedCode,
             @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
