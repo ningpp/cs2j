@@ -1054,6 +1054,11 @@ class Program
             .Replace("c.get(i)", "c[i]")
             .Replace("layer.get(j)", "layer[j]");
 
+        // Post-processing: more Map.spliterator() → entrySet().spliterator()
+        generatedCode = generatedCode
+            .Replace("_usedEdges.spliterator()", "_usedEdges.entrySet().spliterator()")
+            .Replace("fixedVars.spliterator()", "fixedVars.entrySet().spliterator()");
+
         generatedCode = System.Text.RegularExpressions.Regex.Replace(
             generatedCode,
             @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
