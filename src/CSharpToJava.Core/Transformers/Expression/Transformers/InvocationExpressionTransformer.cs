@@ -400,6 +400,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ConversionContext context,
         ExpressionTransformerFacade facade)
     {
+        // Known C# → Java method name mappings that can't rely on semantic model
+        if (memberAccess.Name.Identifier.Text is "Dequeue" or "Enqueue" or "dequeue" or "enqueue")
+        {
+            var qReceiver = facade.Transform(memberAccess.Expression, context);
+            var qMethodName = memberAccess.Name.Identifier.Text;
+            var javaMethod = qMethodName is "Dequeue" or "dequeue" ? "poll" : "offer";
+            var qArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            return string.IsNullOrEmpty(qArgs) ? $"{qReceiver}.{javaMethod}()" : $"{qReceiver}.{javaMethod}({qArgs})";
+        }
+
         // Known delegate property names emitted as private static fields but invoked
         // as methods (semantic model can't resolve DelegateInvoke in project pipeline).
         // Format: Type.delegateName(args) → Type.getDelegateName().accept(args)
