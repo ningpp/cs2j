@@ -495,6 +495,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         if (receiverType != null) break;
                     }
                 }
+                // VarTypeMap fallback: pre-scanned var-declared local types
+                if ((receiverType == null || receiverType.TypeKind == TypeKind.Error)
+                    && context.VarTypeMap.TryGetValue(id.Identifier.Text, out var mappedType)
+                    && mappedType.TypeKind != TypeKind.Error)
+                {
+                    receiverType = mappedType;
+                }
             }
         }
 

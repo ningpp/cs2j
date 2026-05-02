@@ -22,6 +22,9 @@ public class ConversionContext
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
 
+    /// <summary>Pre-scanned var-declared local types, populated by VarTypeResolver.</summary>
+    public Dictionary<string, ITypeSymbol> VarTypeMap { get; } = new(StringComparer.Ordinal);
+
     internal ConvertedCommentSet GetDeclarationComments(SyntaxNode node, ISymbol? symbol = null)
     {
         return CommentConversion.ExtractDeclarationComments(node, symbol, this);

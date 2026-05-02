@@ -453,6 +453,9 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
 
     public void Execute(ProjectPassState state)
     {
+        // Pre-scan: resolve var-declared local types for downstream fallback use
+        VarTypeResolver.PreScan(state.Compilation, state.Context);
+
         // Build effective IR rewriters: user-registered + built-in validation rewriters
         var effectiveRewriters = BuildEffectiveRewriters(state);
 
