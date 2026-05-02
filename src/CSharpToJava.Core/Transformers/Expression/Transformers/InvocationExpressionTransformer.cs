@@ -217,6 +217,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Apply the same camelCase + TypeMappings conversion used for member-access calls.
         if (node.Expression is IdentifierNameSyntax bareIdent)
         {
+            // Known delegate field names (semantic model can't resolve DelegateInvoke in project pipeline)
+            var bareDelegateMethod = bareIdent.Identifier.Text switch
+            {
+                "ObstaclesToIgnore" or "obstaclesToIgnore" => "apply",  // Function<Station, Set<Polyline>>
+                _ => null
+            };
+            if (bareDelegateMethod != null)
+            {
+                var bareFieldRef = facade.Transform(bareIdent, context);
+                var bareArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"{bareFieldRef}.{bareDelegateMethod}({bareArgs})";
+            }
+
             // Delegate invocation: sequence(m) where sequence is a Func/Action field/local/param.
             // Roslyn resolves the invoked method as DelegateInvoke; map it to .apply()/.get()/etc.
             if (context.SemanticModel != null)
