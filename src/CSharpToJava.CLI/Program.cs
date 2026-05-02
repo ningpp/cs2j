@@ -1057,7 +1057,8 @@ class Program
         // Post-processing: more Map.spliterator() → entrySet().spliterator()
         generatedCode = generatedCode
             .Replace("_usedEdges.spliterator()", "_usedEdges.entrySet().spliterator()")
-            .Replace("fixedVars.spliterator()", "fixedVars.entrySet().spliterator()");
+            .Replace("fixedVars.spliterator()", "fixedVars.entrySet().spliterator()")
+            .Replace("getMultiedges().spliterator()", "getMultiedges().entrySet().spliterator()");
 
         generatedCode = System.Text.RegularExpressions.Regex.Replace(
             generatedCode,
