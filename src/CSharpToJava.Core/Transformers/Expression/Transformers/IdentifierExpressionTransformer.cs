@@ -680,6 +680,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (prop.Name == "Keys") return $"{target}.keySet()";
             }
 
+            // KeyValuePair<K,V>.Key/.Value → Map.Entry<K,V>.getKey()/.getValue()
+            if (propContainer?.Name == "KeyValuePair"
+                && propContainer?.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                && prop.Name is "Key" or "Value")
+            {
+                return prop.Name == "Key" ? $"{target}.getKey()" : $"{target}.getValue()";
+            }
+
             if (prop.Name == "Capacity"
                 && prop.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>")
             {
@@ -768,6 +776,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 if (memberName == "Current" && IsEnumeratorLikeType(exprType))
                     return $"{target}.next()";
+
+                // KeyValuePair<K,V>.Key/.Value → getKey()/getValue()
+                if (exprType is INamedTypeSymbol kvpType
+                    && kvpType.Name == "KeyValuePair"
+                    && kvpType.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                    && memberName is "Key" or "Value")
+                {
+                    return memberName == "Key" ? $"{target}.getKey()" : $"{target}.getValue()";
+                }
 
                 if (exprType is INamedTypeSymbol namedExprType
                     && namedExprType.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
@@ -872,6 +889,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Last-resort generic fallback for known C#→Java property mappings
         if (memberName == "Count") return $"{target}.size()";
         if (memberName == "Length") return $"{target}.length";
+        // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
+        if (memberName == "Key") return $"{target}.getKey()";
+        if (memberName == "Value") return $"{target}.getValue()";
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
