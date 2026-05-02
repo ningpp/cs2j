@@ -468,11 +468,28 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             var whole = TryGetWholeType(expr, sm);
             if (whole != null) return whole;
 
-            // Try member access: aAxis.normalize() → get type of aAxis
+            // Try member access: get member type from symbol first, then walk receiver type members
             if (expr is MemberAccessExpressionSyntax ma)
             {
-                var maResult = TryFromExpr(ma.Expression, sm);
-                if (maResult != null) return maResult;
+                var maSym = sm.GetSymbolInfo(ma).Symbol;
+                if (maSym is IPropertySymbol { Type: INamedTypeSymbol maPt } && maPt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(maPt))
+                    return maPt;
+                if (maSym is IFieldSymbol { Type: INamedTypeSymbol maFt } && maFt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(maFt))
+                    return maFt;
+                // Resolve receiver type and look up member on it
+                var recvType = TryFromExpr(ma.Expression, sm);
+                if (recvType != null)
+                {
+                    var memberName = ma.Name.Identifier.Text;
+                    foreach (var m in recvType.GetMembers(memberName))
+                    {
+                        if (m is IPropertySymbol { Type: INamedTypeSymbol mt } && mt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mt))
+                            return mt;
+                        if (m is IFieldSymbol { Type: INamedTypeSymbol mft } && mft.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mft))
+                            return mft;
+                    }
+                    return recvType;
+                }
             }
             // Try invocation: get return type, or receiver type
             if (expr is InvocationExpressionSyntax inv)
@@ -480,6 +497,15 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 // First try the return type of the whole invocation
                 var invType = sm.GetTypeInfo(inv).Type;
                 if (invType is INamedTypeSymbol n && n.TypeKind != TypeKind.Error) return n;
+                // Try to get return type from the invoked member symbol
+                if (inv.Expression is MemberAccessExpressionSyntax invMa2)
+                {
+                    var memberSym = sm.GetSymbolInfo(invMa2).Symbol;
+                    if (memberSym is IPropertySymbol { Type: INamedTypeSymbol pt } && pt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(pt))
+                        return pt;
+                    if (memberSym is IMethodSymbol { ReturnType: INamedTypeSymbol mrt } && mrt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mrt))
+                        return mrt;
+                }
                 // Then try the receiver
                 if (inv.Expression is MemberAccessExpressionSyntax invMa)
                 {
@@ -504,6 +530,22 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 var idConvertedType = sm.GetTypeInfo(id).ConvertedType;
                 if (idConvertedType is INamedTypeSymbol cn && cn.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(cn))
                     return cn;
+                // Walk syntax tree to find var declaration and resolve type from initializer.
+                // Try up to 5 levels of var-declaration chains to find a resolvable type.
+                var decl = FindVarDeclaration(id);
+                for (int chainDepth = 0; chainDepth < 5 && decl?.Initializer?.Value is ExpressionSyntax initExpr; chainDepth++)
+                {
+                    var initType = sm.GetTypeInfo(initExpr).Type;
+                    if (initType is INamedTypeSymbol initN && initN.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(initN))
+                        return initN;
+                    var initResult = TryFromExpr(initExpr, sm);
+                    if (initResult != null) return initResult;
+                    // If initializer is a simple identifier (another var), follow the chain
+                    if (initExpr is IdentifierNameSyntax chainId)
+                        decl = FindVarDeclaration(chainId);
+                    else
+                        break;
+                }
             }
             // Try parenthesized expression
             if (expr is ParenthesizedExpressionSyntax paren)
@@ -518,6 +560,35 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 if (right != null && !IsBuiltInTypeStatic(right)) return right;
                 if (left != null) return left;
                 return right;
+            }
+            return null;
+        }
+
+        // Walk up the syntax tree to find the variable declaration for a given identifier.
+        // Used when semantic model can't resolve var-declared local types.
+        static Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax? FindVarDeclaration(IdentifierNameSyntax id)
+        {
+            var name = id.Identifier.Text;
+            var parent = id.Parent;
+            while (parent != null)
+            {
+                if (parent is BlockSyntax block)
+                {
+                    foreach (var stmt in block.Statements)
+                    {
+                        if (stmt is LocalDeclarationStatementSyntax localDecl)
+                        {
+                            foreach (var v in localDecl.Declaration.Variables)
+                                if (v.Identifier.Text == name) return v;
+                        }
+                    }
+                }
+                else if (parent is ForEachStatementSyntax fe && fe.Identifier.Text == name)
+                {
+                    // For foreach (var x in col), x has no initializer, but we can check col
+                    return null;
+                }
+                parent = parent.Parent;
             }
             return null;
         }

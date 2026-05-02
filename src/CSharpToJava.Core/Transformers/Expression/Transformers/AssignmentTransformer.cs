@@ -453,11 +453,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 var setter = "set" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
                 var rhs = facade.Transform(rightNode, context);
                 string baseOp = op[..^1]; // "+=" → "+", "-=" → "-", "*=" → "*", etc.
+                // If the property type has a user-defined operator for this operation,
+                // use the qualified method call instead of the raw operator.
+                string operatorExpr = TryResolveOperatorExpr(compoundProp.Type, baseOp, context)
+                    ?? baseOp;
                 // Simple receivers (local variable, field, "this") are safe to reference twice.
-                // Complex receivers (method call chains) must be hoisted to avoid double evaluation.
                 if (compoundMa.Expression is IdentifierNameSyntax or ThisExpressionSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
                 {
                     var receiver = facade.Transform(compoundMa.Expression, context);
+                    if (operatorExpr != baseOp)
+                        return $"{receiver}.{setter}({operatorExpr}({receiver}.{getter}(), {rhs}))";
                     return $"{receiver}.{setter}({receiver}.{getter}() {baseOp} {rhs})";
                 }
                 else
@@ -465,6 +470,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     var receiverExpr = facade.Transform(compoundMa.Expression, context);
                     var tmpReceiver = context.GenerateSyntheticName("_recv");
                     context.AddPreStatement($"var {tmpReceiver} = {receiverExpr};");
+                    if (operatorExpr != baseOp)
+                        return $"{tmpReceiver}.{setter}({operatorExpr}({tmpReceiver}.{getter}(), {rhs}))";
                     return $"{tmpReceiver}.{setter}({tmpReceiver}.{getter}() {baseOp} {rhs})";
                 }
             }
@@ -753,13 +760,60 @@ public class AssignmentTransformer : IIRExpressionTransformer
     /// Fallback for compound assignments: when GetSymbolInfo can't resolve the user-defined operator,
     /// use operand type info to detect it and expand a /= b → a = Type.divide(a, b).
     /// </summary>
+    /// <summary>
+    /// If the given type has a user-defined operator for the operation, returns the
+    /// qualified Java method name (e.g. "Point.add"). Otherwise returns null.
+    /// </summary>
+    private static string? TryResolveOperatorExpr(ITypeSymbol? type, string baseOp, ConversionContext context)
+    {
+        if (type is not INamedTypeSymbol named || named.TypeKind == TypeKind.Error)
+            return null;
+        if (BinaryExpressionTransformer.IsBuiltInTypeStatic(named))
+            return null;
+
+        var roslynOpName = BinaryExpressionTransformer.SyntaxKindToRoslynOperatorNameStatic(
+            baseOp switch
+            {
+                "+" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.AddExpression,
+                "-" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.SubtractExpression,
+                "*" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.MultiplyExpression,
+                "/" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.DivideExpression,
+                "%" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.ModuloExpression,
+                _ => null
+            });
+        if (roslynOpName == null) return null;
+
+        if (!named.GetMembers(roslynOpName).Any(m => m is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+            return null;
+
+        var javaMethod = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
+            .TryGetValue(roslynOpName, out var n) ? n : roslynOpName;
+
+        var containingType = context.MapType(named);
+        var angleIdx = containingType.IndexOf('<');
+        if (angleIdx > 0) containingType = containingType[..angleIdx];
+        return $"{containingType}.{javaMethod}";
+    }
+
     private string? ExpandCompoundByTypeInfo(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {
         if (context.SemanticModel == null) return null;
 
         var leftType = context.SemanticModel.GetTypeInfo(node.Left).Type;
-        if (leftType is not INamedTypeSymbol leftNamed) return null;
-        if (leftNamed.TypeKind == TypeKind.Error) return null;
+        INamedTypeSymbol? leftNamed = leftType as INamedTypeSymbol;
+        // If GetTypeInfo fails, try to get the type from the member symbol (property or field)
+        if ((leftNamed == null || leftNamed.TypeKind == TypeKind.Error)
+            && node.Left is MemberAccessExpressionSyntax leftMa
+            && context.SemanticModel?.GetSymbolInfo(leftMa).Symbol is {} leftSym)
+        {
+            leftNamed = leftSym switch
+            {
+                IPropertySymbol ps => ps.Type as INamedTypeSymbol,
+                IFieldSymbol fs => fs.Type as INamedTypeSymbol,
+                _ => null
+            };
+        }
+        if (leftNamed == null || leftNamed.TypeKind == TypeKind.Error) return null;
         if (BinaryExpressionTransformer.IsBuiltInTypeStatic(leftNamed)) return null;
         if (leftNamed.TypeKind == TypeKind.Interface) return null;
 
