@@ -193,6 +193,70 @@ class Factory {
         Assert.DoesNotContain("Func<", code);
     }
 
+    [Fact]
+    public void ClassImplementsTwoIComparerInterfaces_UsesHelperMethodsNotExtends()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class ScanSegment { }
+class SegmentIntersector : IComparer<SegmentIntersector.SegEvent>, IComparer<ScanSegment> {
+    internal class SegEvent { }
+    public int Compare(SegEvent a, SegEvent b) { return 0; }
+    public int Compare(ScanSegment a, ScanSegment b) { return 0; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+
+        // Must NOT use "extends" for interfaces
+        Assert.DoesNotContain("extends Comparator", code);
+        // Both interfaces extracted to helper methods (Java type erasure)
+        Assert.Contains("asSegEventComparer", code);
+        Assert.Contains("asScanSegmentComparer", code);
+    }
+
+    [Fact]
+    public void ClassImplementsSingleIComparer_UsesImplements()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class MyComparer : IComparer<string> {
+    public int Compare(string a, string b) { return 0; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        Assert.Contains("implements Comparator<String>", code);
+        Assert.DoesNotContain("extends Comparator", code);
+    }
+
+    [Fact]
+    public void ClassImplementsIComparable_UsesImplements()
+    {
+        var result = Convert(@"
+using System;
+class ComparableThing : IComparable<ComparableThing> {
+    public int CompareTo(ComparableThing other) { return 0; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        Assert.Contains("implements Comparable<ComparableThing>", code);
+        Assert.DoesNotContain("extends Comparable", code);
+    }
+
+    [Fact]
+    public void ClassExtendsBaseAndImplementsInterface_CorrectExtendsAndImplements()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Base { }
+class Derived : Base, IComparer<Derived> {
+    public int Compare(Derived a, Derived b) { return 0; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        Assert.Contains("extends Base", code);
+        Assert.Contains("implements Comparator<Derived>", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

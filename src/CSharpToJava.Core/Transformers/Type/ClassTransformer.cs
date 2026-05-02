@@ -45,7 +45,9 @@ public class ClassTransformer : ITypeTransformer
 
         // 处理基类 - 使用符号信息
         var baseType = mergedType.TypeSymbol.BaseType;
-        if (baseType != null && baseType.SpecialType != SpecialType.System_Object)
+        if (baseType != null
+            && baseType.SpecialType != SpecialType.System_Object
+            && baseType.TypeKind == TypeKind.Class) // Guard: only real classes go to extends
         {
             // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
             if (baseType.ToDisplayString() != "System.MarshalByRefObject")
@@ -169,6 +171,34 @@ public class ClassTransformer : ITypeTransformer
                     else
                     {
                         javaClass.ImplementedTypes.Add(mappedIface);
+                    }
+                }
+            }
+        }
+
+        // Fallback: when the type symbol is an error type, AllInterfaces may be empty.
+        // Use syntax-based BaseList traversal with semantic TypeKind to detect interfaces.
+        if (javaClass.ImplementedTypes.Count == 0 && javaClass.ExtendedType == null)
+        {
+            foreach (var syntaxNode in mergedType.OriginalSyntaxNodes)
+            {
+                if (syntaxNode.BaseList == null) continue;
+                var nodeSemanticModel = context.GetSemanticModelForTree(syntaxNode.SyntaxTree) ?? semanticModel;
+                foreach (var baseTypeSyntax in syntaxNode.BaseList.Types)
+                {
+                    var typeInfo = nodeSemanticModel?.GetTypeInfo(baseTypeSyntax.Type);
+                    if (typeInfo?.Type == null) continue;
+                    var resolvedType = typeInfo.Value.Type;
+                    if (resolvedType.TypeKind == TypeKind.Class
+                        && resolvedType.SpecialType != SpecialType.System_Object
+                        && javaClass.ExtendedType == null)
+                    {
+                        javaClass.ExtendedType = context.MapType(resolvedType);
+                    }
+                    else if (resolvedType.TypeKind == TypeKind.Interface
+                        || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
+                    {
+                        javaClass.ImplementedTypes.Add(context.MapType(resolvedType));
                     }
                 }
             }
@@ -320,7 +350,8 @@ public class ClassTransformer : ITypeTransformer
                 {
                     javaClass.ExtendedType = context.MapType(resolvedType);
                 }
-                else if (resolvedType.TypeKind == TypeKind.Interface)
+                else if (resolvedType.TypeKind == TypeKind.Interface
+                    || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
                 {
                     var mappedIface = context.MapType(resolvedType);
                     // ICollection<T> as an implemented interface → use Iterable to avoid requiring all abstract Collection methods.
@@ -351,6 +382,9 @@ public class ClassTransformer : ITypeTransformer
                     {
                         var rawIfaceName = conflictIface.Name.StartsWith("I") ? conflictIface.Name.Substring(1) : conflictIface.Name;
                         var typeArg = conflictIface.TypeArguments.Length > 0 ? context.MapType(conflictIface.TypeArguments[0]) : "Object";
+                        // Strip dots from nested types (e.g. "SegmentIntersector.SegEvent" → "SegEvent")
+                        if (typeArg.Contains('.'))
+                            typeArg = typeArg.Substring(typeArg.LastIndexOf('.') + 1);
                         // Use boxed type name for method naming (int → Integer, etc.)
                         typeArg = typeArg switch
                         {
@@ -1509,5 +1543,14 @@ public class ClassTransformer : ITypeTransformer
     {
         var lastLine = body.Split('\n').LastOrDefault()?.Trim();
         return lastLine != null && (lastLine.StartsWith("throw ") || lastLine.StartsWith("return "));
+    }
+
+    /// <summary>
+    /// Heuristic to detect if a type name likely represents an interface.
+    /// Used as fallback when semantic TypeKind is Error.
+    /// </summary>
+    private static bool IsLikelyInterface(string typeName)
+    {
+        return typeName.Length >= 2 && typeName[0] == 'I' && char.IsUpper(typeName[1]);
     }
 }

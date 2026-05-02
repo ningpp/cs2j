@@ -214,7 +214,14 @@ public class HIRTypeGenerator
 
     private static bool IsInterfaceBase(BaseTypeSyntax bt, ConversionContext ctx)
     {
-        // Heuristic: if the first character is 'I' followed by uppercase, it's likely an interface
+        // Prefer semantic model TypeKind when available
+        var typeInfo = ctx.SemanticModel?.GetTypeInfo(bt.Type);
+        if (typeInfo?.Type != null)
+        {
+            if (typeInfo.Value.Type.TypeKind == TypeKind.Interface) return true;
+            if (typeInfo.Value.Type.TypeKind == TypeKind.Class) return false;
+        }
+        // Fallback heuristic: if the first character is 'I' followed by uppercase, it's likely an interface
         var name = bt.Type.ToString();
         var shortName = name.Split('.').Last();
         return shortName.Length >= 2 && shortName[0] == 'I' && char.IsUpper(shortName[1]);
