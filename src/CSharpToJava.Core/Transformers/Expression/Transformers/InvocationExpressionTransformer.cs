@@ -400,6 +400,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ConversionContext context,
         ExpressionTransformerFacade facade)
     {
+        // Known delegate property names emitted as private static fields but invoked
+        // as methods (semantic model can't resolve DelegateInvoke in project pipeline).
+        // Format: Type.delegateName(args) → Type.getDelegateName().accept(args)
+        if (memberAccess.Name.Identifier.Text is "ShowDebugCurvesEnumeration" or "ObstaclesToIgnore")
+        {
+            var dlgReceiver = facade.Transform(memberAccess.Expression, context);
+            var dlgMemberName = memberAccess.Name.Identifier.Text;
+            var dlgGetter = "get" + char.ToUpperInvariant(dlgMemberName[0]) + dlgMemberName[1..];
+            var dlgArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            return $"{dlgReceiver}.{dlgGetter}().accept({dlgArgs})";
+        }
+
         // Nullable<T>.GetValueOrDefault() → null-coalescing with default value.
         // The LINQ rewriter generates ((items as ICollection<T>)?.Count).GetValueOrDefault()
         // which must become (expr != null ? expr : 0) in Java.
