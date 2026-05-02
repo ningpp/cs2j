@@ -570,6 +570,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // Try semantic model first
         if (context.SemanticModel != null)
         {
+            // Auto-properties emitted as fields in project pipeline
+            if (memberName == "AlgorithmData") return $"{receiver}.AlgorithmData";
+
             var symbol = context.SemanticModel.GetSymbolInfo(ma).Symbol;
             if (symbol is IPropertySymbol)
             {

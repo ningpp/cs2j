@@ -664,6 +664,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         // Fix 1 & 2: consult member-name mapping and generate property getters
+        // Auto-properties emitted as public fields in project pipeline: skip getter
+        if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
+
         if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
@@ -896,6 +899,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // (the converter maps C# ValueTuple<K,V> to Java Map.Entry<K,V>)
         if (memberName == "Item1") return $"{target}.getKey()";
         if (memberName == "Item2") return $"{target}.getValue()";
+        // Auto-properties emitted as fields in project pipeline
+        if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
         // Common C# property names that always need getters in Java
         // (only when receiver is an instance, not a type name)
         if (target.Length > 0 && char.IsLower(target[0]))
