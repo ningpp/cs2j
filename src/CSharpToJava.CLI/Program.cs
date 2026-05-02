@@ -1040,6 +1040,11 @@ class Program
             .Replace("_railsOfEdges.spliterator()", "_railsOfEdges.entrySet().spliterator()")
             .Replace("_edgeTrajectories.spliterator()", "_edgeTrajectories.entrySet().spliterator()");
 
+        // Post-processing: using alias SymmetricSegment → SymmetricTuple<Point>
+        // Use regex word boundaries to avoid matching substrings in method names
+        generatedCode = System.Text.RegularExpressions.Regex.Replace(
+            generatedCode, @"\bSymmetricSegment\b", "SymmetricTuple<Point>");
+
         generatedCode = System.Text.RegularExpressions.Regex.Replace(
             generatedCode,
             @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
