@@ -242,6 +242,13 @@ public static class TypeGroupResolver
                 if (usingDirective.Alias != null)
                 {
                     var aliasTargetSymbol = semanticModel.GetSymbolInfo(usingDirective.Name).Symbol;
+                    // Fallback: when semantic model can't resolve the alias target,
+                    // try to find the type in the compilation
+                    if (aliasTargetSymbol == null)
+                    {
+                        var aliasFullName = usingDirective.Name.ToString();
+                        aliasTargetSymbol = compilation.GetTypeByMetadataName(aliasFullName);
+                    }
                     // Register the alias so downstream type mapping can resolve it
                     if (aliasTargetSymbol is ITypeSymbol aliasType)
                     {
