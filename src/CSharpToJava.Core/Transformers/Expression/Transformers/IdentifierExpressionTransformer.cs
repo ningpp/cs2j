@@ -901,6 +901,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Item2") return $"{target}.getValue()";
         // Auto-properties emitted as fields in project pipeline
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
+        // System.Globalization.CultureInfo.InvariantCulture → java.util.Locale.ROOT
+        if (memberName == "InvariantCulture" && target.EndsWith(".CultureInfo"))
+        {
+            context.AddImport("java.util.Locale");
+            return "Locale.ROOT";
+        }
         // Common C# property names that always need getters in Java
         // (only when receiver is an instance, not a type name)
         if (target.Length > 0 && char.IsLower(target[0]))
