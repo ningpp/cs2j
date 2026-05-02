@@ -423,11 +423,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return string.IsNullOrEmpty(qArgs) ? $"{qReceiver}.{javaMethod}()" : $"{qReceiver}.{javaMethod}({qArgs})";
         }
 
-        // Count() with no args on IEnumerable/Collection → size() in Java
-        if (memberAccess.Name.Identifier.Text == "Count" && node.ArgumentList.Arguments.Count == 0)
+        // Count() with no args → size() ; Any() with no args → length check for arrays, iterator().hasNext() for others
+        if (node.ArgumentList.Arguments.Count == 0)
         {
             var cReceiver = facade.Transform(memberAccess.Expression, context);
-            return $"{cReceiver}.size()";
+            if (memberAccess.Name.Identifier.Text == "Count")
+                return $"{cReceiver}.size()";
+            if (memberAccess.Name.Identifier.Text == "Any")
+            {
+                var anyType = context.SemanticModel != null
+                    ? context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type : null;
+                if (anyType?.TypeKind == TypeKind.Array || anyType is IArrayTypeSymbol)
+                    return $"{cReceiver}.length > 0";
+                return $"{cReceiver}.iterator().hasNext()";
+            }
         }
 
         // Known delegate property names emitted as private static fields but invoked
