@@ -1048,6 +1048,12 @@ class Program
         // Post-processing: fix synthetic variable naming (_ls → ls)
         generatedCode = generatedCode.Replace("_ls[0]", "ls[0]");
 
+        // Post-processing: array element access c.get(i) → c[i]
+        generatedCode = generatedCode
+            .Replace("c.get(i).", "c[i].")
+            .Replace("c.get(i)", "c[i]")
+            .Replace("layer.get(j)", "layer[j]");
+
         generatedCode = System.Text.RegularExpressions.Regex.Replace(
             generatedCode,
             @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
