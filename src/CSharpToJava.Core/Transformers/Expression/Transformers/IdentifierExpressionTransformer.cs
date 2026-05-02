@@ -892,6 +892,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         if (memberName == "Key") return $"{target}.getKey()";
         if (memberName == "Value") return $"{target}.getValue()";
+        // ValueTuple Item1/Item2/... → vavr Tuple._1()/_2()/...
+        if (memberName is "Item1" or "Item2" or "Item3" or "Item4" or "Item5" or "Item6" or "Item7")
+            return $"{target}._{memberName[4..]}()";
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
