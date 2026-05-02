@@ -57,7 +57,10 @@ public class ConversionOptions
     /// <summary>
     /// Resolved value: uses explicit setting if provided, otherwise defaults to Stream API for Java 25.
     /// </summary>
-    public bool EffectivePreferStreamApi => PreferStreamApi ?? true;
+    /// <summary>
+    /// Always use LINQ desugarer (procedural conversion). Stream API mode is disabled.
+    /// </summary>
+    public bool EffectivePreferStreamApi => false;
 
     /// <summary>
     /// When enabled, extension methods on known types are promoted to instance methods on those types,
