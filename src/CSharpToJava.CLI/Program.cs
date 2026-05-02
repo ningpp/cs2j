@@ -1045,6 +1045,9 @@ class Program
         generatedCode = System.Text.RegularExpressions.Regex.Replace(
             generatedCode, @"\bSymmetricSegment\b", "SymmetricTuple<Point>");
 
+        // Post-processing: fix synthetic variable naming (_ls → ls)
+        generatedCode = generatedCode.Replace("_ls[0]", "ls[0]");
+
         generatedCode = System.Text.RegularExpressions.Regex.Replace(
             generatedCode,
             @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
