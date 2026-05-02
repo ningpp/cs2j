@@ -423,6 +423,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return string.IsNullOrEmpty(qArgs) ? $"{qReceiver}.{javaMethod}()" : $"{qReceiver}.{javaMethod}({qArgs})";
         }
 
+        // Count() with no args on IEnumerable/Collection → size() in Java
+        if (memberAccess.Name.Identifier.Text == "Count" && node.ArgumentList.Arguments.Count == 0)
+        {
+            var cReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"{cReceiver}.size()";
+        }
+
         // Known delegate property names emitted as private static fields but invoked
         // as methods (semantic model can't resolve DelegateInvoke in project pipeline).
         // Format: Type.delegateName(args) → Type.getDelegateName().accept(args)
