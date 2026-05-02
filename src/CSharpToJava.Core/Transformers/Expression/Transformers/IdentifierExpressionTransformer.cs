@@ -914,6 +914,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     or "VariableDoneEval" or "LeftConstraints" or "Globalization"
                     or "RectangularBoundary" or "UpperBound" or "IsActive"
                     or "UserData" or "CwTriangle" or "Parallelogram"
+                    or "Right" or "First" or "Second"
                     => "get" + memberName,
                 _ => null
             };
