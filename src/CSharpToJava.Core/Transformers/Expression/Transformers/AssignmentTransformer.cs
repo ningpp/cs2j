@@ -497,6 +497,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
             {
                 return ExpandCompoundOperatorOverload(node, opMethod, context);
             }
+
+            // Fallback: when GetSymbolInfo fails, use operand type info to detect user-defined
+            // operators and expand compound assignment (e.g. a /= d → a = Type.divide(a, d))
+            if (symbolInfo.Symbol == null)
+            {
+                var fallbackResult = ExpandCompoundByTypeInfo(node, op, context);
+                if (fallbackResult != null)
+                    return fallbackResult;
+            }
         }
 
         var left = facade.Transform(leftNode, context);
@@ -738,6 +747,64 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var angleIdx = containingType.IndexOf('<');
         if (angleIdx > 0) containingType = containingType[..angleIdx];
         return $"{containingType}.{javaMethod}";
+    }
+
+    /// <summary>
+    /// Fallback for compound assignments: when GetSymbolInfo can't resolve the user-defined operator,
+    /// use operand type info to detect it and expand a /= b → a = Type.divide(a, b).
+    /// </summary>
+    private string? ExpandCompoundByTypeInfo(AssignmentExpressionSyntax node, string op, ConversionContext context)
+    {
+        if (context.SemanticModel == null) return null;
+
+        var leftType = context.SemanticModel.GetTypeInfo(node.Left).Type;
+        if (leftType is not INamedTypeSymbol leftNamed) return null;
+        if (leftNamed.TypeKind == TypeKind.Error) return null;
+        if (BinaryExpressionTransformer.IsBuiltInTypeStatic(leftNamed)) return null;
+        if (leftNamed.TypeKind == TypeKind.Interface) return null;
+
+        var baseOpStr = op[..^1]; // "+=" → "+", "-=" → "-", etc.
+        var roslynOpName = BinaryExpressionTransformer.SyntaxKindToRoslynOperatorNameStatic(
+            baseOpStr switch
+            {
+                "+" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.AddExpression,
+                "-" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.SubtractExpression,
+                "*" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.MultiplyExpression,
+                "/" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.DivideExpression,
+                "%" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.ModuloExpression,
+                "&" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.BitwiseAndExpression,
+                "|" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.BitwiseOrExpression,
+                "^" => Microsoft.CodeAnalysis.CSharp.SyntaxKind.ExclusiveOrExpression,
+                _ => (Microsoft.CodeAnalysis.CSharp.SyntaxKind?)null
+            });
+        if (roslynOpName == null) return null;
+
+        // Verify the type has the operator
+        if (!leftNamed.GetMembers(roslynOpName).Any(m => m is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+            return null;
+
+        var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
+            .TryGetValue(roslynOpName, out var n) ? n : roslynOpName;
+
+        var currentTypeName = context.CurrentType?.Name;
+        var operatorTypeName = leftNamed.Name;
+
+        string qualifiedMethod;
+        if (currentTypeName != null && operatorTypeName == currentTypeName)
+            qualifiedMethod = javaMethodName;
+        else
+        {
+            var containingType = context.MapType(leftNamed);
+            var angleIdx = containingType.IndexOf('<');
+            if (angleIdx > 0) containingType = containingType[..angleIdx];
+            qualifiedMethod = $"{containingType}.{javaMethodName}";
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var leftStr = facade.Transform(node.Left, context);
+        var rightStr = facade.Transform(node.Right, context);
+
+        return $"{leftStr} = {qualifiedMethod}({leftStr}, {rightStr})";
     }
 
     // Fix 3 + Fix 5: Handle ??= (CoalesceAssignment), avoiding double evaluation of complex LHS

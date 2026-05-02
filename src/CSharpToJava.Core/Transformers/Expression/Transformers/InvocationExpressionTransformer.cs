@@ -1838,6 +1838,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "ToUpper"       => "toUpperCase",
                 "ToLowerInvariant" => "toLowerCase",
                 "ToUpperInvariant" => "toUpperCase",
+                // Math method names that differ from simple camelCase
+                "Ceiling"       => "ceil",
+                "Sign"          => "signum",
+                "Truncate"      => "truncate",
                 _ when methodName.Length > 0
                     => char.ToLowerInvariant(methodName[0]) + methodName[1..],
                 _ => methodName

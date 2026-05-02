@@ -497,7 +497,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private string TransformAs(BinaryExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
-        var expression = facade.Transform(node.Left, context);
+        var expression = TransformAsOperand(node.Left, context);
 
         // Get the target type
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
@@ -542,6 +542,78 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             }
         }
         return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null) /* result may be null — check before use */";
+    }
+
+    /// <summary>
+    /// Transforms the left operand of an 'as' expression, ensuring property access
+    /// uses getter methods even when the semantic model can't resolve the receiver type.
+    /// </summary>
+    private static string TransformAsOperand(ExpressionSyntax operand, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        if (operand is MemberAccessExpressionSyntax ma)
+            return TransformAsOperandInner(ma, context);
+        return facade.Transform(operand, context);
+    }
+
+    private static string TransformAsOperandInner(MemberAccessExpressionSyntax ma, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var memberName = ma.Name.Identifier.Text;
+        // Recursively transform nested member access to ensure getters at all levels
+        string receiver;
+        if (ma.Expression is MemberAccessExpressionSyntax innerMa)
+            receiver = TransformAsOperandInner(innerMa, context);
+        else
+            receiver = facade.Transform(ma.Expression, context);
+
+        // Try semantic model first
+        if (context.SemanticModel != null)
+        {
+            var symbol = context.SemanticModel.GetSymbolInfo(ma).Symbol;
+            if (symbol is IPropertySymbol)
+            {
+                var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
+                return $"{receiver}.{getter}()";
+            }
+            if (symbol is IFieldSymbol { IsStatic: false })
+                return $"{receiver}.{ConversionContext.EscapeJavaKeyword(memberName)}";
+
+            // Try GetMembers via receiver type (semantic model path)
+            ITypeSymbol? recvType = context.SemanticModel.GetTypeInfo(ma.Expression).Type
+                ?? (context.SemanticModel.GetSymbolInfo(ma.Expression).Symbol switch
+                {
+                    ILocalSymbol ls => ls.Type,
+                    IFieldSymbol fs => fs.Type,
+                    IParameterSymbol ps => ps.Type,
+                    IPropertySymbol ps2 => ps2.Type,
+                    _ => null
+                });
+            if (recvType is INamedTypeSymbol { TypeKind: not TypeKind.Error } named)
+            {
+                foreach (var m in named.GetMembers(memberName))
+                {
+                    if (m is IPropertySymbol)
+                    {
+                        var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
+                        return $"{receiver}.{getter}()";
+                    }
+                    if (m is IFieldSymbol { IsStatic: false })
+                        break;
+                }
+            }
+
+            // AST-level heuristic: if the member name is PascalCase (like C# properties),
+            // emit a getter when the semantic model can't resolve the type.
+            if ((recvType == null || recvType.TypeKind == TypeKind.Error) && char.IsUpper(memberName[0]))
+            {
+                var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
+                return $"{receiver}.{getter}()";
+            }
+        }
+
+        // Fallback: use the standard transform
+        return facade.Transform(ma, context);
     }
 
     private static bool RequiresSingleEvaluation(ExpressionSyntax expressionSyntax, string transformedExpression)

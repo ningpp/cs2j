@@ -82,6 +82,17 @@ public class LowerProperty : ILoweringPass
         var mappedMethod = TryMapPropertyName(propSymbol, prop.PropertyName);
         if (mappedMethod != prop.PropertyName)
         {
+            // For System.Array properties mapped to field names, emit member access (no parens)
+            if (propSymbol?.ContainingType?.SpecialType == SpecialType.System_Array)
+            {
+                return new IrMemberAccessExpression
+                {
+                    Target = loweredTarget,
+                    MemberName = mappedMethod,
+                    Symbol = prop.Symbol,
+                    JavaType = prop.JavaType,
+                };
+            }
             return new IrInvocationExpression
             {
                 Target = loweredTarget,
@@ -89,6 +100,43 @@ public class LowerProperty : ILoweringPass
                 Symbol = prop.Symbol,
                 JavaType = prop.JavaType,
             };
+        }
+
+        // Generic fallback: Array.Length → .length (field), collection.Count → .size()
+        if (propSymbol != null)
+        {
+            if (propSymbol.ContainingType?.TypeKind == TypeKind.Array && prop.PropertyName == "Length")
+            {
+                return new IrMemberAccessExpression
+                {
+                    Target = loweredTarget,
+                    MemberName = "length",
+                    Symbol = prop.Symbol,
+                    JavaType = prop.JavaType,
+                };
+            }
+            if (prop.PropertyName == "Count" && propSymbol.ContainingType is INamedTypeSymbol named)
+            {
+                foreach (var iface in named.AllInterfaces)
+                {
+                    var ifaceDisplay = iface.ToDisplayString();
+                    if (ifaceDisplay.StartsWith("System.Collections.Generic.ICollection") ||
+                        ifaceDisplay.StartsWith("System.Collections.Generic.IList") ||
+                        ifaceDisplay.StartsWith("System.Collections.Generic.IReadOnlyCollection") ||
+                        ifaceDisplay.StartsWith("System.Collections.Generic.ISet") ||
+                        ifaceDisplay == "System.Collections.ICollection" ||
+                        ifaceDisplay == "System.Collections.IList")
+                    {
+                        return new IrInvocationExpression
+                        {
+                            Target = loweredTarget,
+                            MethodName = "size",
+                            Symbol = prop.Symbol,
+                            JavaType = prop.JavaType,
+                        };
+                    }
+                }
+            }
         }
 
         // Default: getter/setter pattern

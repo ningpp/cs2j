@@ -439,6 +439,65 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var memberName = node.Name.Identifier.Text;
         string? staticTypeTarget = null;
 
+        // Extract receiver type early for fallback property resolution.
+        // Try multiple approaches: GetTypeInfo first, then GetSymbolInfo on the expression.
+        ITypeSymbol? receiverType = null;
+        if (context.SemanticModel != null && node.Expression is not TypeSyntax)
+        {
+            receiverType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            if (receiverType == null)
+            {
+                var exprSym = context.SemanticModel.GetSymbolInfo(node.Expression).Symbol;
+                receiverType = exprSym switch
+                {
+                    ILocalSymbol ls => ls.Type,
+                    IFieldSymbol fs => fs.Type,
+                    IParameterSymbol ps => ps.Type,
+                    IPropertySymbol prs => prs.Type,
+                    _ => null
+                };
+            }
+            // Last resort: try to resolve the receiver by its name in the enclosing scope
+            if (receiverType == null && node.Expression is IdentifierNameSyntax id)
+            {
+                var name = id.Identifier.Text;
+                // Search the enclosing method's locals and parameters
+                var enclosingSym = context.SemanticModel.GetEnclosingSymbol(node.SpanStart);
+                if (enclosingSym is IMethodSymbol method)
+                {
+                    foreach (var p in method.Parameters)
+                        if (p.Name == name) { receiverType = p.Type; break; }
+                }
+                // Search the enclosing type's fields and properties
+                if (receiverType == null && enclosingSym?.ContainingType is INamedTypeSymbol enclosingType)
+                {
+                    foreach (var m in enclosingType.GetMembers(name))
+                    {
+                        if (m is IFieldSymbol f) { receiverType = f.Type; break; }
+                        if (m is IPropertySymbol fp) { receiverType = fp.Type; break; }
+                    }
+                }
+                // Search foreach iteration variables
+                if (receiverType == null)
+                {
+                    // Try to find the symbol in the semantic model's lookup
+                    var lookupSymbols = context.SemanticModel.LookupSymbols(node.SpanStart, name: name);
+                    foreach (var s in lookupSymbols)
+                    {
+                        receiverType = s switch
+                        {
+                            ILocalSymbol ls => ls.Type,
+                            IParameterSymbol ps => ps.Type,
+                            IFieldSymbol fs => fs.Type,
+                            IPropertySymbol ps2 => ps2.Type,
+                            _ => null
+                        };
+                        if (receiverType != null) break;
+                    }
+                }
+            }
+        }
+
         if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
             node.Expression,
             context,
@@ -740,6 +799,28 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     if (mm3 == "getKeys") return $"{target}.keySet()";
                     return mm3.Contains('.') ? mm3 : $"{target}.{mm3}()";
                 }
+
+                // Generic fallback: Array.Length → .length (field), collection.Count → .size()
+                if (exprType.TypeKind == TypeKind.Array && memberName == "Length")
+                    return $"{target}.length";
+                if (memberName == "Count" && exprType is INamedTypeSymbol namedExpr)
+                {
+                    foreach (var iface in namedExpr.AllInterfaces)
+                    {
+                        var ifaceDisplay = iface.ToDisplayString();
+                        if (ifaceDisplay.StartsWith("System.Collections.Generic.ICollection") ||
+                            ifaceDisplay.StartsWith("System.Collections.Generic.IList") ||
+                            ifaceDisplay.StartsWith("System.Collections.Generic.IReadOnlyCollection") ||
+                            ifaceDisplay.StartsWith("System.Collections.Generic.ISet") ||
+                            ifaceDisplay == "System.Collections.ICollection" ||
+                            ifaceDisplay == "System.Collections.IList")
+                            return $"{target}.size()";
+                    }
+                }
+                // Array.Length on arrays that weren't caught by the TypeKind check
+                if (memberName == "Length" && exprType is IArrayTypeSymbol)
+                    return $"{target}.length";
+
             }
         }
 
@@ -762,6 +843,35 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         if (memberName == "Values") return $"{target}.values()";
         if (memberName == "Keys") return $"{target}.keySet()";
+
+        // Generic fallback: when GetSymbolInfo failed, use the receiver type's
+        // GetMembers to detect if this is a property (needs getter) or field.
+        if (receiverType is INamedTypeSymbol { TypeKind: not TypeKind.Error } receiverNamed)
+        {
+            foreach (var m in receiverNamed.GetMembers(memberName))
+            {
+                if (m is IPropertySymbol)
+                {
+                    // Check TypeMappings for configured method name
+                    var ptn = m.ContainingType.ToDisplayString();
+                    var pm = context.TypeMappings.MapMethod(ptn, memberName);
+                    if (pm == null && m.ContainingType.ContainingNamespace != null)
+                        pm = context.TypeMappings.MapMethod(
+                            $"{m.ContainingType.ContainingNamespace}.{m.ContainingType.Name}", memberName);
+                    if (pm != null)
+                        return pm.Contains('.') ? pm : $"{target}.{pm}()";
+
+                    var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
+                    return $"{target}.{getter}()";
+                }
+                if (m is IFieldSymbol { IsStatic: false })
+                    break;
+            }
+        }
+
+        // Last-resort generic fallback for known C#→Java property mappings
+        if (memberName == "Count") return $"{target}.size()";
+        if (memberName == "Length") return $"{target}.length";
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";

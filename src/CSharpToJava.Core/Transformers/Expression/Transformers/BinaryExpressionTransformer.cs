@@ -147,6 +147,14 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 call.Arguments.Add(rightIR);
                 return call;
             }
+
+            // Fallback: when GetSymbolInfo fails, use operand type info
+            if (symbolInfo.Symbol == null && IsArithmeticOp(op))
+            {
+                var fallbackResult = TryTransformOperatorByTypeInfoToIR(binExpr, op, context);
+                if (fallbackResult != null)
+                    return fallbackResult;
+            }
         }
 
         // Check for string equality (needs Objects.equals) → JavaMethodCallExpression
@@ -242,6 +250,16 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                     return TransformUserDefinedOperator(node, methodSymbol, context);
                 }
             }
+
+            // Fallback: when GetSymbolInfo fails to resolve the operator (possible when the
+            // compilation has incomplete metadata references), use GetTypeInfo on the operands
+            // to detect user-defined types and emit the corresponding Java static method call.
+            if (symbolInfo.Symbol == null && IsArithmeticOp(op))
+            {
+                var fallbackResult = TryTransformOperatorByTypeInfo(node, op, context);
+                if (fallbackResult != null)
+                    return fallbackResult;
+            }
         }
 
         // Standard operator - use Java's built-in operators
@@ -273,11 +291,276 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         return $"{left} {op} {right}";
     }
 
+    private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
+
+    /// <summary>
+    /// Fallback: when GetSymbolInfo can't resolve the operator method, use operand type info
+    /// to detect user-defined operators and emit the Java static method call.
+    /// </summary>
+    private string? TryTransformOperatorByTypeInfo(BinaryExpressionSyntax node, string op, ConversionContext context)
+    {
+        var semanticModel = context.SemanticModel!;
+        var leftType = semanticModel.GetTypeInfo(node.Left).Type;
+        var rightType = semanticModel.GetTypeInfo(node.Right).Type;
+
+        // Prefer the left operand's type for the operator container (e.g. Point * double → Point).
+        // Skip error types (unresolved 'var' etc.) and interface types.
+        bool IsValidOperatorType(INamedTypeSymbol? t) =>
+            t != null && t.TypeKind != TypeKind.Error && t.TypeKind != TypeKind.Interface && !IsBuiltInType(t);
+
+        INamedTypeSymbol? operatorType = null;
+        if (IsValidOperatorType(leftType as INamedTypeSymbol))
+            operatorType = (INamedTypeSymbol)leftType!;
+        else if (IsValidOperatorType(rightType as INamedTypeSymbol))
+            operatorType = (INamedTypeSymbol)rightType!;
+
+        // If both GetTypeInfo calls failed, try to resolve the operand types via their symbols
+        if (operatorType == null)
+        {
+            static INamedTypeSymbol? ResolveOperandType(ExpressionSyntax expr, SemanticModel sm)
+            {
+                var type = sm.GetTypeInfo(expr).Type;
+                if (type is INamedTypeSymbol n && n.TypeKind != TypeKind.Error)
+                    return n;
+                var sym = sm.GetSymbolInfo(expr).Symbol;
+                var st = sym switch
+                {
+                    ILocalSymbol ls => ls.Type,
+                    IFieldSymbol fs => fs.Type,
+                    IParameterSymbol ps => ps.Type,
+                    IPropertySymbol pr => pr.Type,
+                    _ => null
+                };
+                if (st is INamedTypeSymbol sn && sn.TypeKind != TypeKind.Error)
+                    return sn;
+                // Try scope-based lookup for var-declared locals that GetSymbolInfo misses
+                if (expr is IdentifierNameSyntax id)
+                {
+                    var lookup = sm.LookupSymbols(expr.SpanStart, name: id.Identifier.Text)
+                        .Select(s => s switch
+                        {
+                            ILocalSymbol ls => ls.Type,
+                            IParameterSymbol ps => ps.Type,
+                            IFieldSymbol fs => fs.Type,
+                            _ => null
+                        })
+                        .OfType<INamedTypeSymbol>()
+                        .FirstOrDefault(t => t.TypeKind != TypeKind.Error);
+                    if (lookup != null) return lookup;
+                }
+                return null;
+            }
+            var resolvedLeft = ResolveOperandType(node.Left, semanticModel);
+            var resolvedRight = ResolveOperandType(node.Right, semanticModel);
+            if (IsValidOperatorType(resolvedLeft))
+                operatorType = resolvedLeft;
+            else if (IsValidOperatorType(resolvedRight))
+                operatorType = resolvedRight;
+        }
+
+        // Syntax-based fallback: if semantic model can't resolve types, try to infer
+        // operator type from operand structure (method calls on known types, etc.)
+        if (operatorType == null)
+        {
+            operatorType = InferOperatorTypeFromSyntax(node, semanticModel);
+        }
+
+        if (operatorType == null) return null;
+
+        // Map SyntaxKind to Roslyn operator method name, then to Java method name
+        var roslynOpName = SyntaxKindToRoslynOperatorName(node.Kind());
+        if (roslynOpName == null) return null;
+
+        // Verify the type actually declares this operator
+        if (!operatorType.GetMembers(roslynOpName).Any(m => m is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+            return null;
+
+        var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
+            .TryGetValue(roslynOpName, out var n) ? n : roslynOpName;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+        var right = facade.Transform(node.Right, context);
+
+        var currentTypeName = context.CurrentType?.Name;
+        var operatorTypeName = operatorType.Name;
+
+        if (currentTypeName != null && operatorTypeName == currentTypeName)
+            return $"{javaMethodName}({left}, {right})";
+
+        var containingType = context.MapType(operatorType);
+        var angleIdx = containingType.IndexOf('<');
+        if (angleIdx > 0) containingType = containingType[..angleIdx];
+        return $"{containingType}.{javaMethodName}({left}, {right})";
+    }
+
+    /// <summary>
+    /// IR-based fallback for user-defined operators when GetSymbolInfo fails.
+    /// </summary>
+    private JavaExpression? TryTransformOperatorByTypeInfoToIR(BinaryExpressionSyntax node, string op, ConversionContext context)
+    {
+        var semanticModel = context.SemanticModel!;
+        var leftType = semanticModel.GetTypeInfo(node.Left).Type;
+        var rightType = semanticModel.GetTypeInfo(node.Right).Type;
+
+        INamedTypeSymbol? operatorType = null;
+        if (leftType is INamedTypeSymbol lnt && lnt.TypeKind != TypeKind.Error && lnt.TypeKind != TypeKind.Interface && !IsBuiltInType(lnt))
+            operatorType = lnt;
+        else if (rightType is INamedTypeSymbol rnt && rnt.TypeKind != TypeKind.Error && rnt.TypeKind != TypeKind.Interface && !IsBuiltInType(rnt))
+            operatorType = rnt;
+
+        if (operatorType == null) return null;
+
+        var roslynOpName = SyntaxKindToRoslynOperatorName(node.Kind());
+        if (roslynOpName == null) return null;
+
+        if (!operatorType.GetMembers(roslynOpName).Any(m => m is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+            return null;
+
+        var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
+            .TryGetValue(roslynOpName, out var n) ? n : roslynOpName;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var leftIR = facade.TransformToIR(node.Left, context);
+        var rightIR = facade.TransformToIR(node.Right, context);
+
+        var currentTypeName = context.CurrentType?.Name;
+        var operatorTypeName = operatorType.Name;
+
+        JavaExpression? target;
+        if (currentTypeName != null && operatorTypeName == currentTypeName)
+        {
+            target = null;
+        }
+        else
+        {
+            var containingType = context.MapType(operatorType);
+            var angleIdx = containingType.IndexOf('<');
+            if (angleIdx > 0) containingType = containingType[..angleIdx];
+            target = new JavaIdentifierExpression { Name = containingType };
+        }
+
+        var call = new JavaMethodCallExpression { Target = target, MethodName = javaMethodName };
+        call.Arguments.Add(leftIR);
+        call.Arguments.Add(rightIR);
+        return call;
+    }
+
+    /// <summary>
+    /// Syntax-based inference of the operator's containing type when all semantic-model methods fail.
+    /// Tries GetTypeInfo on the whole expression first, then recurses into sub-expressions.
+    /// Only returns non-built-in types (Point, Rectangle, etc.), never built-in types.
+    /// </summary>
+    private static INamedTypeSymbol? InferOperatorTypeFromSyntax(BinaryExpressionSyntax node, SemanticModel sm)
+    {
+        // First try GetTypeInfo on the whole operand expression
+        static INamedTypeSymbol? TryGetWholeType(ExpressionSyntax expr, SemanticModel sm)
+        {
+            var t = sm.GetTypeInfo(expr).Type;
+            if (t is INamedTypeSymbol n && n.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(n))
+                return n;
+            return null;
+        }
+
+        static INamedTypeSymbol? TryFromExpr(ExpressionSyntax expr, SemanticModel sm)
+        {
+            // First try the whole expression type
+            var whole = TryGetWholeType(expr, sm);
+            if (whole != null) return whole;
+
+            // Try member access: aAxis.normalize() → get type of aAxis
+            if (expr is MemberAccessExpressionSyntax ma)
+            {
+                var maResult = TryFromExpr(ma.Expression, sm);
+                if (maResult != null) return maResult;
+            }
+            // Try invocation: get return type, or receiver type
+            if (expr is InvocationExpressionSyntax inv)
+            {
+                // First try the return type of the whole invocation
+                var invType = sm.GetTypeInfo(inv).Type;
+                if (invType is INamedTypeSymbol n && n.TypeKind != TypeKind.Error) return n;
+                // Then try the receiver
+                if (inv.Expression is MemberAccessExpressionSyntax invMa)
+                {
+                    var recv = TryFromExpr(invMa.Expression, sm);
+                    if (recv != null) return recv;
+                }
+            }
+            // Try simple identifier type
+            if (expr is IdentifierNameSyntax id)
+            {
+                var idType = sm.GetTypeInfo(id).Type;
+                if (idType is INamedTypeSymbol n && n.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(n))
+                    return n;
+                var idSym = sm.GetSymbolInfo(id).Symbol;
+                if (idSym is ILocalSymbol { Type: INamedTypeSymbol lsType } && lsType.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(lsType))
+                    return lsType;
+                if (idSym is IFieldSymbol { Type: INamedTypeSymbol fsType } && fsType.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(fsType))
+                    return fsType;
+                if (idSym is IParameterSymbol { Type: INamedTypeSymbol psType } && psType.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(psType))
+                    return psType;
+                // Try GetTypeInfo again on the identifier for cases where the local was inferred
+                var idConvertedType = sm.GetTypeInfo(id).ConvertedType;
+                if (idConvertedType is INamedTypeSymbol cn && cn.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(cn))
+                    return cn;
+            }
+            // Try parenthesized expression
+            if (expr is ParenthesizedExpressionSyntax paren)
+                return TryFromExpr(paren.Expression, sm);
+            // Recurse into nested binary expressions but PREFER non-built-in types
+            if (expr is BinaryExpressionSyntax bin)
+            {
+                var left = TryFromExpr(bin.Left, sm);
+                var right = TryFromExpr(bin.Right, sm);
+                // Return the first non-built-in type found (left then right)
+                if (left != null && !IsBuiltInTypeStatic(left)) return left;
+                if (right != null && !IsBuiltInTypeStatic(right)) return right;
+                if (left != null) return left;
+                return right;
+            }
+            return null;
+        }
+
+        var result = TryFromExpr(node.Left, sm) ?? TryFromExpr(node.Right, sm);
+        // Only return non-built-in types (the caller will verify operator membership)
+        if (result != null && !IsBuiltInTypeStatic(result) && result.TypeKind != TypeKind.Error)
+            return result;
+        return null;
+    }
+
+    internal static string? SyntaxKindToRoslynOperatorNameStatic(Microsoft.CodeAnalysis.CSharp.SyntaxKind? kind) => kind switch
+    {
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.AddExpression => "op_Addition",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.SubtractExpression => "op_Subtraction",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.MultiplyExpression => "op_Multiply",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.DivideExpression => "op_Division",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.ModuloExpression => "op_Modulus",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.EqualsExpression => "op_Equality",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.NotEqualsExpression => "op_Inequality",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.GreaterThanExpression => "op_GreaterThan",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.LessThanExpression => "op_LessThan",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.GreaterThanOrEqualExpression => "op_GreaterThanOrEqual",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.LessThanOrEqualExpression => "op_LessThanOrEqual",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.BitwiseAndExpression => "op_BitwiseAnd",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.BitwiseOrExpression => "op_BitwiseOr",
+        Microsoft.CodeAnalysis.CSharp.SyntaxKind.ExclusiveOrExpression => "op_ExclusiveOr",
+        _ => null
+    };
+
+    private static string? SyntaxKindToRoslynOperatorName(Microsoft.CodeAnalysis.CSharp.SyntaxKind kind) =>
+        SyntaxKindToRoslynOperatorNameStatic(kind);
+
     private static bool IsStringType(ExpressionSyntax expr, SemanticModel semanticModel)
     {
         var typeInfo = semanticModel.GetTypeInfo(expr);
         return typeInfo.Type?.SpecialType == SpecialType.System_String;
     }
+
+    internal static bool IsBuiltInTypeStatic(INamedTypeSymbol type) =>
+        type.TypeKind == TypeKind.Enum ||
+        type.SpecialType != SpecialType.None ||
+        BuiltInTypeNames.Contains(type.ToDisplayString());
 
     private static bool IsBuiltInType(INamedTypeSymbol type)
     {
