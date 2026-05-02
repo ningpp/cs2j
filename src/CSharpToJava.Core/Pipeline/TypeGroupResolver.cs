@@ -248,6 +248,23 @@ public static class TypeGroupResolver
                     {
                         var aliasFullName = usingDirective.Name.ToString();
                         aliasTargetSymbol = compilation.GetTypeByMetadataName(aliasFullName);
+                        // GetTypeByMetadataName expects backtick format (e.g. "Foo`2"),
+                        // not angle-bracket format (e.g. "Foo<T1,T2>"). Convert if needed.
+                        if (aliasTargetSymbol == null)
+                        {
+                            var angleIdx = aliasFullName.IndexOf('<');
+                            if (angleIdx > 0)
+                            {
+                                var closeIdx = aliasFullName.LastIndexOf('>');
+                                if (closeIdx > angleIdx)
+                                {
+                                    var typeArgsStr = aliasFullName[(angleIdx + 1)..closeIdx];
+                                    int arity = 1 + typeArgsStr.Count(c => c == ',');
+                                    var baseName = aliasFullName[..angleIdx];
+                                    aliasTargetSymbol = compilation.GetTypeByMetadataName($"{baseName}`{arity}");
+                                }
+                            }
+                        }
                     }
                     // Register the alias so downstream type mapping can resolve it
                     if (aliasTargetSymbol is ITypeSymbol aliasType)
