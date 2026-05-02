@@ -423,7 +423,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return string.IsNullOrEmpty(qArgs) ? $"{qReceiver}.{javaMethod}()" : $"{qReceiver}.{javaMethod}({qArgs})";
         }
 
-        // Count() with no args → size() ; Any() with no args → length check for arrays, iterator().hasNext() for others
+        // Count() with no args → size() (Collection) or count() (Iterable fallback)
+        // Any() with no args → length>0 (array) or iterator().hasNext() (Iterable/Collection)
         if (node.ArgumentList.Arguments.Count == 0)
         {
             var cReceiver = facade.Transform(memberAccess.Expression, context);
@@ -4580,4 +4581,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     private static string ToJavaBooleanLiteral(bool value) => value ? "true" : "false";
+
+    /// <summary>Resolve receiver type using multiple fallbacks.</summary>
+    private static ITypeSymbol? ResolveReceiverType(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (context.SemanticModel == null) return null;
+        var type = context.SemanticModel.GetTypeInfo(expr).Type;
+        if (type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) }) return type;
+        var sym = context.SemanticModel.GetSymbolInfo(expr).Symbol;
+        type = sym switch { ILocalSymbol ls => ls.Type, IFieldSymbol fs => fs.Type, IParameterSymbol ps => ps.Type, _ => null };
+        if (type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) }) return type;
+        if (expr is IdentifierNameSyntax id && context.VarTypeMap.TryGetValue(id.Identifier.Text, out var vmType))
+            return vmType;
+        return null;
+    }
+
+    private static bool ImplementsInterface(INamedTypeSymbol type, string interfaceFullName)
+    {
+        if (type.AllInterfaces.Any(i => i.ToDisplayString().StartsWith(interfaceFullName))) return true;
+        if (type.ToDisplayString().StartsWith(interfaceFullName)) return true;
+        return false;
+    }
 }
