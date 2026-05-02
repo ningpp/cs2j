@@ -121,7 +121,8 @@ public class ConversionContext
             ImportedTypes,
             () => CurrentNamespace,
             () => SemanticModel?.Compilation?.GlobalNamespace,
-            key => TryGetSynthesizedRecord(key, out _));
+            key => TryGetSynthesizedRecord(key, out _),
+            resolveAlias: name => ResolveAlias(name));
         TypeMapper.SetSynthesizedRecordNameResolver(key =>
             TryGetSynthesizedRecord(key, out var rec) && rec != null ? rec.RecordName : "Object");
     }
@@ -187,7 +188,14 @@ public class ConversionContext
     }
 
     public string NamespaceToPackage(string ns) => TypeMapper.NamespaceToPackage(ns);
-    public string MapType(ITypeSymbol typeSymbol) => TypeMapper.MapType(typeSymbol);
+    public string MapType(ITypeSymbol typeSymbol)
+    {
+        // Check using alias: if the type name matches a registered alias, resolve it
+        if (AliasRegistry.Resolve(typeSymbol.Name) is ITypeSymbol aliasTarget
+            && aliasTarget.Name != typeSymbol.Name)
+            return TypeMapper.MapType(aliasTarget);
+        return TypeMapper.MapType(typeSymbol);
+    }
 
     // ─── Facade methods delegating to TypeMapper for backward compatibility ───
     public void AddImportsForTypePublic(string csharpType) => TypeMapper.AddImportsForTypePublic(csharpType);

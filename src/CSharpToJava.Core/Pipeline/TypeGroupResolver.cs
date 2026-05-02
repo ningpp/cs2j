@@ -242,6 +242,13 @@ public static class TypeGroupResolver
                 if (usingDirective.Alias != null)
                 {
                     var aliasTargetSymbol = semanticModel.GetSymbolInfo(usingDirective.Name).Symbol;
+                    // Register the alias so downstream type mapping can resolve it
+                    if (aliasTargetSymbol is ITypeSymbol aliasType)
+                    {
+                        var aliasName = usingDirective.Alias.Name.Identifier.Text;
+                        context.RegisterUsingAlias(aliasName, aliasType, usingDirective.Alias.GetLocation());
+                    }
+
                     var aliasNamespace = aliasTargetSymbol switch
                     {
                         ITypeSymbol typeSym => typeSym.ContainingNamespace?.ToDisplayString(),

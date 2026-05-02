@@ -34,6 +34,8 @@ public class TypeMappingService
     /// </summary>
     private static readonly HashSet<string> _explicitValueEnumNames = new(StringComparer.Ordinal);
 
+    private readonly Func<string, ITypeSymbol?> _resolveAlias;
+
     public TypeMappingService(
         ConversionOptions options,
         TypeMapping.TypeMappingRegistry typeMappings,
@@ -41,12 +43,14 @@ public class TypeMappingService
         HashSet<string> importedTypes,
         Func<string> getCurrentNamespace,
         Func<INamespaceSymbol?> getGlobalNamespace,
-        Func<string, bool> tryGetSynthesizedRecordMatch)
+        Func<string, bool> tryGetSynthesizedRecordMatch,
+        Func<string, ITypeSymbol?>? resolveAlias = null)
     {
         _options = options;
         _typeMappings = typeMappings;
         _diagnostics = diagnostics;
         _importedTypes = importedTypes;
+        _resolveAlias = resolveAlias ?? (_ => null);
         _getCurrentNamespace = getCurrentNamespace;
         _getGlobalNamespace = getGlobalNamespace;
         _tryGetSynthesizedRecordMatch = tryGetSynthesizedRecordMatch;
@@ -121,6 +125,13 @@ public class TypeMappingService
 
     private string MapTypeInternal(ITypeSymbol typeSymbol)
     {
+        // Check using alias registry first: if the type name matches a registered
+        // alias, resolve via the alias target type (handles project-pipeline aliases).
+        // Guard: skip if alias target has the same name (prevents infinite recursion).
+        if (_resolveAlias(typeSymbol.Name) is ITypeSymbol aliasTarget
+            && aliasTarget.Name != typeSymbol.Name)
+            return MapType(aliasTarget);
+
         // IErrorTypeSymbol: unresolved type — try candidate symbols first for
         // better resolution, then fall back to qualified/short name from syntax.
         if (typeSymbol is IErrorTypeSymbol errorType)
