@@ -576,15 +576,34 @@ public class TypeMappingService
         if (openAngle > 0 && typeName.EndsWith(">"))
         {
             var baseTypeName = typeName.Substring(0, openAngle).Trim();
-            var innerArgs = typeName.Substring(openAngle + 1, typeName.Length - openAngle - 2);
-            var mappedBase = _typeMappings.MapType(baseTypeName);
+            var innerArgsText = typeName.Substring(openAngle + 1, typeName.Length - openAngle - 2);
+
+            // Recursively map each generic type argument, respecting nested angle brackets
+            var innerArgParts = SplitGenericArguments(innerArgsText);
+            var mappedInnerArgs = innerArgParts
+                .Select(arg => BoxPrimitive(MapTypeFromSyntaxString(arg.Trim())))
+                .ToList();
+            var mappedArgsString = string.Join(", ", mappedInnerArgs);
+
+            var arity = mappedInnerArgs.Count;
+            var mappedBase = _typeMappings.MapTypeBySimpleName(baseTypeName, arity);
             if (mappedBase != baseTypeName)
             {
-                AddImportsForType(baseTypeName);
+                var configKey = _typeMappings.FindConfigKeyBySimpleName(baseTypeName, arity);
+                if (configKey != null)
+                    AddImportsForType(configKey);
                 mappedBase = MapSimpleTypeName(mappedBase);
             }
             if (mappedBase == "Object") return "Object";
-            return $"{mappedBase}<{innerArgs}>";
+
+            // IGrouping<K, V> → Map.Entry<K, List<V>> (mirrors semantic path at MapTypeInternal)
+            if (mappedBase == "Map.Entry" && mappedInnerArgs.Count == 2)
+            {
+                AddImport("java.util.List");
+                mappedArgsString = $"{mappedInnerArgs[0]}, List<{mappedInnerArgs[1]}>";
+            }
+
+            return $"{mappedBase}<{mappedArgsString}>";
         }
 
         var mapped = _typeMappings.MapType(typeName);
@@ -672,5 +691,30 @@ public class TypeMappingService
             or "boolean" or "char" or "void"
             or "Object" or "String" or "var"
             or "Integer" or "Long" or "Short" or "Byte" or "Float" or "Double" or "Boolean" or "Character";
+    }
+
+    /// <summary>
+    /// Splits generic type arguments by top-level commas, respecting nested angle brackets.
+    /// e.g. "int, List<string>, Dictionary<int, string>" → ["int", "List<string>", "Dictionary<int, string>"]
+    /// </summary>
+    private static List<string> SplitGenericArguments(string argsText)
+    {
+        var result = new List<string>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < argsText.Length; i++)
+        {
+            switch (argsText[i])
+            {
+                case '<': depth++; break;
+                case '>': depth--; break;
+                case ',' when depth == 0:
+                    result.Add(argsText.Substring(start, i - start));
+                    start = i + 1;
+                    break;
+            }
+        }
+        result.Add(argsText.Substring(start));
+        return result;
     }
 }

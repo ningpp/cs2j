@@ -328,9 +328,13 @@ public partial class StatementTransformer
                         SpecialType.System_Boolean or SpecialType.System_Byte or
                         SpecialType.System_Int16 or SpecialType.System_Char)
                     {
-                        expr = $"Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toList())";
+                        // Use toCollection(() -> new ArrayList<>()) instead of toList()
+                        // because C# List<T> maps to Java ArrayList<T> (concrete), and
+                        // Collectors.toList() returns List<T> (interface) — type mismatch.
+                        expr = $"Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toCollection(() -> new java.util.ArrayList<>()))";
                         context.AddImport("java.util.Arrays");
                         context.AddImport("java.util.stream.Collectors");
+                        context.AddImport("java.util.ArrayList");
                     }
                     else
                     {

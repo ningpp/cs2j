@@ -191,7 +191,8 @@ namespace CSharpToJava.Core.LinqRewrite
                             || x.MethodName == AppendMethod || x.MethodName == PrependMethod
                             || x.MethodName == DefaultIfEmptyMethod || x.MethodName == DefaultIfEmptyWithValueMethod
                             || x.MethodName == ChunkMethod
-                            || x.MethodName == OrderMethod || x.MethodName == OrderDescendingMethod)
+                            || x.MethodName == OrderMethod || x.MethodName == OrderDescendingMethod
+                            || x.MethodName == CountMethod || x.MethodName == LongCountMethod)
                         && !chain.Any(x => x.MethodName == SequenceEqualMethod
                             || x.MethodName == UnionByMethod || x.MethodName == IntersectByMethod || x.MethodName == ExceptByMethod
                             || x.MethodName == MinByMethod || x.MethodName == MaxByMethod

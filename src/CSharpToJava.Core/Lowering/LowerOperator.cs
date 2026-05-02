@@ -1,5 +1,6 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java2;
+using CSharpToJava.Core.Transformers.Member;
 
 namespace CSharpToJava.Core.Lowering;
 
@@ -40,9 +41,13 @@ public class LowerOperator : ILoweringPass
         {
             case IrCSharpOperatorCallExpression opCall:
             {
+                // Translate operator name if still in Roslyn format (e.g. "op_Multiply" → "multiply")
+                var methodName = OperatorTransformer.OpSymbolToJavaName.TryGetValue(opCall.OperatorMethodName, out var n)
+                    ? n : opCall.OperatorMethodName;
+
                 var inv = new IrInvocationExpression
                 {
-                    MethodName = opCall.OperatorMethodName,
+                    MethodName = methodName,
                     Symbol = opCall.Symbol, JavaType = opCall.JavaType,
                 };
                 if (opCall.Left != null && opCall.Right != null)

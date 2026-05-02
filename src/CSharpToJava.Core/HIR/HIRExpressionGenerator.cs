@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java2;
+using CSharpToJava.Core.Transformers.Member;
 
 namespace CSharpToJava.Core.HIR;
 
@@ -59,11 +60,36 @@ public class HIRExpressionGenerator
         var symbol = GetSymbol(node);
         if (symbol is IMethodSymbol ms && ms.MethodKind == MethodKind.UserDefinedOperator)
         {
+            var leftExpr = Generate(node.Left, _ctx);
+            var rightExpr = Generate(node.Right, _ctx);
+
+            // Translate Roslyn operator name (e.g. "op_Multiply") to Java name (e.g. "multiply")
+            var javaOpName = OperatorTransformer.OpSymbolToJavaName.TryGetValue(ms.Name, out var n)
+                ? n : ms.Name;
+
+            // Handle commutative resolution: C# may swap operands to match operator signature.
+            // If the syntactic left operand's type doesn't match parameter 0, swap.
+            if (ms.Parameters.Length == 2)
+            {
+                var leftType = _ctx.SemanticModel?.GetTypeInfo(node.Left).Type;
+                if (leftType != null && !leftType.Equals(ms.Parameters[0].Type, SymbolEqualityComparer.Default))
+                {
+                    return new IrCSharpOperatorCallExpression
+                    {
+                        Left = rightExpr,
+                        OperatorMethodName = javaOpName,
+                        Right = leftExpr,
+                        Symbol = symbol,
+                        JavaType = _ctx.MapType(ms.ReturnType),
+                    };
+                }
+            }
+
             return new IrCSharpOperatorCallExpression
             {
-                Left = Generate(node.Left, _ctx),
-                OperatorMethodName = ms.Name,
-                Right = Generate(node.Right, _ctx),
+                Left = leftExpr,
+                OperatorMethodName = javaOpName,
+                Right = rightExpr,
                 Symbol = symbol,
                 JavaType = _ctx.MapType(ms.ReturnType),
             };
@@ -242,7 +268,7 @@ public class HIRExpressionGenerator
     private IrLambdaExpression GenerateSimpleLambda(SimpleLambdaExpressionSyntax node) =>
         new()
         {
-            Parameters = { new IrLambdaParameter { Name = node.Parameter.Identifier.Text, Type = node.Parameter.Type?.ToString() } },
+            Parameters = { new IrLambdaParameter { Name = node.Parameter.Identifier.Text, Type = node.Parameter.Type != null ? _ctx.MapTypeFromSyntax(node.Parameter.Type) : null } },
             ExpressionBody = node.Body is ExpressionSyntax expr ? Generate(expr, _ctx) : null,
             BlockBody = node.Body is BlockSyntax block ? new HIRStatementGenerator().GenerateBlock(block, _ctx) : null,
         };
@@ -254,7 +280,7 @@ public class HIRExpressionGenerator
             ExpressionBody = node.Body is ExpressionSyntax expr ? Generate(expr, _ctx) : null,
             BlockBody = node.Body is BlockSyntax block ? new HIRStatementGenerator().GenerateBlock(block, _ctx) : null,
         };
-        lambda.Parameters.AddRange(node.ParameterList.Parameters.Select(p => new IrLambdaParameter { Name = p.Identifier.Text, Type = p.Type?.ToString() }));
+        lambda.Parameters.AddRange(node.ParameterList.Parameters.Select(p => new IrLambdaParameter { Name = p.Identifier.Text, Type = p.Type != null ? _ctx.MapTypeFromSyntax(p.Type) : null }));
         return lambda;
     }
 

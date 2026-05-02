@@ -191,7 +191,19 @@ public class ConversionContext
 
     // ─── Facade methods delegating to TypeMapper for backward compatibility ───
     public void AddImportsForTypePublic(string csharpType) => TypeMapper.AddImportsForTypePublic(csharpType);
-    public string MapTypeFromSyntax(TypeSyntax typeSyntax) => TypeMapper.MapTypeFromSyntax(typeSyntax);
+    public string MapTypeFromSyntax(TypeSyntax typeSyntax)
+    {
+        if (typeSyntax == null) return "Object";
+        // Prefer semantic resolution when available — this correctly handles
+        // generic type arguments, primitive boxing, and namespace-qualified lookups.
+        if (SemanticModel != null)
+        {
+            var typeInfo = SemanticModel.GetTypeInfo(typeSyntax);
+            if (typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol)
+                return TypeMapper.MapType(typeInfo.Type);
+        }
+        return TypeMapper.MapTypeFromSyntax(typeSyntax);
+    }
 
     public SemanticModel? GetSemanticModelForTree(SyntaxTree syntaxTree)
     {

@@ -99,6 +99,10 @@ public class TypeMappingRegistry
     private readonly Dictionary<(string TypeName, string MethodName), List<MethodMappingEntry>> _methodMappings = new();
     private readonly Dictionary<string, string> _namespaceMappings = new();
 
+    // Lazy-built index: simpleName`arity → (configKey, javaType)
+    // e.g. "IEnumerable`1" → ("System.Collections.Generic.IEnumerable`1", "Iterable")
+    private Dictionary<string, (string ConfigKey, string JavaType)>? _simpleNameIndex;
+
     /// <summary>
     /// Optional Java standard-library metadata index.  When set, enables auto-deduction of
     /// method name mappings (PascalCase → camelCase) and validation of mapped Java types.
@@ -229,6 +233,58 @@ public class TypeMappingRegistry
         // 移除命名空间前缀，返回简单类型名
         var lastDot = csharpType.LastIndexOf('.');
         return lastDot >= 0 ? csharpType.Substring(lastDot + 1) : csharpType;
+    }
+
+    /// <summary>
+    /// Fuzzy type lookup by simple name with optional generic arity.
+    /// Uses an O(1) lazy-built index; falls back to linear scan only if the index somehow misses.
+    /// </summary>
+    public string MapTypeBySimpleName(string simpleName, int? genericArity = null)
+    {
+        // Try exact match first
+        var result = MapType(simpleName);
+        if (result != simpleName) return result;
+
+        EnsureSimpleNameIndex();
+        var suffix = BuildSuffix(simpleName, genericArity);
+        if (_simpleNameIndex!.TryGetValue(suffix, out var entry))
+            return entry.JavaType;
+
+        return simpleName;
+    }
+
+    /// <summary>
+    /// Returns the matching config key for a simple-name lookup (used for import resolution).
+    /// Returns null when no config entry matches.
+    /// </summary>
+    public string? FindConfigKeyBySimpleName(string simpleName, int? genericArity = null)
+    {
+        EnsureSimpleNameIndex();
+        var suffix = BuildSuffix(simpleName, genericArity);
+        if (_simpleNameIndex!.TryGetValue(suffix, out var entry))
+            return entry.ConfigKey;
+
+        return null;
+    }
+
+    private static string BuildSuffix(string simpleName, int? genericArity) =>
+        genericArity.HasValue ? $"{simpleName}`{genericArity.Value}" : simpleName;
+
+    private void EnsureSimpleNameIndex()
+    {
+        if (_simpleNameIndex != null) return;
+
+        _simpleNameIndex = new(StringComparer.Ordinal);
+        foreach (var (configKey, mapping) in _typeMappings)
+        {
+            // Extract simple name: last dot-segment of the config key
+            // e.g. "System.Collections.Generic.IEnumerable`1" → "IEnumerable`1"
+            var lastDot = configKey.LastIndexOf('.');
+            var simple = lastDot >= 0 ? configKey.Substring(lastDot + 1) : configKey;
+
+            if (!_simpleNameIndex.ContainsKey(simple))
+                _simpleNameIndex[simple] = (configKey, mapping.JavaType);
+        }
     }
 
     /// <summary>

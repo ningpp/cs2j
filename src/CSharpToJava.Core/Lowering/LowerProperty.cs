@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java2;
 
@@ -7,8 +8,11 @@ public class LowerProperty : ILoweringPass
 {
     public string Name => "LowerProperty";
 
+    private ConversionContext _ctx = null!;
+
     public IrCompilationUnit Apply(IrCompilationUnit unit, ConversionContext context)
     {
+        _ctx = context;
         foreach (var type in unit.TypeDeclarations) LowerType(type);
         return unit;
     }
@@ -41,22 +45,9 @@ public class LowerProperty : ILoweringPass
         switch (expr)
         {
             case IrCSharpPropertyAccessExpression prop:
-                var javaName = char.ToUpper(prop.PropertyName[0]) + prop.PropertyName.Substring(1);
-                return new IrInvocationExpression
-                {
-                    Target = LowerExpression(prop.Target),
-                    MethodName = (prop.IsSetter ? "set" : "get") + javaName,
-                    Symbol = prop.Symbol, JavaType = prop.JavaType,
-                };
+                return LowerPropertyAccess(prop);
             case IrAssignmentExpression asgn when asgn.Target is IrCSharpPropertyAccessExpression setProp:
-                var javaSetterName = char.ToUpper(setProp.PropertyName[0]) + setProp.PropertyName.Substring(1);
-                return new IrInvocationExpression
-                {
-                    Target = LowerExpression(setProp.Target),
-                    MethodName = "set" + javaSetterName,
-                    Arguments = { LowerExpression(asgn.Value) },
-                    Symbol = setProp.Symbol,
-                };
+                return LowerPropertySet(setProp, asgn.Value);
             // IrCSharpIndexerAccessExpression handled by LowerIndexer
             case IrInvocationExpression call:
                 if (call.Target != null) call.Target = LowerExpression(call.Target);
@@ -67,5 +58,120 @@ public class LowerProperty : ILoweringPass
             case IrMemberAccessExpression mem: mem.Target = LowerExpression(mem.Target); return mem;
             default: return expr;
         }
+    }
+
+    private IrExpression LowerPropertyAccess(IrCSharpPropertyAccessExpression prop)
+    {
+        var propSymbol = prop.Symbol as IPropertySymbol;
+        var loweredTarget = LowerExpression(prop.Target);
+
+        // System.Array.Length → .length (Java array field, not a method)
+        if (propSymbol?.ContainingType?.SpecialType == SpecialType.System_Array)
+        {
+            var mappedName = TryMapPropertyName(propSymbol, prop.PropertyName);
+            return new IrMemberAccessExpression
+            {
+                Target = loweredTarget,
+                MemberName = mappedName,
+                Symbol = prop.Symbol,
+                JavaType = prop.JavaType,
+            };
+        }
+
+        // Check TypeMappings for a configured method name (e.g. Count → size)
+        var mappedMethod = TryMapPropertyName(propSymbol, prop.PropertyName);
+        if (mappedMethod != prop.PropertyName)
+        {
+            return new IrInvocationExpression
+            {
+                Target = loweredTarget,
+                MethodName = mappedMethod,
+                Symbol = prop.Symbol,
+                JavaType = prop.JavaType,
+            };
+        }
+
+        // Default: getter/setter pattern
+        var javaName = char.ToUpper(prop.PropertyName[0]) + prop.PropertyName.Substring(1);
+        return new IrInvocationExpression
+        {
+            Target = loweredTarget,
+            MethodName = (prop.IsSetter ? "set" : "get") + javaName,
+            Symbol = prop.Symbol,
+            JavaType = prop.JavaType,
+        };
+    }
+
+    private IrExpression LowerPropertySet(IrCSharpPropertyAccessExpression setProp, IrExpression value)
+    {
+        var propSymbol = setProp.Symbol as IPropertySymbol;
+        var loweredValue = LowerExpression(value);
+        var loweredTarget = LowerExpression(setProp.Target);
+
+        // Check TypeMappings for a configured setter name
+        var mappedMethod = TryMapPropertyName(propSymbol, setProp.PropertyName);
+        if (mappedMethod != setProp.PropertyName)
+        {
+            return new IrInvocationExpression
+            {
+                Target = loweredTarget,
+                MethodName = mappedMethod,
+                Arguments = { loweredValue },
+                Symbol = setProp.Symbol,
+            };
+        }
+
+        var javaSetterName = char.ToUpper(setProp.PropertyName[0]) + setProp.PropertyName.Substring(1);
+        return new IrInvocationExpression
+        {
+            Target = loweredTarget,
+            MethodName = "set" + javaSetterName,
+            Arguments = { loweredValue },
+            Symbol = setProp.Symbol,
+        };
+    }
+
+    /// <summary>
+    /// Looks up a property name in TypeMappings method mappings.
+    /// Walks the interface hierarchy when the containing type is a class.
+    /// Returns the mapped Java method name, or the original C# name if no mapping exists.
+    /// </summary>
+    private string TryMapPropertyName(IPropertySymbol? propSymbol, string csharpName)
+    {
+        if (propSymbol == null) return csharpName;
+
+        var containingType = propSymbol.ContainingType;
+        if (containingType == null) return csharpName;
+
+        // Try the concrete type first
+        var typeName = containingType.ToDisplayString();
+        var mapped = _ctx.TypeMappings.MapMethod(typeName, csharpName);
+        if (mapped != null) return mapped;
+
+        // Try original definition
+        var originalDef = containingType.OriginalDefinition;
+        if (originalDef != null && !SymbolEqualityComparer.Default.Equals(originalDef, containingType))
+        {
+            var originalName = originalDef.ToDisplayString();
+            mapped = _ctx.TypeMappings.MapMethod(originalName, csharpName);
+            if (mapped != null) return mapped;
+        }
+
+        // Walk interface hierarchy (e.g. a class implements ICollection<T> which has Count→size)
+        foreach (var iface in containingType.AllInterfaces)
+        {
+            var ifaceName = iface.ToDisplayString();
+            mapped = _ctx.TypeMappings.MapMethod(ifaceName, csharpName);
+            if (mapped != null) return mapped;
+
+            var ifaceOriginal = iface.OriginalDefinition;
+            if (ifaceOriginal != null && !SymbolEqualityComparer.Default.Equals(ifaceOriginal, iface))
+            {
+                mapped = _ctx.TypeMappings.MapMethod(ifaceOriginal.ToDisplayString(), csharpName);
+                if (mapped != null) return mapped;
+            }
+        }
+
+        return csharpName;
     }
 }
