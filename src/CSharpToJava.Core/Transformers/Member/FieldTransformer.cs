@@ -179,6 +179,10 @@ public class FieldTransformer : IMemberTransformer
         if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
             result &= ~JavaModifiers.Public;
 
+        // C# fields default to private when no access modifier is specified
+        if ((result & (JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private)) == 0)
+            result |= JavaModifiers.Private;
+
         return result;
     }
 

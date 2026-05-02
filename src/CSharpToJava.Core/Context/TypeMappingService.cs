@@ -139,6 +139,37 @@ public class TypeMappingService
 
             var errorName = errorType.Name;
 
+            // If the error type has type arguments, try the string-based fallback
+            // which correctly handles generics, boxing, and simple-name fuzzy lookup.
+            var displayString = errorType.ToDisplayString();
+            if (displayString.Contains('<') && displayString.EndsWith(">"))
+            {
+                var stringMapped = MapTypeFromSyntaxString(displayString);
+                if (stringMapped != errorName && stringMapped != displayString)
+                    return stringMapped;
+            }
+
+            // Try via simple-name index with arity when the error type is a named type
+            // with type arguments (e.g. IEnumerable<Shape> → lookup "IEnumerable`1").
+            if (errorType is INamedTypeSymbol namedError && namedError.TypeArguments.Length > 0)
+            {
+                var arity = namedError.TypeArguments.Length;
+                var fuzzyMapped = _typeMappings.MapTypeBySimpleName(errorName, arity);
+                if (fuzzyMapped != errorName)
+                {
+                    var configKey = _typeMappings.FindConfigKeyBySimpleName(errorName, arity);
+                    if (configKey != null) AddImportsForType(configKey);
+                    var typeArgs = string.Join(", ",
+                        namedError.TypeArguments.Select(t => MapTypeForGeneric(t)));
+                    return $"{MapSimpleTypeName(fuzzyMapped)}<{typeArgs}>";
+                }
+            }
+
+            // Try simple-name fuzzy lookup without arity
+            var simpleMapped = _typeMappings.MapTypeBySimpleName(errorName);
+            if (simpleMapped != errorName)
+                return MapSimpleTypeName(simpleMapped);
+
             // Try to use a namespace-qualified name to avoid cross-namespace collisions.
             var errorNs = errorType.ContainingNamespace?.ToDisplayString();
             if (!string.IsNullOrEmpty(errorNs) && errorNs != "<global namespace>"
