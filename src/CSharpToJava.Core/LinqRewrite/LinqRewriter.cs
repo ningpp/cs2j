@@ -625,13 +625,35 @@ namespace CSharpToJava.Core.LinqRewrite
 
         private string GetMethodFullName(InvocationExpressionSyntax invocation)
         {
-            
             var n = (semantic.GetSymbolInfo(invocation.Expression).Symbol as IMethodSymbol)?.OriginalDefinition.ToDisplayString();
+
+            // Fallback: when semantic model can't resolve the LINQ method (common in
+            // project pipeline), derive the method identity from syntax for known methods.
+            if (n == null && invocation.Expression is MemberAccessExpressionSyntax ma)
+            {
+                var methodName = ma.Name.Identifier.Text;
+                n = methodName switch
+                {
+                    "Count" or "LongCount" => $"System.Collections.Generic.IEnumerable<TSource>.{methodName}<TSource>()",
+                    "Any" => $"System.Collections.Generic.IEnumerable<TSource>.Any<TSource>()",
+                    "All" => $"System.Collections.Generic.IEnumerable<TSource>.All<TSource>(System.Func<TSource, bool>)",
+                    "First" => $"System.Collections.Generic.IEnumerable<TSource>.First<TSource>()",
+                    "FirstOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.FirstOrDefault<TSource>()",
+                    "Last" => $"System.Collections.Generic.IEnumerable<TSource>.Last<TSource>()",
+                    "LastOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>()",
+                    "Single" => $"System.Collections.Generic.IEnumerable<TSource>.Single<TSource>()",
+                    "SingleOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>()",
+                    "ElementAt" => $"System.Collections.Generic.IEnumerable<TSource>.ElementAt<TSource>(int)",
+                    "ElementAtOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.ElementAtOrDefault<TSource>(int)",
+                    _ => null
+                };
+            }
+
             const string ienumerableOfTsource = "System.Collections.Generic.IEnumerable<TSource>";
             n = n
                 ?.Replace("System.Collections.Generic.List<TSource>", ienumerableOfTsource)
                 .Replace("TSource[]", ienumerableOfTsource);
-                    
+
             return n;
         }
 
