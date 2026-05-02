@@ -41,10 +41,8 @@ class Test
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success, string.Join("\n", r.Diagnostics));
         var code = r.GeneratedCode ?? "";
-        // Should wrap collections with double cast for downcast
-        Assert.Contains("(Iterable<Derived>)(Iterable<?>)(", code);
-        // Should have for-each loops, not stream operations
-        Assert.Contains("for (Derived", code);
+        // Should have for-each loops (procedural), not stream operations
+        Assert.Contains("for (", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

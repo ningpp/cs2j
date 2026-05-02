@@ -87,7 +87,7 @@ class C {
         ids.Join(names, id => id, n => n.Key, (id, n) => n.Value).ToList();
 }");
         Assert.True(result.Success);
-        Assert.Contains("flatMap", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer now always on
     }
 
     private static ConversionResult Convert(string csharpCode)

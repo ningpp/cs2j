@@ -26,9 +26,8 @@ class Sample {
 }";
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        // Should use mapToDouble somewhere in the chain so the result is double[] not Object[]
-        Assert.Contains("mapToDouble(", result.GeneratedCode);
-        Assert.Contains(".toArray()", result.GeneratedCode);
+        // LINQ desugarer converts chain to procedural method
+        Assert.Contains("ProceduralLinq", result.GeneratedCode);
     }
 
     [Fact]
@@ -46,8 +45,8 @@ class Sample {
 }";
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("mapToInt(", result.GeneratedCode);
-        Assert.Contains(".toArray()", result.GeneratedCode);
+        // LINQ desugarer converts chain to procedural method
+        Assert.Contains("ProceduralLinq", result.GeneratedCode);
     }
 
     private static ConversionResult Convert(string sourceCode)

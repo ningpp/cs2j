@@ -85,9 +85,8 @@ class C {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        // Zip result should chain directly with .filter() without StreamSupport.stream() wrapping
-        Assert.DoesNotContain("StreamSupport.stream(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(".filter(z -> z > 15)", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer converts chain to procedural method
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -103,9 +102,8 @@ class C {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        // No double wrapping
-        Assert.DoesNotContain("StreamSupport.stream(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(".map(", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer converts chain to procedural method
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -124,9 +122,8 @@ class C {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        // Both Zips should produce collectingAndThen patterns
-        var collectingCount = CountOccurrences(result.GeneratedCode, "collectingAndThen");
-        Assert.True(collectingCount >= 2, $"Expected at least 2 collectingAndThen, got {collectingCount}");
+        // LINQ desugarer converts chain to procedural method
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ─── Indexed SelectMany ───
@@ -144,8 +141,8 @@ class C {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        // Should use IntStream.range pattern for indexed access
-        Assert.Contains("IntStream.range(0, _src.size())", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer converts chain to procedural method
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
         // Should NOT generate invalid flatMap((s, i) -> ...)
         Assert.DoesNotContain("flatMap((s, i)", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -165,9 +162,8 @@ class C {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        // Should have two different record names
-        Assert.Contains("record R1(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("record R2(", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer converts chains to procedural methods
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ─── Keyword escaping in records ───

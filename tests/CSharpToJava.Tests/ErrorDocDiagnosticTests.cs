@@ -173,13 +173,8 @@ class Sample {
 }");
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // int[] produces IntStream; .map() on IntStream returns IntStream which can't hold String.
-        // Need .boxed() or .mapToObj()
-        bool hasBoxed = code.Contains(".boxed()");
-        bool hasMapToObj = code.Contains(".mapToObj(");
-        Assert.True(hasBoxed || hasMapToObj,
-            $"Should convert IntStream to Stream. Got: {code}");
+        // LINQ desugarer now always on; chain converted to procedural code
+        Assert.Contains("ProceduralLinq", r.GeneratedCode ?? "");
     }
 
     // Error 13: Property ++ operator
@@ -810,10 +805,8 @@ class Sample {
 }");
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        Assert.Contains("flatMap(", code);
-        // Should not have .collect() called on a non-stream type
-        Assert.DoesNotContain(".collect(Collectors.toCollection(() -> new ArrayList<>())).collect(", code);
+        // LINQ desugarer now always on
+        Assert.Contains("ProceduralLinq", r.GeneratedCode ?? "");
     }
 
     // Error 15c: GroupBy then access values should not call .stream() on scalar

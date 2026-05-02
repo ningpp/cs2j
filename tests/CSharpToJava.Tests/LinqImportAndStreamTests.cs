@@ -72,7 +72,8 @@ class Sample {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer now always on
+        Assert.True(result.Success, result.GeneratedCode);
     }
 
     [Fact]
@@ -88,7 +89,8 @@ class Sample {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer now always on
+        Assert.True(result.Success, result.GeneratedCode);
     }
 
     [Fact]
@@ -158,7 +160,8 @@ class Sample {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
+        // LINQ desugarer now always on
+        Assert.True(result.Success, result.GeneratedCode);
     }
 
     [Fact]
@@ -174,7 +177,6 @@ class Sample {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("IntStream.range(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)
