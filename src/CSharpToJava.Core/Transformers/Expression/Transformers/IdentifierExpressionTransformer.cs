@@ -906,6 +906,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     or "ParStart" or "ParEnd" or "Par0" or "LayerEdges" or "VariableToEval"
                     or "VariableDoneEval" or "LeftConstraints" or "Globalization"
                     or "RectangularBoundary" or "UpperBound"
+                    or "Right" or "Second" or "First" or "IsActive"
+                    or "UserData" or "Nodes" or "End" or "CwTriangle"
+                    or "SourcePoint" or "TargetPoint" or "Parallelogram"
+                    or "Start" or "Left" or "Top" or "Bottom"
+                    or "Width" or "Height" or "Radius"
                     => "get" + memberName,
                 _ => null
             };
