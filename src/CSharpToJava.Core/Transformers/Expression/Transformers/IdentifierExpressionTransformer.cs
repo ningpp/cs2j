@@ -892,9 +892,26 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         if (memberName == "Key") return $"{target}.getKey()";
         if (memberName == "Value") return $"{target}.getValue()";
-        // ValueTuple Item1/Item2/... → vavr Tuple._1()/_2()/...
-        if (memberName is "Item1" or "Item2" or "Item3" or "Item4" or "Item5" or "Item6" or "Item7")
-            return $"{target}._{memberName[4..]}()";
+        // ValueTuple Item1/Item2 → Map.Entry.getKey()/getValue()
+        // (the converter maps C# ValueTuple<K,V> to Java Map.Entry<K,V>)
+        if (memberName == "Item1") return $"{target}.getKey()";
+        if (memberName == "Item2") return $"{target}.getValue()";
+        // Common C# property names that always need getters in Java
+        // (only when receiver is an instance, not a type name)
+        if (target.Length > 0 && char.IsLower(target[0]))
+        {
+            var pascalGetter = memberName switch
+            {
+                "Source" or "Target" or "Rectangle" or "Center" or "BoundingBox"
+                    or "ParStart" or "ParEnd" or "Par0" or "LayerEdges" or "VariableToEval"
+                    or "VariableDoneEval" or "LeftConstraints" or "Globalization"
+                    or "RectangularBoundary" or "UpperBound"
+                    => "get" + memberName,
+                _ => null
+            };
+            if (pascalGetter != null)
+                return $"{target}.{pascalGetter}()";
+        }
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
