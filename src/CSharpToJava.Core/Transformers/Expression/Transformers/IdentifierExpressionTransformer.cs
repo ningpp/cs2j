@@ -900,17 +900,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // (only when receiver is an instance, not a type name)
         if (target.Length > 0 && char.IsLower(target[0]))
         {
+            // Only emit getters for names that are always C# properties in MSAGL,
+            // never fields. Names like End/Start/Width/Height can be fields.
             var pascalGetter = memberName switch
             {
                 "Source" or "Target" or "Rectangle" or "Center" or "BoundingBox"
                     or "ParStart" or "ParEnd" or "Par0" or "LayerEdges" or "VariableToEval"
                     or "VariableDoneEval" or "LeftConstraints" or "Globalization"
-                    or "RectangularBoundary" or "UpperBound"
-                    or "Right" or "Second" or "First" or "IsActive"
-                    or "UserData" or "Nodes" or "End" or "CwTriangle"
-                    or "SourcePoint" or "TargetPoint" or "Parallelogram"
-                    or "Start" or "Left" or "Top" or "Bottom"
-                    or "Width" or "Height" or "Radius"
+                    or "RectangularBoundary" or "UpperBound" or "IsActive"
+                    or "UserData" or "CwTriangle" or "Parallelogram"
                     => "get" + memberName,
                 _ => null
             };
