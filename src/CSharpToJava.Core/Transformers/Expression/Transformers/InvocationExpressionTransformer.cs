@@ -6,6 +6,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
+using CSharpToJava.Core.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -3725,7 +3726,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 : StringExpressionTransformer.ConvertCSharpFormatToJava(spec);
         });
         // Wrap in Java string literal quotes.
-        return $"\"{result}\"";
+        return $"\"{StringEscapeHelper.EscapeJavaString(result)}\"";
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Utilities;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
@@ -235,7 +236,7 @@ public class StringExpressionTransformer : IIRExpressionTransformer
         // Fix 3: Raw strings ($"""..."""): let EscapeJavaString handle newlines as \n escapes
         // (newline chars → "\\n", literal backslashes → "\\\\") — no pre-processing needed
 
-        text = EscapeJavaString(text);
+        text = StringEscapeHelper.EscapeJavaString(text);
 
         if (isVerbatim)
         {
@@ -246,16 +247,6 @@ public class StringExpressionTransformer : IIRExpressionTransformer
         }
 
         return text;
-    }
-
-    private static string EscapeJavaString(string text)
-    {
-        return text
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("\t", "\\t")
-            .Replace("\n", "\\n")
-            .Replace("\r", "\\r");
     }
 
     // Fix 1: Complete C# → Java format specifier conversion table
