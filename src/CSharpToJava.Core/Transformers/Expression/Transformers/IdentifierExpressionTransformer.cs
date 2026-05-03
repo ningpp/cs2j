@@ -505,6 +505,68 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+            // Strategy 5: Unwrap parenthesized and cast expressions.
+            // e.g. ((ICurve)obj).Start → get type of obj cast to ICurve
+            if (receiverType == null || receiverType.TypeKind == TypeKind.Error)
+            {
+                var inner = node.Expression;
+                while (inner is ParenthesizedExpressionSyntax paren)
+                    inner = paren.Expression;
+                if (inner is CastExpressionSyntax cast)
+                {
+                    var castType = context.SemanticModel?.GetTypeInfo(cast.Type).Type;
+                    if (castType != null && castType.TypeKind != TypeKind.Error)
+                        receiverType = castType;
+                }
+            }
+
+            // Strategy 6: Resolve 'this' and 'base' expressions to the enclosing type.
+            if (receiverType == null || receiverType.TypeKind == TypeKind.Error)
+            {
+                if (node.Expression is ThisExpressionSyntax)
+                {
+                    var enclosingSym = context.SemanticModel?.GetEnclosingSymbol(node.SpanStart);
+                    receiverType = enclosingSym?.ContainingType;
+                }
+                else if (node.Expression is BaseExpressionSyntax)
+                {
+                    var enclosingSym = context.SemanticModel?.GetEnclosingSymbol(node.SpanStart);
+                    receiverType = enclosingSym?.ContainingType?.BaseType;
+                }
+            }
+
+            // Strategy 7: For MemberAccessExpressionSyntax receiver (chained access),
+            // recursively resolve the type of the inner member.
+            // e.g. obj.Property.Start → resolve type of obj.Property first
+            if (receiverType == null || receiverType.TypeKind == TypeKind.Error)
+            {
+                if (node.Expression is MemberAccessExpressionSyntax innerMemberAccess)
+                {
+                    var innerTypeInfo = context.SemanticModel?.GetTypeInfo(innerMemberAccess).Type;
+                    if (innerTypeInfo != null && innerTypeInfo.TypeKind != TypeKind.Error)
+                        receiverType = innerTypeInfo;
+                }
+            }
+
+            // Strategy 8: For IdentifierNameSyntax that looks like a type name (starts
+            // with uppercase), try the compilation's GetTypeByMetadataName.
+            if (receiverType == null || receiverType.TypeKind == TypeKind.Error)
+            {
+                if (node.Expression is IdentifierNameSyntax typeId
+                    && typeId.Identifier.Text.Length > 0
+                    && char.IsUpper(typeId.Identifier.Text[0])
+                    && context.ProjectCompilation != null)
+                {
+                    // Try current namespace + name, then bare name
+                    var currentNs = context.CurrentNamespace ?? "";
+                    var qualifiedName = string.IsNullOrEmpty(currentNs)
+                        ? typeId.Identifier.Text
+                        : $"{currentNs}.{typeId.Identifier.Text}";
+                    receiverType = context.ProjectCompilation.GetTypeByMetadataName(qualifiedName)
+                        ?? context.ProjectCompilation.GetTypeByMetadataName(typeId.Identifier.Text);
+                }
+            }
+
         if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
             node.Expression,
             context,
