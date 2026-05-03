@@ -1193,6 +1193,15 @@ class Program
             generatedCode = generatedCode.Replace("CompassVector.isPureDirection(Point,", "CompassVector.isPureDirection(getPoint(),", StringComparison.Ordinal);
         }
 
+        if (string.Equals(fileNameOnly, "NetworkSimplex.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "NetworkSimplex.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("outEnum.getCurrent()", "outEnum.next()", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("inEnum.getCurrent()", "inEnum.next()", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("outEdges.getCurrent()", "outEdges.next()", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("inEdges.getCurrent()", "inEdges.next()", StringComparison.Ordinal);
+        }
+
         if (string.Equals(fileNameOnly, "SteinerCdt.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "SteinerCdt.java", StringComparison.OrdinalIgnoreCase))
         {
