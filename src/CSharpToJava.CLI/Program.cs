@@ -1209,6 +1209,13 @@ class Program
             "Edge.",
             RegexOptions.Singleline);
 
+        if (string.Equals(fileNameOnly, "LayoutAlgorithmHelpers.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "LayoutAlgorithmHelpers.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(".distinct().size()", ".distinct().count()", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(".filter(new HashSet<>(v)::contains).size()", ".filter(new HashSet<>(v)::contains).count()", StringComparison.Ordinal);
+        }
+
         if (string.Equals(fileNameOnly, "SteinerCdt.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "SteinerCdt.java", StringComparison.OrdinalIgnoreCase))
         {
