@@ -429,7 +429,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var anyType = context.SemanticModel != null
                     ? context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type : null;
                 if (anyType?.TypeKind == TypeKind.Array || anyType is IArrayTypeSymbol)
-                    return $"{cReceiver}.length > 0";
+                    return $"({cReceiver}.length > 0)";
                 return $"{cReceiver}.iterator().hasNext()";
             }
         }
