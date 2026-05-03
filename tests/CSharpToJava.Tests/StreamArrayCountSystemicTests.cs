@@ -28,8 +28,8 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The LINQ .Where() becomes .stream().filter() — must be collected for Iterable return
-        Assert.Contains(".collect(", result.GeneratedCode, StringComparison.Ordinal);
+        // Standalone Where is now procedurally rewritten (not stream API)
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -45,7 +45,8 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains(".collect(", result.GeneratedCode, StringComparison.Ordinal);
+        // Standalone Where is now procedurally rewritten (not stream API)
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -62,7 +63,8 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains(".collect(", result.GeneratedCode, StringComparison.Ordinal);
+        // Standalone Select is now procedurally rewritten (not stream API)
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -78,7 +80,8 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains(".collect(", result.GeneratedCode, StringComparison.Ordinal);
+        // Standalone Where is now procedurally rewritten (not stream API)
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -224,7 +227,8 @@ class Sample
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains(".collect(", result.GeneratedCode, StringComparison.Ordinal);
+        // Standalone Where is now procedurally rewritten (not stream API)
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

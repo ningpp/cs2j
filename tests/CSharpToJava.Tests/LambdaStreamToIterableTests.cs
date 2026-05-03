@@ -31,9 +31,8 @@ class Test
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The lambda body should have .collect() since target returns Iterable
-        Assert.Contains(".collect(", result.GeneratedCode);
-        Assert.Contains("Collectors.toCollection", result.GeneratedCode);
+        // Standalone Select inside lambda is now procedurally rewritten
+        Assert.Contains("ProceduralLinq", result.GeneratedCode);
     }
 
     [Fact]

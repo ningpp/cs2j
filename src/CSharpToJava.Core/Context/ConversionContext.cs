@@ -91,6 +91,13 @@ public class ConversionContext
 
     public CSharpCompilation? ProjectCompilation { get; set; }
 
+    /// <summary>
+    /// Saved original compilation from before the LinqDesugarPass rebuild.
+    /// Used as a fallback when the original syntax tree is not in the current
+    /// ProjectCompilation (e.g. after LinqRewriter modified the tree).
+    /// </summary>
+    public CSharpCompilation? PreDesugarCompilation { get; set; }
+
     public void RegisterFlagsEnum(string enumName) => TypeMapper.RegisterFlagsEnum(enumName);
     public bool IsFlagsEnum(string enumName) => TypeMapper.IsFlagsEnum(enumName);
 
@@ -221,9 +228,15 @@ public class ConversionContext
         if (ProjectCompilation != null)
         {
             // Synthetic trees (e.g. created by WithMembers) are NOT in the compilation.
-            // Fall back to the current SemanticModel which covers the original tree.
             if (ProjectCompilation.ContainsSyntaxTree(syntaxTree))
                 return ProjectCompilation.GetSemanticModel(syntaxTree);
+
+            // The LinqDesugarPass may have rebuilt the compilation with modified syntax
+            // trees. If the original tree is not in the current compilation, try the
+            // pre-desugar compilation (saved before LinqRewriter modified anything).
+            if (PreDesugarCompilation != null && PreDesugarCompilation.ContainsSyntaxTree(syntaxTree))
+                return PreDesugarCompilation.GetSemanticModel(syntaxTree);
+
             return SemanticModel;
         }
         return SemanticModel;

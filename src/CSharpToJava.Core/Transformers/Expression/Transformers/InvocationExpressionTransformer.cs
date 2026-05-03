@@ -1733,21 +1733,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 };
             }
 
-            // LINQ unresolved fallback: in large conversions Roslyn may fail to resolve
-            // Enumerable.Where/Select, leaving raw method names that later map to invalid
-            // List.filter/List.map. If receiver still has IEnumerable-like type info,
-            // force a stream pipeline syntactically.
-            if (context.SemanticModel != null
-                && originalMethodName is "Where" or "Select"
+            // LINQ unresolved fallback: handles LINQ extension methods that were not rewritten
+            // by LinqRewriter (single-method chains without terminals, compilation rebuild
+            // issues, etc.).  Works with or without a resolved method symbol and with or
+            // without a usable semantic model.
+            if (originalMethodName is "Where" or "Select" or "SelectMany"
+                                   or "OrderBy" or "OrderByDescending"
                 && node.ArgumentList.Arguments.Count >= 1)
             {
-                var unresolvedLinqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
-                if (ImplementsIEnumerable(unresolvedLinqReceiverType)
-                    || unresolvedLinqReceiverType is IArrayTypeSymbol
-                    // Fallback: when the type is null or an error type, Select/Where are almost
-                    // certainly LINQ extension methods — assume IEnumerable and build a stream pipeline.
-                    || unresolvedLinqReceiverType == null
-                    || unresolvedLinqReceiverType is IErrorTypeSymbol)
+                // Determine whether the receiver is IEnumerable-like.
+                // When the semantic model is available use the precise type check;
+                // otherwise assume any syntactically-unresolved call with these names is a
+                // LINQ extension method on an iterable receiver.
+                ITypeSymbol? unresolvedLinqReceiverType = null;
+                bool likelyEnumerable;
+                if (context.SemanticModel != null)
+                {
+                    unresolvedLinqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                    likelyEnumerable = ImplementsIEnumerable(unresolvedLinqReceiverType)
+                        || unresolvedLinqReceiverType is IArrayTypeSymbol
+                        || unresolvedLinqReceiverType == null
+                        || unresolvedLinqReceiverType is IErrorTypeSymbol;
+                }
+                else
+                {
+                    likelyEnumerable = true;
+                }
+
+                if (likelyEnumerable)
                 {
                     // Skip .stream() injection if the receiver is already a stream pipeline
                     // (e.g. chained unresolved LINQ: items.Where(...).Select(...))
@@ -1764,8 +1777,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                             preserveGroupingValueStream: true,
                             receiverSyntaxNode: memberAccess.Expression);
 
-                    var unresolvedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-
                     // Add .collect() terminal when this is the outermost expression in the chain
                     // (not used as a receiver for another method call like .ToList() or .Select())
                     bool needsTerminal = node.Parent is not MemberAccessExpressionSyntax;
@@ -1777,12 +1788,46 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         terminal = ".collect(Collectors.toCollection(() -> new ArrayList<>()))";
                     }
 
+                    // Map C# LINQ method → Java Stream method
                     if (originalMethodName == "Where")
                     {
+                        var unresolvedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                         return $"{unresolvedLinqReceiver}.filter({unresolvedArg}){terminal}";
                     }
 
-                    return $"{unresolvedLinqReceiver}.map({unresolvedArg}){terminal}";
+                    if (originalMethodName == "Select")
+                    {
+                        var unresolvedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        return $"{unresolvedLinqReceiver}.map({unresolvedArg}){terminal}";
+                    }
+
+                    if (originalMethodName == "SelectMany")
+                    {
+                        var unresolvedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        return $"{unresolvedLinqReceiver}.flatMap({unresolvedArg}){terminal}";
+                    }
+
+                    // OrderBy / OrderByDescending: when the result is discarded (terminal /
+                    // standalone statement), sort in-place so the original intent is preserved
+                    // (C# OrderBy is non-mutating and returns a new enumerable, so a bare
+                    // OrderBy call that discards the result is a no-op — the developer almost
+                    // certainly intended to sort the collection).
+                    if (originalMethodName is "OrderBy" or "OrderByDescending")
+                    {
+                        context.AddImport("java.util.Comparator");
+                        var orderKeyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        var comparator = $"Comparator.comparing({orderKeyArg})";
+                        if (originalMethodName == "OrderByDescending")
+                            comparator = $"{comparator}.reversed()";
+
+                        if (needsTerminal)
+                        {
+                            context.AddImport("java.util.Collections");
+                            return $"Collections.sort({receiver}, {comparator})";
+                        }
+
+                        return $"{unresolvedLinqReceiver}.sorted({comparator})";
+                    }
                 }
             }
         }

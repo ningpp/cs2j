@@ -29,8 +29,8 @@ class Test
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.DoesNotContain(".Select(", result.GeneratedCode);
-        // Should use stream().map() or StreamSupport.stream()...map()
-        Assert.Contains(".map(", result.GeneratedCode);
+        // Standalone Select is now procedurally rewritten (not stream API)
+        Assert.Contains("ProceduralLinq", result.GeneratedCode);
     }
 
     [Fact]

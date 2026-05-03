@@ -35,9 +35,8 @@ class Generator
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The .Where() becomes .filter() which returns Stream<Edge>
-        // Must be collected before assignment to Iterable<Edge> field
-        Assert.Contains(".collect(", result.GeneratedCode, StringComparison.Ordinal);
+        // Standalone Where is now procedurally rewritten (not stream API)
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     /// <summary>

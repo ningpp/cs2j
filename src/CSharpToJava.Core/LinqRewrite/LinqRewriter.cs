@@ -127,8 +127,18 @@ namespace CSharpToJava.Core.LinqRewrite
             if (memberAccess != null)
             {
                 var symbol = semantic.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
-                var owner = node.AncestorsAndSelf().FirstOrDefault(x => x is MethodDeclarationSyntax || x is LocalFunctionStatementSyntax);
+                // Find the enclosing member: method, local function, operator, property getter,
+                // constructor, or expression-bodied property.  Extracted helpers are named after
+                // this owner.  BaseMethodDeclarationSyntax covers MethodDeclarationSyntax,
+                // OperatorDeclarationSyntax, ConstructorDeclarationSyntax, etc.
+                var owner = node.AncestorsAndSelf().FirstOrDefault(x =>
+                    x is BaseMethodDeclarationSyntax || x is LocalFunctionStatementSyntax
+                    || x is AccessorDeclarationSyntax || x is PropertyDeclarationSyntax);
                 if (owner == null) return null;
+                currentMethodIsStatic = false;
+                currentMethodName = "Procedure";
+                currentMethodTypeParameters = null;
+                currentMethodConstraintClauses = default;
                 if (owner is MethodDeclarationSyntax methodOwner)
                 {
                     currentMethodIsStatic = semantic.GetDeclaredSymbol(methodOwner)?.IsStatic ?? false;
@@ -142,6 +152,37 @@ namespace CSharpToJava.Core.LinqRewrite
                     currentMethodName = localFunc.Identifier.ValueText;
                     currentMethodTypeParameters = localFunc.TypeParameterList;
                     currentMethodConstraintClauses = localFunc.ConstraintClauses;
+                }
+                else if (owner is OperatorDeclarationSyntax opDecl)
+                {
+                    currentMethodIsStatic = semantic.GetDeclaredSymbol(opDecl)?.IsStatic ?? false;
+                    // Map operator tokens to valid C# identifier segments.
+                    currentMethodName = "op_" + opDecl.OperatorToken.Text switch
+                    {
+                        "*" => "Multiply", "/" => "Divide", "+" => "Plus", "-" => "Minus",
+                        "%" => "Modulo", "==" => "Equals", "!=" => "NotEquals",
+                        "<" => "LessThan", ">" => "GreaterThan",
+                        "<=" => "LessThanOrEqual", ">=" => "GreaterThanOrEqual",
+                        "&" => "BitwiseAnd", "|" => "BitwiseOr", "^" => "Xor",
+                        "<<" => "LeftShift", ">>" => "RightShift",
+                        var t => t
+                    };
+                    currentMethodTypeParameters = null;
+                    currentMethodConstraintClauses = default;
+                }
+                else if (owner is ConstructorDeclarationSyntax ctorDecl)
+                {
+                    currentMethodIsStatic = false;
+                    currentMethodName = ctorDecl.Identifier.Text;
+                }
+                else if (owner is AccessorDeclarationSyntax accessor)
+                {
+                    var prop = accessor.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
+                    currentMethodName = prop?.Identifier.Text ?? "Property";
+                }
+                else if (owner is PropertyDeclarationSyntax propDecl)
+                {
+                    currentMethodName = propDecl.Identifier.Text;
                 }
 
           
@@ -204,15 +245,6 @@ namespace CSharpToJava.Core.LinqRewrite
                             "Chain has no lambda and no recognized non-lambda operator"));
                         return null;
                     }
-                    if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName))
-                    {
-                        Statistics.SkippedChains.Add(new LinqSkipInfo(
-                            LinqSkipReason.SingleRootMethodRequiresYield, chainLineNumber,
-                            memberAccess.Name.Identifier.ValueText,
-                            "Single root method requires yield return"));
-                        return null;
-                    }
-
 
                     var flowsIn = new List<ISymbol>();
                     var flowsOut = new List<ISymbol>();
@@ -645,14 +677,26 @@ namespace CSharpToJava.Core.LinqRewrite
                     "SingleOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>()",
                     "ElementAt" => $"System.Collections.Generic.IEnumerable<TSource>.ElementAt<TSource>(int)",
                     "ElementAtOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.ElementAtOrDefault<TSource>(int)",
+                    "Where" => $"System.Collections.Generic.IEnumerable<TSource>.Where<TSource>(System.Func<TSource, bool>)",
+                    "Select" => $"System.Collections.Generic.IEnumerable<TSource>.Select<TSource, TResult>(System.Func<TSource, TResult>)",
+                    "SelectMany" => $"System.Collections.Generic.IEnumerable<TSource>.SelectMany<TSource, TResult>(System.Func<TSource, System.Collections.Generic.IEnumerable<TResult>>)",
+                    "OrderBy" => $"System.Collections.Generic.IEnumerable<TSource>.OrderBy<TSource, TKey>(System.Func<TSource, TKey>)",
+                    "OrderByDescending" => $"System.Collections.Generic.IEnumerable<TSource>.OrderByDescending<TSource, TKey>(System.Func<TSource, TKey>)",
                     _ => null
                 };
             }
 
             const string ienumerableOfTsource = "System.Collections.Generic.IEnumerable<TSource>";
-            n = n
-                ?.Replace("System.Collections.Generic.List<TSource>", ienumerableOfTsource)
-                .Replace("TSource[]", ienumerableOfTsource);
+            if (n != null)
+            {
+                // Normalize any collection type (List, ICollection, IList, ISet, etc.)
+                // to IEnumerable<TSource> so the method identity matches KnownMethods.
+                n = System.Text.RegularExpressions.Regex.Replace(
+                    n,
+                    @"^System\.Collections\.Generic\.\w+<TSource>\.",
+                    ienumerableOfTsource + ".");
+                n = n.Replace("TSource[]", ienumerableOfTsource);
+            }
 
             return n;
         }

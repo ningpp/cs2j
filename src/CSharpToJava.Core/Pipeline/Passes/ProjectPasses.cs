@@ -206,6 +206,11 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
         }
         LinqStatistics = aggregatedStats;
 
+        // Save the pre-desugar compilation so downstream transforms
+        // (ClassTransformer / InvocationExpressionTransformer) can still resolve
+        // symbols for original syntax trees that were modified by LinqRewriter.
+        state.Context.PreDesugarCompilation = state.Compilation;
+
         state.Compilation = CSharpCompilation.Create(
             state.Compilation.AssemblyName ?? "TempAssembly",
             rewrittenTrees,
@@ -278,9 +283,23 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
             var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
             var rewrittenRoot = rewriter.Visit(syntaxTree.GetRoot());
-            var rewrittenTree = rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit
-                ? syntaxTree.WithRootAndOptions(rewrittenCompilationUnit, syntaxTree.Options)
-                : syntaxTree;
+            SyntaxTree rewrittenTree;
+            if (rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit)
+            {
+                // Preserve the original syntax tree reference when the rewriter made no
+                // changes.  This is critical: downstream passes (ClassTransformer etc.)
+                // call GetSemanticModelForTree with the *original* tree reference, and
+                // Roslyn's GetSemanticModel only works when the tree is in the compilation.
+                // If we blindly wrap with WithRootAndOptions we create a new tree object
+                // that the original reference won't match.
+                rewrittenTree = rewrittenCompilationUnit == syntaxTree.GetRoot()
+                    ? syntaxTree
+                    : syntaxTree.WithRootAndOptions(rewrittenCompilationUnit, syntaxTree.Options);
+            }
+            else
+            {
+                rewrittenTree = syntaxTree;
+            }
 
             return new ProjectLinqRewriteResult
             {
