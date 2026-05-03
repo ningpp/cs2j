@@ -93,6 +93,22 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 bool isPropertyTarget = operandSyntax != null && context.SemanticModel != null
                     && context.SemanticModel.GetSymbolInfo(operandSyntax).Symbol is IPropertySymbol;
 
+                // For LogicalNotExpression (!), verify the operand is boolean.
+                // C# allows ! on int (0→true, non-zero→false) but Java requires
+                // boolean. Non-boolean operands must fall back to the raw string path
+                // which calls TransformLogicalNot() → rewrites to (operand == 0).
+                if (node.Kind() == SyntaxKind.LogicalNotExpression
+                    && context.SemanticModel != null
+                    && operandSyntax != null)
+                {
+                    var opTypeInfo = context.SemanticModel.GetTypeInfo(operandSyntax);
+                    if (opTypeInfo.Type == null
+                        || opTypeInfo.Type.SpecialType != SpecialType.System_Boolean)
+                    {
+                        return new JavaRawExpression(Transform(node, context));
+                    }
+                }
+
                 if (!isPropertyTarget && operandSyntax != null)
                 {
                     var operandIR = ExpressionTransformerFacade.Instance.TransformToIR(operandSyntax, context);
