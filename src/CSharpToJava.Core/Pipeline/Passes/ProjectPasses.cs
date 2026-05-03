@@ -226,6 +226,14 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             isTestProject: primaryProject?.IsTestProject ?? false,
             libraryName: state.Library.Name);
         state.Context.ProjectCompilation = state.Compilation;
+
+        // Rebuild TypeGroups from the new compilation so that ClassTransformer
+        // processes syntax nodes from the post-LinqRewriter trees, not the
+        // original (pre-rewrite) trees. Without this, the ClassTransformer
+        // sees the old nodes with residual LINQ method calls that the
+        // LinqRewriter already replaced in the new trees.
+        var partialMerger = new PartialTypeMerger(state.Context.Diagnostics);
+        state.TypeGroups = partialMerger.FindAndGroupTypes(state.Compilation);
     }
 
     private static ProjectLinqRewriteResult DesugarSyntaxTree(SyntaxTree syntaxTree)
