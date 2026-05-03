@@ -1936,8 +1936,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "ToLowerInvariant" => "toLowerCase",
                 "ToUpperInvariant" => "toUpperCase",
                 // Math method names that differ from simple camelCase
+                // Note: "Sign" → "signum" is handled specifically for System.Math / System.MathF
+                // at the call site above (around line 1407).  Do NOT add a universal
+                // "Sign" → "signum" mapping here — it would rewrite custom types' Sign()
+                // methods too (e.g. ApproximateComparer.Sign()).
                 "Ceiling"       => "ceil",
-                "Sign"          => "signum",
                 "Truncate"      => "truncate",
                 _ when methodName.Length > 0
                     => char.ToLowerInvariant(methodName[0]) + methodName[1..],
