@@ -1167,6 +1167,32 @@ class Program
             generatedCode = generatedCode.Replace("System.Xml.XmlReader.create(", "XmlReader.create(", StringComparison.Ordinal);
         }
 
+        if (string.Equals(fileNameOnly, "PolyIntEdge.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "PolyIntEdge.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = Regex.Replace(generatedCode,
+                @"Microsoft\.Msagl\.Core\.Layout\.Edge\.(getLabel|getCurve|setCurve|getUnderlyingPolyline|setUnderlyingPolyline)\b",
+                @"getEdge().$1",
+                RegexOptions.Singleline);
+            generatedCode = Regex.Replace(generatedCode,
+                @"new PolyIntEdge\(target, source, Microsoft\.Msagl\.Core\.Layout\.Edge\)",
+                "new PolyIntEdge(target, source, getEdge())",
+                RegexOptions.Singleline);
+            generatedCode = Regex.Replace(generatedCode,
+                @"Routing\.updateLabel\(Microsoft\.Msagl\.Core\.Layout\.Edge,",
+                "Routing.updateLabel(getEdge(),",
+                RegexOptions.Singleline);
+        }
+
+        if (string.Equals(fileNameOnly, "LinkedPoint.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "LinkedPoint.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("return Point.X;", "return getPoint().getX();", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("return Point.Y;", "return getPoint().getY();", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("return Point.toString();", "return getPoint().toString();", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("CompassVector.isPureDirection(Point,", "CompassVector.isPureDirection(getPoint(),", StringComparison.Ordinal);
+        }
+
         if (string.Equals(fileNameOnly, "SteinerCdt.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "SteinerCdt.java", StringComparison.OrdinalIgnoreCase))
         {
