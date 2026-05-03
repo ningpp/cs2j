@@ -303,6 +303,13 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var leftType = semanticModel.GetTypeInfo(node.Left).Type;
         var rightType = semanticModel.GetTypeInfo(node.Right).Type;
 
+        // If both operand types are definitively built-in (e.g. double + double),
+        // no user-defined operator can apply — skip the syntax-based inference fallback.
+        if (leftType != null && rightType != null
+            && leftType is INamedTypeSymbol leftNamed && IsBuiltInType(leftNamed)
+            && rightType is INamedTypeSymbol rightNamed && IsBuiltInType(rightNamed))
+            return null;
+
         // Prefer the left operand's type for the operator container (e.g. Point * double → Point).
         // Skip error types (unresolved 'var' etc.) and interface types.
         bool IsValidOperatorType(INamedTypeSymbol? t) =>
@@ -403,6 +410,12 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var leftType = semanticModel.GetTypeInfo(node.Left).Type;
         var rightType = semanticModel.GetTypeInfo(node.Right).Type;
 
+        // If both operand types are definitively built-in, no user-defined operator applies.
+        if (leftType != null && rightType != null
+            && leftType is INamedTypeSymbol leftNamed2 && IsBuiltInType(leftNamed2)
+            && rightType is INamedTypeSymbol rightNamed2 && IsBuiltInType(rightNamed2))
+            return null;
+
         INamedTypeSymbol? operatorType = null;
         if (leftType is INamedTypeSymbol lnt && lnt.TypeKind != TypeKind.Error && lnt.TypeKind != TypeKind.Interface && !IsBuiltInType(lnt))
             operatorType = lnt;
@@ -481,13 +494,20 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 if (recvType != null)
                 {
                     var memberName = ma.Name.Identifier.Text;
+                    bool foundPropertyOrField = false;
                     foreach (var m in recvType.GetMembers(memberName))
                     {
                         if (m is IPropertySymbol { Type: INamedTypeSymbol mt } && mt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mt))
                             return mt;
                         if (m is IFieldSymbol { Type: INamedTypeSymbol mft } && mft.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mft))
                             return mft;
+                        if (m is IPropertySymbol or IFieldSymbol)
+                            foundPropertyOrField = true;
                     }
+                    // If member is a property/field with built-in type, return null
+                    // (expression resolves to built-in type, no user-defined operator applies)
+                    if (foundPropertyOrField)
+                        return null;
                     return recvType;
                 }
             }

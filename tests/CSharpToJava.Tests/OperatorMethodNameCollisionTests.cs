@@ -313,6 +313,69 @@ public struct Point
         Assert.DoesNotContain("public static Point Subtract(", code, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Inside an operator body, primitive arithmetic on member fields (e.g. point0.X + point1.X
+    /// where X is double) MUST remain as Java operators, not be converted to operator method calls.
+    /// Regression test: InferOperatorTypeFromSyntax was incorrectly returning the receiver type (Point)
+    /// instead of null for member accesses whose type is built-in (double).
+    /// </summary>
+    [Fact]
+    public void OperatorBody_PrimitiveArithmetic_KeptAsJavaOperators()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public double X, Y;
+    public Point(double x, double y) { X = x; Y = y; }
+
+    public static Point operator +(Point a, Point b)
+    {
+        return new Point(a.X + b.X, a.Y + b.Y);
+    }
+
+    public static Point operator -(Point a, Point b)
+    {
+        return new Point(a.X - b.X, a.Y - b.Y);
+    }
+
+    public static double operator *(Point a, Point b)
+    {
+        return a.X * b.X + a.Y * b.Y;
+    }
+
+    public static Point operator *(double c, Point p)
+    {
+        return new Point(c * p.X, c * p.Y);
+    }
+
+    public static Point operator /(Point p, double c)
+    {
+        return new Point(p.X / c, p.Y / c);
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        // operator+ body: primitive + on double fields must stay as Java +
+        Assert.Contains("a.X + b.X", code, StringComparison.Ordinal);
+        Assert.Contains("a.Y + b.Y", code, StringComparison.Ordinal);
+        // operator+ body must NOT convert double + to add()
+        Assert.DoesNotContain("add(a.X", code, StringComparison.Ordinal);
+
+        // operator- body: primitive - on double fields must stay as Java -
+        Assert.Contains("a.X - b.X", code, StringComparison.Ordinal);
+
+        // operator* (dot product) body: primitive * and + on doubles
+        Assert.Contains("a.X * b.X + a.Y * b.Y", code, StringComparison.Ordinal);
+
+        // operator* (scalar) body: primitive * on doubles
+        Assert.Contains("c * p.X", code, StringComparison.Ordinal);
+
+        // operator/ body: primitive / on doubles
+        Assert.Contains("p.X / c", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
