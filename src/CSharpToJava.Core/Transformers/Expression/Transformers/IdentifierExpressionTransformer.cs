@@ -935,6 +935,25 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{target}.{pascalGetter}()";
         }
 
+        // Phase 1 diagnostic: log why we fell through to raw field access
+        if (memberName != "AlgorithmData") // AlgorithmData is intentionally a field
+        {
+            var reasonA = context.SemanticModel == null ? "SemanticModel null"
+                : context.SemanticModel.GetSymbolInfo(node).Symbol switch
+                {
+                    null => "GetSymbolInfo returned null",
+                    IFieldSymbol => $"Symbol was IFieldSymbol({memberName})",
+                    IMethodSymbol => $"Symbol was IMethodSymbol({memberName})",
+                    var s => $"Symbol was {s?.Kind}({memberName})"
+                };
+            var reasonReceiverType = receiverType == null ? "receiverType null"
+                : receiverType.TypeKind == TypeKind.Error ? "receiverType Error"
+                : $"receiverType={receiverType.ToDisplayString()}, GetMembers returned no IPropertySymbol for '{memberName}'";
+            context.Diagnostics.Info(
+                $"Property fallback: '{node}' -> {target}.{memberName} | PathA: {reasonA} | PathC: {reasonReceiverType}",
+                node.GetLocation());
+        }
+
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
     }
