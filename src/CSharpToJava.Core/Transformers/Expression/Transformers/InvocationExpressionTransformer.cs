@@ -413,15 +413,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ConversionContext context,
         ExpressionTransformerFacade facade)
     {
-        // Known C# → Java method name mappings that can't rely on semantic model
-        if (memberAccess.Name.Identifier.Text is "Dequeue" or "Enqueue" or "dequeue" or "enqueue")
-        {
-            var qReceiver = facade.Transform(memberAccess.Expression, context);
-            var qMethodName = memberAccess.Name.Identifier.Text;
-            var javaMethod = qMethodName is "Dequeue" or "dequeue" ? "poll" : "offer";
-            var qArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-            return string.IsNullOrEmpty(qArgs) ? $"{qReceiver}.{javaMethod}()" : $"{qReceiver}.{javaMethod}({qArgs})";
-        }
+        // Note: Enqueue/Dequeue methods are handled via TypeMappings (e.g. Queue<T>.Enqueue→add,
+        // Queue<T>.Dequeue→remove). Custom heap types (GenericBinaryHeapPriorityQueue, EventQueue,
+        // etc.) go through normal camelCase so that call sites and declarations stay consistent.
 
         // Count() with no args → size() (Collection) or count() (Iterable fallback)
         // Any() with no args → length>0 (array) or iterator().hasNext() (Iterable/Collection)
