@@ -108,6 +108,14 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         // Determine collection type via semantic model
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Expression);
         var exprType = typeInfo?.Type;
+        // VarTypeMap fallback: when var locals can't be resolved via semantic model
+        if ((exprType == null || exprType.TypeKind == TypeKind.Error)
+            && node.Expression is IdentifierNameSyntax idExpr
+            && context.VarTypeMap.TryGetValue(idExpr.Identifier.Text, out var mappedType)
+            && mappedType.TypeKind != TypeKind.Error)
+        {
+            exprType = mappedType;
+        }
         bool isArray = exprType is IArrayTypeSymbol;
         bool isString = exprType?.SpecialType == SpecialType.System_String;
         bool isList = false;

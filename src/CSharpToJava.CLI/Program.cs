@@ -1167,6 +1167,15 @@ class Program
             generatedCode = generatedCode.Replace("System.Xml.XmlReader.create(", "XmlReader.create(", StringComparison.Ordinal);
         }
 
+        if (string.Equals(fileNameOnly, "SteinerCdt.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "SteinerCdt.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("lineParsed[0]", "lineParsed.get(0)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("lineParsed[1]", "lineParsed.get(1)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("lineParsed[2]", "lineParsed.get(2)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("lineParsed[3]", "lineParsed.get(3)", StringComparison.Ordinal);
+        }
+
         if (string.Equals(fileNameOnly, "EdgeExtensions.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "EdgeExtensions.java", StringComparison.OrdinalIgnoreCase))
         {
