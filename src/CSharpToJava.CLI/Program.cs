@@ -1202,6 +1202,13 @@ class Program
             generatedCode = generatedCode.Replace("inEdges.getCurrent()", "inEdges.next()", StringComparison.Ordinal);
         }
 
+        // General post-processing: simplify fully-qualified Edge type reference in
+        // static method calls (Edge.RouteSelfEdge is a legitimate static method).
+        generatedCode = Regex.Replace(generatedCode,
+            @"Microsoft\.Msagl\.Core\.Layout\.Edge\.",
+            "Edge.",
+            RegexOptions.Singleline);
+
         if (string.Equals(fileNameOnly, "SteinerCdt.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "SteinerCdt.java", StringComparison.OrdinalIgnoreCase))
         {
