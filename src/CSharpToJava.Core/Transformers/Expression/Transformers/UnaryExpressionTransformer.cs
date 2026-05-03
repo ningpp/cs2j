@@ -40,7 +40,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         {
             SyntaxKind.UnaryPlusExpression => TransformUnaryExpression((PrefixUnaryExpressionSyntax)node, "+", context),
             SyntaxKind.UnaryMinusExpression => TransformUnaryExpression((PrefixUnaryExpressionSyntax)node, "-", context),
-            SyntaxKind.LogicalNotExpression => TransformUnaryExpression((PrefixUnaryExpressionSyntax)node, "!", context),
+            SyntaxKind.LogicalNotExpression => TransformLogicalNot((PrefixUnaryExpressionSyntax)node, context),
             SyntaxKind.BitwiseNotExpression => TransformUnaryExpression((PrefixUnaryExpressionSyntax)node, "~", context),
             SyntaxKind.AddressOfExpression => TransformAddressOf((PrefixUnaryExpressionSyntax)node, context),
             SyntaxKind.PointerIndirectionExpression => TransformPointerIndirection((PrefixUnaryExpressionSyntax)node, context),
@@ -144,6 +144,27 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         return $"{op}{operand}";
+    }
+
+    /// <summary>
+    /// Handles logical not (!). In C# the ! operator can be applied to int
+    /// (0 → true, non-zero → false) but Java requires a boolean operand.
+    /// When the operand is non-boolean, rewrite to (operand == 0).
+    /// </summary>
+    private string TransformLogicalNot(PrefixUnaryExpressionSyntax node, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+
+        if (context.SemanticModel != null)
+        {
+            var typeInfo = context.SemanticModel.GetTypeInfo(node.Operand);
+            if (typeInfo.Type != null && typeInfo.Type.SpecialType == SpecialType.System_Boolean)
+                return $"!{operand}";
+        }
+
+        // Non-boolean: rewrite !x → (x == 0)
+        return $"({operand} == 0)";
     }
 
     private static bool IsNumericType(ITypeSymbol? type)
