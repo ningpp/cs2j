@@ -1155,6 +1155,18 @@ class Program
                 RegexOptions.Singleline);
         }
 
+        if (string.Equals(fileNameOnly, "GeometryGraphWriter.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "GeometryGraphWriter.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("System.Xml.XmlWriter.create(", "XmlWriter.create(", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "GeometryGraphReader.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "GeometryGraphReader.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("System.Xml.XmlReader.create(", "XmlReader.create(", StringComparison.Ordinal);
+        }
+
         if (string.Equals(fileNameOnly, "EdgeExtensions.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "EdgeExtensions.java", StringComparison.OrdinalIgnoreCase))
         {

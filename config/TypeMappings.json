@@ -165,42 +165,42 @@
                              "csharp":  "System.Xml.XmlWriter",
                              "java":  "XmlWriter",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.XmlWriter"
                                          ]
                          },
                          {
                              "csharp":  "System.Xml.XmlReaderSettings",
                              "java":  "XmlReaderSettings",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.XmlReaderSettings"
                                          ]
                          },
                          {
                              "csharp":  "System.Xml.XmlWriterSettings",
                              "java":  "XmlWriterSettings",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.XmlWriterSettings"
                                          ]
                          },
                          {
                              "csharp":  "System.Xml.XmlNodeType",
                              "java":  "XmlNodeType",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.XmlNodeType"
                                          ]
                          },
                          {
                              "csharp":  "System.Xml.XmlConvert",
                              "java":  "XmlConvert",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.XmlConvert"
                                          ]
                          },
                          {
                              "csharp":  "System.Xml.ReadState",
                              "java":  "ReadState",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.ReadState"
                                          ]
                          },
                          {
@@ -578,14 +578,14 @@
                              "csharp":  "System.Xml.XmlWriterSettings",
                              "java":  "XmlWriterSettings",
                              "imports":  [
-                                             "Microsoft.Msagl.XmlWriterSettings"
+                                             "io.github.ningpp.compat.XmlWriterSettings"
                                          ]
                          },
                          {
                              "csharp":  "XmlWriterSettings",
                              "java":  "XmlWriterSettings",
                              "imports":  [
-                                             "Microsoft.Msagl.XmlWriterSettings"
+                                             "io.github.ningpp.compat.XmlWriterSettings"
                                          ]
                          },
                          {
