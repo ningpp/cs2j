@@ -167,7 +167,7 @@ class Program
             {
                 workspaceProjects = NormalizeWorkspaceProjects(workspaceProjects, opts.Verbose);
                 var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
-                if (TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
+                if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
                 {
                     return 0;
                 }
@@ -197,7 +197,7 @@ class Program
             {
                 var graph = ProjectDiscovery.LoadProjectGraph(entryProject);
                 var inputFingerprintSnapshot = BuildProjectGraphInputFingerprintSnapshot(opts, graph);
-                if (TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
+                if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
                 {
                     return 0;
                 }
@@ -213,7 +213,7 @@ class Program
             }
 
             var manualInputFingerprintSnapshot = BuildManualInputFingerprintSnapshot(opts);
-            if (TryReusePreviousProjectOutputs(opts.Destination, manualInputFingerprintSnapshot, opts.Verbose))
+            if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, manualInputFingerprintSnapshot, opts.Verbose))
             {
                 return 0;
             }
@@ -2416,6 +2416,9 @@ class ConvertProjectOptions
 
     [Option('f', "force", Default = true, HelpText = "Overwrite existing files")]
     public bool Force { get; set; }
+
+    [Option("no-cache", Default = true, HelpText = "Disable fingerprint-based caching of previous outputs")]
+    public bool NoCache { get; set; }
 
     [Option("no-records", Default = false, HelpText = "Don't use Java records")]
     public bool NoRecords { get; set; }

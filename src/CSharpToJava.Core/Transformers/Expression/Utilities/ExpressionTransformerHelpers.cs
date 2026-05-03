@@ -353,6 +353,16 @@ public static class ExpressionTransformerHelpers
         var symbolInfo = context.SemanticModel.GetSymbolInfo(expression);
         var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
 
+        // When multiple candidates exist (e.g. property "Edge" and type "Edge"),
+        // prefer non-type symbols (properties/fields/locals) — these represent
+        // instance member access, not static type references.
+        if (symbol == null && symbolInfo.CandidateSymbols.Length > 1)
+        {
+            symbol = symbolInfo.CandidateSymbols.FirstOrDefault(
+                s => s is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol
+                     or IEventSymbol or IMethodSymbol);
+        }
+
         switch (symbol)
         {
             case IAliasSymbol { Target: INamedTypeSymbol aliasedType }:
