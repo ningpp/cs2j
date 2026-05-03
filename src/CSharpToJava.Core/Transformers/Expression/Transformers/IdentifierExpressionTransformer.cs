@@ -948,12 +948,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Count") return $"{target}.size()";
         if (memberName == "Length") return $"{target}.length";
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
-        if (memberName == "Key") return $"{target}.getKey()";
-        if (memberName == "Value") return $"{target}.getValue()";
+        // Only apply when receiver type is CONFIRMED to be KeyValuePair/IGrouping/Map.Entry.
+        // Do NOT apply as a best-effort guess when receiverType is unknown (null) — many
+        // types have Key/Value FIELDS (not properties), and getKey()/getValue() would
+        // be incorrect for them (e.g. PointSet.Key, a double field).
+        if ((memberName == "Key" || memberName == "Value")
+            && IsKeyValuePairLikeType(receiverType))
+        {
+            return memberName == "Key" ? $"{target}.getKey()" : $"{target}.getValue()";
+        }
         // ValueTuple Item1/Item2 → Map.Entry.getKey()/getValue()
         // (the converter maps C# ValueTuple<K,V> to Java Map.Entry<K,V>)
-        if (memberName == "Item1") return $"{target}.getKey()";
-        if (memberName == "Item2") return $"{target}.getValue()";
+        if ((memberName == "Item1" || memberName == "Item2")
+            && IsKeyValuePairLikeType(receiverType))
+        {
+            return memberName == "Item1" ? $"{target}.getKey()" : $"{target}.getValue()";
+        }
         // Auto-properties emitted as fields in project pipeline
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
         // System.Globalization.CultureInfo.InvariantCulture → java.util.Locale.ROOT
@@ -1144,6 +1154,34 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             if (IsEnumerator(iface))
                 return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true if the given type symbol is a KeyValuePair-like type
+    /// (KeyValuePair&lt;K,V&gt;, IGrouping&lt;K,V&gt;, or Map.Entry&lt;K,V&gt;)
+    /// where Key/Value properties should map to getKey()/getValue().
+    /// </summary>
+    private static bool IsKeyValuePairLikeType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        var display = named.ToDisplayString();
+        if (display.StartsWith("System.Collections.Generic.KeyValuePair<", StringComparison.Ordinal)
+            || display.StartsWith("System.Linq.IGrouping<", StringComparison.Ordinal)
+            || display.StartsWith("java.util.Map.Entry<", StringComparison.Ordinal))
+            return true;
+
+        // Also check the original definition (for KeyValuePair/IGrouping)
+        if (named.OriginalDefinition is INamedTypeSymbol original)
+        {
+            var originalDisplay = original.ToDisplayString();
+            return originalDisplay is "System.Collections.Generic.KeyValuePair<TKey, TValue>"
+                or "System.Linq.IGrouping<TKey, TElement>"
+                or "java.util.Map.Entry<K, V>";
         }
 
         return false;
