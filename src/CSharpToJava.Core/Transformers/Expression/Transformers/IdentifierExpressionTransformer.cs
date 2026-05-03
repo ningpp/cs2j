@@ -253,6 +253,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
             if (!isLhsOfAssignment)
             {
+                // Special case: IEnumerator.Current → next() (Java Iterator convention)
+                if (identProp.Name == "Current" && IsEnumeratorLikeType(identProp.ContainingType))
+                    return "next()";
+
                 var getter = "get" + char.ToUpperInvariant(identProp.Name[0]) + identProp.Name[1..];
                 return $"{getter}()";
             }
@@ -834,6 +838,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     var recordAccessor = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"{target}.{recordAccessor}()";
                 }
+                // Special case: IEnumerator.Current → next() (Java Iterator convention)
+                if (prop.Name == "Current" && IsEnumeratorLikeType(prop.ContainingType))
+                    return $"{target}.next()";
+
                 var getter = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
                 return $"{target}.{getter}()";
             }
@@ -941,6 +949,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        if (memberName == "Current") return $"{target}.next()";
         if (memberName == "Values") return $"{target}.values()";
         if (memberName == "Keys") return $"{target}.keySet()";
 
@@ -1136,7 +1145,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     }
 
     private static bool IsEnumeratorCurrentProperty(IPropertySymbol prop)
-        => prop.Name == "Current" && IsEnumeratorLikeType(prop.ContainingType);
+        => prop.Name == "Current" && (IsEnumeratorLikeType(prop.ContainingType) || prop.ExplicitInterfaceImplementations.Any(i => IsEnumeratorLikeType(i.ContainingType)));
 
     private static bool IsEnumeratorLikeType(ITypeSymbol? type)
     {
