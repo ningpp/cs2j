@@ -839,6 +839,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Path C: Per-type property/field resolution via receiverType.GetMembers().
+        // This runs immediately after Path A (GetSymbolInfo) fails. It uses the
+        // type's own metadata to decide — no global whitelist needed.
+        // Only fires for instance access (target starts with lowercase).
+        if (target.Length > 0 && char.IsLower(target[0]) && receiverType != null)
+        {
+            var resolved = TryResolvePropertyByType(memberName, target, receiverType, context);
+            if (resolved != null)
+                return resolved;
+        }
+
         // Fix 3: GetSymbolInfo returned no IPropertySymbol (e.g. lambda param in LINQ-rewritten tree).
         // Fall back to GetTypeInfo on the receiver expression for TypeMappings lookup.
         if (context.SemanticModel != null)
@@ -933,31 +944,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Values") return $"{target}.values()";
         if (memberName == "Keys") return $"{target}.keySet()";
 
-        // Generic fallback: when GetSymbolInfo failed, use the receiver type's
-        // GetMembers to detect if this is a property (needs getter) or field.
-        if (receiverType is INamedTypeSymbol { TypeKind: not TypeKind.Error } receiverNamed)
-        {
-            foreach (var m in receiverNamed.GetMembers(memberName))
-            {
-                if (m is IPropertySymbol)
-                {
-                    // Check TypeMappings for configured method name
-                    var ptn = m.ContainingType.ToDisplayString();
-                    var pm = context.TypeMappings.MapMethod(ptn, memberName);
-                    if (pm == null && m.ContainingType.ContainingNamespace != null)
-                        pm = context.TypeMappings.MapMethod(
-                            $"{m.ContainingType.ContainingNamespace}.{m.ContainingType.Name}", memberName);
-                    if (pm != null)
-                        return pm.Contains('.') ? pm : $"{target}.{pm}()";
-
-                    var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
-                    return $"{target}.{getter}()";
-                }
-                if (m is IFieldSymbol { IsStatic: false })
-                    break;
-            }
-        }
-
         // Last-resort generic fallback for known C#→Java property mappings
         if (memberName == "Count") return $"{target}.size()";
         if (memberName == "Length") return $"{target}.length";
@@ -976,27 +962,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             context.AddImport("java.util.Locale");
             return "Locale.ROOT";
         }
-        // Common C# property names that always need getters in Java
-        // (only when receiver is an instance, not a type name)
-        if (target.Length > 0 && char.IsLower(target[0]))
-        {
-            // Only emit getters for names that are always C# properties in MSAGL,
-            // never fields. Names like End/Start/Width/Height can be fields.
-            var pascalGetter = memberName switch
-            {
-                "Source" or "Target" or "Rectangle" or "Center" or "BoundingBox"
-                    or "ParStart" or "ParEnd" or "Par0" or "LayerEdges" or "VariableToEval"
-                    or "VariableDoneEval" or "LeftConstraints" or "Globalization"
-                    or "RectangularBoundary" or "UpperBound" or "IsActive"
-                    or "UserData" or "CwTriangle" or "Parallelogram"
-                    or "Right" or "First" or "Second"
-                    => "get" + memberName,
-                _ => null
-            };
-            if (pascalGetter != null)
-                return $"{target}.{pascalGetter}()";
-        }
-
         // Phase 1 diagnostic: log why we fell through to raw field access
         if (memberName != "AlgorithmData") // AlgorithmData is intentionally a field
         {
@@ -1018,6 +983,101 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
+    }
+
+    /// <summary>
+    /// Per-type property/field resolution via GetMembers(). Walks the full type
+    /// hierarchy (receiverType + base types + all interfaces) to determine whether
+    /// the member name is a property (needs getter) or a field (access directly).
+    /// Returns null when the type cannot be resolved or the member is not found.
+    /// </summary>
+    private string? TryResolvePropertyByType(
+        string memberName,
+        string target,
+        ITypeSymbol receiverType,
+        ConversionContext context)
+    {
+        if (receiverType.TypeKind == TypeKind.Error)
+            return null;
+
+        // Array: Length is a property in C# but a field in Java
+        if (receiverType.TypeKind == TypeKind.Array)
+        {
+            if (memberName == "Length")
+                return $"{target}.length";
+            return null;
+        }
+
+        // Type parameter: check constraint types
+        if (receiverType is ITypeParameterSymbol typeParam)
+        {
+            foreach (var constraint in typeParam.ConstraintTypes)
+            {
+                var result = TryResolvePropertyByType(memberName, target, constraint, context);
+                if (result != null)
+                    return result;
+            }
+            return null;
+        }
+
+        if (receiverType is not INamedTypeSymbol namedReceiver)
+            return null;
+
+        // Collect all types to check: receiverType + base types + all interfaces
+        var typesToCheck = new List<INamedTypeSymbol> { namedReceiver };
+        var baseType = namedReceiver.BaseType;
+        while (baseType != null)
+        {
+            typesToCheck.Add(baseType);
+            baseType = baseType.BaseType;
+        }
+        typesToCheck.AddRange(namedReceiver.AllInterfaces);
+
+        // Walk each type in the hierarchy looking for the member
+        foreach (var typeSymbol in typesToCheck)
+        {
+            foreach (var m in typeSymbol.GetMembers(memberName))
+            {
+                if (m is IPropertySymbol foundProp)
+                {
+                    // Check TypeMappings for a configured method name override
+                    var typeName = foundProp.ContainingType.ToDisplayString();
+                    var mapped = context.TypeMappings.MapMethod(typeName, memberName);
+                    if (mapped == null && foundProp.ContainingType.ContainingNamespace != null)
+                        mapped = context.TypeMappings.MapMethod(
+                            $"{foundProp.ContainingType.ContainingNamespace}.{foundProp.ContainingType.Name}", memberName);
+                    // Walk AllInterfaces for TypeMappings matches too
+                    if (mapped == null)
+                    {
+                        foreach (var iface in foundProp.ContainingType.AllInterfaces)
+                        {
+                            mapped = context.TypeMappings.MapMethod(iface.ToDisplayString(), memberName);
+                            if (mapped == null)
+                                mapped = context.TypeMappings.MapMethod(
+                                    $"{iface.ContainingNamespace}.{iface.Name}", memberName);
+                            if (mapped != null) break;
+                        }
+                    }
+                    if (mapped != null)
+                    {
+                        if (mapped == "getValues") return $"{target}.values()";
+                        if (mapped == "getKeys") return $"{target}.keySet()";
+                        return mapped.Contains('.') ? mapped : $"{target}.{mapped}()";
+                    }
+
+                    // Default: generate getXxx() getter
+                    var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
+                    return $"{target}.{getter}()";
+                }
+                if (m is IFieldSymbol { IsStatic: false })
+                {
+                    // It's a field — just access it directly
+                    return $"{target}.{memberName}";
+                }
+            }
+        }
+
+        return null; // member not found in any type
     }
 
     /// <summary>
