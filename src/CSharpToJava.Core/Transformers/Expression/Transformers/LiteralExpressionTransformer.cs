@@ -66,6 +66,12 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             ? text.Replace("_", "")
             : text;
 
+        // C# type suffixes (f, d, m, u, l) only apply to decimal literals.
+        // For hex/binary literals, letters A-F are valid digits, not suffixes.
+        if (literal.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            || literal.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+            return literal;
+
         // Handle suffixes
         if (literal.EndsWith("f") || literal.EndsWith("F"))
         {
