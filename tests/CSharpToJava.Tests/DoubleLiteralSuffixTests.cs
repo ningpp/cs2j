@@ -42,6 +42,28 @@ class Sample {
         Assert.DoesNotContain("1.5d", result.GeneratedCode);
     }
 
+    [Fact]
+    public void HexBinaryLiterals_NotAffectedBySuffixProcessing()
+    {
+        var source = @"
+class Sample {
+    void M() {
+        int a = 0xFFFD;
+        int b = 0xFF;
+        int c = 0xABCDEF;
+        int d = 0b1010;
+    }
+}";
+        var result = Convert(source);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Contains("0xFFFD", result.GeneratedCode);
+        Assert.Contains("0xFF", result.GeneratedCode);
+        Assert.Contains("0xABCDEF", result.GeneratedCode);
+        Assert.Contains("0b1010", result.GeneratedCode);
+        Assert.DoesNotContain("0xFFF.0", result.GeneratedCode);
+        Assert.DoesNotContain("0xFFf", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
