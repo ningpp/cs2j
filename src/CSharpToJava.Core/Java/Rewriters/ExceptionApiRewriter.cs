@@ -31,6 +31,7 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
     /// </summary>
     private static readonly Dictionary<string, string> ExceptionTypeMap = new(StringComparer.Ordinal)
     {
+        ["Exception"] = "RuntimeException",
         ["ApplicationException"] = "RuntimeException",
         ["InvalidOperationException"] = "IllegalStateException",
         ["ArgumentNullException"] = "NullPointerException",
