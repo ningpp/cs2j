@@ -443,9 +443,9 @@
                          },
                          {
                              "csharp":  "System.Exception",
-                             "java":  "Exception",
+                             "java":  "RuntimeException",
                              "imports":  [
-                                             "java.lang.Exception"
+                                             "java.lang.RuntimeException"
                                          ]
                          },
                          {
