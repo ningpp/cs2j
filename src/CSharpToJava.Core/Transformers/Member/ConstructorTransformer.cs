@@ -6,6 +6,7 @@ using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -136,6 +137,21 @@ public class ConstructorTransformer : IMemberTransformer
             {
                 javaCtor.StructuredBody.Statements.Insert(0, commentStmt);
             }
+        }
+
+        // Generate overloads for C# default parameters
+        var allCtorParams = ctorDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
+        var ctorOverloads = Utilities.DefaultParameterHelper.GenerateConstructorOverloads(
+            allCtorParams,
+            javaCtor,
+            context,
+            ExpressionTransformerFacade.Instance);
+
+        if (ctorOverloads.Count > 0)
+        {
+            var allDeclarations = new List<JavaSyntaxNode> { javaCtor };
+            allDeclarations.AddRange(ctorOverloads);
+            return new JavaMemberCollection(allDeclarations);
         }
 
         return javaCtor;
