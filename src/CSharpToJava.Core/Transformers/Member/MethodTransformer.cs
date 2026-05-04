@@ -7,6 +7,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Transformers.Type;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -263,46 +264,21 @@ public class MethodTransformer : IMemberTransformer
         }
 
         // Generate overloads for C# default parameters (Java doesn't support default parameter values)
-        // For each trailing parameter with a default value, generate an overload that delegates to the full method.
         var allMethodParams = methodDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
-        int firstDefaultIdx = allMethodParams.FindIndex(p => p.Default != null);
-        // Fix 3: Do not generate default-parameter overloads for abstract methods — non-abstract overloads
-        // calling abstract siblings produce invalid Java.
         bool isAbstractMethod = methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword));
-        if (firstDefaultIdx >= 0 && allMethodParams.Skip(firstDefaultIdx).All(p => p.Default != null) && !isAbstractMethod)
-        {
-            var overloads = new List<JavaSyntaxNode> { javaMethod };
-            var exprXf = Transformers.Expression.ExpressionTransformerFacade.Instance;
-            for (int cutAt = firstDefaultIdx; cutAt < allMethodParams.Count; cutAt++)
-            {
-                var overload = new JavaMethodDeclaration
-                {
-                    Name = javaMethod.Name,
-                    Modifiers = javaMethod.Modifiers,
-                    ReturnType = javaMethod.ReturnType,
-                    LeadingComment = javaMethod.LeadingComment,
-                };
-                foreach (var tp in javaMethod.TypeParameters) overload.TypeParameters.Add(tp);
-                foreach (var p2 in javaMethod.Parameters.Take(cutAt)) overload.Parameters.Add(p2);
+        var overloads = Utilities.DefaultParameterHelper.GenerateMethodOverloads(
+            allMethodParams,
+            javaMethod,
+            isAbstractMethod,
+            hasStrippedThisParam: isExtensionMethod && context.Options.RewriteExtensionMethods,
+            context,
+            Transformers.Expression.ExpressionTransformerFacade.Instance);
 
-                var callArgs = new List<string>();
-                for (int i = 0; i < allMethodParams.Count; i++)
-                {
-                    if (i < cutAt)
-                        callArgs.Add(ConversionContext.EscapeJavaKeyword(allMethodParams[i].Identifier.Text));
-                    else
-                    {
-                        var defaultVal = allMethodParams[i].Default?.Value != null
-                            ? exprXf.Transform(allMethodParams[i].Default!.Value, context)
-                            : "null";
-                        callArgs.Add(defaultVal);
-                    }
-                }
-                string callPrefix = javaMethod.ReturnType == "void" ? "" : "return ";
-                overload.Body = $"{callPrefix}{javaMethod.Name}({string.Join(", ", callArgs)});";
-                overloads.Add(overload);
-            }
-            return new JavaMemberCollection(overloads);
+        if (overloads.Count > 0)
+        {
+            var allDeclarations = new List<JavaSyntaxNode> { javaMethod };
+            allDeclarations.AddRange(overloads);
+            return new JavaMemberCollection(allDeclarations);
         }
 
         return javaMethod;
