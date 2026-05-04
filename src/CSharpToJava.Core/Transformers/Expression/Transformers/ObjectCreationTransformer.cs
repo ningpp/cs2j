@@ -115,7 +115,6 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         // Types remapped to different constructors
         if (bareTypeName is "Map.Entry") return true;
-        if (typeName is "Exception" or "ApplicationException") return true;
 
         // Functional interfaces → delegate construction
         if (IsJavaFunctionalInterfaceType(typeName)) return true;
@@ -273,18 +272,6 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 return $"((Map.Entry{genericPart}) {newExpr})";
             }
             return newExpr;
-        }
-
-        // Exception / ApplicationException → RuntimeException (unchecked in Java)
-        if (typeName is "Exception" or "ApplicationException")
-        {
-            if (argumentList == null || argumentList.Arguments.Count == 0)
-                return "new RuntimeException()";
-            var exArgs = ArgumentTransformer.TransformArgumentList(
-                argumentList, context, ExpressionTransformerFacade.Instance);
-            return string.IsNullOrWhiteSpace(exArgs)
-                ? "new RuntimeException()"
-                : $"new RuntimeException({exArgs})";
         }
 
         if (argumentList == null || argumentList.Arguments.Count == 0)
