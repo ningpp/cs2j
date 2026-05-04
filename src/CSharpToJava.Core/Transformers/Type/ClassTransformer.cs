@@ -1430,6 +1430,14 @@ public class ClassTransformer : ITypeTransformer
                 {
                     AddCtorIfNotDuplicate(javaClass, javaCtor);
                 }
+                else if (ctor is JavaMemberCollection ctorCollection)
+                {
+                    foreach (var ctorOverload in ctorCollection.Members)
+                    {
+                        if (ctorOverload is JavaConstructorDeclaration ctorMember)
+                            AddCtorIfNotDuplicate(javaClass, ctorMember);
+                    }
+                }
                 else if (ctor is JavaStaticInitializerBlock staticInitBlock)
                 {
                     javaClass.StaticInitializers.Add(staticInitBlock);
