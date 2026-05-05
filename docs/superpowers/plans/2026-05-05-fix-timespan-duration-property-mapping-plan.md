@@ -1,0 +1,283 @@
+# Fix TimeSpan→Duration Property Mapping Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Fix the conversion of `TimeSpan` properties to valid `java.time.Duration` methods and add missing `getElapsed()` to `StopwatchHelper`.
+
+**Architecture:** Three isolated changes: (1) declarative methodMappings in TypeMappings.json so the converter maps `TimeSpan.Hours` → `toHoursPart()` etc., (2) extend the generated StopwatchHelper compat class with `getElapsed()` returning `Duration`, (3) remove the CLI workaround that's no longer needed.
+
+**Tech Stack:** JSON config, C# string interpolation for compat class generation
+
+---
+
+### Task 1: Add TimeSpan methodMappings to TypeMappings.json
+
+**Files:**
+- Modify: `config/TypeMappings.json:3252`
+
+- [ ] **Step 1: Add 10 methodMapping entries for System.TimeSpan properties**
+
+Insert the following JSON entries before line 3253 (before the `]` that closes `methodMappings`). The last existing entry is `System.Exception` / `StackTrace` ending at line 3252 with `}`.
+
+Replace this:
+```json
+                           {
+                               "type":  "System.Exception",
+                               "method":  "StackTrace",
+                               "javaMethod":  "getStackTrace"
+                           }
+                       ],
+```
+
+With this:
+```json
+                           {
+                               "type":  "System.Exception",
+                               "method":  "StackTrace",
+                               "javaMethod":  "getStackTrace"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Hours",
+                               "javaMethod":  "toHoursPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Minutes",
+                               "javaMethod":  "toMinutesPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Seconds",
+                               "javaMethod":  "toSecondsPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Milliseconds",
+                               "javaMethod":  "toMillisPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Days",
+                               "javaMethod":  "toDaysPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalHours",
+                               "javaMethod":  "toHours"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalMinutes",
+                               "javaMethod":  "toMinutes"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalSeconds",
+                               "javaMethod":  "toSeconds"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalMilliseconds",
+                               "javaMethod":  "toMillis"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalDays",
+                               "javaMethod":  "toDays"
+                           }
+                       ],
+```
+
+- [ ] **Step 2: Validate JSON is well-formed**
+
+Run: `python -c "import json; json.load(open('config/TypeMappings.json')); print('OK')"`
+Expected: `OK`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add config/TypeMappings.json
+git commit -m "feat: add TimeSpan property methodMappings for Duration conversion
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 2: Add getElapsed() to generated StopwatchHelper
+
+**Files:**
+- Modify: `src/CSharpToJava.Core/Pipeline/CompatibilityClassGenerator.cs:123-172`
+
+- [ ] **Step 1: Add import and getElapsed() method to the stopwatchCode string**
+
+Replace the `stopwatchCode` string (lines 124-171) to add `import java.time.Duration;` and the `getElapsed()` method.
+
+Replace this:
+```csharp
+        var stopwatchCode = $@"package {basePackage};
+
+/** Stopwatch helper class (generated by CSharpToJava converter, replacing System.Diagnostics.Stopwatch). */
+public final class StopwatchHelper {{
+    private long startNanos;
+    private long elapsedNanos;
+    private boolean running;
+
+    public StopwatchHelper() {{}}
+
+    public static StopwatchHelper startNew() {{
+        StopwatchHelper sw = new StopwatchHelper();
+        sw.start();
+        return sw;
+    }}
+
+    public void start() {{
+        if (!running) {{
+            startNanos = System.nanoTime();
+            running = true;
+        }}
+    }}
+
+    public void stop() {{
+        if (running) {{
+            elapsedNanos += System.nanoTime() - startNanos;
+            running = false;
+        }}
+    }}
+
+    public void reset() {{
+        elapsedNanos = 0;
+        running = false;
+    }}
+
+    public void restart() {{
+        reset();
+        start();
+    }}
+
+    public long getElapsedMilliseconds() {{
+        long elapsed = elapsedNanos;
+        if (running) elapsed += System.nanoTime() - startNanos;
+        return elapsed / 1_000_000L;
+    }}
+
+    public boolean isRunning() {{ return running; }}
+}}
+";
+```
+
+With this:
+```csharp
+        var stopwatchCode = $@"package {basePackage};
+
+import java.time.Duration;
+
+/** Stopwatch helper class (generated by CSharpToJava converter, replacing System.Diagnostics.Stopwatch). */
+public final class StopwatchHelper {{
+    private long startNanos;
+    private long elapsedNanos;
+    private boolean running;
+
+    public StopwatchHelper() {{}}
+
+    public static StopwatchHelper startNew() {{
+        StopwatchHelper sw = new StopwatchHelper();
+        sw.start();
+        return sw;
+    }}
+
+    public void start() {{
+        if (!running) {{
+            startNanos = System.nanoTime();
+            running = true;
+        }}
+    }}
+
+    public void stop() {{
+        if (running) {{
+            elapsedNanos += System.nanoTime() - startNanos;
+            running = false;
+        }}
+    }}
+
+    public void reset() {{
+        elapsedNanos = 0;
+        running = false;
+    }}
+
+    public void restart() {{
+        reset();
+        start();
+    }}
+
+    public Duration getElapsed() {{
+        long elapsed = elapsedNanos;
+        if (running) elapsed += System.nanoTime() - startNanos;
+        return Duration.ofNanos(elapsed);
+    }}
+
+    public long getElapsedMilliseconds() {{
+        long elapsed = elapsedNanos;
+        if (running) elapsed += System.nanoTime() - startNanos;
+        return elapsed / 1_000_000L;
+    }}
+
+    public boolean isRunning() {{ return running; }}
+}}
+";
+```
+
+- [ ] **Step 2: Build to verify compilation**
+
+Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj`
+Expected: Build succeeded with 0 errors
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/CSharpToJava.Core/Pipeline/CompatibilityClassGenerator.cs
+git commit -m "feat: add getElapsed() returning Duration to StopwatchHelper compat class
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 3: Remove CLI workaround
+
+**Files:**
+- Modify: `src/CSharpToJava.CLI/Program.cs:1551-1558`
+
+- [ ] **Step 1: Delete the ResultVerifierBase workaround block**
+
+Remove lines 1551-1558 (the entire `if` block for `ResultVerifierBase`):
+```csharp
+        if (string.Equals(fileNameOnly, "ResultVerifierBase.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "ResultVerifierBase.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "Duration ts = sw.getElapsed();\n        writeLine(\"  Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}\", ts.getHours(), ts.getMinutes(), ts.getSeconds(), ts.getMilliseconds());",
+                "long elapsedMillis = sw.getElapsedMilliseconds();\n        long elapsedHours = elapsedMillis / 3_600_000L;\n        long elapsedMinutes = (elapsedMillis / 60_000L) % 60;\n        long elapsedSeconds = (elapsedMillis / 1_000L) % 60;\n        long elapsedRemainderMillis = elapsedMillis % 1_000L;\n        writeLine(\"  Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}\", elapsedHours, elapsedMinutes, elapsedSeconds, elapsedRemainderMillis);",
+                StringComparison.Ordinal);
+        }
+```
+
+- [ ] **Step 2: Build to verify compilation**
+
+Run: `dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj`
+Expected: Build succeeded with 0 errors
+
+- [ ] **Step 3: Run existing tests**
+
+Run: `dotnet test`
+Expected: All tests pass
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/CSharpToJava.CLI/Program.cs
+git commit -m "fix: remove hardcoded TimeSpan workaround, superseded by type mappings
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+```
