@@ -3,6 +3,16 @@ using Microsoft.CodeAnalysis;
 namespace CSharpToJava.Core.Context;
 
 /// <summary>
+/// Kind of type-erasure conflict between two method overloads.
+/// </summary>
+public enum ErasureConflictKind
+{
+    None,
+    DifferentTypeParamCount,
+    SameTypeParamCount
+}
+
+/// <summary>
 /// Static utility methods for Java naming conventions (keyword escaping, type erasure conflict detection).
 /// Extracted from ConversionContext.
 /// </summary>
@@ -27,6 +37,100 @@ public static class JavaNaming
     public static string EscapeJavaKeyword(string word)
     {
         return IsJavaKeyword(word) ? word + "Value" : word;
+    }
+
+    /// <summary>
+    /// Determines whether a C# method has a type-erasure conflict with another overload,
+    /// and returns the kind of conflict.
+    /// </summary>
+    public static (bool HasConflict, ErasureConflictKind Kind) GetErasureConflictKind(IMethodSymbol method)
+    {
+        if (method.ContainingType == null) return (false, ErasureConflictKind.None);
+        if (method.ContainingType.DeclaringSyntaxReferences.Length == 0) return (false, ErasureConflictKind.None);
+
+        foreach (var sibling in method.ContainingType.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (SymbolEqualityComparer.Default.Equals(sibling, method)) continue;
+            if (sibling.Name != method.Name) continue;
+            if (sibling.Parameters.Length != method.Parameters.Length) continue;
+            if (!HaveSameErasedParameters(method, sibling)) continue;
+
+            var kind = sibling.TypeParameters.Length == method.TypeParameters.Length
+                ? ErasureConflictKind.SameTypeParamCount
+                : ErasureConflictKind.DifferentTypeParamCount;
+
+            if (kind == ErasureConflictKind.DifferentTypeParamCount)
+            {
+                if (method.TypeParameters.Length < sibling.TypeParameters.Length)
+                    return (true, kind);
+            }
+            else
+            {
+                // Both methods are in conflict. Determine which one should be renamed
+                // by source order: the first one keeps original name.
+                var myLoc = method.Locations.FirstOrDefault(l => l.SourceTree != null);
+                var sibLoc = sibling.Locations.FirstOrDefault(l => l.SourceTree != null);
+                if (myLoc != null && sibLoc != null)
+                {
+                    var myLine = myLoc.GetLineSpan().StartLinePosition.Line;
+                    var sibLine = sibLoc.GetLineSpan().StartLinePosition.Line;
+                    if (myLine > sibLine) return (true, kind);
+                }
+            }
+        }
+
+        return (false, ErasureConflictKind.None);
+    }
+
+    /// <summary>
+    /// For SameTypeParamCount conflicts, computes a stable 1-based index within the
+    /// conflict group (sorted by source line). Returns 1 for the first method (keeps
+    /// original name), 2+ for subsequent methods that need _erasure_N suffix.
+    /// </summary>
+    public static int GetErasureConflictIndex(IMethodSymbol method)
+    {
+        if (method.ContainingType == null) return 1;
+
+        var conflictGroup = method.ContainingType.GetMembers().OfType<IMethodSymbol>()
+            .Where(s => s.Name == method.Name
+                && s.Parameters.Length == method.Parameters.Length
+                && s.TypeParameters.Length == method.TypeParameters.Length
+                && HaveSameErasedParameters(method, s))
+            .Select(s => new
+            {
+                Symbol = s,
+                Line = s.Locations.FirstOrDefault(l => l.SourceTree != null)
+                    ?.GetLineSpan().StartLinePosition.Line ?? 0
+            })
+            .OrderBy(x => x.Line)
+            .ToList();
+
+        if (conflictGroup.Count <= 1) return 1;
+
+        for (int i = 0; i < conflictGroup.Count; i++)
+        {
+            if (SymbolEqualityComparer.Default.Equals(conflictGroup[i].Symbol, method))
+                return i + 1;
+        }
+
+        return 1;
+    }
+
+    /// <summary>
+    /// Returns the suffix to append to a method name when it has an erasure conflict,
+    /// or an empty string if no conflict exists.
+    /// </summary>
+    public static string GetErasureConflictSuffix(IMethodSymbol method)
+    {
+        var (hasConflict, kind) = GetErasureConflictKind(method);
+        if (!hasConflict) return "";
+
+        return kind switch
+        {
+            ErasureConflictKind.DifferentTypeParamCount => $"_{method.TypeParameters.Length}tp",
+            ErasureConflictKind.SameTypeParamCount => $"_erasure_{GetErasureConflictIndex(method)}",
+            _ => ""
+        };
     }
 
     /// <summary>
