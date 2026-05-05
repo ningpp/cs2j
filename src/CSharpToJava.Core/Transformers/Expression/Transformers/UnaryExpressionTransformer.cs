@@ -98,15 +98,10 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 // boolean. Non-boolean operands must fall back to the raw string path
                 // which calls TransformLogicalNot() → rewrites to (operand == 0).
                 if (node.Kind() == SyntaxKind.LogicalNotExpression
-                    && context.SemanticModel != null
-                    && operandSyntax != null)
+                    && operandSyntax != null
+                    && !IsBooleanExpression(operandSyntax, context))
                 {
-                    var opTypeInfo = context.SemanticModel.GetTypeInfo(operandSyntax);
-                    if (opTypeInfo.Type == null
-                        || opTypeInfo.Type.SpecialType != SpecialType.System_Boolean)
-                    {
-                        return new JavaRawExpression(Transform(node, context));
-                    }
+                    return new JavaRawExpression(Transform(node, context));
                 }
 
                 if (!isPropertyTarget && operandSyntax != null)
@@ -172,15 +167,37 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
 
-        if (context.SemanticModel != null)
-        {
-            var typeInfo = context.SemanticModel.GetTypeInfo(node.Operand);
-            if (typeInfo.Type != null && typeInfo.Type.SpecialType == SpecialType.System_Boolean)
-                return $"!{operand}";
-        }
+        if (IsBooleanExpression(node.Operand, context))
+            return $"!{operand}";
 
         // Non-boolean: rewrite !x → (x == 0)
         return $"({operand} == 0)";
+    }
+
+    /// <summary>
+    /// Determines whether an expression has boolean type.
+    /// Uses GetTypeInfo first; falls back to GetSymbolInfo for method invocations,
+    /// which is more reliable when the semantic model spans multiple files.
+    /// </summary>
+    private static bool IsBooleanExpression(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return false;
+
+        var typeInfo = context.SemanticModel.GetTypeInfo(expr);
+        if (typeInfo.Type != null && typeInfo.Type.SpecialType == SpecialType.System_Boolean)
+            return true;
+
+        // GetTypeInfo on InvocationExpression can fail to resolve return type
+        // in cross-file scenarios. Fall back to checking the method symbol directly.
+        if (expr is InvocationExpressionSyntax)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(expr);
+            if (symbolInfo.Symbol is IMethodSymbol method)
+                return method.ReturnType.SpecialType == SpecialType.System_Boolean;
+        }
+
+        return false;
     }
 
     private static bool IsNumericType(ITypeSymbol? type)

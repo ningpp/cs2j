@@ -39,6 +39,30 @@ class Test
         Assert.Contains("!flag", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LogicalNot_OnBoolMethodCall_KeepsExclamation()
+    {
+        var result = Convert(@"
+class Test
+{
+    bool RaiseInteractiveAssert(Exception ex)
+    {
+        return ex != null;
+    }
+
+    void Handle(Exception ex)
+    {
+        if (!RaiseInteractiveAssert(ex))
+        {
+            return;
+        }
+    }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.DoesNotContain("== 0", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("!raiseInteractiveAssert(ex)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
