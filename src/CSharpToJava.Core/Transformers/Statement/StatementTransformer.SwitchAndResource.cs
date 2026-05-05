@@ -124,8 +124,13 @@ public partial class StatementTransformer
             }
 
             var stmtTransformer = new StatementTransformer();
-            var statements = section.Statements.Select(s =>
-                stmtTransformer.Transform(s, context).ToString("")).ToList();
+            var statements = new List<string>();
+            foreach (var s in section.Statements)
+            {
+                statements.Add(stmtTransformer.Transform(s, context).ToString(""));
+                if (IsSwitchSectionTerminal(s))
+                    break;
+            }
 
             // Build case section header: combine multiple labels as "case X, Y:" or "default:"
             string sectionStr;
@@ -153,6 +158,18 @@ public partial class StatementTransformer
 
         return new JavaStatementNode($"switch ({expression}) {{\n        {bodyStr}\n    }}");
     }
+
+    private static bool IsSwitchSectionTerminal(StatementSyntax stmt) =>
+        stmt.Kind() switch
+        {
+            SyntaxKind.ReturnStatement or
+            SyntaxKind.ThrowStatement or
+            SyntaxKind.ContinueStatement or
+            SyntaxKind.GotoStatement or
+            SyntaxKind.GotoCaseStatement or
+            SyntaxKind.GotoDefaultStatement => true,
+            _ => false
+        };
 
     private JavaSyntaxNode TransformTryStatement(TryStatementSyntax stmt, ConversionContext context)
     {
