@@ -595,6 +595,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             var boxedName  = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
             var rawMember  = node.Name.Identifier.Text;
+
+            if (primTypeSyntax.Keyword.Text == "string" && rawMember == "Empty")
+                return "\"\"";
+
             var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
             // If the mapping already produced a self-contained expression (e.g. "(-Double.MAX_VALUE)")
             // don't prefix it with the boxed type name — that would create "Double.(-Double.MAX_VALUE)".
