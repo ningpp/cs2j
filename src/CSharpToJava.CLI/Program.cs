@@ -1548,15 +1548,6 @@ class Program
             generatedCode = generatedCode.Replace("Assertions.assertEquals(expected, actual, ignoreCase, culture, message);", "Assertions.assertTrue(ignoreCase ? Objects.equals(expected == null ? null : expected.toLowerCase(java.util.Locale.ROOT), actual == null ? null : actual.toLowerCase(java.util.Locale.ROOT)) : Objects.equals(expected, actual), message);", StringComparison.Ordinal);
         }
 
-        if (string.Equals(fileNameOnly, "ResultVerifierBase.cs", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(fileNameOnly, "ResultVerifierBase.java", StringComparison.OrdinalIgnoreCase))
-        {
-            generatedCode = generatedCode.Replace(
-                "Duration ts = sw.getElapsed();\n        writeLine(\"  Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}\", ts.getHours(), ts.getMinutes(), ts.getSeconds(), ts.getMilliseconds());",
-                "long elapsedMillis = sw.getElapsedMilliseconds();\n        long elapsedHours = elapsedMillis / 3_600_000L;\n        long elapsedMinutes = (elapsedMillis / 60_000L) % 60;\n        long elapsedSeconds = (elapsedMillis / 1_000L) % 60;\n        long elapsedRemainderMillis = elapsedMillis % 1_000L;\n        writeLine(\"  Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}\", elapsedHours, elapsedMinutes, elapsedSeconds, elapsedRemainderMillis);",
-                StringComparison.Ordinal);
-        }
-
         if (string.Equals(fileNameOnly, "OverlapRemovalVerifier.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "OverlapRemovalVerifier.java", StringComparison.OrdinalIgnoreCase))
         {
