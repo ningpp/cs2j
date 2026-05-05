@@ -98,8 +98,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, invocation, context);
             var bareMethodSym = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-            if (bareMethodSym != null && ConversionContext.HasTypeErasureConflict(bareMethodSym))
-                methodName += ConversionContext.GetErasureRenamedSuffix(bareMethodSym.TypeParameters.Length);
+            if (bareMethodSym != null)
+                methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
             return call;
@@ -119,8 +119,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, invocation, context);
             var bareMethodSym2 = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-            if (bareMethodSym2 != null && ConversionContext.HasTypeErasureConflict(bareMethodSym2))
-                methodName += ConversionContext.GetErasureRenamedSuffix(bareMethodSym2.TypeParameters.Length);
+            if (bareMethodSym2 != null)
+                methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
             return call;
@@ -207,8 +207,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, node, context);
             var bareMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (bareMethodSym != null && ConversionContext.HasTypeErasureConflict(bareMethodSym))
-                methodName += ConversionContext.GetErasureRenamedSuffix(bareMethodSym.TypeParameters.Length);
+            if (bareMethodSym != null)
+                methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
             return $"{methodName}({args})";
         }
@@ -266,8 +266,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
             var bareMethodSym2 = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (bareMethodSym2 != null && ConversionContext.HasTypeErasureConflict(bareMethodSym2))
-                methodName += ConversionContext.GetErasureRenamedSuffix(bareMethodSym2.TypeParameters.Length);
+            if (bareMethodSym2 != null)
+                methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
             return $"{methodName}({args})";
         }
@@ -1946,8 +1946,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // Type-erasure rename: when the resolved overload is the one with fewer type parameters,
         // append the same suffix that MethodTransformer uses at the declaration site.
-        if (methodSymbol != null && ConversionContext.HasTypeErasureConflict(methodSymbol))
-            methodName += ConversionContext.GetErasureRenamedSuffix(methodSymbol.TypeParameters.Length);
+        if (methodSymbol != null)
+            methodName += ConversionContext.GetErasureConflictSuffix(methodSymbol);
 
         // Issue 5: when promoting to static-call form, start at index 1 to skip the receiver
         // that was already prepended; use 0 for standard instance calls.
