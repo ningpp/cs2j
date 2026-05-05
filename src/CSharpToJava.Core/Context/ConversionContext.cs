@@ -264,6 +264,5 @@ public class ConversionContext
     // ─── Static facades delegating to JavaNaming ───
     public static bool IsJavaKeyword(string word) => JavaNaming.IsJavaKeyword(word);
     public static string EscapeJavaKeyword(string word) => JavaNaming.EscapeJavaKeyword(word);
-    public static bool HasTypeErasureConflict(IMethodSymbol method) => JavaNaming.HasTypeErasureConflict(method);
-    public static string GetErasureRenamedSuffix(int typeParameterCount) => JavaNaming.GetErasureRenamedSuffix(typeParameterCount);
+    public static string GetErasureConflictSuffix(IMethodSymbol method) => JavaNaming.GetErasureConflictSuffix(method);
 }
