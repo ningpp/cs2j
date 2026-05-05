@@ -39,12 +39,11 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = GetReturnType(methodDecl, context)
         };
 
-        // Type-erasure conflict: if the C# method has an overload with different generic
-        // type parameter count but same erased parameter types, rename this overload so that
-        // both survive in Java (where type erasure would make them duplicates).
-        if (methodInfo != null && ConversionContext.HasTypeErasureConflict(methodInfo))
+        // Type-erasure conflict: rename overload so it survives Java type erasure.
+        // Different type param counts get _Ntp suffix; same counts get _erasure_N.
+        if (methodInfo != null)
         {
-            javaMethod.Name += ConversionContext.GetErasureRenamedSuffix(methodInfo.TypeParameters.Length);
+            javaMethod.Name += ConversionContext.GetErasureConflictSuffix(methodInfo);
         }
 
         // Cross-inheritance erasure conflict: parent class method has same erased signature
