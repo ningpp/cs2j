@@ -126,7 +126,8 @@ class Sample
         var code = result.GeneratedCode;
         // Method with 0 type params (fewer) gets _0tp
         Assert.Contains("void m_0tp", code);
-        // Method with 1 type param (more) keeps original name
-        Assert.Contains("void m<T>", code);
+        // Method with 1 type param (more) keeps original name without suffix.
+        // Java syntax puts type parameters before the return type: <T> void m(T x)
+        Assert.Contains("<T> void m", code);
     }
 }
