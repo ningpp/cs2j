@@ -3249,6 +3249,56 @@
                                "type":  "System.Exception",
                                "method":  "StackTrace",
                                "javaMethod":  "getStackTrace"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Hours",
+                               "javaMethod":  "toHoursPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Minutes",
+                               "javaMethod":  "toMinutesPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Seconds",
+                               "javaMethod":  "toSecondsPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Milliseconds",
+                               "javaMethod":  "toMillisPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "Days",
+                               "javaMethod":  "toDaysPart"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalHours",
+                               "javaMethod":  "toHours"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalMinutes",
+                               "javaMethod":  "toMinutes"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalSeconds",
+                               "javaMethod":  "toSeconds"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalMilliseconds",
+                               "javaMethod":  "toMillis"
+                           },
+                           {
+                               "type":  "System.TimeSpan",
+                               "method":  "TotalDays",
+                               "javaMethod":  "toDays"
                            }
                        ],
     "namespaceMappings":  [
