@@ -1025,9 +1025,9 @@
                          },
                          {
                              "csharp":  "System.IO.Path",
-                             "java":  "Paths",
+                             "java":  "PathHelper",
                              "imports":  [
-                                             "java.nio.file.Paths"
+                                             "Microsoft.Msagl.PathHelper"
                                          ]
                          },
                          {
