@@ -64,8 +64,9 @@ nunit-*.xml
 .codebuddy/
 
 
-*.java
+# Java / Maven
 *.class
+**/target/
 
 
 .automation-logs/

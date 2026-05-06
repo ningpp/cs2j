@@ -606,6 +606,14 @@ public sealed class ProjectCompatibilityEmitPass : ICs2jPass<ProjectPassState>
             return;
         }
 
+        if (state.Context.Options.UsePrebuiltCompatArtifact)
+        {
+            // Pre-built artifact mode: skip inline generation entirely.
+            // The caller sets SharedCompatibilityPackage so cross-package imports
+            // point to the pre-built artifact's package.
+            return;
+        }
+
         var basePackage = CompatibilityClassGenerator.DetermineBasePackage(state.Results);
         if (state.Context.Options.UseCompatibilityPacks)
         {

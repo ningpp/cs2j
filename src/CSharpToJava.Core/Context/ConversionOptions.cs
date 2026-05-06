@@ -83,6 +83,13 @@ public class ConversionOptions
     public bool UseCompatibilityPacks { get; set; } = false;
 
     /// <summary>
+    /// When true, the converter skips generating compatibility classes inline and instead
+    /// expects the pre-built csharptojava-compat Maven artifact to be declared as a dependency.
+    /// Sets SharedCompatibilityPackage to "io.github.ningpp.compat" automatically.
+    /// </summary>
+    public bool UsePrebuiltCompatArtifact { get; set; } = false;
+
+    /// <summary>
     /// Optional shared compatibility package that should be imported into all generated files.
     /// Used together with EmitCompatibilityHelpers=false when helper classes live in a
     /// dedicated shared module.
