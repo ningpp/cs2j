@@ -145,14 +145,7 @@ class Program
                 UseOptionalForNullable = opts.UseOptionalForNullable,
                 EnableLinqRewrite = opts.EnableLinqRewrite,
                 PreferStreamApi = opts.PreferStreamApi,
-                UsePrebuiltCompatArtifact = opts.UsePrebuiltCompatArtifact,
             };
-
-            if (opts.UsePrebuiltCompatArtifact)
-            {
-                options.EmitCompatibilityHelpers = false;
-                options.SharedCompatibilityPackage = "io.github.ningpp.compat";
-            }
 
             // Try MSBuild-based loading first for full semantic resolution.
             IReadOnlyList<WorkspaceProject>? workspaceProjects = null;
@@ -585,16 +578,9 @@ class Program
         var testProjects = projects.Where(p => p.IsTestProject).ToList();
 
         var sharedCompatibilityPackage = BuildSharedCompatibilityPackage(opts.MavenGroupId);
-        var existingNames = projects.Select(p => p.Name);
-        var sharedCompatibilityModuleName = MakeUniqueModuleName("csharptojava-compat", existingNames);
 
-        options.EmitCompatibilityHelpers = false;
+
         options.SharedCompatibilityPackage = sharedCompatibilityPackage;
-
-        if (opts.UsePrebuiltCompatArtifact)
-        {
-            options.UsePrebuiltCompatArtifact = true;
-        }
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
@@ -605,37 +591,9 @@ class Program
         int successCount = 0;
         int failureCount = 0;
         var modulePlans = new List<JavaModulePlan>();
-        var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        var sharedCompatExternalDependencies = new List<JavaDependency>();
-        var sharedCompatRuntimeBridges = new List<JavaRuntimeBridgeRequirement>();
         var convertedModuleCount = 1;
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
-
-        // Emit compatibility module first (skip when using pre-built artifact).
-        var compatModuleRoot = Path.Combine(opts.Destination, sharedCompatibilityModuleName);
-        var compatJavaRoot = Path.Combine(compatModuleRoot, "src", "main", "java");
-        if (!opts.UsePrebuiltCompatArtifact)
-        {
-            Directory.CreateDirectory(compatJavaRoot);
-        }
-
-        if (!opts.UsePrebuiltCompatArtifact)
-        {
-            foreach (var result in ProjectConversionPipeline.GenerateCompatibilitySupport(sharedCompatibilityPackage, opts.IncludeTests))
-            {
-                if (TryWriteConvertedFile(result, opts.Source, compatJavaRoot, outputSession, out var outputPath))
-                {
-                    successCount++;
-                    if (opts.Verbose) Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
-                }
-                else
-                {
-                    failureCount++;
-                    Console.Error.WriteLine($"Failed: {result.FileName}");
-                }
-            }
-        }
 
         // Convert each workspace project as its own module.
         foreach (var project in projects)
@@ -695,29 +653,8 @@ class Program
             if (opts.GeneratePom)
             {
                 var compatibilityRequirements = CompatibilityPackPlanner.Analyze(results, sharedCompatibilityPackage);
-                foreach (var packId in compatibilityRequirements.RequiredPackIds)
-                {
-                    sharedCompatPackIds.Add(packId);
-                }
-
-                sharedCompatExternalDependencies.AddRange(compatibilityRequirements.ExternalDependencies);
-                sharedCompatRuntimeBridges.AddRange(compatibilityRequirements.RuntimeBridges);
 
                 var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
-                if (opts.UsePrebuiltCompatArtifact)
-                {
-                    deps.Add(new JavaDependency
-                    {
-                        GroupId = "io.github.ningpp",
-                        ArtifactId = "csharptojava-compat",
-                        Version = "${project.version}",
-                        IsInternal = true,
-                    });
-                }
-                else
-                {
-                    deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, sharedCompatibilityModuleName));
-                }
                 foreach (var refPath in project.ProjectReferences)
                 {
                     var refProject = projects.FirstOrDefault(p =>
@@ -745,22 +682,6 @@ class Program
 
         if (opts.GeneratePom)
         {
-            if (!opts.UsePrebuiltCompatArtifact)
-            {
-                var compatPlan = new JavaModulePlan
-                {
-                    ModuleName = sharedCompatibilityModuleName,
-                    IsTestOnly = false,
-                    Dependencies = WorkspacePlanBuilder.MergeDependencies(
-                        WorkspacePlanBuilder.DefaultDependencies().Concat(sharedCompatExternalDependencies)),
-                    RequiredCompatPacks = sharedCompatPackIds.ToList(),
-                    RequiredRuntimeBridges = WorkspacePlanBuilder.MergeRuntimeBridges(sharedCompatRuntimeBridges),
-                };
-
-                modulePlans.Insert(0, compatPlan);
-                await WriteMultiModulePom(opts, compatModuleRoot, compatPlan, outputSession);
-            }
-
             var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
             await WriteParentPom(opts, workspacePlan, outputSession);
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan, outputSession);
@@ -794,34 +715,9 @@ class Program
         }
 
         var sharedCompatibilityPackage = BuildSharedCompatibilityPackage(opts.MavenGroupId);
-        var sharedCompatibilityModuleName = MakeUniqueModuleName("csharptojava-compat", plan.ModulesInBuildOrder.Select(m => m.Name));
-        var compatModule = new PlannedModule
-        {
-            Name = sharedCompatibilityModuleName,
-            IsTestOnly = false,
-        };
 
-        if (!opts.UsePrebuiltCompatArtifact)
-        {
-            foreach (var module in plan.ModulesInBuildOrder)
-            {
-                module.CompileDependencies.Add(sharedCompatibilityModuleName);
-            }
-        }
 
-        var modulesInBuildOrder = new List<PlannedModule>();
-        if (!opts.UsePrebuiltCompatArtifact)
-        {
-            modulesInBuildOrder.Add(compatModule);
-        }
-        modulesInBuildOrder.AddRange(plan.ModulesInBuildOrder);
-
-        options.EmitCompatibilityHelpers = false;
         options.SharedCompatibilityPackage = sharedCompatibilityPackage;
-        if (opts.UsePrebuiltCompatArtifact)
-        {
-            options.UsePrebuiltCompatArtifact = true;
-        }
         var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
@@ -834,15 +730,12 @@ class Program
         int failureCount = 0;
         int copiedResourceCount = 0;
         var modulePlans = new List<JavaModulePlan>();
-        var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        var sharedCompatExternalDependencies = new List<JavaDependency>();
-        var sharedCompatRuntimeBridges = new List<JavaRuntimeBridgeRequirement>();
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
 
         var pipeline = new ConversionPipeline();
 
-        foreach (var module in modulesInBuildOrder)
+        foreach (var module in plan.ModulesInBuildOrder)
         {
             var moduleRoot = Path.Combine(opts.Destination, module.Name);
             var mainJavaRoot = Path.Combine(moduleRoot, "src", "main", "java");
@@ -869,29 +762,6 @@ class Program
             if (opts.Verbose)
             {
                 Console.WriteLine($"Converting module: {module.Name}");
-            }
-
-            if (ReferenceEquals(module, compatModule))
-            {
-                foreach (var result in ProjectConversionPipeline.GenerateCompatibilitySupport(sharedCompatibilityPackage, opts.IncludeTests))
-                {
-                    if (TryWriteConvertedFile(result, opts.Source, mainJavaRoot, outputSession, out var outputPath))
-                    {
-                        successCount++;
-                        if (opts.Verbose)
-                        {
-                            Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
-                        }
-                    }
-                    else
-                    {
-                        failureCount++;
-                        Console.Error.WriteLine($"Failed: {result.FileName}");
-                    }
-                }
-
-                if (opts.GeneratePom)
-                continue;
             }
 
             var moduleResults = new List<ConversionResult>();
@@ -956,20 +826,11 @@ class Program
                     moduleResults,
                     sharedCompatibilityPackage);
 
-                foreach (var packId in compatibilityRequirements.RequiredPackIds)
-                {
-                    sharedCompatPackIds.Add(packId);
-                }
-
-                sharedCompatExternalDependencies.AddRange(compatibilityRequirements.ExternalDependencies);
-                sharedCompatRuntimeBridges.AddRange(compatibilityRequirements.RuntimeBridges);
-
                 var modulePlan = PlannedModuleToJavaModulePlan(
                     module,
                     opts.MavenGroupId,
                     compatibilityRequirements.RequiredPackIds,
-                    compatibilityRequirements.RuntimeBridges,
-                    opts.UsePrebuiltCompatArtifact);
+                    compatibilityRequirements.RuntimeBridges);
                 modulePlans.Add(modulePlan);
                 await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
             }
@@ -977,22 +838,6 @@ class Program
 
         if (opts.GeneratePom)
         {
-            if (!opts.UsePrebuiltCompatArtifact)
-            {
-                var compatPlan = new JavaModulePlan
-                {
-                    ModuleName = compatModule.Name,
-                    IsTestOnly = false,
-                    Dependencies = WorkspacePlanBuilder.MergeDependencies(
-                        WorkspacePlanBuilder.DefaultDependencies().Concat(sharedCompatExternalDependencies)),
-                    RequiredCompatPacks = sharedCompatPackIds.ToList(),
-                    RequiredRuntimeBridges = WorkspacePlanBuilder.MergeRuntimeBridges(sharedCompatRuntimeBridges),
-                };
-
-                modulePlans.Insert(0, compatPlan);
-                await WriteMultiModulePom(opts, Path.Combine(opts.Destination, compatModule.Name), compatPlan, outputSession);
-            }
-
             var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
             await WriteParentPom(opts, workspacePlan, outputSession);
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan, outputSession);
@@ -1007,7 +852,7 @@ class Program
         await outputSession.SaveAsync();
 
         Console.WriteLine();
-        Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={modulesInBuildOrder.Count}");
+        Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={plan.ModulesInBuildOrder.Count}");
 
         return failureCount > 0 ? 1 : 0;
     }
@@ -1831,17 +1676,6 @@ class Program
         deps.AddRange(WorkspacePlanBuilder.DefaultDependencies());
         deps.AddRange(compatibilityRequirements.ExternalDependencies);
 
-        if (opts.UsePrebuiltCompatArtifact)
-        {
-            deps.Add(new JavaDependency
-            {
-                GroupId = "io.github.ningpp",
-                ArtifactId = "csharptojava-compat",
-                Version = "${project.version}",
-                IsInternal = true,
-            });
-        }
-
         return new JavaModulePlan
         {
             ModuleName = new DirectoryInfo(opts.Destination).Name,
@@ -1856,8 +1690,7 @@ class Program
     private static bool ShouldAnalyzeForCompatibilityPlanning(ConversionResult result)
     {
         return result.Success
-            && !string.IsNullOrEmpty(result.GeneratedCode)
-            && !CompatibilityClassGenerator.IsCompatibilitySupportFile(result.FileName);
+            && !string.IsNullOrEmpty(result.GeneratedCode);
     }
 
     private static Task WriteMultiModulePom(
@@ -2426,21 +2259,9 @@ class Program
         PlannedModule module,
         string groupId,
         IReadOnlyList<string>? requiredCompatPacks = null,
-        IReadOnlyList<JavaRuntimeBridgeRequirement>? requiredRuntimeBridges = null,
-        bool usePrebuiltCompatArtifact = false)
+        IReadOnlyList<JavaRuntimeBridgeRequirement>? requiredRuntimeBridges = null)
     {
         var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
-
-        if (usePrebuiltCompatArtifact)
-        {
-            deps.Add(new JavaDependency
-            {
-                GroupId = "io.github.ningpp",
-                ArtifactId = "csharptojava-compat",
-                Version = "${project.version}",
-                IsInternal = true,
-            });
-        }
 
         foreach (var dep in module.CompileDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
         {
@@ -2579,9 +2400,6 @@ class ConvertProjectOptions
 
     [Option("generate-pom", Default = true, HelpText = "Generate Maven pom.xml file with standard project structure")]
     public bool GeneratePom { get; set; } = true;
-
-    [Option("prebuilt-compat", Default = false, HelpText = "Use pre-built csharptojava-compat Maven artifact instead of generating compatibility classes inline")]
-    public bool UsePrebuiltCompatArtifact { get; set; }
 
     [Option("maven-group-id", Default = "io.github.ningpp", HelpText = "Maven groupId")]
     public string MavenGroupId { get; set; } = "io.github.ningpp";

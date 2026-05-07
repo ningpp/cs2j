@@ -86,7 +86,6 @@ class C {
             Options = new ConversionOptions
             {
                 TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
-                EmitCompatibilityHelpers = false,
                 PreferStreamApi = false,
             },
         });

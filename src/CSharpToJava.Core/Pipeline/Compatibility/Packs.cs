@@ -1,9 +1,7 @@
-using CSharpToJava.Core.Context;
-
 namespace CSharpToJava.Core.Pipeline.Compatibility;
 
 /// <summary>
-/// Ref/Out 参数 Holder 类 Pack — 生成 IntHolder, DoubleHolder, ObjectHolder&lt;T&gt; 等
+/// Ref/Out 参数 Holder 类 Pack — IntHolder, DoubleHolder, ObjectHolder&lt;T&gt; 等
 /// </summary>
 public class RefHolderPack : ICompatibilityPack
 {
@@ -17,11 +15,6 @@ public class RefHolderPack : ICompatibilityPack
             "IntHolder", "LongHolder", "DoubleHolder", "FloatHolder",
             "BoolHolder", "CharHolder", "ShortHolder", "ByteHolder",
             "ObjectHolder", "StopwatchHelper");
-    }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return CompatibilityClassGenerator.GenerateHolderClasses(targetPackage);
     }
 }
 
@@ -42,11 +35,6 @@ public class DotNetCorePack : ICompatibilityPack
             "LinkedListNode", "LinkedListWithNodes",
             "InvalidDataException", "TextReader", "ThreadHelper", "ArrayHelper");
     }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return CompatibilityClassGenerator.GenerateUtilityClasses(targetPackage);
-    }
 }
 
 /// <summary>
@@ -62,11 +50,6 @@ public class RegexPack : ICompatibilityPack
     {
         return context.ReferencesAnyType(
             "RegexOptions", "GroupCollection", "new Regex(", "Match.Empty");
-    }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return CompatibilityClassGenerator.GenerateRegexCompatibilityClasses(targetPackage);
     }
 }
 
@@ -85,11 +68,6 @@ public class XmlPack : ICompatibilityPack
             "XmlReader", "XmlWriter", "XmlTextReader",
             "XmlNodeType", "XmlConvert", "XmlReaderSettings", "XmlWriterSettings", "ReadState");
     }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return CompatibilityClassGenerator.GenerateXmlWrappers(targetPackage);
-    }
 }
 
 /// <summary>
@@ -104,11 +82,6 @@ public class JsonPack : ICompatibilityPack
     public bool IsApplicable(CompatibilityPackContext context)
     {
         return context.ReferencesAnyType("JsonSerializer", "JsonSerializerOptions");
-    }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return CompatibilityClassGenerator.GenerateJsonWrappers(targetPackage);
     }
 }
 
@@ -125,18 +98,10 @@ public class TracePack : ICompatibilityPack
     {
         return context.ReferencesAnyType("Trace.", "DefaultTraceListener");
     }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return CompatibilityClassGenerator.GenerateTraceCompatibilityClasses(targetPackage);
-    }
 }
 
 /// <summary>
 /// I/O Pack — FileHelper, FileMode, TextReader
-/// 注意：这些类目前包含在 DotNetCorePack 的 GenerateUtilityClasses 中。
-/// 当 DotNetCorePack 被拆分时，此 Pack 将独立持有这些类。
-/// 目前此 Pack 标记为不适用，由 DotNetCorePack 统一生成。
 /// </summary>
 public class IoPack : ICompatibilityPack
 {
@@ -146,13 +111,7 @@ public class IoPack : ICompatibilityPack
 
     public bool IsApplicable(CompatibilityPackContext context)
     {
-        // 当前 I/O 类由 DotNetCorePack 统一生成，此 Pack 作为未来拆分的预留
         return false;
-    }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return [];
     }
 }
 
@@ -169,10 +128,5 @@ public class TestPack : ICompatibilityPack
     {
         return context.ReferencesAnyType(
             "Microsoft.VisualStudio.TestTools.UnitTesting", "TestContext");
-    }
-
-    public IReadOnlyList<ConversionResult> Generate(string targetPackage)
-    {
-        return CompatibilityClassGenerator.GenerateMSTestCompatibilityClasses(true);
     }
 }

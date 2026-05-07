@@ -228,9 +228,6 @@ public class ProjectConversionPipeline
             return passState.Results;
         }
     }
-
-    public static List<ConversionResult> GenerateCompatibilitySupport(string compatibilityPackage, bool includeTestContext)
-        => CompatibilityClassGenerator.GenerateCompatibilitySupport(compatibilityPackage, includeTestContext);
 }
 
 /// <summary>

@@ -69,30 +69,7 @@ public class ConversionOptions
     public bool RewriteExtensionMethods { get; set; } = false;
 
     /// <summary>
-    /// When false, project conversion skips emitting generated compatibility helper classes
-    /// such as ObjectHolder, StringHelper, and XML/JSON shims into the current output.
-    /// This is used by multi-module conversion when those helpers are centralized in a
-    /// shared compatibility module.
-    /// </summary>
-    public bool EmitCompatibilityHelpers { get; set; } = true;
-
-    /// <summary>
-    /// 使用 Pack 化兼容层（按需生成）替代全量生成。
-    /// 启用后只生成已转换代码实际引用的兼容类。
-    /// </summary>
-    public bool UseCompatibilityPacks { get; set; } = false;
-
-    /// <summary>
-    /// When true, the converter skips generating compatibility classes inline and instead
-    /// expects the pre-built csharptojava-compat Maven artifact to be declared as a dependency.
-    /// Sets SharedCompatibilityPackage to "io.github.ningpp.compat" automatically.
-    /// </summary>
-    public bool UsePrebuiltCompatArtifact { get; set; } = false;
-
-    /// <summary>
     /// Optional shared compatibility package that should be imported into all generated files.
-    /// Used together with EmitCompatibilityHelpers=false when helper classes live in a
-    /// dedicated shared module.
     /// </summary>
     public string? SharedCompatibilityPackage { get; set; }
 

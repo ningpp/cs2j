@@ -1,9 +1,7 @@
-using CSharpToJava.Core.Context;
-
 namespace CSharpToJava.Core.Pipeline.Compatibility;
 
 /// <summary>
-/// 兼容层 Pack 接口 — 每个 Pack 封装一组相关的 Java 兼容类生成逻辑。
+/// 兼容层 Pack 接口 — 每个 Pack 描述一组相关的 Java 兼容类需求。
 /// </summary>
 public interface ICompatibilityPack
 {
@@ -23,14 +21,9 @@ public interface ICompatibilityPack
     IReadOnlyList<string> MavenDependencies { get; }
 
     /// <summary>
-    /// 根据已转换代码判断此 Pack 是否需要生成。
+    /// 根据已转换代码判断此 Pack 是否需要。
     /// </summary>
     bool IsApplicable(CompatibilityPackContext context);
-
-    /// <summary>
-    /// 生成兼容类文件。
-    /// </summary>
-    IReadOnlyList<ConversionResult> Generate(string targetPackage);
 }
 
 /// <summary>

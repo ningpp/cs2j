@@ -419,7 +419,6 @@ class Sample
         return new ConversionOptions
         {
             TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
-            EmitCompatibilityHelpers = false,
         };
     }
 }

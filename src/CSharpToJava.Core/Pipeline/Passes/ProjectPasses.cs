@@ -601,29 +601,8 @@ public sealed class ProjectCompatibilityEmitPass : ICs2jPass<ProjectPassState>
             return;
         }
 
-        if (!state.Context.Options.EmitCompatibilityHelpers)
-        {
-            return;
-        }
-
-        if (state.Context.Options.UsePrebuiltCompatArtifact)
-        {
-            // Pre-built artifact mode: skip inline generation entirely.
-            // The caller sets SharedCompatibilityPackage so cross-package imports
-            // point to the pre-built artifact's package.
-            return;
-        }
-
-        var basePackage = CompatibilityClassGenerator.DetermineBasePackage(state.Results);
-        if (state.Context.Options.UseCompatibilityPacks)
-        {
-            var packRegistry = CompatibilityPackRegistry.CreateDefault();
-            state.Results.AddRange(packRegistry.GenerateApplicable(state.Results, basePackage));
-            return;
-        }
-
-        var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(state.Results);
-        state.Results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
+        // Compatibility classes are now provided by the pre-built csharptojava-compat
+        // Maven artifact; no inline generation needed.
     }
 }
 

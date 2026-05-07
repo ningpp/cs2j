@@ -586,7 +586,6 @@ class Sample {
             Options = new ConversionOptions
             {
                 TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
-                EmitCompatibilityHelpers = false,
             },
         });
     }
@@ -594,7 +593,6 @@ class Sample {
     private static ConversionOptions ProceduralOptions() => new()
     {
         TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
-        EmitCompatibilityHelpers = false,
         PreferStreamApi = false,
     };
 }
