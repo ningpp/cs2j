@@ -667,9 +667,9 @@
                          },
                          {
                              "csharp":  "System.Collections.Generic.SortedList`2",
-                             "java":  "TreeMap",
+                             "java":  "SortedList",
                              "imports":  [
-                                             "java.util.TreeMap"
+                                             "io.github.ningpp.compat.SortedList"
                                          ]
                          },
                          {
@@ -2827,11 +2827,6 @@
                            },
                            {
                                "type":  "System.Collections.Generic.SortedDictionary`2",
-                               "method":  "Count",
-                               "javaMethod":  "size"
-                           },
-                           {
-                               "type":  "System.Collections.Generic.SortedList`2",
                                "method":  "Count",
                                "javaMethod":  "size"
                            },
