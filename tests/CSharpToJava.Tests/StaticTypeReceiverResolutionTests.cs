@@ -181,6 +181,78 @@ namespace Microsoft.Msagl.Layout
         Assert.DoesNotContain("return Core.Geometry.Compass::west;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConversionPipeline_RewritesStringFormatPlaceholders_ToJavaFormatSpecifiers()
+    {
+        var result = Convert(@"
+public class Sample
+{
+    public string Build(string x, int n, double d)
+    {
+        var s1 = string.Format(""{0} {1}"", x, n);
+        var s2 = String.Format(""{0:D4}"", n);
+        var s3 = string.Format(""{0:F2}"", d);
+        var s4 = string.Format(""{0}% done"", n);
+        return s1;
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("String.format(\"%s %s\", x, n)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.format(\"%04d\", n)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.format(\"%.2f\", d)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.format(\"%s%% done\", n)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConversionPipeline_RewritesStringBuilderAppendFormat_ToJavaFormatSpecifiers()
+    {
+        var result = Convert(@"
+using System.Text;
+
+public class Sample
+{
+    public void Build(string x, int n)
+    {
+        var sb = new StringBuilder();
+        sb.AppendFormat(""{0} {1}"", x, n);
+        sb.AppendFormat(""{0:D4}"", n);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("sb.append(String.format(\"%s %s\", x, n))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("sb.append(String.format(\"%04d\", n))", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConversionPipeline_DoesNotRewriteFormatString_ForCustomStringTypes()
+    {
+        var result = Convert(@"
+namespace Microsoft.Msagl.Text
+{
+    public static class String
+    {
+        public static string Format(string pattern, object value) => pattern + value;
+    }
+}
+
+namespace Microsoft.Msagl.Layout
+{
+    public class Sample
+    {
+        public string Build(string joined)
+        {
+            return Text.String.Format(""{0}"", joined);
+        }
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("String.format(\"{0}\", joined)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("String.format(\"%s\", joined)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
