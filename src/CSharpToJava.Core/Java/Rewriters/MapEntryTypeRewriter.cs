@@ -53,12 +53,33 @@ public sealed class MapEntryTypeRewriter : JavaSyntaxRewriter
         // Fix parameter types
         RewriteParameters(node.Parameters);
 
+        // Fix raw SimpleEntry in method body string (not structured IR)
+        if (!string.IsNullOrWhiteSpace(node.Body) && ContainsSimpleEntry(node.Body))
+        {
+            var before = node.Body;
+            node.Body = ReplaceSimpleEntryInRaw(node.Body);
+            node.Body = FixRawSimpleEntryDiamond(node.Body);
+            if (node.Body != before)
+                _rewriteCount++;
+        }
+
         return base.VisitMethodDeclaration(node);
     }
 
     public override JavaConstructorDeclaration VisitConstructorDeclaration(JavaConstructorDeclaration node)
     {
         RewriteParameters(node.Parameters);
+
+        // Fix raw SimpleEntry in constructor body string
+        if (!string.IsNullOrWhiteSpace(node.Body) && ContainsSimpleEntry(node.Body))
+        {
+            var before = node.Body;
+            node.Body = ReplaceSimpleEntryInRaw(node.Body);
+            node.Body = FixRawSimpleEntryDiamond(node.Body);
+            if (node.Body != before)
+                _rewriteCount++;
+        }
+
         return base.VisitConstructorDeclaration(node);
     }
 
@@ -137,12 +158,10 @@ public sealed class MapEntryTypeRewriter : JavaSyntaxRewriter
     {
         if (ContainsSimpleEntry(node.Code))
         {
+            var before = node.Code;
             node.Code = ReplaceSimpleEntryInRaw(node.Code);
-            if (ContainsSimpleEntry(node.Code))
-            {
-                // Some occurrences remain (after `new`) — that's expected
-            }
-            else
+            node.Code = FixRawSimpleEntryDiamond(node.Code);
+            if (node.Code != before)
             {
                 _rewriteCount++;
             }
@@ -155,12 +174,10 @@ public sealed class MapEntryTypeRewriter : JavaSyntaxRewriter
     {
         if (ContainsSimpleEntry(node.Code))
         {
+            var before = node.Code;
             node.Code = ReplaceSimpleEntryInRaw(node.Code);
-            if (ContainsSimpleEntry(node.Code))
-            {
-                // Some occurrences remain (after `new`) — that's expected
-            }
-            else
+            node.Code = FixRawSimpleEntryDiamond(node.Code);
+            if (node.Code != before)
             {
                 _rewriteCount++;
             }
@@ -226,6 +243,30 @@ public sealed class MapEntryTypeRewriter : JavaSyntaxRewriter
     /// or <c>AbstractMap.SimpleEntry&lt;...&gt;</c> (i.e. the bare type being
     /// instantiated, not nested inside another generic).
     /// </summary>
+    /// <summary>
+    /// Fixes raw SimpleEntry/Map.Entry types in generated Java code:
+    /// 1. Adds diamond operator to <c>new AbstractMap.SimpleEntry(</c>
+    /// 2. Adds wildcard to raw <c>(Map.Entry)</c> casts → <c>(Map.Entry&lt;?, ?&gt;)</c>
+    /// </summary>
+    private static string FixRawSimpleEntryDiamond(string code)
+    {
+        // Fix 1: new AbstractMap.SimpleEntry( → new AbstractMap.SimpleEntry<>(
+        code = System.Text.RegularExpressions.Regex.Replace(
+            code,
+            @"\bnew AbstractMap\.SimpleEntry\(",
+            "new AbstractMap.SimpleEntry<>(");
+
+        // Fix 2: Remove raw (Map.Entry) casts. They erase generics even when
+        // the constructor uses diamond inference.
+        // (Map.Entry) new SimpleEntry<>(...) → new SimpleEntry<>(...)
+        code = System.Text.RegularExpressions.Regex.Replace(
+            code,
+            @"\(Map\.Entry\)\s*(new\s+AbstractMap\.SimpleEntry(?:<[^>]*>)?\s*\()",
+            "$1");
+
+        return code;
+    }
+
     private static bool IsBareSimpleEntry(string type)
     {
         var trimmed = type.AsSpan().Trim();
