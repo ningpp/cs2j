@@ -1346,6 +1346,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Reflection.AssemblyName",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Reflection.FieldInfo",
                              "java":  "Field",
                              "imports":  [
@@ -1774,16 +1781,16 @@
                          },
                          {
                              "csharp":  "System.Runtime.Serialization.DataContractSerializer",
-                             "java":  "Object",
+                             "java":  "DataContractSerializer",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.DataContractSerializer"
                                          ]
                          },
                          {
                              "csharp":  "DataContractSerializer",
-                             "java":  "Object",
+                             "java":  "DataContractSerializer",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.DataContractSerializer"
                                          ]
                          }
                      ],
@@ -3215,6 +3222,16 @@
                                "javaMethod":  "print"
                            },
                            {
+                               "type":  "System.IO.StringWriter",
+                               "method":  "WriteLine",
+                               "javaMethod":  "write"
+                           },
+                           {
+                               "type":  "System.IO.StringWriter",
+                               "method":  "Write",
+                               "javaMethod":  "write"
+                           },
+                           {
                                "type":  "System.Array",
                                "method":  "Length",
                                "javaMethod":  "length"
@@ -3308,6 +3325,41 @@
                                "type":  "System.TimeSpan",
                                "method":  "TotalDays",
                                "javaMethod":  "toDays"
+                           },
+                           {
+                               "type":  "System.Type",
+                               "method":  "AssemblyQualifiedName",
+                               "javaMethod":  "getName"
+                           },
+                           {
+                               "type":  "System.Type",
+                               "method":  "get_Assembly",
+                               "javaMethod":  "getPackage"
+                           },
+                           {
+                               "type":  "System.Type",
+                               "method":  "Assembly",
+                               "javaMethod":  "getPackage"
+                           },
+                           {
+                               "type":  "System.Reflection.Assembly",
+                               "method":  "GetName",
+                               "javaMethod":  "getImplementationVersion"
+                           },
+                           {
+                               "type":  "System.Reflection.Assembly",
+                               "method":  "get_Name",
+                               "javaMethod":  "getImplementationVersion"
+                           },
+                           {
+                               "type":  "System.Reflection.AssemblyName",
+                               "method":  "Version",
+                               "javaMethod":  "toString"
+                           },
+                           {
+                               "type":  "System.Reflection.AssemblyName",
+                               "method":  "get_Version",
+                               "javaMethod":  "toString"
                            }
                        ],
     "namespaceMappings":  [
