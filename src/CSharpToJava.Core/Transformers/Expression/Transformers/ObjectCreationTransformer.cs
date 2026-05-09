@@ -159,7 +159,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
             var typeName = context.MapType(typeInfo.Value.Type);
-            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, context);
+            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context);
         }
         return "new Object()";
     }
@@ -172,14 +172,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Get the type being created
         var typeInfo = context.SemanticModel?.GetTypeInfo(node);
         string typeName;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.HasValue && typeInfo.Value.Type != null && typeInfo.Value.Type is not IErrorTypeSymbol)
         {
             createdTypeSymbol = typeInfo.Value.Type;
             typeName = context.MapType(typeInfo.Value.Type);
         }
         else
         {
-            // Fallback to syntax type
+            // Fallback to syntax type.  Prefer syntax over unresolved error types
+            // (common in project-pipeline after LINQ rewrite) because error types
+            // can lose generic type arguments (e.g. Tuple<int,int> → Tuple → Map.Entry
+            // instead of Map.Entry<Integer,Integer>).
             var typeSyntax = node.Type as TypeSyntax;
             typeName = typeSyntax != null
                 ? context.MapTypeFromSyntax(typeSyntax)
@@ -222,7 +225,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
         }
 
-        return TransformObjectCreationWithArgs(typeName, node.ArgumentList, context);
+        return TransformObjectCreationWithArgs(typeName, node.ArgumentList, node.Type as TypeSyntax, context);
     }
 
     private static bool HasCollectionConstraint(ITypeParameterSymbol typeParameter)
@@ -241,7 +244,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         });
     }
 
-    private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, ConversionContext context)
+    private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, TypeSyntax? typeSyntax, ConversionContext context)
     {
         // Map.Entry is an interface — instantiate via AbstractMap.SimpleEntry instead.
         // This handles C# `new KeyValuePair<K,V>(key, value)` construction.
@@ -259,6 +262,18 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 ? ArgumentTransformer.TransformArgumentList(argumentList, context, ExpressionTransformerFacade.Instance)
                 : "";
             var genericPart = typeName.Contains('<') ? typeName[typeName.IndexOf('<')..] : "<>";
+            // When type arguments are missing (bare "Map.Entry"), try to recover them
+            // from the C# syntax node. The semantic model may lose generic type arguments
+            // after LINQ rewrite in the project pipeline.
+            if (genericPart == "<>" && typeSyntax is GenericNameSyntax genericName)
+            {
+                var syntaxTypeName = context.MapTypeFromSyntax(genericName);
+                if (syntaxTypeName.Contains('<'))
+                {
+                    typeName = syntaxTypeName;
+                    genericPart = typeName[typeName.IndexOf('<')..];
+                }
+            }
             var newExpr = string.IsNullOrWhiteSpace(seArgs)
                 ? $"new AbstractMap.SimpleEntry{genericPart}()"
                 : $"new AbstractMap.SimpleEntry{genericPart}({seArgs})";

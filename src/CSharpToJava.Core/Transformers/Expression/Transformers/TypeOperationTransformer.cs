@@ -160,12 +160,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
         var targetSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
         string targetType;
-        if (targetSymbol != null)
+        if (targetSymbol != null && targetSymbol is not IErrorTypeSymbol)
         {
             targetType = context.MapType(targetSymbol);
         }
         else
         {
+            // Prefer syntax-based mapping for unresolved/error types — they can lose
+            // generic type arguments (e.g. Tuple<int,int> → Tuple → Map.Entry instead
+            // of Map.Entry<Integer,Integer>).
             targetType = context.MapTypeFromSyntax(node.Type);
         }
 
