@@ -1321,6 +1321,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"java.lang.reflect.Array.newInstance({typeArg}, {lengthArg})";
         }
 
+        // System.Activator.CreateInstance(type) → type.getDeclaredConstructor().newInstance()
+        if (originalMethodName == "CreateInstance"
+            && node.ArgumentList.Arguments.Count == 1
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Activator"
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression, context, "Activator", "System.Activator"))))
+        {
+            var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"{typeArg}.getDeclaredConstructor().newInstance()";
+        }
+
+        // System.Type.GetType(string) → Class.forName(string)
+        if (originalMethodName == "GetType"
+            && node.ArgumentList.Arguments.Count == 1
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Type"
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression, context, "Type", "System.Type")))
+            && (methodSymbol?.IsStatic ?? true))
+        {
+            var typeNameArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"Class.forName({typeNameArg})";
+        }
+
         // System.Array.SetValue(value, index) → java.lang.reflect.Array.set(arrayObj, index, value)
         if (originalMethodName == "SetValue"
             && node.ArgumentList.Arguments.Count == 2
@@ -2177,6 +2200,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 : facade.Transform(firstArg.Expression, context);
             var printTarget = $"{receiver}.{methodName}";
             return $"{printTarget}(String.format({formatExpr}, {remainingArgs}))";
+        }
+
+        // StringWriter.WriteLine(...) → Java's StringWriter only has write(string).
+        // Append "\n" to the argument to preserve the newline semantics.
+        if (originalMethodName == "WriteLine"
+            && methodName == "write"
+            && methodSymbol?.ContainingType.ToDisplayString() == "System.IO.StringWriter")
+        {
+            var writeArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            if (string.IsNullOrEmpty(writeArgs))
+                return $"{receiver}.{methodName}(\"\\n\")";
+            return $"{receiver}.{methodName}({writeArgs} + \"\\n\")";
         }
 
         // ── Static Enumerable methods (Range, Repeat, Empty) ──────────────────
