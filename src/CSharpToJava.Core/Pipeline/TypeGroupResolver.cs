@@ -29,8 +29,9 @@ public static class TypeGroupResolver
         ConversionContext context,
         IReadOnlyList<Java.JavaSyntaxRewriter>? irRewriters = null)
     {
-        // 每次转换一个类型前清空导入集合，避免跨文件污染
+        // 每次转换一个类型前清空导入集合和别名注册表，避免跨文件污染
         context.ClearImports();
+        context.ClearAliases();
 
         try
         {

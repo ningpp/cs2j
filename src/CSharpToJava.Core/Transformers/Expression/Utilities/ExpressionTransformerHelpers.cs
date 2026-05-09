@@ -370,6 +370,16 @@ public static class ExpressionTransformerHelpers
                 return true;
 
             case INamedTypeSymbol namedType when namedType.TypeKind != TypeKind.Error:
+                // Guard: when the expression is a simple identifier, verify that the
+                // resolved type name actually matches the expression text. If the
+                // semantic model can't resolve a property (e.g. "Graph") and falls
+                // back to an unrelated type (e.g. "BasicGraphOnEdges"), the names
+                // won't match and we must not treat it as a static type reference.
+                if (expression is IdentifierNameSyntax idExpr
+                    && !string.Equals(idExpr.Identifier.Text, namedType.Name, StringComparison.Ordinal))
+                {
+                    return false;
+                }
                 typeSymbol = namedType;
                 return true;
 
@@ -555,7 +565,7 @@ public static class ExpressionTransformerHelpers
             : name;
     }
 
-    private static string StripTypeArguments(string typeName)
+    public static string StripTypeArguments(string typeName)
     {
         if (!typeName.Contains('<', StringComparison.Ordinal))
             return typeName;

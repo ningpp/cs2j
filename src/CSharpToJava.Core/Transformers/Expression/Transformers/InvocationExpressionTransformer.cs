@@ -892,6 +892,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Format")
             {
                 int fmtStart = HasIFormatProviderFirstArg(node, context) ? 1 : 0;
+                // Rewrite C# {N} format placeholders to Java % specifiers
+                if (node.ArgumentList.Arguments.Count > fmtStart
+                    && node.ArgumentList.Arguments[fmtStart].Expression is LiteralExpressionSyntax
+                        { RawKind: (int)SyntaxKind.StringLiteralExpression } strLit)
+                {
+                    var rewrittenFormat = RewriteStringFormatLiteral(strLit.Token.ValueText);
+                    var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart + 1);
+                    return string.IsNullOrEmpty(remainingArgs)
+                        ? $"String.format({rewrittenFormat})"
+                        : $"String.format({rewrittenFormat}, {remainingArgs})";
+                }
                 var formatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart);
                 return $"String.format({formatArgs})";
             }
@@ -992,6 +1003,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context))
         {
             int fmtStart = HasIFormatProviderFirstArg(node, context) ? 1 : 0;
+            // Rewrite C# {N} format placeholders to Java % specifiers.
+            // Only for the real System.String — custom types named "String"
+            // (e.g. Microsoft.Msagl.Text.String) have their own format behavior.
+            bool isRealSystemString = methodSymbol?.ContainingType?.SpecialType == SpecialType.System_String
+                || memberAccess.Expression is PredefinedTypeSyntax;
+            if (isRealSystemString
+                && node.ArgumentList.Arguments.Count > fmtStart
+                && node.ArgumentList.Arguments[fmtStart].Expression is LiteralExpressionSyntax
+                    { RawKind: (int)SyntaxKind.StringLiteralExpression } strLit)
+            {
+                var rewrittenFormat = RewriteStringFormatLiteral(strLit.Token.ValueText);
+                var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart + 1);
+                return string.IsNullOrEmpty(remainingArgs)
+                    ? $"String.format({rewrittenFormat})"
+                    : $"String.format({rewrittenFormat}, {remainingArgs})";
+            }
             var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart, methodSymbol);
             return $"String.format({fmtArgs})";
         }
@@ -1898,6 +1925,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "System.Text.StringBuilder")))
         {
             int appendFmtStart = isExtensionInStaticPath ? 1 : 0;
+            // Rewrite C# {N} format placeholders to Java % specifiers inside String.format()
+            if (node.ArgumentList.Arguments.Count > appendFmtStart
+                && node.ArgumentList.Arguments[appendFmtStart].Expression is LiteralExpressionSyntax
+                    { RawKind: (int)SyntaxKind.StringLiteralExpression } appendStrLit)
+            {
+                var rewrittenFormat = RewriteStringFormatLiteral(appendStrLit.Token.ValueText);
+                var remainingArgs = ArgumentTransformer.TransformArgumentList(
+                    node.ArgumentList, context, facade, appendFmtStart + 1);
+                var innerFormatCall = string.IsNullOrEmpty(remainingArgs)
+                    ? $"String.format({rewrittenFormat})"
+                    : $"String.format({rewrittenFormat}, {remainingArgs})";
+                return $"{receiver}.append({innerFormatCall})";
+            }
             var fmtArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, appendFmtStart, methodSymbol);
             return $"{receiver}.append(String.format({fmtArgs}))";
@@ -3600,7 +3640,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{hostTypeName}.{methodName}({allArgs})";
         }
 
-        return $"{receiver}.{methodName}({args})";
+        return $"{ExpressionTransformerHelpers.StripTypeArguments(receiver)}.{methodName}({args})";
     }
 
     /// <summary>

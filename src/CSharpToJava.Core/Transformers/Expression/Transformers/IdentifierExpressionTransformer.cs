@@ -578,7 +578,28 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             out var staticReceiver,
             out _))
         {
-            staticTypeTarget = staticReceiver;
+            // Guard: when the receiver expression is a simple identifier that could
+            // also be an instance member (property/field) on the enclosing type, prefer
+            // the instance interpretation. The semantic model may occasionally resolve
+            // an instance member's underlying type as the symbol instead of the member
+            // itself (e.g. property "Graph" of type GeometryGraph resolving to
+            // BasicGraphOnEdges<PolyIntEdge> after LINQ rewrite).
+            bool isLikelyInstanceMember = false;
+            if (node.Expression is IdentifierNameSyntax idExpr
+                && context.SemanticModel != null)
+            {
+                var enclosingSymbol = context.SemanticModel.GetEnclosingSymbol(node.SpanStart);
+                if (enclosingSymbol?.ContainingType is INamedTypeSymbol enclosingType)
+                {
+                    var guardMemberName = idExpr.Identifier.Text;
+                    isLikelyInstanceMember = enclosingType.GetMembers(guardMemberName)
+                        .Any(m => m is IFieldSymbol or IPropertySymbol);
+                }
+            }
+            if (!isLikelyInstanceMember)
+            {
+                staticTypeTarget = staticReceiver;
+            }
         }
 
         // Fix: Generic type static member access — C# allows Set<T>.Method() but Java requires Set.Method().
@@ -616,7 +637,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return formattedEnumMemberAccess;
         }
 
-        var target = staticTypeTarget ?? facade.Transform(node.Expression, context);
+        var transformedExpr = facade.Transform(node.Expression, context);
+        var target = staticTypeTarget ?? transformedExpr;
+        // Strip type arguments from type qualifiers — Java forbids Type<T>.member().
+        target = ExpressionTransformerHelpers.StripTypeArguments(target);
 
         if (target == "String" && memberName == "Empty")
             return "\"\"";
