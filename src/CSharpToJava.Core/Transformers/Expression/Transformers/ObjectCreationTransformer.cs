@@ -411,6 +411,33 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             args = CoerceSingleStreamArgForCollectionCtor(argumentList.Arguments, args, context);
         }
 
+        // Java StringWriter has no constructor accepting Locale/CultureInfo.
+        // Strip CultureInfo/IFormatProvider arguments from the constructor call.
+        var bareType = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+        if ((bareType == "StringWriter" || bareType == "java.io.StringWriter")
+            && argumentList.Arguments.Count > 0)
+        {
+            var filteredArgs = new List<ArgumentSyntax>();
+            foreach (var arg in argumentList.Arguments)
+            {
+                var argType = context.SemanticModel?.GetTypeInfo(arg.Expression).Type;
+                var argTypeDisplay = argType?.ToDisplayString();
+                if (argTypeDisplay != "System.Globalization.CultureInfo"
+                    && argTypeDisplay != "System.IFormatProvider")
+                {
+                    filteredArgs.Add(arg);
+                }
+            }
+            if (filteredArgs.Count < argumentList.Arguments.Count)
+            {
+                if (filteredArgs.Count == 0)
+                    return "new StringWriter()";
+                args = ArgumentTransformer.TransformArgumentList(
+                    SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(filteredArgs)),
+                    context, ExpressionTransformerFacade.Instance, methodSymbol: ctorSymbol);
+            }
+        }
+
         return $"new {typeName}({args})";
     }
 
