@@ -330,7 +330,18 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
                 var refHolderType = HolderTypeResolver.GetHolderType(javaType);
-                var refHolderInit = HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName);
+                // When the variable is declared without an initializer (e.g. `double t;`
+                // used as an `out` parameter captured by the LINQ rewriter), use the
+                // no-args constructor instead of the value-initializing constructor to
+                // avoid referencing an uninitialized variable.
+                var localSym = context.SemanticModel?.GetSymbolInfo(refIdent).Symbol as ILocalSymbol;
+                var isUninitialized = localSym?.DeclaringSyntaxReferences
+                    .Select(r => r.GetSyntax())
+                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax>()
+                    .Any(d => d.Initializer == null) == true;
+                var refHolderInit = isUninitialized
+                    ? HolderTypeResolver.GetHolderInstantiation(refHolderType)
+                    : HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
                 context.AddPostStatement($"{ConversionContext.EscapeJavaKeyword(varName)} = {refHolderName}.value");
                 return refHolderName;
