@@ -1027,7 +1027,7 @@
                              "csharp":  "System.IO.Path",
                              "java":  "PathHelper",
                              "imports":  [
-                                             "Microsoft.Msagl.PathHelper"
+                                             "io.github.ningpp.compat.PathHelper"
                                          ]
                          },
                          {
@@ -1767,6 +1767,20 @@
                          },
                          {
                              "csharp":  "System.Runtime.CompilerServices.MethodImplAttribute",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Runtime.Serialization.DataContractSerializer",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "DataContractSerializer",
                              "java":  "Object",
                              "imports":  [
 
