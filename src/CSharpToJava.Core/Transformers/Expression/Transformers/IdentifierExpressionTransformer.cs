@@ -245,6 +245,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // When the identifier is used as a static method receiver (e.g. XmlWriter.Create),
+        // prefer the type resolution over a same-named property. Only do this when the
+        // accessed member is actually static; instance members indicate a property access
+        // (e.g. Label.SetGeometryLabel where Label is a property, not the type).
+        if (node.Parent is MemberAccessExpressionSyntax maParentIcon
+            && context.SemanticModel?.GetSymbolInfo(node).Symbol is ITypeSymbol identType)
+        {
+            var accessedSymbol = context.SemanticModel?.GetSymbolInfo(maParentIcon).Symbol;
+            if (accessedSymbol is IMethodSymbol { IsStatic: true }
+                || accessedSymbol is IPropertySymbol { IsStatic: true }
+                || accessedSymbol is IFieldSymbol { IsStatic: true })
+            {
+                return context.MapType(identType);
+            }
+        }
+
         // Check if the identifier resolves to a property — generate getter() for reads,
         // or the camelCase backing-field name when it appears on the LHS of an assignment
         // (AssignmentTransformer will wrap that into a setXxx() call).
