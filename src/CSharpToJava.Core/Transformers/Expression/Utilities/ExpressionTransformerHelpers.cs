@@ -87,6 +87,20 @@ public static class ExpressionTransformerHelpers
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
             return transformedExpression;
 
+        // StringWriter passed to TextWriter/PrintWriter parameter: wrap in PrintWriter
+        if (sourceType.ToDisplayString() == "System.IO.StringWriter"
+            && targetType.ToDisplayString() == "System.IO.TextWriter")
+        {
+            return $"new PrintWriter({transformedExpression})";
+        }
+
+        // C# Stream types (FileStream, MemoryStream, etc.) are all compatible with
+        // the base Stream type in C#, but may map to incompatible Java types
+        // (OutputStream vs InputStream).  Allow the implicit conversion — the compat
+        // library methods (XmlWriter.create, XmlReader.create) accept Object anyway.
+        if (IsCSharpStreamType(sourceType) && IsCSharpStreamType(targetType))
+            return transformedExpression;
+
         var sourceSpecial = sourceType.SpecialType;
         var targetSpecial = targetType.SpecialType;
 
@@ -134,6 +148,16 @@ public static class ExpressionTransformerHelpers
             or SpecialType.System_Single
             or SpecialType.System_Double
             or SpecialType.System_Char;
+    }
+
+    /// <summary>Returns true when <paramref name="type"/> is System.IO.Stream or a subclass.</summary>
+    private static bool IsCSharpStreamType(ITypeSymbol type)
+    {
+        if (type.ToDisplayString() == "System.IO.Stream")
+            return true;
+        if (type.BaseType != null)
+            return IsCSharpStreamType(type.BaseType);
+        return false;
     }
 
     private static bool TryRewriteNumericLiteral(
