@@ -581,6 +581,11 @@ namespace CSharpToJava.Core.LinqRewrite
             if (IsAnonymousType(type))
                 return "object";
 
+            // Type parameters leaked from LINQ method definitions that don't belong
+            // to the enclosing method or type should be replaced with object.
+            if (type is ITypeParameterSymbol tp && !IsDeclaredTypeParameter(tp))
+                return "object";
+
             if (type is INamedTypeSymbol named && named.IsGenericType
                 && named.TypeArguments.Any(IsAnonymousType))
             {
@@ -1176,7 +1181,27 @@ namespace CSharpToJava.Core.LinqRewrite
 
         private ITypeSymbol GetItemType(ITypeSymbol collectionType)
         {
-            return collectionType is IArrayTypeSymbol ? ((IArrayTypeSymbol)collectionType).ElementType : collectionType.AllInterfaces.Concat(new[] { collectionType }).OfType<INamedTypeSymbol>().FirstOrDefault(x => x.IsGenericType && x.ConstructUnboundGenericType().ToString() == "System.Collections.Generic.IEnumerable<>")?.TypeArguments.First();
+            var itemType = collectionType is IArrayTypeSymbol ? ((IArrayTypeSymbol)collectionType).ElementType : collectionType.AllInterfaces.Concat(new[] { collectionType }).OfType<INamedTypeSymbol>().FirstOrDefault(x => x.IsGenericType && x.ConstructUnboundGenericType().ToString() == "System.Collections.Generic.IEnumerable<>")?.TypeArguments.First();
+            if (itemType is ITypeParameterSymbol tp
+                && !IsDeclaredTypeParameter(tp))
+            {
+                return semantic.Compilation.GetSpecialType(SpecialType.System_Object);
+            }
+            return itemType;
+        }
+
+        /// <summary>Returns true when <paramref name="tp"/> is declared by the enclosing
+        /// method or the enclosing type — i.e. it is a legitimate generic parameter, not a
+        /// leaked LINQ-method type parameter (e.g. TSource from Enumerable.Select).</summary>
+        private bool IsDeclaredTypeParameter(ITypeParameterSymbol tp)
+        {
+            if (currentMethodTypeParameters?.Parameters.Any(
+                    p => p.Identifier.ValueText == tp.Name) == true)
+                return true;
+            if (currentType?.TypeParameterList?.Parameters.Any(
+                    p => p.Identifier.ValueText == tp.Name) == true)
+                return true;
+            return false;
         }
 
         private static PredefinedTypeSyntax CreatePrimitiveType(SyntaxKind keyword)
