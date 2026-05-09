@@ -190,14 +190,39 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
         // GetTypeInfo on InvocationExpression can fail to resolve return type
         // in cross-file scenarios. Fall back to checking the method symbol directly.
-        if (expr is InvocationExpressionSyntax)
+        if (expr is InvocationExpressionSyntax invExpr)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(expr);
-            if (symbolInfo.Symbol is IMethodSymbol method)
-                return method.ReturnType.SpecialType == SpecialType.System_Boolean;
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(invExpr);
+            if (symbolInfo.Symbol is IMethodSymbol method
+                && method.ReturnType.SpecialType == SpecialType.System_Boolean)
+                return true;
+
+            // Fallback: when the semantic model can't resolve the method
+            // (e.g. after LINQ rewrite in project pipeline), use a naming
+            // heuristic — methods starting with "Is", "Has", "Can", etc.
+            // typically return bool in C#.
+            if (invExpr.Expression is MemberAccessExpressionSyntax ma
+                && IsBooleanMethodName(ma.Name.Identifier.Text))
+                return true;
         }
 
         return false;
+    }
+
+    private static bool IsBooleanMethodName(string methodName)
+    {
+        return methodName.StartsWith("Is", StringComparison.Ordinal)
+            || methodName.StartsWith("Has", StringComparison.Ordinal)
+            || methodName.StartsWith("Can", StringComparison.Ordinal)
+            || methodName.StartsWith("Should", StringComparison.Ordinal)
+            || methodName.StartsWith("Are", StringComparison.Ordinal)
+            || methodName == "Exists"
+            || methodName == "Contains"
+            || methodName == "Equals"
+            || methodName == "StartsWith"
+            || methodName == "EndsWith"
+            || methodName == "MoveNext"
+            || methodName == "TryParse";
     }
 
     private static bool IsNumericType(ITypeSymbol? type)
