@@ -53,7 +53,7 @@ public class PlanningTests
         };
 
         var generator = new MavenPomGenerator();
-        var pom = generator.GenerateRootBuildFile(plan);
+        var pom = generator.GenerateRootBuildFile(plan, true);
 
         Assert.DoesNotContain("spotless-maven-plugin", pom, StringComparison.Ordinal);
         Assert.DoesNotContain("googleJavaFormat", pom, StringComparison.Ordinal);

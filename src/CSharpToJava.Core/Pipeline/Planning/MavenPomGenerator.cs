@@ -9,9 +9,9 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
 {
     public string BuildFileName => "pom.xml";
 
-    public string GenerateRootBuildFile(JavaWorkspacePlan plan)
+    public string GenerateRootBuildFile(JavaWorkspacePlan plan, bool genParentPom)
     {
-        if (plan.IsSingleModule)
+        if (!genParentPom && plan.IsSingleModule)
             return GenerateSingleModulePom(plan, plan.Modules[0]);
 
         return GenerateParentPom(plan);

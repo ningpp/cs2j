@@ -9,7 +9,7 @@ public interface IBuildFileGenerator
     string BuildFileName { get; }
 
     /// <summary>生成根/父构建文件。</summary>
-    string GenerateRootBuildFile(JavaWorkspacePlan plan);
+    string GenerateRootBuildFile(JavaWorkspacePlan plan, bool genParentPom);
 
     /// <summary>生成模块/子模块的构建文件。</summary>
     string GenerateModuleBuildFile(JavaWorkspacePlan plan, JavaModulePlan module);
