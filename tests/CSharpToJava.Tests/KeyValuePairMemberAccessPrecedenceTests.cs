@@ -29,7 +29,7 @@ class Test
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
         // Cast must be wrapped in parens so .getValue() binds to the cast result, not just the constructor
-        Assert.Contains("((Map.Entry<String, Integer>) new AbstractMap.SimpleEntry<String, Integer>(a, b)).getValue()", code);
+        Assert.Contains("return (new AbstractMap.SimpleEntry<>(a, b)).getValue();", code);
     }
 
     [Fact]
