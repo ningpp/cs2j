@@ -151,14 +151,14 @@
                              "csharp":  "System.Xml.XmlReader",
                              "java":  "XmlReader",
                              "imports":  [
-                                             "Microsoft.Msagl.XmlReader"
+                                             "io.github.ningpp.compat.XmlReader"
                                          ]
                          },
                          {
                              "csharp":  "System.Xml.XmlTextReader",
                              "java":  "XmlTextReader",
                              "imports":  [
-                                             "Microsoft.Msagl.XmlTextReader"
+                                             "io.github.ningpp.compat.XmlTextReader"
                                          ]
                          },
                          {
@@ -512,20 +512,6 @@
                                          ]
                          },
                          {
-                             "csharp":  "System.Collections.Generic.LinkedListNode`1",
-                             "java":  "LinkedListNode",
-                             "imports":  [
-                                             "Microsoft.Msagl.LinkedListNode"
-                                         ]
-                         },
-                         {
-                             "csharp":  "System.Collections.Generic.LinkedList`1",
-                             "java":  "LinkedListWithNodes",
-                             "imports":  [
-                                             "Microsoft.Msagl.LinkedListWithNodes"
-                                         ]
-                         },
-                         {
                              "csharp":  "System.Diagnostics.Stopwatch",
                              "java":  "StopwatchHelper",
                              "imports":  [
@@ -557,14 +543,14 @@
                              "csharp":  "System.Text.Json.JsonSerializer",
                              "java":  "JsonSerializer",
                              "imports":  [
-                                             "Microsoft.Msagl.JsonSerializer"
+                                             "io.github.ningpp.compat.JsonSerializer"
                                          ]
                          },
                          {
                              "csharp":  "System.Text.Json.JsonSerializerOptions",
                              "java":  "JsonSerializerOptions",
                              "imports":  [
-                                             "Microsoft.Msagl.JsonSerializerOptions"
+                                             "io.github.ningpp.compat.JsonSerializerOptions"
                                          ]
                          },
                          {
@@ -662,7 +648,7 @@
                              "csharp":  "System.Collections.Generic.LinkedList`1",
                              "java":  "LinkedListWithNodes",
                              "imports":  [
-                                             "Microsoft.Msagl.LinkedListWithNodes"
+                                             "io.github.ningpp.compat.LinkedListWithNodes"
                                          ]
                          },
                          {
@@ -943,21 +929,21 @@
                              "csharp":  "System.IO.TextReader",
                              "java":  "TextReader",
                              "imports":  [
-                                             "Microsoft.Msagl.TextReader"
+                                             "io.github.ningpp.compat.TextReader"
                                          ]
                          },
                          {
                              "csharp":  "System.Threading.Thread",
                              "java":  "ThreadHelper",
                              "imports":  [
-                                             "Microsoft.Msagl.ThreadHelper"
+                                             "io.github.ningpp.compat.ThreadHelper"
                                          ]
                          },
                          {
                              "csharp":  "Thread",
                              "java":  "ThreadHelper",
                              "imports":  [
-                                             "Microsoft.Msagl.ThreadHelper"
+                                             "io.github.ningpp.compat.ThreadHelper"
                                          ]
                          },
                          {
@@ -1055,7 +1041,7 @@
                              "csharp":  "System.IO.File",
                              "java":  "FileHelper",
                              "imports":  [
-                                             "Microsoft.Msagl.FileHelper"
+                                             "io.github.ningpp.compat.FileHelper"
                                          ]
                          },
                          {
@@ -1384,7 +1370,7 @@
                              "csharp":  "System.Threading.Thread",
                              "java":  "ThreadHelper",
                              "imports":  [
-                                             "Microsoft.Msagl.ThreadHelper"
+                                             "io.github.ningpp.compat.ThreadHelper"
                                          ]
                          },
                          {
@@ -3363,10 +3349,6 @@
                            }
                        ],
     "namespaceMappings":  [
-                              {
-                                  "csharp":  "",
-                                  "java":  "Microsoft.Msagl"
-                              },
                               {
                                   "csharp":  "System",
                                   "java":  "java.lang"

@@ -426,11 +426,6 @@ public class TypeMappingService
         {
             AddImportsForType(configKeySimple);
             var mappedSimple = MapSimpleTypeName(mapped);
-            if (mappedSimple == "Edge" && ns == "Microsoft.Msagl.Core.Layout"
-                && !string.Equals(curNs, ns, StringComparison.Ordinal))
-            {
-                return "Microsoft.Msagl.Core.Layout.Edge";
-            }
             if (!string.IsNullOrWhiteSpace(curNs)
                 && !string.IsNullOrWhiteSpace(ns)
                 && !string.Equals(curNs, ns, StringComparison.Ordinal)
@@ -506,13 +501,6 @@ public class TypeMappingService
         {
             return $"{NamespaceToPackage(ns)}.{MapSimpleTypeName(name)}";
         }
-
-        if (name == "Edge" && ns == "Microsoft.Msagl.Core.Layout"
-            && !string.Equals(curNs, ns, StringComparison.Ordinal))
-        {
-            return "Microsoft.Msagl.Core.Layout.Edge";
-        }
-
         return MapSimpleTypeName(name);
     }
 

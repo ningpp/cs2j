@@ -266,32 +266,6 @@ internal static class ProjectDiscovery
             });
         }
 
-        // Also scan the Resources directory for non-code files that may not be
-        // listed in the csproj (e.g. .msagl.geom, .dot, .txt test data files).
-        var resourcesDir = Path.Combine(projectDir, "Resources");
-        if (Directory.Exists(resourcesDir))
-        {
-            foreach (var file in Directory.EnumerateFiles(resourcesDir, "*", SearchOption.AllDirectories))
-            {
-                var ext = Path.GetExtension(file).ToLowerInvariant();
-                if (ext is ".cs" or ".csproj" or ".sln" or ".slnx")
-                {
-                    continue;
-                }
-                if (addedPaths.Contains(file))
-                {
-                    continue;
-                }
-                var relativePath = Path.GetRelativePath(projectDir, file);
-                addedPaths.Add(file);
-                resources.Add(new ResourceItem
-                {
-                    SourcePath = file,
-                    RelativePath = relativePath,
-                });
-            }
-        }
-
         return resources;
     }
 

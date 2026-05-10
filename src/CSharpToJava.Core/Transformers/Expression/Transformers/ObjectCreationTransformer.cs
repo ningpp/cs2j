@@ -336,37 +336,6 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        // MSAGL frequently uses a C# convenience ctor LineSegment(Point, double x, double y).
-        // Java LineSegment exposes the two-Point form, so synthesize the endpoint point.
-        if (argumentList.Arguments.Count == 3 && typeName.EndsWith("LineSegment", StringComparison.Ordinal))
-        {
-            var argTypes = argumentList.Arguments
-                .Select(a => context.SemanticModel?.GetTypeInfo(a.Expression).Type)
-                .ToList();
-
-            bool looksLikePointXY = argTypes.Count == 3
-                && argTypes[0]?.Name == "Point"
-                && argTypes[1]?.SpecialType is SpecialType.System_Double or SpecialType.System_Single
-                && argTypes[2]?.SpecialType is SpecialType.System_Double or SpecialType.System_Single;
-
-            bool noSemanticInfo = argTypes.All(t => t == null);
-
-            if (looksLikePointXY || noSemanticInfo)
-            {
-                var parts = SplitTopLevelArgs(args);
-                if (parts.Count == 3)
-                    return $"new {typeName}({parts[0]}, new Point({parts[1]}, {parts[2]}))";
-            }
-        }
-
-        // C# also uses LineSegment(x1, y1, x2, y2). Java expects two Point instances.
-        if (argumentList.Arguments.Count == 4 && typeName.EndsWith("LineSegment", StringComparison.Ordinal))
-        {
-            var parts = SplitTopLevelArgs(args);
-            if (parts.Count == 4)
-                return $"new {typeName}(new Point({parts[0]}, {parts[1]}), new Point({parts[2]}, {parts[3]}))";
-        }
-
         // C# StreamReader/TextReader patterns may be mapped to BufferedReader with a string path.
         // Java BufferedReader expects a Reader, so wrap string path with FileReader.
         if (argumentList.Arguments.Count == 1 && typeName.EndsWith("BufferedReader", StringComparison.Ordinal))

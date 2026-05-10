@@ -190,9 +190,6 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
                     <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
-                    <systemPropertyVariables>
-                        <msagl.test.data.root>${msagl.test.data.root}</msagl.test.data.root>
-                    </systemPropertyVariables>
                 </configuration>
             </plugin>";
 
