@@ -1,7 +1,0 @@
-﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
-	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=B2C3D4E5_002DF6A7_002D4B5C_002D9D8E_002D2B3C4D5E6F7A_002Fd_003AContext_002Ff_003ATypeMappingService_002Ecs/@EntryIndexedValue">ExplicitlyExcluded</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=0dc83927_002D7003_002D4d3e_002D89e6_002D6b2d0e26ab9d/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="KeyValuePair_MemberAccess_HasCorrectCastPrecedence" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
-  &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;xUnit::F6A7B8C9-D0E1-4F9A-3B2C-6F7A8B9C0D1E::net10.0::CSharpToJava.Tests.KeyValuePairMemberAccessPrecedenceTests.KeyValuePair_MemberAccess_HasCorrectCastPrecedence&lt;/TestId&gt;&#xD;
-  &lt;/TestAncestor&gt;&#xD;
-&lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>

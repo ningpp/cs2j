@@ -76,3 +76,4 @@ _out/
 *.vs/
 .worktrees/
 .idea/
+*.DotSettings.user
