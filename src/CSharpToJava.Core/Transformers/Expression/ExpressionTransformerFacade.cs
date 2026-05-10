@@ -115,10 +115,23 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 }
                 // Fallback: when the semantic model can't resolve the member binding symbol
                 // (e.g., in LINQ-rewritten code where synthesized syntax nodes lack symbol info),
-                // resolve the type from the parent ConditionalAccessExpression and check TypeMappings.
-                if (context.SemanticModel != null && binding.Parent is ConditionalAccessExpressionSyntax parentCond)
+                // resolve the type from the owning ConditionalAccessExpression and check TypeMappings.
+                // Walk ancestors — the binding may be nested inside MemberAccessExpressionSyntax
+                // (e.g. ?.Nodes.Remove where .Nodes is inside .Nodes.Remove member access).
+                ConditionalAccessExpressionSyntax? ownerCond = null;
+                var ancestor = binding.Parent;
+                while (ancestor != null)
                 {
-                    var exprTypeInfo = context.SemanticModel.GetTypeInfo(parentCond.Expression);
+                    if (ancestor is ConditionalAccessExpressionSyntax ca)
+                    {
+                        ownerCond = ca;
+                        break;
+                    }
+                    ancestor = ancestor.Parent;
+                }
+                if (context.SemanticModel != null && ownerCond != null)
+                {
+                    var exprTypeInfo = context.SemanticModel.GetTypeInfo(ownerCond.Expression);
                     var exprType = exprTypeInfo.Type ?? exprTypeInfo.ConvertedType;
                     if (exprType is INamedTypeSymbol namedExprType)
                     {
@@ -145,6 +158,14 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                             return $"{objExpr}.{mm}()";
                         }
                     }
+                }
+                // No mapping found — generate a default getXxx() getter for property-like names.
+                // Names starting with uppercase are likely properties in C# that should be
+                // getters in Java.
+                if (memberName.Length > 0 && char.IsUpper(memberName[0]))
+                {
+                    var getter = "get" + memberName;
+                    return $"{objExpr}.{getter}()";
                 }
                 return $"{objExpr}.{ConversionContext.EscapeJavaKeyword(memberName)}";
             }
@@ -190,7 +211,12 @@ public class ExpressionTransformerFacade : IExpressionTransformer
 
             case MemberAccessExpressionSyntax memberAccess:
                 var accessTarget = TransformWhenNotNull(memberAccess.Expression, objExpr, context);
-                return $"{accessTarget}.{ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text)}";
+                var rawName = memberAccess.Name.Identifier.Text;
+                // C# PascalCase methods → Java camelCase: when used as an invocation
+                // (parent is InvocationExpressionSyntax), lowercase the first letter.
+                if (memberAccess.Parent is InvocationExpressionSyntax && rawName.Length > 0)
+                    rawName = char.ToLowerInvariant(rawName[0]) + rawName[1..];
+                return $"{accessTarget}.{ConversionContext.EscapeJavaKeyword(rawName)}";
 
             case ElementAccessExpressionSyntax elementAccess:
                 var elTarget = TransformWhenNotNull(elementAccess.Expression, objExpr, context);

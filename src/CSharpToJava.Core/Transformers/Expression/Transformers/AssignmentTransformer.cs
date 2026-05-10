@@ -203,6 +203,24 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 }
 
                 var receiver = facade.Transform(propMa.Expression, context);
+                // When a using alias collides with an instance property on the
+                // enclosing type (e.g. "using Label = X;" + "public Label Label {…}"),
+                // the semantic model may resolve the identifier as the type rather than
+                // the property.  Detect this via the syntax tree and coerce to the getter.
+                if (receiver.Contains(".") && propMa.Expression is IdentifierNameSyntax recvId)
+                {
+                    var recvName = recvId.Identifier.Text;
+                    var enclosingTypeDecl = recvId.Ancestors()
+                        .OfType<TypeDeclarationSyntax>()
+                        .FirstOrDefault();
+                    if (enclosingTypeDecl != null
+                        && enclosingTypeDecl.Members
+                            .OfType<PropertyDeclarationSyntax>()
+                            .Any(p => p.Identifier.Text == recvName))
+                    {
+                        receiver = "get" + char.ToUpperInvariant(recvName[0]) + recvName[1..] + "()";
+                    }
+                }
                 if (prop.Name == "Capacity"
                     && prop.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>")
                 {

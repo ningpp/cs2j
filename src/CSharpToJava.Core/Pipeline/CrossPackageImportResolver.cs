@@ -44,7 +44,9 @@ public static class CrossPackageImportResolver
         "InvalidDataException",
         "TextReader",
         "ThreadHelper",
-        "ArrayHelper"
+        "ArrayHelper",
+        "DataContractSerializer",
+        "StreamWrapper"
     };
 
     /// <summary>

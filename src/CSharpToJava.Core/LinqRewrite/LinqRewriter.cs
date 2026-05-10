@@ -748,6 +748,8 @@ namespace CSharpToJava.Core.LinqRewrite
                 {
                     var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
                     var keyType = methodSymbol.TypeArguments[1]; // TKey
+                    if (keyType is ITypeParameterSymbol dktp && !IsDeclaredTypeParameter(dktp))
+                        keyType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                     result.Add(CreateLocalVariableDeclaration("_seenKeys_" + i,
                         SyntaxFactory.ObjectCreationExpression(
                             SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + keyType.ToDisplayString() + ">"),
@@ -823,6 +825,8 @@ namespace CSharpToJava.Core.LinqRewrite
                     // Buffer for individual items (TSource, not TSource[])
                     var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
                     var elementType = methodSymbol.TypeArguments[0]; // TSource
+                    if (elementType is ITypeParameterSymbol cetp && !IsDeclaredTypeParameter(cetp))
+                        elementType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                     result.Add(CreateLocalVariableDeclaration("_chunkBuffer_" + i,
                         SyntaxFactory.ObjectCreationExpression(
                             SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + elementType.ToDisplayString() + ">"),
@@ -932,6 +936,8 @@ namespace CSharpToJava.Core.LinqRewrite
                     // Emit remaining items in the buffer as a final chunk
                     var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
                     var elementType = methodSymbol.TypeArguments[0]; // TSource
+                    if (elementType is ITypeParameterSymbol cetp2 && !IsDeclaredTypeParameter(cetp2))
+                        elementType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                     var elementTypeSyntax = SyntaxFactory.ParseTypeName(elementType.ToDisplayString());
                     var chunkItemType = SyntaxFactory.ArrayType(elementTypeSyntax, SyntaxFactory.List(new[] { SyntaxFactory.ArrayRankSpecifier() }));
                     var chunkItemName = "_chunkArrayFinal" + (++lastId);
@@ -1037,6 +1043,8 @@ namespace CSharpToJava.Core.LinqRewrite
                 {
                     var zipMethodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
                     var zipSecondType = zipMethodSymbol.Parameters[0].Type;
+                    if (zipSecondType is ITypeParameterSymbol ztp && !IsDeclaredTypeParameter(ztp))
+                        zipSecondType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                     intermediateParams.Add(Tuple.Create(
                         CreateParameter("_zipSecond", SyntaxFactory.ParseTypeName(zipSecondType.ToDisplayString())),
                         step.Arguments[0]));
@@ -1060,6 +1068,8 @@ namespace CSharpToJava.Core.LinqRewrite
                     var idx = chain.IndexOf(step);
                     var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
                     var paramType = methodSymbol.Parameters[0].Type;
+                    if (paramType is ITypeParameterSymbol ptp && !IsDeclaredTypeParameter(ptp))
+                        paramType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                     intermediateParams.Add(Tuple.Create(
                         CreateParameter("_appendValue_" + idx, SyntaxFactory.ParseTypeName(paramType.ToDisplayString())),
                         step.Arguments[0]));
@@ -1069,6 +1079,8 @@ namespace CSharpToJava.Core.LinqRewrite
                     var idx = chain.IndexOf(step);
                     var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
                     var paramType = methodSymbol.Parameters[0].Type;
+                    if (paramType is ITypeParameterSymbol ptp && !IsDeclaredTypeParameter(ptp))
+                        paramType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                     intermediateParams.Add(Tuple.Create(
                         CreateParameter("_prependValue_" + idx, SyntaxFactory.ParseTypeName(paramType.ToDisplayString())),
                         step.Arguments[0]));
@@ -1078,6 +1090,8 @@ namespace CSharpToJava.Core.LinqRewrite
                     var idx = chain.IndexOf(step);
                     var methodSymbol = semantic.GetSymbolInfo(step.Invocation).Symbol as IMethodSymbol;
                     var paramType = methodSymbol.Parameters[0].Type;
+                    if (paramType is ITypeParameterSymbol ptp && !IsDeclaredTypeParameter(ptp))
+                        paramType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                     intermediateParams.Add(Tuple.Create(
                         CreateParameter("_defaultValue_" + idx, SyntaxFactory.ParseTypeName(paramType.ToDisplayString())),
                         step.Arguments[0]));

@@ -142,6 +142,11 @@ public partial class StatementTransformer
         var expression = exprTransformer.Transform(stmt.Expression, context);
         var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
 
+        // LINQ type parameter names that leak through unresolved generics
+        if (javaType is "TSource" or "TResult" or "TKey" or "TElement"
+            or "TFirst" or "TSecond" or "TAccumulate")
+            javaType = "Object";
+
         // When C# used implicit typing ('var') and the resolved type is 'Object'
         // (e.g., from LINQ-rewritten anonymous types degraded to object), use
         // Java 'var' so the Java compiler can infer the actual element type from

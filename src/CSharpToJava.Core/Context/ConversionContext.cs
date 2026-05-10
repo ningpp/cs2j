@@ -33,6 +33,8 @@ public class ConversionContext
     public string CurrentNamespace => _namespaceStack.Count > 0 ? _namespaceStack.Peek() : string.Empty;
     public JavaTypeDeclaration? CurrentType => _typeStack.Count > 0 ? _typeStack.Peek() : null;
     public IMethodSymbol? CurrentMethod => _methodStack.Count > 0 ? _methodStack.Peek() : null;
+    /// <summary>The Roslyn type symbol for the type currently being emitted.</summary>
+    public INamedTypeSymbol? CurrentEnclosingRoslynType { get; set; }
     public bool IsInAsyncContext { get; set; }
     public bool IsInLambdaContext { get; set; }
     public bool IsInYieldMethod { get; set; }

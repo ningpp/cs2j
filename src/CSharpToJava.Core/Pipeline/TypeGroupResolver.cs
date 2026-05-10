@@ -83,6 +83,7 @@ public static class TypeGroupResolver
 
             var typeNamespace = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty;
             context.EnterNamespace(typeNamespace);
+            context.CurrentEnclosingRoslynType = typeGroup.TypeSymbol;
             try
             {
                 // Create merged declaration

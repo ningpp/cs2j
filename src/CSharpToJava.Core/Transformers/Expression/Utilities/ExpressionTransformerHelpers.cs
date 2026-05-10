@@ -94,15 +94,26 @@ public static class ExpressionTransformerHelpers
             return $"new PrintWriter({transformedExpression})";
         }
 
-        // C# Stream types (FileStream, MemoryStream, etc.) are all compatible with
-        // the base Stream type in C#, but may map to incompatible Java types
-        // (OutputStream vs InputStream).  Allow the implicit conversion — the compat
-        // library methods (XmlWriter.create, XmlReader.create) accept Object anyway.
+        // C# Stream types (FileStream, MemoryStream, etc.) are compatible with the
+        // base Stream type in C#, but map to incompatible Java InputStream/OutputStream
+        // subtypes.  Wrap concrete subtypes in StreamWrapper when the target is the
+        // base Stream type (mapped to StreamWrapper).
         if (IsCSharpStreamType(sourceType) && IsCSharpStreamType(targetType))
+        {
+            if (sourceType.ToDisplayString() != "System.IO.Stream"
+                && targetType.ToDisplayString() == "System.IO.Stream")
+            {
+                return $"StreamWrapper.of({transformedExpression})";
+            }
             return transformedExpression;
+        }
 
         var sourceSpecial = sourceType.SpecialType;
         var targetSpecial = targetType.SpecialType;
+
+        // C# char implicitly converts to string, but Java requires explicit String.valueOf()
+        if (sourceSpecial == SpecialType.System_Char && targetSpecial == SpecialType.System_String)
+            return $"String.valueOf({transformedExpression})";
 
         if (!IsNumericOrCharType(sourceSpecial) || !IsNumericOrCharType(targetSpecial))
             return transformedExpression;
@@ -158,6 +169,29 @@ public static class ExpressionTransformerHelpers
         if (type.BaseType != null)
             return IsCSharpStreamType(type.BaseType);
         return false;
+    }
+
+    /// <summary>
+    /// Returns true when the identifier's name matches a property or field
+    /// declared on the nearest enclosing type (syntax-tree walk).
+    /// Used to detect collisions between using aliases and instance members.
+    /// </summary>
+    private static bool HasEnclosingTypeMember(IdentifierNameSyntax idExpr)
+    {
+        var enclosingTypeDecl = idExpr.Ancestors()
+            .OfType<TypeDeclarationSyntax>()
+            .FirstOrDefault();
+        if (enclosingTypeDecl == null)
+            return false;
+
+        var name = idExpr.Identifier.Text;
+        return enclosingTypeDecl.Members
+            .OfType<PropertyDeclarationSyntax>()
+            .Any(p => p.Identifier.Text == name)
+            || enclosingTypeDecl.Members
+            .OfType<FieldDeclarationSyntax>()
+            .SelectMany(f => f.Declaration.Variables)
+            .Any(v => v.Identifier.Text == name);
     }
 
     private static bool TryRewriteNumericLiteral(
@@ -377,19 +411,30 @@ public static class ExpressionTransformerHelpers
         var symbolInfo = context.SemanticModel.GetSymbolInfo(expression);
         var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
 
-        // When multiple candidates exist (e.g. property "Edge" and type "Edge"),
+        // When multiple candidates exist (e.g. property "Edge" and type "Edge",
+        // or "using Label = X;" colliding with "public Label Label {…}"),
         // prefer non-type symbols (properties/fields/locals) — these represent
         // instance member access, not static type references.
-        if (symbol == null && symbolInfo.CandidateSymbols.Length > 1)
+        if (symbolInfo.CandidateSymbols.Length > 1)
         {
-            symbol = symbolInfo.CandidateSymbols.FirstOrDefault(
+            var nonTypeCandidate = symbolInfo.CandidateSymbols.FirstOrDefault(
                 s => s is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol
                      or IEventSymbol or IMethodSymbol);
+            if (nonTypeCandidate != null)
+                symbol = nonTypeCandidate;
         }
 
         switch (symbol)
         {
             case IAliasSymbol { Target: INamedTypeSymbol aliasedType }:
+                // When the alias name collides with an instance property/field on the
+                // enclosing type (e.g. "using Label = X;" + "public Label Label {…}"),
+                // the user intended an instance access, not a static type reference.
+                if (expression is IdentifierNameSyntax aliasId
+                    && HasEnclosingTypeMember(aliasId))
+                {
+                    return false;
+                }
                 typeSymbol = aliasedType;
                 return true;
 
@@ -399,10 +444,15 @@ public static class ExpressionTransformerHelpers
                 // semantic model can't resolve a property (e.g. "Graph") and falls
                 // back to an unrelated type (e.g. "BasicGraphOnEdges"), the names
                 // won't match and we must not treat it as a static type reference.
-                if (expression is IdentifierNameSyntax idExpr
-                    && !string.Equals(idExpr.Identifier.Text, namedType.Name, StringComparison.Ordinal))
+                if (expression is IdentifierNameSyntax idExpr2)
                 {
-                    return false;
+                    if (!string.Equals(idExpr2.Identifier.Text, namedType.Name, StringComparison.Ordinal))
+                        return false;
+                    // When the identifier matches a property on the enclosing type
+                    // (e.g. "using Label = X;" + "public Label Label {…}"), prefer the
+                    // instance member over the static type reference.
+                    if (HasEnclosingTypeMember(idExpr2))
+                        return false;
                 }
                 typeSymbol = namedType;
                 return true;

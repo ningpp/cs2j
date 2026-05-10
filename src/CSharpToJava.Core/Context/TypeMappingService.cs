@@ -132,6 +132,14 @@ public class TypeMappingService
             && aliasTarget.Name != typeSymbol.Name)
             return MapType(aliasTarget);
 
+        // LINQ extension method type parameters (TSource, TKey, etc.) can leak
+        // into Java when the semantic model cannot fully resolve generics. Map
+        // them to Object so they don't produce undeclared-type errors.
+        if (typeSymbol is ITypeParameterSymbol tp
+            && tp.DeclaringMethod != null
+            && tp.DeclaringMethod.ContainingType?.ToDisplayString() == "System.Linq.Enumerable")
+            return "Object";
+
         // IErrorTypeSymbol: unresolved type — try candidate symbols first for
         // better resolution, then fall back to qualified/short name from syntax.
         if (typeSymbol is IErrorTypeSymbol errorType)
@@ -212,6 +220,13 @@ public class TypeMappingService
                     AddImportsForType(errorName);
                     return MapSimpleTypeName(shortMapped);
                 }
+
+                // LINQ type parameter names that leaked into generated code as
+                // unresolved types — map to Object so they don't cause undeclared-
+                // type compilation errors in the Java output.
+                if (errorName is "TSource" or "TResult" or "TKey" or "TElement"
+                    or "TFirst" or "TSecond" or "TAccumulate")
+                    return "Object";
 
                 _diagnostics.Warning(
                     $"Unresolved type '{errorName}' — using short name (cross-namespace collision possible)",
@@ -425,6 +440,11 @@ public class TypeMappingService
             }
             return mappedSimple;
         }
+
+        // When the mapped name equals the C# simple name (e.g. DataContractSerializer
+        // → DataContractSerializer), the type name doesn't change but the config entry
+        // may still carry imports that must be registered.
+        AddImportsForType(configKeySimple);
 
         // Cross-namespace imports for project types
         if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))

@@ -934,9 +934,9 @@
                          },
                          {
                              "csharp":  "System.IO.Stream",
-                             "java":  "InputStream",
+                             "java":  "StreamWrapper",
                              "imports":  [
-                                             "java.io.InputStream"
+                                             "io.github.ningpp.compat.StreamWrapper"
                                          ]
                          },
                          {

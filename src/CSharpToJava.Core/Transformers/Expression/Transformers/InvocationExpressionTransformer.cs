@@ -2138,6 +2138,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.{methodName}({splitArgs})";
         }
 
+        // When IsSystemStringMethod fails (e.g. in project-pipeline compilations
+        // where the semantic model can't resolve the receiver type), still try to
+        // convert char-literal arguments for the "split" method.
+        if (originalMethodName == "Split" && !isStringSplit
+            && methodSymbol == null
+            && node.ArgumentList.Arguments.Count > argStartIndex)
+        {
+            if (HasCharLiteralArgument(node.ArgumentList, argStartIndex))
+            {
+                var splitArgs = TransformSplitArguments(node.ArgumentList, context, facade, argStartIndex);
+                return $"{receiver}.{methodName}({splitArgs})";
+            }
+        }
+
         // String.TrimStart([chars]) -> stripLeading() for common whitespace trimming usage.
         bool isStringTrimStart = originalMethodName == "TrimStart"
             && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
@@ -2212,6 +2226,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (string.IsNullOrEmpty(writeArgs))
                 return $"{receiver}.{methodName}(\"\\n\")";
             return $"{receiver}.{methodName}({writeArgs} + \"\\n\")";
+        }
+
+        // StringWriter declared as TextWriter (polymorphic): TextWriter.WriteLine
+        // maps to println, but Java's StringWriter has no println.  Detect the
+        // actual receiver type and redirect to write(… + "\n").
+        if (originalMethodName == "WriteLine"
+            && methodName == "println"
+            && node.Expression is MemberAccessExpressionSyntax swMa
+            && context.SemanticModel?.GetTypeInfo(swMa.Expression).Type?.ToDisplayString()
+                == "System.IO.StringWriter")
+        {
+            var writeArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            if (string.IsNullOrEmpty(writeArgs))
+                return $"{receiver}.write(\"\\n\")";
+            return $"{receiver}.write({writeArgs} + \"\\n\")";
         }
 
         // ── Static Enumerable methods (Range, Repeat, Empty) ──────────────────
@@ -3680,6 +3709,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     /// <summary>
     /// Transforms the argument list for String.Split(), converting char literal arguments
+    /// <summary>
+    /// Returns true when any argument starting at <paramref name="argStartIndex"/>
+    /// is a character literal.
+    /// </summary>
+    private static bool HasCharLiteralArgument(ArgumentListSyntax argumentList, int argStartIndex)
+    {
+        for (int i = argStartIndex; i < argumentList.Arguments.Count; i++)
+        {
+            if (argumentList.Arguments[i].Expression is LiteralExpressionSyntax lit
+                && lit.IsKind(SyntaxKind.CharacterLiteralExpression))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Converts char literal arguments (e.g. ' ', '.') in a C# String.Split call
     /// to string literals suitable for Java's split() regex parameter.
     /// e.g. ' ' → " ", '.' → "\\."
     /// </summary>
@@ -4013,6 +4059,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // Reference types: .toArray(TypeName[]::new)
         var javaType = context.MapType(elementType);
+        // Guard against LINQ type parameter names (TSource, TKey, etc.) leaking
+        // from unresolved generic methods into the generated Java.
+        if (javaType is "TSource" or "TResult" or "TKey" or "TElement"
+            or "TFirst" or "TSecond" or "TAccumulate")
+            javaType = "Object";
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
             // Java cannot create typed arrays for type parameters due to erasure;
@@ -4641,6 +4692,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ConversionContext context)
     {
         if (methodSymbol?.ContainingType?.SpecialType == SpecialType.System_String)
+            return true;
+
+        // Instance method call: check the receiver expression's type via semantic model.
+        if (context.SemanticModel?.GetTypeInfo(receiverExpression).Type?.SpecialType
+            == SpecialType.System_String)
             return true;
 
         return ExpressionTransformerHelpers.StaticReceiverMatches(

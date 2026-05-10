@@ -26,6 +26,7 @@ public class ClassTransformer : ITypeTransformer
         }
 
         context.EnterType(CreatePlaceholderClass(classDecl.Identifier.Text));
+        context.CurrentEnclosingRoslynType = mergedType.TypeSymbol;
 
         var javaClass = new JavaClassDeclaration
         {

@@ -81,6 +81,8 @@ namespace CSharpToJava.Core.LinqRewrite
                 var lambda = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments[0].Expression;
                 var methodSymbol = semantic.GetSymbolInfo(node).Symbol as IMethodSymbol;
                 var keyType = methodSymbol.TypeArguments[1]; // TKey
+                if (keyType is ITypeParameterSymbol ktp && !IsDeclaredTypeParameter(ktp))
+                    keyType = semantic.Compilation.GetSpecialType(SpecialType.System_Object);
                 var keyTypeName = keyType.ToDisplayString();
                 var keyTypeSyntax = SyntaxFactory.ParseTypeName(keyTypeName);
 

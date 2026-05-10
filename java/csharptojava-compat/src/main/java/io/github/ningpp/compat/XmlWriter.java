@@ -89,6 +89,11 @@ public class XmlWriter {
         writeString(text);
     }
 
+    /** Overload that accepts Object to handle type-erased LINQ procedural arguments. */
+    public static void writeRaw(Object text) {
+        writeString(text != null ? text.toString() : "");
+    }
+
     public static void writeComment(String text) {
         try { if (writer != null) writer.writeComment(text != null ? text : ""); }
         catch (XMLStreamException e) { throw new RuntimeException(e); }
