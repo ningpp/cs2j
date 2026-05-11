@@ -344,11 +344,140 @@ public class Phase2PassPipelineTests
         Assert.True(linqMetric.RewriteCount > 0);
     }
 
+    [Fact]
+    public void ProjectLinqDesugarPass_NoLinq_DoesNotRebuildStateOrDropExtensionMethodIndex()
+    {
+        var options = CreateOptions();
+        options.PreferStreamApi = false;
+
+        var state = CreateProjectPassState(
+            "Extensions.cs",
+            """
+            public static class StringExtensions
+            {
+                public static string Tag(this string value) { return value; }
+            }
+            public class Consumer
+            {
+                string Test(string value) { return value.Tag(); }
+            }
+            """,
+            options);
+
+        var originalCompilation = state.Compilation;
+        var originalLibrary = state.Library;
+        var index = new ExtensionMethodIndex();
+        ExtensionMethodIndex.ScanCompilation(index, state.Compilation, "TestProject", state.Context.NamespaceToPackage);
+        Assert.True(index.Count > 0);
+        state.Library.ExtensionMethodIndex = index;
+
+        var pass = new ProjectLinqDesugarPass();
+        pass.Execute(state);
+
+        Assert.Equal(0, pass.RewriteCount);
+        Assert.NotNull(pass.LinqStatistics);
+        Assert.Equal(0, pass.LinqStatistics!.DesugaredQueryCount);
+        Assert.Equal(0, pass.LinqStatistics.RewrittenChainCount);
+        Assert.Same(originalCompilation, state.Compilation);
+        Assert.Same(originalLibrary, state.Library);
+        Assert.Same(index, state.Library.ExtensionMethodIndex);
+        Assert.Null(state.Context.PreDesugarCompilation);
+    }
+
+    [Fact]
+    public void ProjectLinqDesugarPass_RewritePreservesExtensionMethodIndexForProjectCheck()
+    {
+        var options = CreateOptions();
+        options.PreferStreamApi = false;
+
+        var unrelatedIndex = new ExtensionMethodIndex();
+        unrelatedIndex.Add(new ExtensionMethodDescriptor
+        {
+            DocumentationCommentId = "M:OtherProject.OtherExtensions.NotThis(System.String)",
+            DeclaringProjectName = "OtherProject",
+            DeclaringTypeFullName = "OtherProject.OtherExtensions",
+            MethodName = "NotThis",
+            ReceiverTypeFullName = "string",
+            GenericArity = 0,
+            JavaPackage = "otherproject",
+            JavaHostClassName = "OtherExtensions",
+            JavaMethodName = "notThis",
+        });
+
+        var state = CreateProjectPassState(
+            "Sample.cs",
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+            public static class StringExtensions
+            {
+                public static string Tag(this string value) { return value; }
+            }
+            public class Sample
+            {
+                bool Test(List<int> values)
+                {
+                    var tagged = "x".Tag();
+                    return values.Any(v => v > 0);
+                }
+            }
+            """,
+            options,
+            unrelatedIndex);
+
+        var originalLibrary = state.Library;
+        var pass = new ProjectLinqDesugarPass();
+        pass.Execute(state);
+
+        Assert.True(pass.RewriteCount > 0);
+        Assert.NotSame(originalLibrary, state.Library);
+        Assert.Same(unrelatedIndex, state.Library.ExtensionMethodIndex);
+        Assert.NotNull(state.Context.PreDesugarCompilation);
+
+        new ProjectExtensionMethodCheckPass().Execute(state);
+
+        Assert.Contains(
+            state.Context.Diagnostics.Messages,
+            diagnostic => diagnostic.Code == "CS2J_EXT001" && diagnostic.Category == "ExtensionMethod");
+    }
+
     private static ConversionOptions CreateOptions()
     {
         return new ConversionOptions
         {
             TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
+        };
+    }
+
+    private static ProjectPassState CreateProjectPassState(
+        string filePath,
+        string content,
+        ConversionOptions options,
+        ExtensionMethodIndex? extensionMethodIndex = null)
+    {
+        var context = new ConversionContext(options, new TypeMappingRegistry(options.TypeMappingConfigPath));
+        var sourceFiles = new[]
+        {
+            new SourceFile
+            {
+                FilePath = filePath,
+                Content = content,
+            }
+        };
+        var compilation = ProjectCompilationBuilder.BuildCompilation(sourceFiles, context);
+        Assert.NotNull(compilation);
+
+        var library = Cs2jLibraryFactory.CreateFromSourceFiles(sourceFiles, compilation!);
+        if (extensionMethodIndex != null)
+        {
+            library.ExtensionMethodIndex = extensionMethodIndex;
+        }
+
+        return new ProjectPassState
+        {
+            Library = library,
+            Context = context,
+            Compilation = compilation!,
         };
     }
 

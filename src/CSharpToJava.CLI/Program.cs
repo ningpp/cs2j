@@ -337,6 +337,7 @@ class Program
         var convertedModuleCount = 1;
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
+        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? workspaceLinqStatistics = null;
 
         // Convert each workspace project as its own module.
         foreach (var project in projects)
@@ -371,6 +372,7 @@ class Program
 
             var pipeline = new ProjectConversionPipeline(options);
             var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+            MergeLinqStatistics(ref workspaceLinqStatistics, pipeline.LastLinqStatistics);
             canaryResults.AddRange(results);
             AddProjectPassProfileEntry(passProfileEntries, pipeline.LastPassMetrics, results, project.Name, moduleName);
 
@@ -429,7 +431,7 @@ class Program
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
         if (opts.LinqReport)
-            WriteLinqReport(opts.Destination, AggregateLinqStatistics(canaryResults), outputSession);
+            WriteLinqReport(opts.Destination, workspaceLinqStatistics, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -469,6 +471,7 @@ class Program
         var modulePlans = new List<JavaModulePlan>();
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
+        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? projectGraphLinqStatistics = null;
 
         var pipeline = new ConversionPipeline();
 
@@ -516,6 +519,7 @@ class Program
 
                 var semanticContextDirs = GetReferencedProjectDirectories(assignment.Project, graph);
                 var results = await pipeline.ConvertProjectWithPartialMergeAsync(assignment.Project.ProjectDirectory, options, semanticContextDirs);
+                MergeLinqStatistics(ref projectGraphLinqStatistics, pipeline.LastLinqStatistics);
                 canaryResults.AddRange(results);
                 moduleResults.AddRange(results.Where(result => !string.IsNullOrEmpty(result.GeneratedCode)));
                 AddProjectPassProfileEntry(passProfileEntries, pipeline.LastProjectPassMetrics, results, assignment.Project.Name, module.Name);
@@ -579,7 +583,7 @@ class Program
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
         if (opts.LinqReport)
-            WriteLinqReport(opts.Destination, pipeline.LastLinqStatistics, outputSession);
+            WriteLinqReport(opts.Destination, projectGraphLinqStatistics, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -1023,19 +1027,17 @@ class Program
         outputSession.WriteTextFile(reportPath, json, OutputIncrementalEntryKind.Report);
     }
 
-    private static CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? AggregateLinqStatistics(
-        IEnumerable<ConversionResult> results)
+    private static void MergeLinqStatistics(
+        ref CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? aggregated,
+        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? incoming)
     {
-        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? aggregated = null;
-        foreach (var result in results)
+        if (incoming == null)
         {
-            if (result.LinqStatistics != null)
-            {
-                aggregated ??= new CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics();
-                aggregated.MergeFrom(result.LinqStatistics);
-            }
+            return;
         }
-        return aggregated;
+
+        aggregated ??= new CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics();
+        aggregated.MergeFrom(incoming);
     }
 
     private static bool TryReusePreviousProjectOutputs(

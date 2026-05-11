@@ -94,9 +94,9 @@ public class ConversionContext
     public CSharpCompilation? ProjectCompilation { get; set; }
 
     /// <summary>
-    /// Saved original compilation from before the LinqDesugarPass rebuild.
-    /// Used as a fallback when the original syntax tree is not in the current
-    /// ProjectCompilation (e.g. after LinqRewriter modified the tree).
+    /// Saved compilation from immediately before the final procedural LINQ rewrite
+    /// replacement. Used as a fallback when a syntax node still points at a tree
+    /// that is no longer in the current ProjectCompilation.
     /// </summary>
     public CSharpCompilation? PreDesugarCompilation { get; set; }
 
@@ -234,8 +234,8 @@ public class ConversionContext
                 return ProjectCompilation.GetSemanticModel(syntaxTree);
 
             // The LinqDesugarPass may have rebuilt the compilation with modified syntax
-            // trees. If the original tree is not in the current compilation, try the
-            // pre-desugar compilation (saved before LinqRewriter modified anything).
+            // trees. If the tree is not in the current compilation, try the saved
+            // compilation from immediately before final procedural LINQ rewrite.
             if (PreDesugarCompilation != null && PreDesugarCompilation.ContainsSyntaxTree(syntaxTree))
                 return PreDesugarCompilation.GetSemanticModel(syntaxTree);
 
