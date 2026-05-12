@@ -562,6 +562,99 @@ class Sample {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // (from…select).Concat(other): query expression chained with Concat
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void MethodSyntax_SelectConcat_ProducesProceduralCode_WhenStreamApiDisabled()
+    {
+        // Method-chain baseline: Select followed by Concat must produce a procedural loop.
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> xs, List<int> extra) {
+        return xs.Select(x => x * 2).Concat(extra).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("for (", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_SelectConcat_ProducesProceduralCode_WhenStreamApiDisabled()
+    {
+        // Regression: (from x in xs select f(x)).Concat(extra) — the query is desugared
+        // by Phase 1 but the resulting parenthesized Select was not recognised as a
+        // chain root by Phase 2 because "Concat" was missing from GetMethodFullName's
+        // syntax-based fallback.  Ensure the full chain is rewritten to a loop.
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> xs, List<int> extra) {
+        return (from x in xs select x * 2).Concat(extra).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("for (", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_SelectConcat_MatchesMethodChain_WhenStreamApiDisabled()
+    {
+        // Query syntax and method-chain syntax must produce identical Java output.
+        const string querySource = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> xs, List<int> extra) {
+        return (from x in xs select x * 2).Concat(extra).ToList();
+    }
+}";
+        const string methodSource = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> M(List<int> xs, List<int> extra) {
+        return xs.Select(x => x * 2).Concat(extra).ToList();
+    }
+}";
+        var queryResult = ConvertProcedural(querySource);
+        var methodResult = ConvertProcedural(methodSource);
+
+        Assert.True(queryResult.Success, queryResult.GeneratedCode);
+        Assert.True(methodResult.Success, methodResult.GeneratedCode);
+        Assert.Equal(queryResult.GeneratedCode, methodResult.GeneratedCode);
+    }
+
+    [Fact]
+    public void QuerySyntax_SelectConcat_InsideConstructorArg_ProducesProceduralCode()
+    {
+        // Regression: query+Concat used as a constructor argument (the exact AGL pattern
+        // that triggered the bug).  The chain must still be rewritten to a loop.
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Wrapper {
+    public Wrapper(IEnumerable<int> items, int n) {}
+}
+class Sample {
+    Wrapper M(List<int> xs, List<int> extra, int count) {
+        return new Wrapper((from x in xs select x * 2).Concat(extra), count);
+    }
+}";
+        var result = ConvertProcedural(source);
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("for (", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────
 

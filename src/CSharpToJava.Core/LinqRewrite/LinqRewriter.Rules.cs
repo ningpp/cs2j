@@ -1708,6 +1708,16 @@ namespace CSharpToJava.Core.LinqRewrite
                 return CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
             }
 
+            // --- Concat/Union/Intersect/Except as intermediate operator:
+            //     pass-through in the main loop (items from primary source are processed
+            //     normally). The second sequence is iterated in a post-loop
+            //     (GetIntermediatePostLoopStatements) via the _concatSecond_N parameter.
+            if (method == ConcatMethod || method == UnionMethod
+                || method == IntersectMethod || method == ExceptMethod)
+            {
+                return CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+            }
+
             // --- DefaultIfEmpty: set flag and pass through; post-loop emits default if empty ---
             if (method == DefaultIfEmptyMethod || method == DefaultIfEmptyWithValueMethod)
             {

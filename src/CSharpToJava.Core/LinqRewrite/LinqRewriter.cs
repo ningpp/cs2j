@@ -671,22 +671,61 @@ namespace CSharpToJava.Core.LinqRewrite
                 var methodName = ma.Name.Identifier.Text;
                 n = methodName switch
                 {
+                    // ── Terminal aggregators ───────────────────────────────────────
                     "Count" or "LongCount" => $"System.Collections.Generic.IEnumerable<TSource>.{methodName}<TSource>()",
-                    "Any" => $"System.Collections.Generic.IEnumerable<TSource>.Any<TSource>()",
-                    "All" => $"System.Collections.Generic.IEnumerable<TSource>.All<TSource>(System.Func<TSource, bool>)",
-                    "First" => $"System.Collections.Generic.IEnumerable<TSource>.First<TSource>()",
-                    "FirstOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.FirstOrDefault<TSource>()",
-                    "Last" => $"System.Collections.Generic.IEnumerable<TSource>.Last<TSource>()",
-                    "LastOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>()",
-                    "Single" => $"System.Collections.Generic.IEnumerable<TSource>.Single<TSource>()",
-                    "SingleOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>()",
-                    "ElementAt" => $"System.Collections.Generic.IEnumerable<TSource>.ElementAt<TSource>(int)",
-                    "ElementAtOrDefault" => $"System.Collections.Generic.IEnumerable<TSource>.ElementAtOrDefault<TSource>(int)",
-                    "Where" => $"System.Collections.Generic.IEnumerable<TSource>.Where<TSource>(System.Func<TSource, bool>)",
-                    "Select" => $"System.Collections.Generic.IEnumerable<TSource>.Select<TSource, TResult>(System.Func<TSource, TResult>)",
-                    "SelectMany" => $"System.Collections.Generic.IEnumerable<TSource>.SelectMany<TSource, TResult>(System.Func<TSource, System.Collections.Generic.IEnumerable<TResult>>)",
-                    "OrderBy" => $"System.Collections.Generic.IEnumerable<TSource>.OrderBy<TSource, TKey>(System.Func<TSource, TKey>)",
-                    "OrderByDescending" => $"System.Collections.Generic.IEnumerable<TSource>.OrderByDescending<TSource, TKey>(System.Func<TSource, TKey>)",
+                    "Any" => "System.Collections.Generic.IEnumerable<TSource>.Any<TSource>()",
+                    "All" => "System.Collections.Generic.IEnumerable<TSource>.All<TSource>(System.Func<TSource, bool>)",
+                    "First" => "System.Collections.Generic.IEnumerable<TSource>.First<TSource>()",
+                    "FirstOrDefault" => "System.Collections.Generic.IEnumerable<TSource>.FirstOrDefault<TSource>()",
+                    "Last" => "System.Collections.Generic.IEnumerable<TSource>.Last<TSource>()",
+                    "LastOrDefault" => "System.Collections.Generic.IEnumerable<TSource>.LastOrDefault<TSource>()",
+                    "Single" => "System.Collections.Generic.IEnumerable<TSource>.Single<TSource>()",
+                    "SingleOrDefault" => "System.Collections.Generic.IEnumerable<TSource>.SingleOrDefault<TSource>()",
+                    "ElementAt" => "System.Collections.Generic.IEnumerable<TSource>.ElementAt<TSource>(int)",
+                    "ElementAtOrDefault" => "System.Collections.Generic.IEnumerable<TSource>.ElementAtOrDefault<TSource>(int)",
+                    "Contains" => "System.Collections.Generic.IEnumerable<TSource>.Contains<TSource>(TSource)",
+                    "SequenceEqual" => "System.Collections.Generic.IEnumerable<TSource>.SequenceEqual<TSource>(System.Collections.Generic.IEnumerable<TSource>)",
+                    "Aggregate" => "System.Collections.Generic.IEnumerable<TSource>.Aggregate<TSource>(System.Func<TSource, TSource, TSource>)",
+                    // ── Materialization ───────────────────────────────────────────
+                    "ToList" => "System.Collections.Generic.IEnumerable<TSource>.ToList<TSource>()",
+                    "ToArray" => "System.Collections.Generic.IEnumerable<TSource>.ToArray<TSource>()",
+                    "ToHashSet" => "System.Collections.Generic.IEnumerable<TSource>.ToHashSet<TSource>()",
+                    "ToDictionary" => "System.Collections.Generic.IEnumerable<TSource>.ToDictionary<TSource, TKey>(System.Func<TSource, TKey>)",
+                    "Reverse" => "System.Collections.Generic.IEnumerable<TSource>.Reverse<TSource>()",
+                    "AsEnumerable" => "System.Collections.Generic.IEnumerable<TSource>.AsEnumerable<TSource>()",
+                    // ── Intermediate filter/project ───────────────────────────────
+                    "Where" => "System.Collections.Generic.IEnumerable<TSource>.Where<TSource>(System.Func<TSource, bool>)",
+                    "Select" => "System.Collections.Generic.IEnumerable<TSource>.Select<TSource, TResult>(System.Func<TSource, TResult>)",
+                    "SelectMany" => "System.Collections.Generic.IEnumerable<TSource>.SelectMany<TSource, TResult>(System.Func<TSource, System.Collections.Generic.IEnumerable<TResult>>)",
+                    "Cast" => "System.Collections.IEnumerable.Cast<TResult>()",
+                    "OfType" => "System.Collections.IEnumerable.OfType<TResult>()",
+                    "Distinct" => "System.Collections.Generic.IEnumerable<TSource>.Distinct<TSource>()",
+                    "DistinctBy" => "System.Collections.Generic.IEnumerable<TSource>.DistinctBy<TSource, TKey>(System.Func<TSource, TKey>)",
+                    // ── Slice / paginate ──────────────────────────────────────────
+                    "Skip" => "System.Collections.Generic.IEnumerable<TSource>.Skip<TSource>(int)",
+                    "Take" => "System.Collections.Generic.IEnumerable<TSource>.Take<TSource>(int)",
+                    "SkipLast" => "System.Collections.Generic.IEnumerable<TSource>.SkipLast<TSource>(int)",
+                    "TakeLast" => "System.Collections.Generic.IEnumerable<TSource>.TakeLast<TSource>(int)",
+                    "Chunk" => "System.Collections.Generic.IEnumerable<TSource>.Chunk<TSource>(int)",
+                    "SkipWhile" => "System.Collections.Generic.IEnumerable<TSource>.SkipWhile<TSource>(System.Func<TSource, bool>)",
+                    "TakeWhile" => "System.Collections.Generic.IEnumerable<TSource>.TakeWhile<TSource>(System.Func<TSource, bool>)",
+                    "Append" => "System.Collections.Generic.IEnumerable<TSource>.Append<TSource>(TSource)",
+                    "Prepend" => "System.Collections.Generic.IEnumerable<TSource>.Prepend<TSource>(TSource)",
+                    "DefaultIfEmpty" => "System.Collections.Generic.IEnumerable<TSource>.DefaultIfEmpty<TSource>()",
+                    // ── Sort ──────────────────────────────────────────────────────
+                    "OrderBy" => "System.Collections.Generic.IEnumerable<TSource>.OrderBy<TSource, TKey>(System.Func<TSource, TKey>)",
+                    "OrderByDescending" => "System.Collections.Generic.IEnumerable<TSource>.OrderByDescending<TSource, TKey>(System.Func<TSource, TKey>)",
+                    "ThenBy" => "System.Linq.IOrderedEnumerable<TSource>.ThenBy<TSource, TKey>(System.Func<TSource, TKey>)",
+                    "ThenByDescending" => "System.Linq.IOrderedEnumerable<TSource>.ThenByDescending<TSource, TKey>(System.Func<TSource, TKey>)",
+                    "Order" => "System.Collections.Generic.IEnumerable<T>.Order<T>()",
+                    "OrderDescending" => "System.Collections.Generic.IEnumerable<T>.OrderDescending<T>()",
+                    // ── Set / combine ─────────────────────────────────────────────
+                    "Concat" => "System.Collections.Generic.IEnumerable<TSource>.Concat<TSource>(System.Collections.Generic.IEnumerable<TSource>)",
+                    "Union" => "System.Collections.Generic.IEnumerable<TSource>.Union<TSource>(System.Collections.Generic.IEnumerable<TSource>)",
+                    "Intersect" => "System.Collections.Generic.IEnumerable<TSource>.Intersect<TSource>(System.Collections.Generic.IEnumerable<TSource>)",
+                    "Except" => "System.Collections.Generic.IEnumerable<TSource>.Except<TSource>(System.Collections.Generic.IEnumerable<TSource>)",
+                    // ── GroupBy ───────────────────────────────────────────────────
+                    "GroupBy" => "System.Collections.Generic.IEnumerable<TSource>.GroupBy<TSource, TKey>(System.Func<TSource, TKey>)",
                     _ => null
                 };
             }
@@ -956,6 +995,20 @@ namespace CSharpToJava.Core.LinqRewrite
                                         SyntaxFactory.IdentifierName("ToArray")))),
                             inner)));
                 }
+                else if ((step.MethodName == ConcatMethod || step.MethodName == UnionMethod
+                    || step.MethodName == IntersectMethod || step.MethodName == ExceptMethod)
+                    && i > 0)
+                {
+                    // Intermediate Concat: after iterating the primary source through the chain,
+                    // iterate the second sequence through the same chain steps below this Concat.
+                    var concatItemName = "_concatItem" + (++lastId);
+                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, concatItemName, arguments, noAggregation);
+                    result.Add(SyntaxFactory.ForEachStatement(
+                        SyntaxFactory.ParseTypeName("var"),
+                        concatItemName,
+                        SyntaxFactory.IdentifierName("_concatSecond_" + i),
+                        inner is BlockSyntax ? inner : SyntaxFactory.Block(inner)));
+                }
                 else if (step.MethodName == OrderMethod || step.MethodName == OrderDescendingMethod)
                 {
                     // Sort the buffer, then iterate sorted items through remaining chain
@@ -1101,6 +1154,29 @@ namespace CSharpToJava.Core.LinqRewrite
                     var idx = chain.IndexOf(step);
                     intermediateParams.Add(Tuple.Create(
                         CreateParameter("_chunkSize_param_" + idx, CreatePrimitiveType(SyntaxKind.IntKeyword)),
+                        step.Arguments[0]));
+                }
+                else if ((step.MethodName == ConcatMethod || step.MethodName == UnionMethod
+                    || step.MethodName == IntersectMethod || step.MethodName == ExceptMethod)
+                    && step.Arguments.Count > 0 && chain.IndexOf(step) > 0)
+                {
+                    // Intermediate Concat/Union/Intersect/Except: pass second sequence as parameter.
+                    var idx = chain.IndexOf(step);
+                    var concatReturnType = semantic.GetTypeInfo(step.Invocation).Type;
+                    var concatItemType = concatReturnType != null ? GetItemType(concatReturnType) : null;
+                    TypeSyntax secondParamType;
+                    if (concatItemType != null)
+                    {
+                        var ienumerable = semantic.Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T);
+                        var ienumerableOfItem = ienumerable.Construct(concatItemType);
+                        secondParamType = SyntaxFactory.ParseTypeName(ienumerableOfItem.ToDisplayString());
+                    }
+                    else
+                    {
+                        secondParamType = SyntaxFactory.ParseTypeName("System.Collections.Generic.IEnumerable<object>");
+                    }
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_concatSecond_" + idx, secondParamType),
                         step.Arguments[0]));
                 }
             }
