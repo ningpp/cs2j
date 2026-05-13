@@ -52,6 +52,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         ["Boolean"]  = ("bool",    "Boolean"),
     };
 
+    private enum EnclosingInstanceMemberKind
+    {
+        Property,
+        Field
+    }
+
     public string Transform(ExpressionSyntax node, ConversionContext context)
         => node.Kind() switch
         {
@@ -227,6 +233,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (context.MethodState.TryGetActiveLambdaCaptureHolder(name, out var captureHolderName))
             return $"{captureHolderName}[0]";
 
+        if (node.Parent is MemberAccessExpressionSyntax receiverAccess
+            && receiverAccess.Expression == node
+            && TryTransformSimpleIdentifierReceiver(node, receiverAccess, context, out var receiverText))
+        {
+            return receiverText;
+        }
+
         // Check for using aliases — Fix 5: chain alias resolution through type-registry
         if (context.IsAlias(name))
         {
@@ -252,129 +265,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         return remapped;
                 }
                 return javaType;
-            }
-        }
-
-        // When the identifier is used as a static method receiver (e.g. XmlWriter.Create),
-        // prefer the type resolution over a same-named property. Only do this when the
-        // accessed member is actually static; instance members indicate a property access
-        // (e.g. Label.SetGeometryLabel where Label is a property, not the type).
-        if (node.Parent is MemberAccessExpressionSyntax maParentIcon)
-        {
-            var accessedSymbol = context.SemanticModel?.GetSymbolInfo(maParentIcon).Symbol;
-            bool isStaticAccess = accessedSymbol is IMethodSymbol { IsStatic: true }
-                || accessedSymbol is IPropertySymbol { IsStatic: true }
-                || accessedSymbol is IFieldSymbol { IsStatic: true };
-
-            // Path A: identifier resolves to a type → use the mapped type name.
-            if (isStaticAccess
-                && context.SemanticModel?.GetSymbolInfo(node).Symbol is ITypeSymbol identType)
-            {
-                return context.MapType(identType);
-            }
-
-            // Path B: identifier resolves to a property, but the accessed member is
-            // static (e.g. "public XmlWriter XmlWriter {…}" + "XmlWriter.Create(…)").
-            // Use the property's TYPE as the static receiver.
-            if (isStaticAccess
-                && context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol identProp2
-                && identProp2.Type is INamedTypeSymbol propType)
-            {
-                return context.MapType(propType);
-            }
-
-            // Path B-fallback: the semantic model couldn't resolve the accessed
-            // member, but the identifier matches a property on the enclosing type
-            // whose type has a static member with the same name. This handles the
-            // merged-tree case where GetSymbolInfo returns null.
-            if (!isStaticAccess
-                && maParentIcon.Name is IdentifierNameSyntax memberId
-                && context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol identProp3
-                && identProp3.Type is INamedTypeSymbol propType3)
-            {
-                var memberName = memberId.Identifier.Text;
-                var hasStaticMember = propType3.GetMembers(memberName).Any(
-                    m => m.IsStatic && m is (IMethodSymbol or IPropertySymbol or IFieldSymbol));
-                if (!hasStaticMember && propType3.BaseType != null)
-                {
-                    hasStaticMember = propType3.BaseType.GetMembers(memberName).Any(
-                        m => m.IsStatic && m is (IMethodSymbol or IPropertySymbol or IFieldSymbol));
-                }
-                // Also check the type's containing namespace for static members
-                // (framework types sometimes defer members to nested types).
-                if (!hasStaticMember)
-                {
-                    foreach (var nestedType in propType3.GetTypeMembers())
-                    {
-                        if (nestedType.Name == memberName && nestedType.IsStatic)
-                        {
-                            hasStaticMember = true;
-                            break;
-                        }
-                    }
-                }
-                if (hasStaticMember)
-                {
-                    return context.MapType(propType3);
-                }
-            }
-
-            // Path C: identifier resolved as a property, accessed member couldn't
-            // be resolved by the semantic model, and the property type's simple name
-            // matches the property name.  When the enclosing method is static, a
-            // static type reference is more likely than an instance property access
-            // (instance members aren't reachable from static methods in C#).
-            if (!isStaticAccess
-                && accessedSymbol == null
-                && context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol identPropC
-                && identPropC.Type is INamedTypeSymbol propTypeC
-                && string.Equals(propTypeC.Name, name, StringComparison.Ordinal))
-            {
-                var enclosingMethod = context.SemanticModel?.GetEnclosingSymbol(node.SpanStart);
-                if (enclosingMethod is IMethodSymbol { IsStatic: true })
-                {
-                    return context.MapType(propTypeC);
-                }
-            }
-
-            // Instance member access on an identifier that resolves to a type
-            // indicates a name collision between a type alias and an instance
-            // property/field (e.g. "using Label = X;" + "public Label Label {…}").
-            // Only fire when the accessed member was actually resolved as a
-            // non-static member — if the semantic model can't resolve it, don't
-            // assume instance access (e.g. XmlWriter.Create with static Create).
-            if (accessedSymbol != null && !isStaticAccess)
-            {
-                INamedTypeSymbol? enclosingType =
-                    context.CurrentEnclosingRoslynType
-                    ?? (context.SemanticModel?.GetEnclosingSymbol(node.SpanStart)?.ContainingType);
-                if (enclosingType != null)
-                {
-                    if (enclosingType.GetMembers(name).Any(m => m is IPropertySymbol))
-                    {
-                        var getter = "get" + char.ToUpperInvariant(name[0]) + name[1..];
-                        return $"{getter}()";
-                    }
-                if (enclosingType.GetMembers(name).Any(m => m is IFieldSymbol))
-                {
-                    return ConversionContext.EscapeJavaKeyword(name);
-                }
-            }
-            else
-            {
-                // Last-resort fallback: walk the syntax tree.
-                var enclosingTypeDecl = node.Ancestors()
-                    .OfType<TypeDeclarationSyntax>()
-                    .FirstOrDefault();
-                if (enclosingTypeDecl != null
-                    && enclosingTypeDecl.Members
-                        .OfType<PropertyDeclarationSyntax>()
-                        .Any(p => p.Identifier.Text == name))
-                {
-                    var getter = "get" + char.ToUpperInvariant(name[0]) + name[1..];
-                    return $"{getter}()";
-                }
-            }
             }
         }
 
@@ -719,63 +609,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
             }
 
-        // Guard: when the receiver expression is a simple identifier that could
-        // also be an instance member (property/field) on the enclosing type, prefer
-        // the instance interpretation. The semantic model may occasionally resolve
-        // an instance member's underlying type as the symbol instead of the member
-        // itself (e.g. property "Graph" of type GeometryGraph resolving to
-        // BasicGraphOnEdges<PolyIntEdge> after LINQ rewrite).
-        bool isLikelyInstanceMember = false;
-        if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+        string? instanceReceiverTarget = null;
+        if (node.Expression is IdentifierNameSyntax simpleReceiver
+            && TryTransformSimpleIdentifierReceiver(simpleReceiver, node, context, out var simpleReceiverText))
+        {
+            instanceReceiverTarget = simpleReceiverText;
+        }
+        else if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
             node.Expression,
             context,
             boxJavaPrimitiveType: true,
             out var staticReceiver,
             out _))
         {
-            if (node.Expression is IdentifierNameSyntax idExpr)
-            {
-                var guardMemberName = idExpr.Identifier.Text;
-                // Prefer the Roslyn type symbol set by the pipeline.
-                if (context.CurrentEnclosingRoslynType != null)
-                {
-                    isLikelyInstanceMember = context.CurrentEnclosingRoslynType
-                        .GetMembers(guardMemberName)
-                        .Any(m => m is IFieldSymbol or IPropertySymbol);
-                }
-                // Semantic model path: check enclosing type's members.
-                else if (context.SemanticModel != null)
-                {
-                    var enclosingSymbol = context.SemanticModel.GetEnclosingSymbol(node.SpanStart);
-                    if (enclosingSymbol?.ContainingType is INamedTypeSymbol enclosingType)
-                    {
-                        isLikelyInstanceMember = enclosingType.GetMembers(guardMemberName)
-                            .Any(m => m is IFieldSymbol or IPropertySymbol);
-                    }
-                }
-                // Syntax-tree fallback: when everything else fails, walk the
-                // syntax tree (broken in merged trees but kept for robustness).
-                if (!isLikelyInstanceMember)
-                {
-                    var enclosingTypeDecl = node.Ancestors()
-                        .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax>()
-                        .FirstOrDefault();
-                    if (enclosingTypeDecl != null)
-                    {
-                        isLikelyInstanceMember = enclosingTypeDecl.Members
-                            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax>()
-                            .Any(p => p.Identifier.Text == guardMemberName)
-                            || enclosingTypeDecl.Members
-                            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax>()
-                            .SelectMany(f => f.Declaration.Variables)
-                            .Any(v => v.Identifier.Text == guardMemberName);
-                    }
-                }
-            }
-            if (!isLikelyInstanceMember)
-            {
-                staticTypeTarget = staticReceiver;
-            }
+            staticTypeTarget = staticReceiver;
         }
 
         // Fix: Generic type static member access — C# allows Set<T>.Method() but Java requires Set.Method().
@@ -813,51 +660,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return formattedEnumMemberAccess;
         }
 
-        var transformedExpr = facade.Transform(node.Expression, context);
+        var transformedExpr = instanceReceiverTarget ?? facade.Transform(node.Expression, context);
         var target = staticTypeTarget ?? transformedExpr;
         // Strip type arguments from type qualifiers — Java forbids Type<T>.member().
         target = ExpressionTransformerHelpers.StripTypeArguments(target);
-
-        // When the guard above detected an instance member with the same name
-        // as the receiver, but the transformer still resolved it as a type name
-        // (e.g. "using Label = X;" + "public Label Label {…}"), coerce it to
-        // the instance getter.
-        if (isLikelyInstanceMember && node.Expression is IdentifierNameSyntax idToCheck
-            && !target.EndsWith(")"))
-        {
-            var getter = "get" + char.ToUpperInvariant(idToCheck.Identifier.Text[0]) + idToCheck.Identifier.Text[1..];
-            target = $"{getter}()";
-        }
-
-        // Broader check: when the receiver is a simple identifier that the
-        // semantic model resolved as a type (not a property), but the enclosing
-        // syntax tree has a same-named property/field, treat it as an instance
-        // member.  This handles project-pipeline compilations where
-        // GetEnclosingSymbol may return null.
-        if (node.Expression is IdentifierNameSyntax idToCheck2
-            && !target.EndsWith(")")
-            && context.SemanticModel?.GetSymbolInfo(idToCheck2).Symbol is ITypeSymbol)
-        {
-            var simpleName = idToCheck2.Identifier.Text;
-            var enclosingTypeDecl = node.Ancestors()
-                .OfType<TypeDeclarationSyntax>()
-                .FirstOrDefault();
-            if (enclosingTypeDecl != null)
-            {
-                bool hasProperty = enclosingTypeDecl.Members
-                    .OfType<PropertyDeclarationSyntax>()
-                    .Any(p => p.Identifier.Text == simpleName);
-                bool hasField = enclosingTypeDecl.Members
-                    .OfType<FieldDeclarationSyntax>()
-                    .SelectMany(f => f.Declaration.Variables)
-                    .Any(v => v.Identifier.Text == simpleName);
-                if (hasProperty || hasField)
-                {
-                    var accessor = "get" + char.ToUpperInvariant(simpleName[0]) + simpleName[1..];
-                    target = $"{accessor}()";
-                }
-            }
-        }
 
         if (target == "String" && memberName == "Empty")
             return "\"\"";
@@ -1184,8 +990,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (node.Expression is IdentifierNameSyntax { Identifier.Text: var boxedIdText }
             && _csharpBoxedClassNames.TryGetValue(boxedIdText, out var primInfo))
         {
-            var mappedConst = MapPrimitiveStaticFieldName(primInfo.keyword, memberName);
-            if (mappedConst != memberName) // mapping found (not an identity pass-through)
+            if (TryMapPrimitiveStaticFieldName(primInfo.keyword, memberName, out var mappedConst))
             {
                 // Some mappings return self-contained expressions like "(-Double.MAX_VALUE)".
                 if (mappedConst.StartsWith("(") || mappedConst.StartsWith("-"))
@@ -1247,6 +1052,257 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
+    }
+
+    /// <summary>
+    /// Resolves a simple identifier when it is used as the receiver in a member
+    /// access. This is the central tie-breaker for identifiers that may be both a
+    /// type name and an instance property/field on the enclosing type.
+    /// </summary>
+    private static bool TryTransformSimpleIdentifierReceiver(
+        IdentifierNameSyntax receiver,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        out string transformedReceiver)
+    {
+        transformedReceiver = string.Empty;
+
+        var receiverName = receiver.Identifier.Text;
+        var accessedSymbol = GetAccessedMemberSymbol(memberAccess, context);
+
+        if (IsStaticMemberSymbol(accessedSymbol))
+        {
+            var receiverSymbol = GetPreferredIdentifierSymbol(receiver, context, preferInstanceCandidate: false);
+            if (receiverSymbol is IAliasSymbol { Target: INamedTypeSymbol aliasedType })
+            {
+                transformedReceiver = MapStaticTypeReceiver(aliasedType, context);
+                return true;
+            }
+
+            if (receiverSymbol is ITypeSymbol typeSymbol)
+            {
+                transformedReceiver = MapStaticTypeReceiver(typeSymbol, context);
+                return true;
+            }
+
+            if (receiverSymbol is IPropertySymbol { Type: INamedTypeSymbol propertyType })
+            {
+                transformedReceiver = MapStaticTypeReceiver(propertyType, context);
+                return true;
+            }
+
+            if (context.IsAlias(receiverName))
+            {
+                var aliasType = context.MapAliasToJavaType(receiverName);
+                if (!string.IsNullOrWhiteSpace(aliasType))
+                {
+                    transformedReceiver = MapAliasTypeReceiver(aliasType, context);
+                    return true;
+                }
+            }
+
+            if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+                receiver,
+                context,
+                boxJavaPrimitiveType: true,
+                out var staticReceiver,
+                out _))
+            {
+                transformedReceiver = staticReceiver;
+                return true;
+            }
+
+            return false;
+        }
+
+        var preferredSymbol = GetPreferredIdentifierSymbol(receiver, context, preferInstanceCandidate: true);
+        if (accessedSymbol == null
+            && preferredSymbol is IPropertySymbol { Type: INamedTypeSymbol unresolvedPropertyType })
+        {
+            var memberName = memberAccess.Name.Identifier.Text;
+            if (HasStaticMember(unresolvedPropertyType, memberName)
+                || IsLikelyStaticReceiverFromStaticContext(receiver, unresolvedPropertyType, context))
+            {
+                transformedReceiver = MapStaticTypeReceiver(unresolvedPropertyType, context);
+                return true;
+            }
+        }
+
+        if (preferredSymbol is ILocalSymbol or IParameterSymbol)
+            return false;
+
+        if (preferredSymbol is IPropertySymbol propertySymbol && !IsAssignmentLeftHandSide(receiver))
+        {
+            if (propertySymbol.Name == "Current" && IsEnumeratorLikeType(propertySymbol.ContainingType))
+                transformedReceiver = "next()";
+            else
+                transformedReceiver = GetterCall(propertySymbol.Name);
+            return true;
+        }
+
+        if (preferredSymbol is IFieldSymbol { IsStatic: false })
+        {
+            transformedReceiver = ConversionContext.EscapeJavaKeyword(receiverName);
+            return true;
+        }
+
+        if (TryFindEnclosingInstanceMember(receiver, context, out var memberKind))
+        {
+            transformedReceiver = memberKind == EnclosingInstanceMemberKind.Property
+                ? GetterCall(receiverName)
+                : ConversionContext.EscapeJavaKeyword(receiverName);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static ISymbol? GetAccessedMemberSymbol(MemberAccessExpressionSyntax memberAccess, ConversionContext context)
+    {
+        var symbolInfo = context.SemanticModel?.GetSymbolInfo(memberAccess);
+        if (symbolInfo == null)
+            return null;
+
+        return symbolInfo.Value.Symbol
+            ?? symbolInfo.Value.CandidateSymbols.FirstOrDefault(IsStaticMemberSymbol)
+            ?? symbolInfo.Value.CandidateSymbols.FirstOrDefault();
+    }
+
+    private static ISymbol? GetPreferredIdentifierSymbol(
+        IdentifierNameSyntax identifier,
+        ConversionContext context,
+        bool preferInstanceCandidate)
+    {
+        var symbolInfo = context.SemanticModel?.GetSymbolInfo(identifier);
+        if (symbolInfo == null)
+            return null;
+
+        if (preferInstanceCandidate && symbolInfo.Value.CandidateSymbols.Length > 1)
+        {
+            var nonTypeCandidate = symbolInfo.Value.CandidateSymbols.FirstOrDefault(
+                s => s is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol
+                     or IEventSymbol or IMethodSymbol);
+            if (nonTypeCandidate != null)
+                return nonTypeCandidate;
+        }
+
+        return symbolInfo.Value.Symbol ?? symbolInfo.Value.CandidateSymbols.FirstOrDefault();
+    }
+
+    private static bool IsStaticMemberSymbol(ISymbol? symbol)
+        => symbol is IMethodSymbol { IsStatic: true }
+            or IPropertySymbol { IsStatic: true }
+            or IFieldSymbol { IsStatic: true };
+
+    private static bool IsAssignmentLeftHandSide(ExpressionSyntax expression)
+        => expression.Parent is AssignmentExpressionSyntax assignment && assignment.Left == expression;
+
+    private static string GetterCall(string propertyName)
+        => $"get{char.ToUpperInvariant(propertyName[0])}{propertyName[1..]}()";
+
+    private static string MapStaticTypeReceiver(ITypeSymbol typeSymbol, ConversionContext context)
+        => ExpressionTransformerHelpers.StripTypeArguments(context.MapType(typeSymbol));
+
+    private static string MapAliasTypeReceiver(string javaType, ConversionContext context)
+    {
+        if (!javaType.Contains('.'))
+        {
+            var remapped = context.TypeMappings.MapType(javaType);
+            if (remapped != javaType)
+                javaType = remapped;
+        }
+
+        return ExpressionTransformerHelpers.StripTypeArguments(javaType);
+    }
+
+    private static bool TryFindEnclosingInstanceMember(
+        IdentifierNameSyntax identifier,
+        ConversionContext context,
+        out EnclosingInstanceMemberKind memberKind)
+    {
+        var name = identifier.Identifier.Text;
+
+        if (TryFindInstanceMemberInType(context.CurrentEnclosingRoslynType, name, out memberKind))
+            return true;
+
+        var enclosingType = context.SemanticModel?.GetEnclosingSymbol(identifier.SpanStart)?.ContainingType;
+        if (TryFindInstanceMemberInType(enclosingType, name, out memberKind))
+            return true;
+
+        var enclosingTypeDecl = identifier.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (enclosingTypeDecl != null)
+        {
+            if (enclosingTypeDecl.Members
+                .OfType<PropertyDeclarationSyntax>()
+                .Any(p => p.Identifier.Text == name && !p.Modifiers.Any(SyntaxKind.StaticKeyword)))
+            {
+                memberKind = EnclosingInstanceMemberKind.Property;
+                return true;
+            }
+
+            if (enclosingTypeDecl.Members
+                .OfType<FieldDeclarationSyntax>()
+                .Where(f => !f.Modifiers.Any(SyntaxKind.StaticKeyword))
+                .SelectMany(f => f.Declaration.Variables)
+                .Any(v => v.Identifier.Text == name))
+            {
+                memberKind = EnclosingInstanceMemberKind.Field;
+                return true;
+            }
+        }
+
+        memberKind = default;
+        return false;
+    }
+
+    private static bool TryFindInstanceMemberInType(
+        INamedTypeSymbol? type,
+        string name,
+        out EnclosingInstanceMemberKind memberKind)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name).Any(m => m is IPropertySymbol { IsStatic: false }))
+            {
+                memberKind = EnclosingInstanceMemberKind.Property;
+                return true;
+            }
+
+            if (current.GetMembers(name).Any(m => m is IFieldSymbol { IsStatic: false }))
+            {
+                memberKind = EnclosingInstanceMemberKind.Field;
+                return true;
+            }
+        }
+
+        memberKind = default;
+        return false;
+    }
+
+    private static bool HasStaticMember(INamedTypeSymbol type, string memberName)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(memberName).Any(
+                m => m.IsStatic && m is (IMethodSymbol or IPropertySymbol or IFieldSymbol)))
+            {
+                return true;
+            }
+        }
+
+        return type.GetTypeMembers().Any(t => t.Name == memberName && t.IsStatic);
+    }
+
+    private static bool IsLikelyStaticReceiverFromStaticContext(
+        IdentifierNameSyntax receiver,
+        INamedTypeSymbol receiverType,
+        ConversionContext context)
+    {
+        if (!string.Equals(receiver.Identifier.Text, receiverType.Name, StringComparison.Ordinal))
+            return false;
+
+        var enclosingMethod = context.SemanticModel?.GetEnclosingSymbol(receiver.SpanStart);
+        return enclosingMethod is IMethodSymbol { IsStatic: true };
     }
 
     /// <summary>
@@ -1351,7 +1407,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     ///       (-MAX_VALUE in Java), not the smallest positive value (Java's MIN_VALUE).
     /// </summary>
     private static string MapPrimitiveStaticFieldName(string primitiveKeyword, string memberName)
-        => (primitiveKeyword, memberName) switch
+        => TryMapPrimitiveStaticFieldName(primitiveKeyword, memberName, out var mappedMember)
+            ? mappedMember
+            : memberName;
+
+    private static bool TryMapPrimitiveStaticFieldName(string primitiveKeyword, string memberName, out string mappedMember)
+    {
+        mappedMember = (primitiveKeyword, memberName) switch
         {
             // Double/float MinValue = most negative finite → negate MAX_VALUE
             ("double" or "float", "MinValue") => $"(-{(primitiveKeyword == "double" ? "Double" : "Float")}.MAX_VALUE)",
@@ -1366,8 +1428,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             (_, "IsPositiveInfinity")=> "isInfinite",
             (_, "IsNegativeInfinity")=> "isInfinite",
             (_, "IsNaN")             => "isNaN",
-            _                        => memberName
+            _                        => string.Empty
         };
+
+        return mappedMember.Length > 0;
+    }
 
     private string TransformPointerMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
