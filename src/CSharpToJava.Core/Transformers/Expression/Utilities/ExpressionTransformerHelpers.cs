@@ -94,19 +94,22 @@ public static class ExpressionTransformerHelpers
             return $"new PrintWriter({transformedExpression})";
         }
 
-        // C# Stream types (FileStream, MemoryStream, etc.) are compatible with the
-        // base Stream type in C#, but map to incompatible Java InputStream/OutputStream
-        // subtypes.  Wrap concrete subtypes in StreamWrapper when the target is the
-        // base Stream type (mapped to StreamWrapper).
+        // C# Stream types are compatible with the base Stream type, while Java splits
+        // them across InputStream/OutputStream.  StreamWrapper bridges both concrete
+        // stream subtypes and File.Open(...) calls whose read/write direction is chosen
+        // by FileMode.
         if (IsCSharpStreamType(sourceType) && IsCSharpStreamType(targetType))
         {
-            if (sourceType.ToDisplayString() != "System.IO.Stream"
-                && targetType.ToDisplayString() == "System.IO.Stream")
+            if (targetType.ToDisplayString() == "System.IO.Stream"
+                && sourceType.ToDisplayString() != "System.IO.Stream")
             {
                 return $"StreamWrapper.of({transformedExpression})";
             }
             return transformedExpression;
         }
+
+        if (IsFileOpenStreamExpression(expression) && targetType.ToDisplayString() == "System.IO.Stream")
+            return $"StreamWrapper.of({transformedExpression})";
 
         var sourceSpecial = sourceType.SpecialType;
         var targetSpecial = targetType.SpecialType;
@@ -170,6 +173,16 @@ public static class ExpressionTransformerHelpers
             return IsCSharpStreamType(type.BaseType);
         return false;
     }
+
+    private static bool IsFileOpenStreamExpression(ExpressionSyntax expression)
+        => expression is InvocationExpressionSyntax
+        {
+            Expression: MemberAccessExpressionSyntax
+            {
+                Expression: IdentifierNameSyntax { Identifier.Text: "File" },
+                Name.Identifier.Text: "Open"
+            }
+        };
 
     /// <summary>
     /// Returns true when the identifier's name matches a property or field

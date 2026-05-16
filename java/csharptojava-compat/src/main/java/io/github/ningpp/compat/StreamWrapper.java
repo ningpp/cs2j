@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 
 /**
@@ -12,7 +13,7 @@ import java.io.OutputStream;
  * which type is available via {@link #inputStream()} /
  * {@link #outputStream()} or use the type-query methods.
  */
-public class StreamWrapper {
+public class StreamWrapper implements AutoCloseable {
 
     private final InputStream inputStream;
     private final OutputStream outputStream;
@@ -44,4 +45,42 @@ public class StreamWrapper {
 
     public boolean isInputStream() { return inputStream != null; }
     public boolean isOutputStream() { return outputStream != null; }
+
+    public int read() {
+        try { return inputStream().read(); }
+        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    public int readByte() {
+        return read();
+    }
+
+    public int read(byte[] buffer) {
+        try { return inputStream().read(buffer); }
+        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    public void write(int value) {
+        try { outputStream().write(value); }
+        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    public void write(byte[] buffer) {
+        try { outputStream().write(buffer); }
+        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    public void flush() {
+        try {
+            if (outputStream != null) outputStream.flush();
+        } catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    @Override
+    public void close() {
+        try {
+            if (inputStream != null) inputStream.close();
+            if (outputStream != null) outputStream.close();
+        } catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
 }

@@ -348,4 +348,30 @@ class GeometryReader {
         if (wrapperLine != null)
             Assert.DoesNotContain("throws Exception", wrapperLine!);
     }
+
+    [Fact]
+    public void FileOpenCreate_UsingStream_UsesStreamWrapperForWriteMode()
+    {
+        var r = Convert(@"
+using System.IO;
+class GeometryGraphWriter {
+    public GeometryGraphWriter(Stream stream, object graph, object settings) { }
+    public void Write() { }
+}
+class Sample {
+    public static void Save(string fileName, object graph, object settings) {
+        using (Stream stream = File.Open(fileName, FileMode.Create)) {
+            var graphWriter = new GeometryGraphWriter(stream, graph, settings);
+            graphWriter.Write();
+        }
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("try (StreamWrapper stream = FileHelper.open(fileName, FileMode.Create))", code);
+        Assert.Contains("new GeometryGraphWriter(stream, graph, settings)", code);
+        Assert.DoesNotContain("try (InputStream stream = FileHelper.open(fileName, FileMode.Create))", code);
+    }
 }

@@ -1045,6 +1045,20 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.IO.FileMode",
+                             "java":  "FileMode",
+                             "imports":  [
+                                             "io.github.ningpp.compat.FileMode"
+                                         ]
+                         },
+                         {
+                             "csharp":  "FileMode",
+                             "java":  "FileMode",
+                             "imports":  [
+                                             "io.github.ningpp.compat.FileMode"
+                                         ]
+                         },
+                         {
                              "csharp":  "System.IO.BufferedStream",
                              "java":  "BufferedInputStream",
                              "imports":  [
@@ -3181,6 +3195,11 @@
                                "type":  "System.IO.File",
                                "method":  "OpenRead",
                                "javaMethod":  "openRead"
+                           },
+                           {
+                               "type":  "System.IO.File",
+                               "method":  "Open",
+                               "javaMethod":  "open"
                            },
                            {
                                "type":  "System.IO.File",

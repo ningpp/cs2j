@@ -22,9 +22,31 @@ public class FileHelper {
         try { return new TextReader(new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8)); }
         catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
     }
-    /** Mirrors File.Open(path, FileMode) — returns an InputStream for reading. */
-    public static InputStream open(String path, int fileMode) {
-        return openRead(path);
+    /** Mirrors File.Open(path, FileMode). */
+    public static StreamWrapper open(String path, int fileMode) {
+        try {
+            if (fileMode == FileMode.CreateNew) {
+                File file = new File(path);
+                if (!file.createNewFile()) {
+                    throw new UncheckedIOException(new IOException("File already exists: " + path));
+                }
+                return StreamWrapper.of(new FileOutputStream(file));
+            }
+            if (fileMode == FileMode.Create || fileMode == FileMode.Truncate) {
+                return StreamWrapper.of(new FileOutputStream(path, false));
+            }
+            if (fileMode == FileMode.Append) {
+                return StreamWrapper.of(new FileOutputStream(path, true));
+            }
+            if (fileMode == FileMode.OpenOrCreate) {
+                File file = new File(path);
+                if (file.exists()) {
+                    return StreamWrapper.of(new FileInputStream(file));
+                }
+                return StreamWrapper.of(new FileOutputStream(file));
+            }
+            return StreamWrapper.of(new FileInputStream(path));
+        } catch (IOException e) { throw new UncheckedIOException(e); }
     }
     /** Mirrors File.Create(path). */
     public static OutputStream create(String path) {

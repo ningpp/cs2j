@@ -238,12 +238,14 @@ public partial class StatementTransformer
             {
                 foreach (var variable in currentStmt.Declaration.Variables)
                 {
-                    var javaType = GetResourceJavaType(currentStmt, variable, context);
+                    var declaredResourceType = GetDeclaredResourceType(currentStmt, variable, context);
+                    var javaType = GetResourceJavaType(currentStmt, variable, declaredResourceType, context);
                     var resourceInit = variable.Initializer != null
-                        ? ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        ? AdaptResourceInitializer(
                             variable.Initializer.Value,
                             exprTransformer.Transform(variable.Initializer.Value, context),
-                            context.SemanticModel?.GetTypeInfo(currentStmt.Declaration.Type).Type,
+                            declaredResourceType,
+                            javaType,
                             context)
                         : string.Empty;
                     var init = variable.Initializer != null ? $" = {resourceInit}" : "";
@@ -278,9 +280,14 @@ public partial class StatementTransformer
     private static string GetResourceJavaType(
         UsingStatementSyntax stmt,
         VariableDeclaratorSyntax variable,
+        ITypeSymbol? declaredResourceType,
         ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration!.Type);
+        if (IsSystemIoStream(declaredResourceType))
+        {
+            context.AddImport("io.github.ningpp.compat.StreamWrapper");
+            return "StreamWrapper";
+        }
 
         // When the initializer is a method call, resolve the Java return type of the
         // mapped method so the variable type matches what the expression actually produces.
@@ -289,18 +296,56 @@ public partial class StatementTransformer
             var methodSymbol = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
             if (methodSymbol != null)
             {
-                var mappedType = ResolveMethodReturnJavaType(methodSymbol, context);
+                var mappedType = ResolveMethodReturnJavaType(methodSymbol);
                 if (mappedType != null)
+                {
+                    AddResourceTypeImport(mappedType, context);
                     return mappedType;
+                }
             }
         }
 
-        return typeInfo.HasValue && typeInfo.Value.Type != null
-            ? context.MapType(typeInfo.Value.Type)
+        return declaredResourceType != null
+            ? context.MapType(declaredResourceType)
             : "AutoCloseable";
     }
 
-    private static string? ResolveMethodReturnJavaType(IMethodSymbol method, ConversionContext context)
+    private static ITypeSymbol? GetDeclaredResourceType(
+        UsingStatementSyntax stmt,
+        VariableDeclaratorSyntax variable,
+        ConversionContext context)
+    {
+        if (context.SemanticModel?.GetDeclaredSymbol(variable) is ILocalSymbol local
+            && local.Type is { TypeKind: not TypeKind.Error })
+        {
+            return local.Type;
+        }
+
+        var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration!.Type);
+        return typeInfo?.Type is { TypeKind: not TypeKind.Error } type ? type : null;
+    }
+
+    private static string AdaptResourceInitializer(
+        ExpressionSyntax initializer,
+        string transformedInitializer,
+        ITypeSymbol? declaredResourceType,
+        string javaResourceType,
+        ConversionContext context)
+    {
+        if (javaResourceType == "StreamWrapper"
+            && IsFileOpenInvocation(initializer, context))
+        {
+            return transformedInitializer;
+        }
+
+        return ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+            initializer,
+            transformedInitializer,
+            declaredResourceType,
+            context);
+    }
+
+    private static string? ResolveMethodReturnJavaType(IMethodSymbol method)
     {
         var containingType = method.ContainingType?.ToDisplayString();
         if (containingType == null)
@@ -313,11 +358,43 @@ public partial class StatementTransformer
             {
                 "Create" => "OutputStream",
                 "OpenRead" => "InputStream",
-                "Open" => "InputStream",
+                "Open" => "StreamWrapper",
                 _ => null
             },
             _ => null
         };
+    }
+
+    private static bool IsSystemIoStream(ITypeSymbol? type)
+        => type?.ToDisplayString() == "System.IO.Stream";
+
+    private static bool IsFileOpenInvocation(ExpressionSyntax initializer, ConversionContext context)
+    {
+        if (initializer is not InvocationExpressionSyntax invocation)
+            return false;
+
+        return context.SemanticModel?.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+            && method.ContainingType?.ToDisplayString() == "System.IO.File"
+            && method.Name == "Open";
+    }
+
+    private static void AddResourceTypeImport(string javaType, ConversionContext context)
+    {
+        switch (javaType)
+        {
+            case "InputStream":
+                context.AddImport("java.io.InputStream");
+                break;
+            case "OutputStream":
+                context.AddImport("java.io.OutputStream");
+                break;
+            case "StreamWrapper":
+                context.AddImport("io.github.ningpp.compat.StreamWrapper");
+                break;
+            case "TextReader":
+                context.AddImport("io.github.ningpp.compat.TextReader");
+                break;
+        }
     }
 
     private JavaSyntaxNode TransformLockStatement(LockStatementSyntax stmt, ConversionContext context)
