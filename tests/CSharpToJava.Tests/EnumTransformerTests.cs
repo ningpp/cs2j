@@ -200,6 +200,151 @@ public class Sample
     }
 
     [Fact]
+    public void FlagsEnum_AliasAttribute_GeneratesConstantsClass()
+    {
+        var result = Convert(@"
+using F = System.FlagsAttribute;
+
+[F]
+public enum Permissions
+{
+    None = 0,
+    Read = 1,
+    Write = 2
+}
+
+public class Sample
+{
+    public Permissions Get() { return Permissions.Read; }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("class Permissions", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static final int Read = 1;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("enum Permissions", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FlagsEnum_ComplexValuesAndAutoIncrement_UseConstantValues()
+    {
+        var result = Convert(@"
+using System;
+
+[Flags]
+public enum Permissions
+{
+    None = 0,
+    Read = 1,
+    Write = Read << 1,
+    Execute = Read | Write,
+    Next
+}
+
+public class Sample
+{
+    public int Get() { return Permissions.Next; }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public static final int Write = 2;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static final int Execute = 3;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static final int Next = 4;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Read << 1", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Read | Write", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitValueEnum_ComplexValuesAndAutoIncrement_UseConstantValues()
+    {
+        var result = Convert(@"
+public enum Permissions
+{
+    None = 0,
+    Read = 1,
+    Write = Read << 1,
+    Execute = Read | Write,
+    Next,
+    Negative = -1,
+    Min = int.MinValue
+}
+
+public class Sample
+{
+    public Permissions Get() { return Permissions.Execute; }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Write(2)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Execute(3)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Next(4)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Negative(-1)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Min(Integer.MIN_VALUE)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Read << 1", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Read | Write", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitValueEnum_LongUnderlyingType_UsesLongValueAccessorsAndCasts()
+    {
+        var result = Convert(@"
+public enum BigStatus : long
+{
+    Small = 1L,
+    Huge = 5000000000L,
+    Next
+}
+
+public class Sample
+{
+    public long ToLong(BigStatus s) { return (long)s; }
+    public int ToInt(BigStatus s) { return (int)s; }
+    public BigStatus FromLong(long v) { return (BigStatus)v; }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Small(1L)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Huge(5000000000L)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Next(5000000001L)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("private final long value;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public long getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static BigStatus fromValue(long v)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return s.getValue();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return (int)(s.getValue());", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return BigStatus.fromValue((long)(v));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("fromValue(int v)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FlagsEnum_LongUnderlyingType_UsesLongConstantsAndMappedVariables()
+    {
+        var result = Convert(@"
+using System;
+
+[Flags]
+public enum BigFlags : long
+{
+    None = 0L,
+    High = 1L << 40,
+    Next
+}
+
+public class Sample
+{
+    public BigFlags Get(BigFlags flags) { return flags | BigFlags.High; }
+    public string Text(BigFlags flags) { return flags.ToString(); }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public static final long None = 0L;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static final long High = 1099511627776L;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static final long Next = 1099511627777L;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public long get(long flags)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.valueOf(flags)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("public int get(int flags)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Integer.", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EnumArray_FillsDefaultZeroMember()
     {
         var result = Convert(@"

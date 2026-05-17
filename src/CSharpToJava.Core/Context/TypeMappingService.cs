@@ -27,12 +27,14 @@ public class TypeMappingService
     /// [Flags] enum names mapped to int in Java. Static to survive across files.
     /// </summary>
     private static readonly HashSet<string> _flagsEnumNames = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, string> _flagsEnumValueTypes = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Enum names that have explicit integer values (need getValue()/fromValue() instead of ordinal()/values()[]).
     /// Static to survive across files.
     /// </summary>
     private static readonly HashSet<string> _explicitValueEnumNames = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, string> _explicitValueEnumValueTypes = new(StringComparer.Ordinal);
 
     private readonly Func<string, ITypeSymbol?> _resolveAlias;
 
@@ -56,11 +58,28 @@ public class TypeMappingService
         _tryGetSynthesizedRecordMatch = tryGetSynthesizedRecordMatch;
     }
 
-    public void RegisterFlagsEnum(string enumName) => _flagsEnumNames.Add(enumName);
+    public void RegisterFlagsEnum(string enumName) => RegisterFlagsEnum(enumName, "int");
+    public void RegisterFlagsEnum(string enumName, string valueType)
+    {
+        _flagsEnumNames.Add(enumName);
+        _flagsEnumValueTypes[enumName] = NormalizeEnumValueType(valueType);
+    }
     public bool IsFlagsEnum(string enumName) => _flagsEnumNames.Contains(enumName);
+    public string GetFlagsEnumValueType(string enumName)
+        => _flagsEnumValueTypes.TryGetValue(enumName, out var valueType) ? valueType : "int";
 
-    public void RegisterExplicitValueEnum(string enumName) => _explicitValueEnumNames.Add(enumName);
+    public void RegisterExplicitValueEnum(string enumName) => RegisterExplicitValueEnum(enumName, "int");
+    public void RegisterExplicitValueEnum(string enumName, string valueType)
+    {
+        _explicitValueEnumNames.Add(enumName);
+        _explicitValueEnumValueTypes[enumName] = NormalizeEnumValueType(valueType);
+    }
     public bool IsExplicitValueEnum(string enumName) => _explicitValueEnumNames.Contains(enumName);
+    public string GetExplicitValueEnumValueType(string enumName)
+        => _explicitValueEnumValueTypes.TryGetValue(enumName, out var valueType) ? valueType : "int";
+
+    private static string NormalizeEnumValueType(string valueType)
+        => valueType == "long" ? "long" : "int";
 
     /// <summary>
     /// Clear per-file caches (TypeCache). Called before each file conversion.
@@ -393,13 +412,17 @@ public class TypeMappingService
         if (typeSymbol is INamedTypeSymbol namedEnumCheck && namedEnumCheck.TypeKind == TypeKind.Enum)
         {
             if (IsFlagsEnum(namedEnumCheck.Name))
-                return "int";
+                return GetFlagsEnumValueType(namedEnumCheck.Name);
+            if (IsFlagsEnum(namedEnumCheck.ToDisplayString()))
+                return GetFlagsEnumValueType(namedEnumCheck.ToDisplayString());
             bool hasFlagsAttr = namedEnumCheck.GetAttributes().Any(a =>
                 a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
             if (hasFlagsAttr)
             {
-                RegisterFlagsEnum(namedEnumCheck.Name);
-                return "int";
+                var flagsValueType = GetEnumValueJavaType(namedEnumCheck);
+                RegisterFlagsEnum(namedEnumCheck.Name, flagsValueType);
+                RegisterFlagsEnum(namedEnumCheck.ToDisplayString(), flagsValueType);
+                return flagsValueType;
             }
         }
 
@@ -512,6 +535,15 @@ public class TypeMappingService
 
         var ns = ResolveNamespaceSymbol(globalNs, namespaceName);
         return ns?.GetTypeMembers(typeName).Length > 0;
+    }
+
+    private static string GetEnumValueJavaType(INamedTypeSymbol enumType)
+    {
+        return enumType.EnumUnderlyingType?.SpecialType switch
+        {
+            SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
+            _ => "int"
+        };
     }
 
     private static INamespaceSymbol? ResolveNamespaceSymbol(INamespaceSymbol root, string namespaceName)

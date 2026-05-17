@@ -183,7 +183,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (sourceType?.TypeKind != TypeKind.Enum)
             {
                 if (IsExplicitValueEnum(targetSymbol, context))
-                    return $"{targetType}.fromValue((int)({expression}))";
+                {
+                    var valueType = GetExplicitValueEnumValueType(targetSymbol, context);
+                    return $"{targetType}.fromValue(({valueType})({expression}))";
+                }
                 return $"{targetType}.values()[(int)({expression})]";
             }
         }
@@ -205,10 +208,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                         : $"({targetType})({expression})";
                 }
 
-                var accessor = IsExplicitValueEnum(sourceType, context) ? "getValue()" : "ordinal()";
+                if (IsExplicitValueEnum(sourceType, context))
+                {
+                    return targetType == GetExplicitValueEnumValueType(sourceType, context)
+                        ? $"{expression}.getValue()"
+                        : $"({targetType})({expression}.getValue())";
+                }
+
                 return targetType == "int"
-                    ? $"{expression}.{accessor}"
-                    : $"({targetType})({expression}.{accessor})";
+                    ? $"{expression}.ordinal()"
+                    : $"({targetType})({expression}.ordinal())";
             }
         }
 
@@ -278,6 +287,21 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return false;
         return context.IsExplicitValueEnum(named.Name)
             || context.IsExplicitValueEnum(named.ToDisplayString());
+    }
+
+    private static string GetExplicitValueEnumValueType(ITypeSymbol typeSymbol, ConversionContext context)
+    {
+        if (typeSymbol is not INamedTypeSymbol named || named.TypeKind != TypeKind.Enum)
+            return "int";
+
+        if (context.IsExplicitValueEnum(named.Name))
+            return context.GetExplicitValueEnumValueType(named.Name);
+        if (context.IsExplicitValueEnum(named.ToDisplayString()))
+            return context.GetExplicitValueEnumValueType(named.ToDisplayString());
+
+        return named.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+            ? "long"
+            : "int";
     }
 
     private static bool IsIterableLikeJavaType(string mappedType)

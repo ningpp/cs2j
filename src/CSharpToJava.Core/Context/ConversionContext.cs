@@ -101,10 +101,14 @@ public class ConversionContext
     public CSharpCompilation? PreDesugarCompilation { get; set; }
 
     public void RegisterFlagsEnum(string enumName) => TypeMapper.RegisterFlagsEnum(enumName);
+    public void RegisterFlagsEnum(string enumName, string valueType) => TypeMapper.RegisterFlagsEnum(enumName, valueType);
     public bool IsFlagsEnum(string enumName) => TypeMapper.IsFlagsEnum(enumName);
+    public string GetFlagsEnumValueType(string enumName) => TypeMapper.GetFlagsEnumValueType(enumName);
 
     public void RegisterExplicitValueEnum(string enumName) => TypeMapper.RegisterExplicitValueEnum(enumName);
+    public void RegisterExplicitValueEnum(string enumName, string valueType) => TypeMapper.RegisterExplicitValueEnum(enumName, valueType);
     public bool IsExplicitValueEnum(string enumName) => TypeMapper.IsExplicitValueEnum(enumName);
+    public string GetExplicitValueEnumValueType(string enumName) => TypeMapper.GetExplicitValueEnumValueType(enumName);
 
     // ─── Facade methods delegating to MethodState for backward compatibility ───
 

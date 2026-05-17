@@ -1900,7 +1900,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && namedEnumType.GetAttributes().Any(a =>
                     a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"))
             {
-                wrapperClass = "Integer";
+                wrapperClass = GetFlagsEnumValueType(namedEnumType, context) == "long" ? "Long" : "Integer";
             }
 
             // Fallback: flags enum registry covers cross-file scenarios where the enum
@@ -1910,7 +1910,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && (context.IsFlagsEnum(receiverSymbol.Name)
                     || context.IsFlagsEnum(receiverSymbol.ToDisplayString() ?? string.Empty)))
             {
-                wrapperClass = "Integer";
+                wrapperClass = receiverSymbol is INamedTypeSymbol namedFlags
+                    && GetFlagsEnumValueType(namedFlags, context) == "long"
+                    ? "Long"
+                    : "Integer";
             }
 
             if (wrapperClass != null)
@@ -4453,6 +4456,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_Boolean => "Boolean",
             _ => null
         };
+
+    private static string GetFlagsEnumValueType(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        if (context.IsFlagsEnum(enumType.Name))
+            return context.GetFlagsEnumValueType(enumType.Name);
+        if (context.IsFlagsEnum(enumType.ToDisplayString()))
+            return context.GetFlagsEnumValueType(enumType.ToDisplayString());
+
+        return enumType.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+            ? "long"
+            : "int";
+    }
 
     /// <summary>
     /// Tries to extract the parameter name and transformed body from a single-parameter lambda.

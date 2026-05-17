@@ -454,9 +454,13 @@ public class ArgumentTransformer
                 bool isExplicit = paramType is INamedTypeSymbol namedParam
                     && (context.IsExplicitValueEnum(namedParam.Name)
                         || context.IsExplicitValueEnum(namedParam.ToDisplayString()));
-                return isExplicit
-                    ? $"{javaEnumType}.fromValue((int)({transformedExpr}))"
-                    : $"{javaEnumType}.values()[(int)({transformedExpr})]";
+                if (isExplicit)
+                {
+                    var enumValueType = GetExplicitEnumValueType(paramType, context);
+                    return $"{javaEnumType}.fromValue(({enumValueType})({transformedExpr}))";
+                }
+
+                return $"{javaEnumType}.values()[(int)({transformedExpr})]";
             }
         }
 
@@ -753,6 +757,21 @@ public class ArgumentTransformer
             || expr.Contains(".filter(", StringComparison.Ordinal)
             || expr.Contains(".flatMap(", StringComparison.Ordinal)
             || expr.Contains(".sorted(", StringComparison.Ordinal);
+    }
+
+    private static string GetExplicitEnumValueType(ITypeSymbol enumType, ConversionContext context)
+    {
+        if (enumType is not INamedTypeSymbol namedEnum)
+            return "int";
+
+        if (context.IsExplicitValueEnum(namedEnum.Name))
+            return context.GetExplicitValueEnumValueType(namedEnum.Name);
+        if (context.IsExplicitValueEnum(namedEnum.ToDisplayString()))
+            return context.GetExplicitValueEnumValueType(namedEnum.ToDisplayString());
+
+        return namedEnum.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+            ? "long"
+            : "int";
     }
 
     /// <summary>
