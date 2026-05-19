@@ -1001,8 +1001,17 @@ namespace CSharpToJava.Core.LinqRewrite
                 {
                     // Intermediate Concat: after iterating the primary source through the chain,
                     // iterate the second sequence through the same chain steps below this Concat.
+                    // Use the Concat RESULT element type (the common base type of both sequences)
+                    // so that e.g. both Clusters.Concat(Nodes) and Nodes.Concat(Clusters) use Node.
                     var concatItemName = "_concatItem" + (++lastId);
-                    var inner = CreateProcessingStep(chain, i - 1, collectionItemType, concatItemName, arguments, noAggregation);
+                    var concatReturnType = step.Invocation != null
+                        ? semantic.GetTypeInfo(step.Invocation).Type
+                        : null;
+                    var concatResultItemType = concatReturnType != null ? GetItemType(concatReturnType) : null;
+                    var concatItemTypeSyntax = concatResultItemType != null
+                        ? SyntaxFactory.ParseTypeName(concatResultItemType.ToDisplayString())
+                        : collectionItemType;
+                    var inner = CreateProcessingStep(chain, i - 1, concatItemTypeSyntax, concatItemName, arguments, noAggregation);
                     result.Add(SyntaxFactory.ForEachStatement(
                         SyntaxFactory.ParseTypeName("var"),
                         concatItemName,

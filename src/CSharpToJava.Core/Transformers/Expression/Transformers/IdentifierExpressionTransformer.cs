@@ -890,7 +890,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     return $"{target}.{recordAccessor}()";
                 }
                 // Special case: IEnumerator.Current → next() (Java Iterator convention)
-                if (prop.Name == "Current" && IsEnumeratorLikeType(prop.ContainingType))
+                if (prop.Name == "Current"
+                    && (IsEnumeratorLikeType(prop.ContainingType)
+                        || IsEnumeratorLikeType(receiverType)
+                        || (receiverType != null
+                            && context.TypeMappings.MapType(receiverType.ToDisplayString()) is "Iterator" or "Iterator<T>")))
                     return $"{target}.next()";
 
                 var getter = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
@@ -1385,6 +1389,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         return mapped.Contains('.') ? mapped : $"{target}.{mapped}()";
                     }
 
+                    if (memberName == "Current"
+                        && (IsEnumeratorLikeType(foundProp.ContainingType)
+                            || IsEnumeratorLikeType(namedReceiver)))
+                        return $"{target}.next()";
+
                     // Default: generate getXxx() getter
                     var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
                     return $"{target}.{getter}()";
@@ -1463,8 +1472,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return false;
 
         static bool IsEnumerator(INamedTypeSymbol t)
-            => (t.ContainingNamespace?.ToDisplayString() == "System.Collections" && t.Name == "IEnumerator")
-               || (t.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" && t.Name == "IEnumerator");
+        {
+            if (t.Name == "IEnumerator")
+            {
+                var ns = t.ContainingNamespace?.ToDisplayString();
+                if (ns is "System.Collections" or "System.Collections.Generic")
+                    return true;
+            }
+            var display = t.ToDisplayString();
+            return display.StartsWith("System.Collections.IEnumerator", StringComparison.Ordinal)
+                || display.StartsWith("System.Collections.Generic.IEnumerator", StringComparison.Ordinal);
+        }
 
         if (IsEnumerator(named))
             return true;

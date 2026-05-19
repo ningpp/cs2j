@@ -601,8 +601,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (memberName == "AlgorithmData") return $"{receiver}.AlgorithmData";
 
             var symbol = context.SemanticModel.GetSymbolInfo(ma).Symbol;
-            if (symbol is IPropertySymbol)
+            if (symbol is IPropertySymbol asProp)
             {
+                if (asProp.Name == "Current" && IsEnumeratorRelated(asProp.ContainingType))
+                    return $"{receiver}.next()";
                 var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
                 return $"{receiver}.{getter}()";
             }
@@ -621,6 +623,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 });
             if (recvType is INamedTypeSymbol { TypeKind: not TypeKind.Error } named)
             {
+                if (memberName == "Current" && IsEnumeratorRelated(named))
+                    return $"{receiver}.next()";
                 foreach (var m in named.GetMembers(memberName))
                 {
                     if (m is IPropertySymbol)
@@ -637,6 +641,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // emit a getter when the semantic model can't resolve the type.
             if ((recvType == null || recvType.TypeKind == TypeKind.Error) && char.IsUpper(memberName[0]))
             {
+                if (memberName == "Current")
+                    return $"{receiver}.next()";
                 var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
                 return $"{receiver}.{getter}()";
             }
@@ -644,6 +650,26 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         // Fallback: use the standard transform
         return facade.Transform(ma, context);
+    }
+
+    private static bool IsEnumeratorRelated(ITypeSymbol? type)
+    {
+        if (type == null) return false;
+        var display = type.ToDisplayString();
+        if (display.StartsWith("System.Collections.IEnumerator", StringComparison.Ordinal)
+            || display.StartsWith("System.Collections.Generic.IEnumerator", StringComparison.Ordinal))
+            return true;
+        if (type is INamedTypeSymbol named)
+        {
+            foreach (var iface in named.AllInterfaces)
+            {
+                var ifaceDisplay = iface.ToDisplayString();
+                if (ifaceDisplay.StartsWith("System.Collections.IEnumerator", StringComparison.Ordinal)
+                    || ifaceDisplay.StartsWith("System.Collections.Generic.IEnumerator", StringComparison.Ordinal))
+                    return true;
+            }
+        }
+        return false;
     }
 
     private static bool RequiresSingleEvaluation(ExpressionSyntax expressionSyntax, string transformedExpression)

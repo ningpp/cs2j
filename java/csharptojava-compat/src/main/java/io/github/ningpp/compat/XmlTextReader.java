@@ -44,6 +44,11 @@ public class XmlTextReader extends XmlReader {
         } catch (Exception e) { throw new RuntimeException(e); }
     }
 
+    /** Constructs from a StreamWrapper (bridges C# Stream → XmlTextReader). */
+    public XmlTextReader(StreamWrapper stream) {
+        this(stream.inputStream());
+    }
+
     public int getLineNumber() { return lineNumber; }
     public int getLinePosition() { return linePosition; }
 }

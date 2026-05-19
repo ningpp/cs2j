@@ -308,6 +308,14 @@ public static class TypeGroupResolver
                     continue;
                 }
 
+                // Skip imports for namespaces that have no types defined in project source.
+                // Java wildcard imports fail when the target package has no classes.
+                var nsSymbol = semanticModel.GetSymbolInfo(usingDirective.Name).Symbol as INamespaceSymbol;
+                if (nsSymbol != null && !nsSymbol.GetTypeMembers().Any(t => t.Locations.Any(l => l.IsInSource)))
+                {
+                    continue;
+                }
+
                 var mapped = context.NamespaceToPackage(ns);
                 if (string.IsNullOrWhiteSpace(mapped))
                 {

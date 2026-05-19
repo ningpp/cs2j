@@ -1891,9 +1891,19 @@
                                "javaMethod":  "hasNext"
                            },
                            {
+                               "type":  "System.Collections.Generic.IEnumerator`1",
+                               "method":  "Current",
+                               "javaMethod":  "next"
+                           },
+                           {
                                "type":  "System.Collections.IEnumerator",
                                "method":  "MoveNext",
                                "javaMethod":  "hasNext"
+                           },
+                           {
+                               "type":  "System.Collections.IEnumerator",
+                               "method":  "Current",
+                               "javaMethod":  "next"
                            },
                            {
                                "type":  "System.Collections.Generic.IComparer",

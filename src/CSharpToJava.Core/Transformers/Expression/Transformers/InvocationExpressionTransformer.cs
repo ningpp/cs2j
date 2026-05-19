@@ -1624,21 +1624,30 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // Java cannot reference a static type receiver with a simple name when the current
-        // class also has a member with the same name (e.g. field/property Point).
-        // Apply this as a post-step for all static calls, even when receiver symbol lookup
-        // did not resolve to INamedTypeSymbol in the branch above.
+        // class also has a member with the same name (e.g. field Point).
+        // C# properties become getXxx()/setXxx() in Java and don't collide with type names,
+        // so exclude them from the collision check.
         if (methodSymbol is { IsStatic: true }
             && context.SemanticModel != null
             && memberAccess.Expression is IdentifierNameSyntax simpleTypeReceiver2
             && context.SemanticModel.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enclosingType2
-            && enclosingType2.GetMembers(simpleTypeReceiver2.Identifier.Text).Any(m => m is not INamedTypeSymbol))
+            && enclosingType2.GetMembers(simpleTypeReceiver2.Identifier.Text).Any(m => m is not INamedTypeSymbol and not IPropertySymbol))
         {
-            var ns2 = methodSymbol.ContainingType.ContainingNamespace?.ToDisplayString();
-            if (ns2 == "<global namespace>")
-                ns2 = string.Empty;
-            receiver = string.IsNullOrWhiteSpace(ns2)
-                ? methodSymbol.ContainingType.Name
-                : $"{ns2}.{methodSymbol.ContainingType.Name}";
+            var mappedReceiverType = context.MapType(methodSymbol.ContainingType);
+            if (!string.IsNullOrWhiteSpace(mappedReceiverType)
+                && mappedReceiverType != methodSymbol.ContainingType.ToDisplayString())
+            {
+                receiver = mappedReceiverType;
+            }
+            else
+            {
+                var ns2 = methodSymbol.ContainingType.ContainingNamespace?.ToDisplayString();
+                var mappedNs2 = context.NamespaceToPackage(ns2 ?? "");
+                if (string.IsNullOrWhiteSpace(mappedNs2))
+                    receiver = methodSymbol.ContainingType.Name;
+                else
+                    receiver = $"{mappedNs2}.{methodSymbol.ContainingType.Name}";
+            }
         }
         else if (methodSymbol == null)
         {
@@ -2109,7 +2118,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{methodName}({helperArgs})";
         }
 
-        // Regex.Split(input, pattern) -> Arrays.asList(input.split(pattern))
+        // Regex.Split(input, pattern) -> input.split(pattern)
         bool isRegexSplit = originalMethodName == "Split"
             && node.ArgumentList.Arguments.Count >= 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Text.RegularExpressions.Regex"
@@ -2122,8 +2131,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var splitInput = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var splitPattern = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            context.AddImport("java.util.Arrays");
-            return $"Arrays.asList({splitInput}.split({splitPattern}))";
+            return $"{splitInput}.split({splitPattern})";
         }
 
         // Fix: String.Split(' ') → Java split(" ") — Java's split() takes a String regex, not char.
