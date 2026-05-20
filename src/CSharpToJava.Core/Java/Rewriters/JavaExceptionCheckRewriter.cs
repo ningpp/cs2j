@@ -410,6 +410,10 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
         @"new\s+(PrintWriter|FileInputStream|FileOutputStream|FileReader|FileWriter|RandomAccessFile|Scanner|Formatter)\s*\(",
         RegexOptions.Compiled);
 
+    private static readonly Regex CheckedReflectionCallPattern = new(
+        @"Class\.forName\s*\(|\.getDeclaredConstructor\s*\(|\.newInstance\s*\(|\.getMethod\s*\(|\.getDeclaredMethod\s*\(|\.getField\s*\(|\.getDeclaredField\s*\(|\.getConstructor\s*\(",
+        RegexOptions.Compiled);
+
     public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
     {
         if (_javaLibrary is not null)
@@ -448,6 +452,35 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
 
             // Detect constructors that throw checked exceptions
             if (CheckedConstructorPattern.IsMatch(node.Code))
+            {
+                _pendingExceptions.Add("Exception");
+            }
+
+            // Detect reflection calls that throw checked exceptions (Class.forName, etc.)
+            if (CheckedReflectionCallPattern.IsMatch(node.Code))
+            {
+                _pendingExceptions.Add("Exception");
+            }
+        }
+
+        return node;
+    }
+
+    public override JavaRawExpression VisitRawExpression(JavaRawExpression node)
+    {
+        if (_javaLibrary is not null && !string.IsNullOrEmpty(node.Code))
+        {
+            if (CheckedReflectionCallPattern.IsMatch(node.Code))
+            {
+                _pendingExceptions.Add("Exception");
+            }
+
+            if (CheckedConstructorPattern.IsMatch(node.Code))
+            {
+                _pendingExceptions.Add("Exception");
+            }
+
+            if (CloseCallPattern.IsMatch(node.Code))
             {
                 _pendingExceptions.Add("Exception");
             }
