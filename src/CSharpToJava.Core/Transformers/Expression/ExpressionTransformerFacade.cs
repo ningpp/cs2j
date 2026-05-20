@@ -107,6 +107,8 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     var mapped = TryMapPropertyToMethod(prop, context);
                     if (mapped != null)
                     {
+                        if (Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mapped))
+                            return $"{mapped}()";
                         if (mapped.Contains('.')) return mapped;
                         if (prop.ContainingType?.SpecialType == SpecialType.System_Array)
                             return $"{objExpr}.{mapped}";
@@ -152,6 +154,9 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                         }
                         if (mm != null)
                         {
+                            Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mm, context);
+                            if (Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mm))
+                                return $"{mm}()";
                             if (mm.Contains('.')) return mm;
                             if (exprType.SpecialType == SpecialType.System_Array)
                                 return $"{objExpr}.{mm}";
@@ -259,6 +264,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 if (mapped != null) break;
             }
         }
+        Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
         return mapped;
     }
 }

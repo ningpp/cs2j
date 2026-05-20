@@ -204,6 +204,62 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Xml.Linq.XDocument",
+                             "java":  "XDocument",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XDocument"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.Linq.XElement",
+                             "java":  "XElement",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XElement"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.Linq.XAttribute",
+                             "java":  "XAttribute",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XAttribute"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.Linq.XName",
+                             "java":  "XName",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XName"
+                                         ]
+                         },
+                         {
+                             "csharp":  "XDocument",
+                             "java":  "XDocument",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XDocument"
+                                         ]
+                         },
+                         {
+                             "csharp":  "XElement",
+                             "java":  "XElement",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XElement"
+                                         ]
+                         },
+                         {
+                             "csharp":  "XAttribute",
+                             "java":  "XAttribute",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XAttribute"
+                                         ]
+                         },
+                         {
+                             "csharp":  "XName",
+                             "java":  "XName",
+                             "imports":  [
+                                             "io.github.ningpp.compat.XName"
+                                         ]
+                         },
+                         {
                              "csharp":  "XmlReader",
                              "java":  "XmlReader",
                              "imports":  [
@@ -868,13 +924,13 @@
                                              "java.lang.ClassCastException"
                                          ]
                          },
-                         {
-                             "csharp":  "System.FormatException",
-                             "java":  "IllegalArgumentException",
-                             "imports":  [
-                                             "java.lang.IllegalArgumentException"
-                                         ]
-                         },
+                          {
+                              "csharp":  "System.FormatException",
+                              "java":  "NumberFormatException",
+                              "imports":  [
+                                              "java.lang.NumberFormatException"
+                                          ]
+                          },
                          {
                              "csharp":  "System.Threading.Tasks.TaskCanceledException",
                              "java":  "ExecutionException",
@@ -969,9 +1025,9 @@
                          },
                          {
                              "csharp":  "System.IO.FileStream",
-                             "java":  "FileInputStream",
+                             "java":  "StreamWrapper",
                              "imports":  [
-                                             "java.io.FileInputStream"
+                                             "io.github.ningpp.compat.StreamWrapper"
                                          ]
                          },
                          {
@@ -1049,6 +1105,20 @@
                              "java":  "FileMode",
                              "imports":  [
                                              "io.github.ningpp.compat.FileMode"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.FileAccess",
+                             "java":  "FileAccess",
+                             "imports":  [
+                                             "io.github.ningpp.compat.FileAccess"
+                                         ]
+                         },
+                         {
+                             "csharp":  "FileAccess",
+                             "java":  "FileAccess",
+                             "imports":  [
+                                             "io.github.ningpp.compat.FileAccess"
                                          ]
                          },
                          {
@@ -1360,6 +1430,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Reflection.FieldInfo[]",
+                             "java":  "Field[]",
+                             "imports":  [
+                                             "java.lang.reflect.Field"
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Reflection.MethodInfo",
                              "java":  "Method",
                              "imports":  [
@@ -1458,6 +1535,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Drawing.Color",
+                             "java":  "Color",
+                             "imports":  [
+                                             "java.awt.Color"
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Numerics.BigInteger",
                              "java":  "BigInteger",
                              "imports":  [
@@ -1466,16 +1550,30 @@
                          },
                          {
                              "csharp":  "System.Text.RegularExpressions.Regex",
-                             "java":  "Pattern",
+                             "java":  "Regex",
                              "imports":  [
-                                             "java.util.regex.Pattern"
+                                             "io.github.ningpp.compat.Regex"
                                          ]
                          },
                          {
                              "csharp":  "System.Text.RegularExpressions.Match",
-                             "java":  "Matcher",
+                             "java":  "Match",
                              "imports":  [
-                                             "java.util.regex.Matcher"
+                                             "io.github.ningpp.compat.Match"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.RegularExpressions.Group",
+                             "java":  "Group",
+                             "imports":  [
+                                             "io.github.ningpp.compat.Group"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.RegularExpressions.GroupCollection",
+                             "java":  "GroupCollection",
+                             "imports":  [
+                                             "io.github.ningpp.compat.GroupCollection"
                                          ]
                          },
                          {
@@ -1648,9 +1746,9 @@
                          },
                          {
                              "csharp":  "System.Text.Encoding",
-                             "java":  "Charset",
+                             "java":  "Encoding",
                              "imports":  [
-                                             "java.nio.charset.Charset"
+                                             "io.github.ningpp.compat.Encoding"
                                          ]
                          },
                          {
@@ -1679,6 +1777,20 @@
                              "java":  "System",
                              "imports":  [
                                              "java.lang.System"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Globalization.NumberStyles",
+                             "java":  "NumberStyles",
+                             "imports":  [
+                                             "io.github.ningpp.compat.NumberStyles"
+                                         ]
+                         },
+                         {
+                             "csharp":  "NumberStyles",
+                             "java":  "NumberStyles",
+                             "imports":  [
+                                             "io.github.ningpp.compat.NumberStyles"
                                          ]
                          },
                          {
@@ -2076,6 +2188,136 @@
                                "javaMethod":  "length"
                            },
                            {
+                               "type":  "System.Xml.Linq.XDocument",
+                               "method":  "Load",
+                               "javaMethod":  "load"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XDocument",
+                               "method":  "Parse",
+                               "javaMethod":  "parse"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XDocument",
+                               "method":  "Descendants",
+                               "javaMethod":  "descendants"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XDocument",
+                               "method":  "Elements",
+                               "javaMethod":  "elements"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XDocument",
+                               "method":  "Root",
+                               "javaMethod":  "getRoot"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XElement",
+                               "method":  "Descendants",
+                               "javaMethod":  "descendants"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XElement",
+                               "method":  "Elements",
+                               "javaMethod":  "elements"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XElement",
+                               "method":  "Attribute",
+                               "javaMethod":  "attribute"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XElement",
+                               "method":  "Name",
+                               "javaMethod":  "getName"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XAttribute",
+                               "method":  "Name",
+                               "javaMethod":  "getName"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XAttribute",
+                               "method":  "Value",
+                               "javaMethod":  "getValue"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XName",
+                               "method":  "LocalName",
+                               "javaMethod":  "getLocalName"
+                           },
+                           {
+                               "type":  "System.Xml.Linq.XName",
+                               "method":  "NamespaceName",
+                               "javaMethod":  "getNamespaceName"
+                           },
+                           {
+                               "type":  "XDocument",
+                               "method":  "Load",
+                               "javaMethod":  "load"
+                           },
+                           {
+                               "type":  "XDocument",
+                               "method":  "Parse",
+                               "javaMethod":  "parse"
+                           },
+                           {
+                               "type":  "XDocument",
+                               "method":  "Descendants",
+                               "javaMethod":  "descendants"
+                           },
+                           {
+                               "type":  "XDocument",
+                               "method":  "Elements",
+                               "javaMethod":  "elements"
+                           },
+                           {
+                               "type":  "XDocument",
+                               "method":  "Root",
+                               "javaMethod":  "getRoot"
+                           },
+                           {
+                               "type":  "XElement",
+                               "method":  "Descendants",
+                               "javaMethod":  "descendants"
+                           },
+                           {
+                               "type":  "XElement",
+                               "method":  "Elements",
+                               "javaMethod":  "elements"
+                           },
+                           {
+                               "type":  "XElement",
+                               "method":  "Attribute",
+                               "javaMethod":  "attribute"
+                           },
+                           {
+                               "type":  "XElement",
+                               "method":  "Name",
+                               "javaMethod":  "getName"
+                           },
+                           {
+                               "type":  "XAttribute",
+                               "method":  "Name",
+                               "javaMethod":  "getName"
+                           },
+                           {
+                               "type":  "XAttribute",
+                               "method":  "Value",
+                               "javaMethod":  "getValue"
+                           },
+                           {
+                               "type":  "XName",
+                               "method":  "LocalName",
+                               "javaMethod":  "getLocalName"
+                           },
+                           {
+                               "type":  "XName",
+                               "method":  "NamespaceName",
+                               "javaMethod":  "getNamespaceName"
+                           },
+                           {
                                "type":  "System.DateTime",
                                "method":  "Now",
                                "javaMethod":  "now"
@@ -2118,7 +2360,7 @@
                            {
                                "type":  "System.Double",
                                "method":  "Parse",
-                               "javaMethod":  "parseDouble"
+                               "javaMethod":  "MathHelper.parseDouble"
                            },
                            {
                                "type":  "System.Single",
@@ -2128,7 +2370,7 @@
                            {
                                "type":  "System.Single",
                                "method":  "Parse",
-                               "javaMethod":  "parseFloat"
+                               "javaMethod":  "MathHelper.parseFloat"
                            },
                            {
                                "type":  "System.Int32",
@@ -2138,7 +2380,7 @@
                            {
                                "type":  "System.Int32",
                                "method":  "Parse",
-                               "javaMethod":  "parseInt"
+                               "javaMethod":  "MathHelper.parseInt"
                            },
                            {
                                "type":  "System.Int64",
@@ -2148,7 +2390,7 @@
                            {
                                "type":  "System.Int64",
                                "method":  "Parse",
-                               "javaMethod":  "parseLong"
+                               "javaMethod":  "MathHelper.parseLong"
                            },
                            {
                                "type":  "System.Boolean",
@@ -2507,6 +2749,21 @@
                                "javaMethod":  "console.read"
                            },
                            {
+                               "type":  "System.Console",
+                               "method":  "Out",
+                               "javaMethod":  "out"
+                           },
+                           {
+                               "type":  "System.Console",
+                               "method":  "Error",
+                               "javaMethod":  "err"
+                           },
+                           {
+                               "type":  "System.Console",
+                               "method":  "In",
+                               "javaMethod":  "in"
+                           },
+                           {
                                "type":  "System.Diagnostics.Debug",
                                "method":  "WriteLine",
                                "javaMethod":  "out.println"
@@ -2800,6 +3057,82 @@
                                "type":  "System.Collections.Generic.IEnumerable`1",
                                "method":  "ToList",
                                "javaMethod":  "collect"
+                           },
+                           {
+                               "type":  "System.Text.RegularExpressions.Regex",
+                               "method":  "Match",
+                               "javaMethod":  "Regex.match"
+                           },
+                           {
+                               "type":  "System.Text.RegularExpressions.Regex",
+                               "method":  "IsMatch",
+                               "javaMethod":  "Regex.isMatch"
+                           },
+                           {
+                               "type":  "System.Reflection.FieldInfo",
+                               "method":  "GetValue",
+                               "javaMethod":  "get"
+                           },
+                           {
+                               "type":  "System.Text.RegularExpressions.Match",
+                               "method":  "Success",
+                               "javaMethod":  "getSuccess"
+                           },
+                           {
+                               "type":  "System.Text.RegularExpressions.Match",
+                               "method":  "Groups",
+                               "javaMethod":  "getGroups"
+                           },
+                           {
+                               "type":  "System.Text.RegularExpressions.Group",
+                               "method":  "Value",
+                               "javaMethod":  "getValue"
+                           },
+                           {
+                               "type":  "System.Text.RegularExpressions.Group",
+                               "method":  "Length",
+                               "javaMethod":  "getLength"
+                           },
+                           {
+                               "type":  "System.Text.StringBuilder",
+                               "method":  "ToString",
+                               "javaMethod":  "substring",
+                               "signature":  "2"
+                           },
+                           {
+                               "type":  "System.Drawing.Color",
+                               "method":  "FromArgb",
+                               "javaMethod":  "DrawingColor.fromArgb"
+                           },
+                           {
+                               "type":  "System.Drawing.Color",
+                               "method":  "FromName",
+                               "javaMethod":  "DrawingColor.fromName"
+                           },
+                           {
+                               "type":  "System.Drawing.Color",
+                               "method":  "A",
+                               "javaMethod":  "DrawingColor.getA"
+                           },
+                           {
+                               "type":  "System.Drawing.Color",
+                               "method":  "R",
+                               "javaMethod":  "DrawingColor.getR"
+                           },
+                           {
+                               "type":  "System.Drawing.Color",
+                               "method":  "G",
+                               "javaMethod":  "DrawingColor.getG"
+                           },
+                           {
+                               "type":  "System.Drawing.Color",
+                               "method":  "B",
+                               "javaMethod":  "DrawingColor.getB"
+                           },
+                           {
+                               "type":  "System.Drawing.Color",
+                               "method":  "Black",
+                               "javaMethod":  "DrawingColor.getBlack"
                            },
                            {
                                "type":  "System.Collections.Generic.Dictionary`2",
@@ -3157,6 +3490,46 @@
                                "javaMethod":  "flush"
                            },
                            {
+                               "type":  "System.IO.FileStream",
+                               "method":  "Name",
+                               "javaMethod":  "getName"
+                           },
+                           {
+                               "type":  "System.IO.StreamReader",
+                               "method":  "CurrentEncoding",
+                               "javaMethod":  "getCurrentEncoding"
+                           },
+                           {
+                               "type":  "System.Text.Encoding",
+                               "method":  "BodyName",
+                               "javaMethod":  "getBodyName"
+                           },
+                           {
+                               "type":  "System.Text.Encoding",
+                               "method":  "GetEncoding",
+                               "javaMethod":  "Encoding.getEncoding"
+                           },
+                           {
+                               "type":  "System.Text.Encoding",
+                               "method":  "ASCII",
+                               "javaMethod":  "Encoding.getASCII"
+                           },
+                           {
+                               "type":  "System.Text.Encoding",
+                               "method":  "UTF8",
+                               "javaMethod":  "Encoding.getUTF8"
+                           },
+                           {
+                               "type":  "System.Text.Encoding",
+                               "method":  "Default",
+                               "javaMethod":  "Encoding.getDefault"
+                           },
+                           {
+                               "type":  "System.Text.Encoding",
+                               "method":  "CodePage",
+                               "javaMethod":  "getCodePage"
+                           },
+                           {
                                "type":  "System.Environment",
                                "method":  "NewLine",
                                "javaMethod":  "System.lineSeparator()"
@@ -3467,7 +3840,7 @@
                               },
                               {
                                   "csharp":  "System.Text.RegularExpressions",
-                                  "java":  "java.util.regex"
+                                  "java":  "io.github.ningpp.compat"
                               },
                               {
                                   "csharp":  "System.Numerics",

@@ -37,6 +37,31 @@ class Test {
         Assert.Contains("list.get(0)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void InvocationOnArrayElement_WithConditionalIndex_PreservesIndexExpression()
+    {
+        var result = Convert("""
+using System;
+
+class Item
+{
+    public void Add(int value) {}
+}
+
+class Test
+{
+    void M(Item[] items, Random random, int count)
+    {
+        items[random.Next(count)].Add(1);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("items[((count) <= 0 ? 0 : random.nextInt(count))].add(1);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("items[((count) .add", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

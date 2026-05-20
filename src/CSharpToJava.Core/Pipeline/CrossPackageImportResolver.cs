@@ -43,13 +43,24 @@ public static class CrossPackageImportResolver
         "LinkedListWithNodes",
         "InvalidDataException",
         "MemoryStream",
+        "NumberStyles",
+        "FileAccess",
         "StreamReader",
         "StreamWriter",
         "TextReader",
         "ThreadHelper",
         "ArrayHelper",
         "DataContractSerializer",
+        "DrawingColor",
         "StreamWrapper"
+    };
+
+    private static readonly HashSet<string> DefaultWildcardPackages = new(StringComparer.Ordinal)
+    {
+        "java.util",
+        "java.util.function",
+        "java.util.stream",
+        "java.io"
     };
 
     /// <summary>
@@ -112,6 +123,13 @@ public static class CrossPackageImportResolver
         // Build the shared compatibility helper name set for efficient lookup
         var helperClassNameSet = new HashSet<string>(SharedCompatibilityHelperClassNames, StringComparer.Ordinal);
 
+        var javaLangClassNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "Boolean", "Byte", "Character", "Class", "Double", "Enum", "Exception",
+            "Float", "Integer", "Long", "Math", "Object", "RuntimeException", "Short",
+            "String", "StringBuilder", "System", "Thread", "Throwable", "Void"
+        };
+
         // Process each result
         for (int i = 0; i < results.Count; i++)
         {
@@ -121,9 +139,9 @@ public static class CrossPackageImportResolver
             if (r.Compilation is not null)
             {
                 // ── IR path: modify JavaCompilationUnit.Imports directly ──
-                AddCrossPackageImportsToIR(r, allPackages, javaUtilConflictImport,
+                AddCrossPackageImportsToIR(r, allPackages, classNameToPackages, javaUtilConflictImport,
                     multiPackageConflicts, conflictCanonical,
-                    sharedCompatibilityPackage, helperClassNameSet);
+                    sharedCompatibilityPackage, helperClassNameSet, javaLangClassNames);
                 r.SyncGeneratedCodeFromIR();
             }
             else
@@ -142,11 +160,13 @@ public static class CrossPackageImportResolver
     private static void AddCrossPackageImportsToIR(
         ConversionResult r,
         List<string> allPackages,
+        Dictionary<string, List<string>> classNameToPackages,
         Dictionary<string, string> javaUtilConflictImport,
         Dictionary<string, List<string>> multiPackageConflicts,
         Dictionary<string, string> conflictCanonical,
         string? sharedCompatibilityPackage,
-        HashSet<string> helperClassNameSet)
+        HashSet<string> helperClassNameSet,
+        HashSet<string> javaLangClassNames)
     {
         var cu = r.Compilation!;
 
@@ -192,6 +212,89 @@ public static class CrossPackageImportResolver
                 : conflictCanonical[className];
             cu.Imports.Add(new JavaImport($"{preferredPkg}.{className}"));
         }
+
+        RemoveAmbiguousSingleTypeImports(cu, classNameToPackages, javaLangClassNames);
+    }
+
+    private static void RemoveAmbiguousSingleTypeImports(
+        JavaCompilationUnit cu,
+        Dictionary<string, List<string>> classNameToPackages,
+        HashSet<string> javaLangClassNames)
+    {
+        var deduped = new List<JavaImport>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var import in cu.Imports)
+        {
+            if (!import.IsWildcard && !import.IsStatic)
+            {
+                var packageName = PackageName(import.Name);
+                var simpleName = SimpleName(import.Name);
+                if (packageName == cu.Package)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(cu.Package)
+                    && classNameToPackages.TryGetValue(simpleName, out var packages)
+                    && packages.Contains(cu.Package, StringComparer.Ordinal))
+                {
+                    continue;
+                }
+            }
+
+            var key = ImportKey(import);
+            if (seen.Add(key))
+                deduped.Add(import);
+        }
+
+        var selectedExplicitImportKeys = deduped
+            .Where(i => !i.IsWildcard && !i.IsStatic)
+            .GroupBy(i => SimpleName(i.Name), StringComparer.Ordinal)
+            .Select(g => SelectPreferredExplicitImport(g.ToList(), javaLangClassNames))
+            .Where(i => i is not null)
+            .Select(i => ImportKey(i!))
+            .ToHashSet(StringComparer.Ordinal);
+
+        cu.Imports.Clear();
+        foreach (var import in deduped)
+        {
+            if (import.IsWildcard || import.IsStatic || selectedExplicitImportKeys.Contains(ImportKey(import)))
+                cu.Imports.Add(import);
+        }
+    }
+
+    private static JavaImport? SelectPreferredExplicitImport(List<JavaImport> imports, HashSet<string> javaLangClassNames)
+    {
+        if (imports.Count == 0)
+            return null;
+
+        if (imports.Count == 1)
+            return javaLangClassNames.Contains(SimpleName(imports[0].Name))
+                && PackageName(imports[0].Name) == "java.lang"
+                    ? null
+                    : imports[0];
+
+        return imports
+            .OrderBy(i => DefaultWildcardPackages.Contains(PackageName(i.Name)) ? 1 : 0)
+            .ThenBy(i => PackageName(i.Name) == "java.lang" ? 1 : 0)
+            .ThenBy(i => i.Name.Length)
+            .ThenBy(i => i.Name, StringComparer.Ordinal)
+            .First();
+    }
+
+    private static string ImportKey(JavaImport import)
+    {
+        return $"{(import.IsStatic ? "static:" : "type:")}{(import.IsWildcard ? "wild:" : "single:")}{import.Name}";
+    }
+
+    private static string SimpleName(string importName)
+    {
+        var lastDot = importName.LastIndexOf('.');
+        return lastDot >= 0 ? importName[(lastDot + 1)..] : importName;
+    }
+
+    private static string PackageName(string importName)
+    {
+        var lastDot = importName.LastIndexOf('.');
+        return lastDot > 0 ? importName[..lastDot] : "";
     }
 
     /// <summary>

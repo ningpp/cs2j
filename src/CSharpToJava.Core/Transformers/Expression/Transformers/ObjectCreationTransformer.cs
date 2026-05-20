@@ -189,6 +189,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 : "Object";
         }
 
+        if (createdTypeSymbol?.ToDisplayString() == "System.IO.FileStream")
+        {
+            context.AddImport("io.github.ningpp.compat.FileHelper");
+            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            return $"FileHelper.open({args})";
+        }
+
         // Java cannot instantiate a type parameter directly (new T()).
         // For C# where T : ICollection<...>, new() we map to ArrayList and cast.
         // For other new()-constrained type params, keep a compilable fallback cast.

@@ -248,7 +248,9 @@ public class ClassTransformer : ITypeTransformer
                     MethodDeclarationSyntax m => $"m:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
                     PropertyDeclarationSyntax p => $"p:{p.Identifier.Text}",
                     FieldDeclarationSyntax f => $"f:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
-                    ConstructorDeclarationSyntax c => $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
+                    ConstructorDeclarationSyntax c => c.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
+                        ? "cctor"
+                        : $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
                     EventDeclarationSyntax e => $"ev:{e.Identifier.Text}",
                     DelegateDeclarationSyntax d => $"del:{d.Identifier.Text}",
                     TypeDeclarationSyntax t => $"type:{t.Identifier.Text}",

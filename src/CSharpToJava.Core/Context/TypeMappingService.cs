@@ -319,6 +319,15 @@ public class TypeMappingService
             return elementType + brackets;
         }
 
+        if (typeSymbol is not ITypeParameterSymbol
+            && typeSymbol.ContainingType is INamedTypeSymbol outerTypeForNested
+            && outerTypeForNested.TypeKind != TypeKind.Error)
+        {
+            var nestedMapped = TryMapNestedType(typeSymbol, outerTypeForNested, typeSymbol.Name);
+            if (nestedMapped != null)
+                return nestedMapped;
+        }
+
         // Generic types
         if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
         {
@@ -448,8 +457,10 @@ public class TypeMappingService
         if (mapped != name && mapped != fullQualifiedNameSimple)
         {
             AddImportsForType(configKeySimple);
+            var mappedFromExplicitConfig = _typeMappings.HasTypeMapping(configKeySimple);
             var mappedSimple = MapSimpleTypeName(mapped);
-            if (!string.IsNullOrWhiteSpace(curNs)
+            if (!mappedFromExplicitConfig
+                && !string.IsNullOrWhiteSpace(curNs)
                 && !string.IsNullOrWhiteSpace(ns)
                 && !string.Equals(curNs, ns, StringComparison.Ordinal)
                 && NamespaceContainsType(curNs, mappedSimple))
@@ -463,57 +474,19 @@ public class TypeMappingService
         // → DataContractSerializer), the type name doesn't change but the config entry
         // may still carry imports that must be registered.
         AddImportsForType(configKeySimple);
+        if (_typeMappings.HasTypeMapping(configKeySimple))
+            return MapSimpleTypeName(mapped);
 
         // Cross-namespace imports for project types
-        if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))
-        {
-            if (!string.Equals(curNs, ns, StringComparison.Ordinal)
-                && typeSymbol.ContainingType == null
-                && (!string.IsNullOrWhiteSpace(curNs) ? !NamespaceContainsType(curNs, name) : true))
+            if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))
+            {
+                if (!string.Equals(curNs, ns, StringComparison.Ordinal)
+                    && typeSymbol.ContainingType == null
+                    && (!string.IsNullOrWhiteSpace(curNs) ? !NamespaceContainsType(curNs, name) : true))
             {
                 var javaPackage = NamespaceToPackage(ns);
                 AddImport($"{javaPackage}.{name}");
             }
-        }
-
-        // Nested types
-        if (typeSymbol is not ITypeParameterSymbol
-            && typeSymbol.ContainingType is INamedTypeSymbol outerType
-            && outerType.TypeKind != TypeKind.Error)
-        {
-            // Dictionary<K,V>.KeyCollection → Set<K>, Dictionary<K,V>.ValueCollection → Collection<V>
-            var outerOriginal = outerType.OriginalDefinition?.ToDisplayString() ?? "";
-            if (outerOriginal == "System.Collections.Generic.Dictionary<TKey, TValue>"
-                && outerType.TypeArguments.Length == 2)
-            {
-                if (name == "KeyCollection")
-                {
-                    var keyType = MapTypeForGeneric(outerType.TypeArguments[0]);
-                    AddImport("java.util.Set");
-                    return $"Set<{keyType}>";
-                }
-                if (name == "ValueCollection")
-                {
-                    var valueType = MapTypeForGeneric(outerType.TypeArguments[1]);
-                    AddImport("java.util.Collection");
-                    return $"Collection<{valueType}>";
-                }
-            }
-
-            var nestedStr = $"{outerType.Name}.{MapSimpleTypeName(name)}";
-            if (typeSymbol.TypeKind == TypeKind.Delegate)
-            {
-                var curOuter = outerType;
-                var allTypeArgs = new List<string>();
-                while (curOuter != null)
-                {
-                    allTypeArgs.InsertRange(0, curOuter.TypeArguments.Select(t => MapTypeForGeneric(t)));
-                    curOuter = curOuter.ContainingType;
-                }
-                if (allTypeArgs.Count > 0)
-                    nestedStr += "<" + string.Join(", ", allTypeArgs) + ">";
-            }
-            return nestedStr;
         }
 
         // Same-name type shadowing
@@ -524,7 +497,129 @@ public class TypeMappingService
         {
             return $"{NamespaceToPackage(ns)}.{MapSimpleTypeName(name)}";
         }
-        return MapSimpleTypeName(name);
+        return QualifyTypeReferenceIfNeeded(typeSymbol, MapSimpleTypeName(name));
+    }
+
+    private string QualifyIfCurrentNamespaceHasDifferentType(ITypeSymbol typeSymbol, string javaType)
+    {
+        var curNs = _getCurrentNamespace();
+        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+        var simpleName = typeSymbol.Name;
+
+        if (string.IsNullOrWhiteSpace(curNs)
+            || string.IsNullOrWhiteSpace(ns)
+            || string.Equals(curNs, ns, StringComparison.Ordinal)
+            || typeSymbol.ContainingType != null
+            || !NamespaceContainsType(curNs, simpleName))
+        {
+            return javaType;
+        }
+
+        var simpleJavaType = MapSimpleTypeName(simpleName);
+        var simplePrefix = simpleJavaType + "<";
+        if (javaType == simpleJavaType || javaType.StartsWith(simplePrefix, StringComparison.Ordinal))
+            return $"{NamespaceToPackage(ns)}.{javaType}";
+
+        return javaType;
+    }
+
+    private string? TryMapNestedType(ITypeSymbol typeSymbol, INamedTypeSymbol outerType, string name)
+    {
+        // Dictionary<K,V>.KeyCollection → Set<K>, Dictionary<K,V>.ValueCollection → Collection<V>
+        var outerOriginal = outerType.OriginalDefinition?.ToDisplayString() ?? "";
+        if (outerOriginal == "System.Collections.Generic.Dictionary<TKey, TValue>"
+            && outerType.TypeArguments.Length == 2)
+        {
+            if (name == "KeyCollection")
+            {
+                var keyType = MapTypeForGeneric(outerType.TypeArguments[0]);
+                AddImport("java.util.Set");
+                return $"Set<{keyType}>";
+            }
+            if (name == "ValueCollection")
+            {
+                var valueType = MapTypeForGeneric(outerType.TypeArguments[1]);
+                AddImport("java.util.Collection");
+                return $"Collection<{valueType}>";
+            }
+        }
+
+        var outerName = QualifyTypeReferenceIfNeeded(outerType, MapSimpleTypeName(outerType.Name));
+        var nestedStr = $"{outerName}.{MapSimpleTypeName(name)}";
+
+        if (typeSymbol is INamedTypeSymbol namedNested && namedNested.TypeArguments.Length > 0)
+        {
+            nestedStr += "<" + string.Join(", ", namedNested.TypeArguments.Select(t => MapTypeForGeneric(t))) + ">";
+        }
+        else if (typeSymbol.TypeKind == TypeKind.Delegate)
+        {
+            var curOuter = outerType;
+            var allTypeArgs = new List<string>();
+            while (curOuter != null)
+            {
+                allTypeArgs.InsertRange(0, curOuter.TypeArguments.Select(t => MapTypeForGeneric(t)));
+                curOuter = curOuter.ContainingType;
+            }
+            if (allTypeArgs.Count > 0)
+                nestedStr += "<" + string.Join(", ", allTypeArgs) + ">";
+        }
+
+        return nestedStr;
+    }
+
+    private string QualifyTypeReferenceIfNeeded(ITypeSymbol typeSymbol, string simpleTypeName)
+    {
+        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+        if (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>")
+            return simpleTypeName;
+
+        var curNs = _getCurrentNamespace();
+        if (string.Equals(curNs, ns, StringComparison.Ordinal))
+            return simpleTypeName;
+
+        if (TypeNameIsAmbiguousOutsideNamespace(typeSymbol.Name, ns)
+            || (!string.IsNullOrWhiteSpace(curNs) && NamespaceContainsType(curNs, typeSymbol.Name)))
+        {
+            return $"{NamespaceToPackage(ns)}.{simpleTypeName}";
+        }
+
+        return simpleTypeName;
+    }
+
+    private bool TypeNameIsAmbiguousOutsideNamespace(string typeName, string ownNamespace)
+    {
+        var globalNs = _getGlobalNamespace();
+        if (globalNs == null || string.IsNullOrWhiteSpace(typeName))
+            return false;
+
+        return CountTypeNameOccurrences(globalNs, typeName, ownNamespace, 0) > 0;
+    }
+
+    private static int CountTypeNameOccurrences(
+        INamespaceSymbol namespaceSymbol,
+        string typeName,
+        string ownNamespace,
+        int count)
+    {
+        foreach (var typeMember in namespaceSymbol.GetTypeMembers(typeName))
+        {
+            var ns = typeMember.ContainingNamespace?.ToDisplayString();
+            if (!string.Equals(ns, ownNamespace, StringComparison.Ordinal))
+            {
+                count++;
+                if (count > 0)
+                    return count;
+            }
+        }
+
+        foreach (var childNamespace in namespaceSymbol.GetNamespaceMembers())
+        {
+            count = CountTypeNameOccurrences(childNamespace, typeName, ownNamespace, count);
+            if (count > 0)
+                return count;
+        }
+
+        return count;
     }
 
     private bool NamespaceContainsType(string namespaceName, string typeName)
@@ -585,7 +680,7 @@ public class TypeMappingService
     private string MapTypeForGeneric(ITypeSymbol typeSymbol)
     {
         var result = MapType(typeSymbol);
-        return BoxPrimitive(result);
+        return BoxPrimitive(QualifyIfCurrentNamespaceHasDifferentType(typeSymbol, result));
     }
 
     /// <summary>
@@ -615,8 +710,17 @@ public class TypeMappingService
 
     private void AddImport(string typeName)
     {
-        if (typeName.StartsWith("java.lang.")) return;
+        if (IsImplicitJavaLangType(typeName)) return;
         _importedTypes.Add(typeName);
+    }
+
+    private static bool IsImplicitJavaLangType(string typeName)
+    {
+        if (!typeName.StartsWith("java.lang.", StringComparison.Ordinal))
+            return false;
+
+        var remainder = typeName["java.lang.".Length..];
+        return !remainder.Contains('.', StringComparison.Ordinal);
     }
 
     private string MapTypeFromSyntaxString(string typeName)

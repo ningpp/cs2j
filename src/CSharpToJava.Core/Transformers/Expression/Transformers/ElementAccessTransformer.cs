@@ -84,6 +84,15 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                     return call;
                 }
 
+                if (IsJavaStringBuilder(exprType))
+                {
+                    var targetIR = facade.TransformToIR(elemAccess.Expression, context);
+                    var indexIR = facade.TransformToIR(arg, context);
+                    var call = new JavaMethodCallExpression { Target = targetIR, MethodName = "charAt" };
+                    call.Arguments.Add(indexIR);
+                    return call;
+                }
+
                 // Unknown type — still try to produce get() call if it's not array-like
                 if (exprType != null && exprType.TypeKind != TypeKind.Array)
                 {
@@ -138,6 +147,12 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         {
             var arg = node.ArgumentList.Arguments[0].Expression;
 
+            if (IsRegexGroupCollection(exprType))
+            {
+                var groupIndex = facade.Transform(arg, context);
+                return $"{expr}.get({groupIndex})";
+            }
+
             // Fix 2 companion: handle arr[lo..hi] range slicing directly here so the result
             // is not double-wrapped by the general [idx] path below.
             if (arg.IsKind(SyntaxKind.RangeExpression) && arg is RangeExpressionSyntax range)
@@ -172,6 +187,7 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
             if (isArray) return $"{expr}[{idx}]";
             if (isString) return $"{expr}.charAt({idx})";
+            if (IsJavaStringBuilder(exprType)) return $"{expr}.charAt({idx})";
             if (isMap) return $"{expr}.get({idx})";
             if (isList) return $"{expr}.get({idx})";
             // Fallback for unknown/dynamic/unresolved types — check String by display name too
@@ -207,4 +223,10 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         var operand = facade.Transform(node.Operand, context);
         return $"/* C# from-end index ^{operand} — requires array name to resolve */";
     }
+
+    private static bool IsJavaStringBuilder(ITypeSymbol? type)
+        => type?.ToDisplayString() == "System.Text.StringBuilder";
+
+    private static bool IsRegexGroupCollection(ITypeSymbol? type)
+        => type?.ToDisplayString() == "System.Text.RegularExpressions.GroupCollection";
 }

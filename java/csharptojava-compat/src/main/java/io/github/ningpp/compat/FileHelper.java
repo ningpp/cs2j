@@ -24,28 +24,36 @@ public class FileHelper {
     }
     /** Mirrors File.Open(path, FileMode). */
     public static StreamWrapper open(String path, int fileMode) {
+        return open(path, fileMode, FileAccess.ReadWrite);
+    }
+
+    /** Mirrors File.Open(path, FileMode, FileAccess). */
+    public static StreamWrapper open(String path, int fileMode, int fileAccess) {
         try {
             if (fileMode == FileMode.CreateNew) {
                 File file = new File(path);
                 if (!file.createNewFile()) {
                     throw new UncheckedIOException(new IOException("File already exists: " + path));
                 }
-                return StreamWrapper.of(new FileOutputStream(file));
+                return StreamWrapper.of(new FileOutputStream(file), path);
             }
             if (fileMode == FileMode.Create || fileMode == FileMode.Truncate) {
-                return StreamWrapper.of(new FileOutputStream(path, false));
+                return StreamWrapper.of(new FileOutputStream(path, false), path);
             }
             if (fileMode == FileMode.Append) {
-                return StreamWrapper.of(new FileOutputStream(path, true));
+                return StreamWrapper.of(new FileOutputStream(path, true), path);
+            }
+            if (fileAccess == FileAccess.Write) {
+                return StreamWrapper.of(new FileOutputStream(path, fileMode == FileMode.OpenOrCreate), path);
             }
             if (fileMode == FileMode.OpenOrCreate) {
                 File file = new File(path);
                 if (file.exists()) {
-                    return StreamWrapper.of(new FileInputStream(file));
+                    return StreamWrapper.of(new FileInputStream(file), path);
                 }
-                return StreamWrapper.of(new FileOutputStream(file));
+                return StreamWrapper.of(new FileOutputStream(file), path);
             }
-            return StreamWrapper.of(new FileInputStream(path));
+            return StreamWrapper.of(new FileInputStream(path), path);
         } catch (IOException e) { throw new UncheckedIOException(e); }
     }
     /** Mirrors File.Create(path). */

@@ -120,7 +120,9 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol ms
                 && ms.MethodKind == MethodKind.UserDefinedOperator
-                && ms.ContainingType != null && !IsBuiltInType(ms.ContainingType))
+                && ms.ContainingType != null
+                && !IsBuiltInType(ms.ContainingType)
+                && OperatorHasSourceDeclaration(ms))
             {
                 var javaMethodName = GetOperatorMethodName(ms);
                 var leftIR = facade.TransformToIR(binExpr.Left, context);
@@ -245,7 +247,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             {
                 // Only convert to method call if it's a user-defined type (not built-in types)
                 if (methodSymbol.MethodKind == MethodKind.UserDefinedOperator
-                    && !IsBuiltInType(methodSymbol.ContainingType))
+                    && !IsBuiltInType(methodSymbol.ContainingType)
+                    && OperatorHasSourceDeclaration(methodSymbol))
                 {
                     return TransformUserDefinedOperator(node, methodSymbol, context);
                 }
@@ -379,7 +382,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (roslynOpName == null) return null;
 
         // Verify the type actually declares this operator
-        if (!operatorType.GetMembers(roslynOpName).Any(m => m is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+        if (!operatorType.GetMembers(roslynOpName).Any(m =>
+                m is IMethodSymbol operatorMethod
+                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator
+                && OperatorHasSourceDeclaration(operatorMethod)))
             return null;
 
         var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
@@ -427,7 +433,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var roslynOpName = SyntaxKindToRoslynOperatorName(node.Kind());
         if (roslynOpName == null) return null;
 
-        if (!operatorType.GetMembers(roslynOpName).Any(m => m is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+        if (!operatorType.GetMembers(roslynOpName).Any(m =>
+                m is IMethodSymbol operatorMethod
+                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator
+                && OperatorHasSourceDeclaration(operatorMethod)))
             return null;
 
         var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
@@ -647,6 +656,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var typeInfo = semanticModel.GetTypeInfo(expr);
         return typeInfo.Type?.SpecialType == SpecialType.System_String;
     }
+
+    private static bool OperatorHasSourceDeclaration(IMethodSymbol operatorSymbol)
+        => operatorSymbol.Locations.Any(location => location.IsInSource)
+            || operatorSymbol.DeclaringSyntaxReferences.Length > 0;
 
     internal static bool IsBuiltInTypeStatic(INamedTypeSymbol type) =>
         type.TypeKind == TypeKind.Enum ||

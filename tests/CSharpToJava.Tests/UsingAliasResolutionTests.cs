@@ -59,6 +59,100 @@ class Test
         Assert.DoesNotContain("MyPoint", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UsingAlias_MappedFrameworkType_UsesConfiguredImport()
+    {
+        var result = Convert("""
+using Color = System.Drawing.Color;
+
+namespace Dot2Graph
+{
+    class AttributeValuePair
+    {
+        Color FromNameOrBlack(string name)
+        {
+            return name == null ? Color.Black : Color.FromName(name);
+        }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("import java.awt.Color;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.DrawingColor;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Color fromNameOrBlack(String name)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("DrawingColor.getBlack()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("DrawingColor.fromName(name)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("java.lang.Drawing.Color", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("? Color.getBlack()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(": Color.fromName(name)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UsingAlias_MappedFrameworkType_NotRequalifiedWhenProjectHasSameSimpleName()
+    {
+        var result = Convert("""
+using Color = System.Drawing.Color;
+
+namespace Microsoft.Msagl.Drawing
+{
+    public struct Color
+    {
+    }
+}
+
+namespace Dot2Graph
+{
+    class AttributeValuePair
+    {
+        Color Convert(Microsoft.Msagl.Drawing.Color color)
+        {
+            return Color.FromArgb(1, 2, 3);
+        }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("import java.awt.Color;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("DrawingColor.fromArgb(1, 2, 3)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("java.lang.Drawing.Color", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NumericArguments_ToByteConstructor_AreExplicitlyCast()
+    {
+        var result = Convert("""
+namespace Microsoft.Msagl.Drawing
+{
+    public struct Color
+    {
+        public Color(byte a, byte r, byte g, byte b)
+        {
+        }
+    }
+}
+
+namespace Dot2Graph
+{
+    class AttributeValuePair
+    {
+        Microsoft.Msagl.Drawing.Color Convert(System.Drawing.Color drawingColor)
+        {
+            return new Microsoft.Msagl.Drawing.Color(
+                drawingColor.A,
+                drawingColor.R,
+                drawingColor.G,
+                drawingColor.B);
+        }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("new Color(DrawingColor.getA(drawingColor), DrawingColor.getR(drawingColor), DrawingColor.getG(drawingColor), DrawingColor.getB(drawingColor))", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
@@ -66,7 +160,13 @@ class Test
         {
             SourceCode = sourceCode,
             FileName = "Test.cs",
-            Options = new ConversionOptions(),
+            Options = CreateOptions(),
         });
     }
+
+    private static ConversionOptions CreateOptions()
+        => new()
+        {
+            TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
+        };
 }

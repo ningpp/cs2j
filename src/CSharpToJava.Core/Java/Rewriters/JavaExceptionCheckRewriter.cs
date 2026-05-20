@@ -514,6 +514,10 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
         {
             node.Body = WrapStringBody(node.Body, false);
         }
+        else if (!string.IsNullOrEmpty(node.Initializer))
+        {
+            node.StructuredBody = new JavaMethodBody();
+        }
     }
 
     private static JavaMethodBody WrapStructuredBody(JavaMethodBody body)

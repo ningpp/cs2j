@@ -77,15 +77,14 @@ public static class TypeGroupResolver
 
             // Get semantic model for the first syntax tree
             var semanticModel = compilation.GetSemanticModel(validSyntaxTree);
-            context.SemanticModel = semanticModel;
-
-            AddImportsFromTypeUsings(typeGroup, context, compilation);
-
             var typeNamespace = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty;
             context.EnterNamespace(typeNamespace);
             context.CurrentEnclosingRoslynType = typeGroup.TypeSymbol;
             try
             {
+                context.SemanticModel = semanticModel;
+                AddImportsFromTypeUsings(typeGroup, context, compilation);
+
                 // Create merged declaration
                 var mergedDeclaration = MergedTypeDeclaration.FromPartialTypeGroup(typeGroup, semanticModel);
 
@@ -275,24 +274,6 @@ public static class TypeGroupResolver
                         context.RegisterUsingAlias(aliasName, aliasType, usingDirective.Alias.GetLocation());
                     }
 
-                    var aliasNamespace = aliasTargetSymbol switch
-                    {
-                        ITypeSymbol typeSym => typeSym.ContainingNamespace?.ToDisplayString(),
-                        INamespaceSymbol nsSym => nsSym.ToDisplayString(),
-                        _ => null
-                    };
-
-                    if (!string.IsNullOrWhiteSpace(aliasNamespace)
-                        && aliasNamespace != "System"
-                        && !aliasNamespace.StartsWith("System.", StringComparison.Ordinal))
-                    {
-                        var mappedAliasNs = context.NamespaceToPackage(aliasNamespace);
-                        if (!string.IsNullOrWhiteSpace(mappedAliasNs))
-                        {
-                            context.ImportedTypes.Add($"{mappedAliasNs}.*");
-                        }
-                    }
-
                     continue;
                 }
 
@@ -364,12 +345,13 @@ public static class TypeGroupResolver
                 if (syntax is not EnumDeclarationSyntax enumSyntax) continue;
                 if (!compilation.ContainsSyntaxTree(syntax.SyntaxTree)) continue;
 
-                context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
-                AddImportsFromTypeUsings(typeGroup, context, compilation);
                 var nsName = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
                 context.EnterNamespace(nsName);
                 try
                 {
+                    context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+                    AddImportsFromTypeUsings(typeGroup, context, compilation);
+
                     var transformer = new EnumTransformer();
                     var javaEnum = transformer.TransformEnum(enumSyntax, context);
                     var rawPkg2 = context.NamespaceToPackage(nsName);
@@ -439,12 +421,13 @@ public static class TypeGroupResolver
                 if (syntax is not DelegateDeclarationSyntax delegateSyntax) continue;
                 if (!compilation.ContainsSyntaxTree(syntax.SyntaxTree)) continue;
 
-                context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
-                AddImportsFromTypeUsings(typeGroup, context, compilation);
                 var delNsName = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
                 context.EnterNamespace(delNsName);
                 try
                 {
+                    context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+                    AddImportsFromTypeUsings(typeGroup, context, compilation);
+
                     var transformer = new DelegateTransformer();
                     var javaInterface = transformer.TransformDelegate(delegateSyntax, context);
                     if (javaInterface == null) return null;

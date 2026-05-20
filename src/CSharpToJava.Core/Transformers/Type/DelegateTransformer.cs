@@ -109,6 +109,13 @@ public class DelegateTransformer : IDelegateTransformer
         ApplyTypeParameterConstraints(node, javaInterface, context);
 
         javaInterface.Methods.Add(invokeMethod);
+        javaInterface.Methods.Add(new JavaMethodDeclaration
+        {
+            Name = "getTarget",
+            Modifiers = JavaModifiers.Default,
+            ReturnType = "Object",
+            Body = "return null;"
+        });
 
         return javaInterface;
     }

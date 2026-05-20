@@ -91,6 +91,7 @@ public partial class StatementTransformer
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var sections = new List<string>();
+        var declarationsUsedByLaterSections = FindSwitchDeclarationsUsedByLaterSections(stmt);
 
         foreach (var section in stmt.Sections)
         {
@@ -133,22 +134,36 @@ public partial class StatementTransformer
             }
 
             // Build case section header: combine multiple labels as "case X, Y:" or "default:"
+            var sectionBody = string.Join("\n            ", statements);
+            var localDeclarationNames = section.Statements
+                .OfType<LocalDeclarationStatementSyntax>()
+                .SelectMany(s => s.Declaration.Variables)
+                .Select(v => v.Identifier.Text)
+                .ToHashSet(StringComparer.Ordinal);
+            var needsScopedBody = localDeclarationNames.Count > 0
+                && !localDeclarationNames.Overlaps(declarationsUsedByLaterSections);
+            if (needsScopedBody)
+            {
+                var indentedBody = string.Join("\n                ", statements);
+                sectionBody = "{\n                " + indentedBody + "\n            }";
+            }
+
             string sectionStr;
             var caseValues = labels.Where(l => l.StartsWith("case ")).Select(l => l.Substring(5)).ToList();
             var hasDefault = labels.Contains("default");
             if (hasDefault && caseValues.Count == 0)
             {
-                sectionStr = "default:\n            " + string.Join("\n            ", statements);
+                sectionStr = "default:\n            " + sectionBody;
             }
             else if (hasDefault)
             {
                 sectionStr = "case " + string.Join(", ", caseValues) + ":\n            default:\n            " +
-                             string.Join("\n            ", statements);
+                             sectionBody;
             }
             else
             {
                 sectionStr = "case " + string.Join(", ", caseValues) + ":\n            " +
-                             string.Join("\n            ", statements);
+                             sectionBody;
             }
 
             sections.Add(sectionStr);
@@ -157,6 +172,38 @@ public partial class StatementTransformer
         var bodyStr = string.Join("\n\n        ", sections);
 
         return new JavaStatementNode($"switch ({expression}) {{\n        {bodyStr}\n    }}");
+    }
+
+    private static HashSet<string> FindSwitchDeclarationsUsedByLaterSections(SwitchStatementSyntax stmt)
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        var sections = stmt.Sections;
+
+        for (int i = 0; i < sections.Count; i++)
+        {
+            var declaredNames = sections[i].Statements
+                .OfType<LocalDeclarationStatementSyntax>()
+                .SelectMany(s => s.Declaration.Variables)
+                .Select(v => v.Identifier.Text)
+                .ToHashSet(StringComparer.Ordinal);
+
+            if (declaredNames.Count == 0)
+                continue;
+
+            for (int j = i + 1; j < sections.Count; j++)
+            {
+                foreach (var identifier in sections[j].Statements
+                    .SelectMany(s => s.DescendantNodesAndSelf())
+                    .OfType<IdentifierNameSyntax>())
+                {
+                    var name = identifier.Identifier.Text;
+                    if (declaredNames.Contains(name))
+                        result.Add(name);
+                }
+            }
+        }
+
+        return result;
     }
 
     private static bool IsSwitchSectionTerminal(StatementSyntax stmt) =>

@@ -17,10 +17,16 @@ public class StreamWrapper implements AutoCloseable {
 
     private final InputStream inputStream;
     private final OutputStream outputStream;
+    private final String name;
 
     protected StreamWrapper(InputStream in, OutputStream out) {
+        this(in, out, null);
+    }
+
+    protected StreamWrapper(InputStream in, OutputStream out, String name) {
         this.inputStream = in;
         this.outputStream = out;
+        this.name = name;
     }
 
     public static StreamWrapper of(InputStream in) {
@@ -33,6 +39,22 @@ public class StreamWrapper implements AutoCloseable {
 
     public static StreamWrapper of(StreamWrapper stream) {
         return stream;
+    }
+
+    public static StreamWrapper open(String path, int fileMode) {
+        return FileHelper.open(path, fileMode);
+    }
+
+    public static StreamWrapper open(String path, int fileMode, int fileAccess) {
+        return FileHelper.open(path, fileMode, fileAccess);
+    }
+
+    public static StreamWrapper of(InputStream in, String name) {
+        return new StreamWrapper(in, null, name);
+    }
+
+    public static StreamWrapper of(OutputStream out, String name) {
+        return new StreamWrapper(null, out, name);
     }
 
     public InputStream inputStream() {
@@ -49,6 +71,8 @@ public class StreamWrapper implements AutoCloseable {
 
     public boolean isInputStream() { return inputStream != null; }
     public boolean isOutputStream() { return outputStream != null; }
+
+    public String getName() { return name == null ? "" : name; }
 
     public int read() {
         try { return inputStream().read(); }

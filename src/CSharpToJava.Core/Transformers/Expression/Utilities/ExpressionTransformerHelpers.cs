@@ -14,9 +14,48 @@ namespace CSharpToJava.Core.Transformers.Expression.Utilities;
 /// </summary>
 public static class ExpressionTransformerHelpers
 {
+    private static readonly HashSet<string> CompatibilityHelperTypeNames = new(StringComparer.Ordinal)
+    {
+        "DrawingColor",
+        "Encoding",
+        "EnumHelper",
+        "MathHelper",
+        "Regex",
+        "StringHelper",
+    };
+
     private static readonly Regex _numericLiteralPattern = new Regex(
         @"^[+\-]?(0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*(\.\d[\d_]*)?)([uU][lL]?|[lL][uU]?|[fF]|[dD]|[mM])?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Registers imports for compatibility helper calls returned by TypeMappings method entries,
+    /// such as <c>DrawingColor.fromName</c> or <c>MathHelper.parseInt</c>.
+    /// </summary>
+    public static void AddImportForMappedHelperMethod(string? mappedMethodName, ConversionContext context)
+    {
+        if (!TryGetCompatibilityHelperTypeName(mappedMethodName, out var helperTypeName))
+            return;
+
+        context.AddImport($"io.github.ningpp.compat.{helperTypeName}");
+    }
+
+    public static bool IsMappedCompatibilityHelperMethod(string? mappedMethodName)
+        => TryGetCompatibilityHelperTypeName(mappedMethodName, out _);
+
+    private static bool TryGetCompatibilityHelperTypeName(string? mappedMethodName, out string helperTypeName)
+    {
+        helperTypeName = string.Empty;
+        if (string.IsNullOrWhiteSpace(mappedMethodName))
+            return false;
+
+        var dotIndex = mappedMethodName.IndexOf('.');
+        if (dotIndex <= 0)
+            return false;
+
+        helperTypeName = mappedMethodName[..dotIndex];
+        return CompatibilityHelperTypeNames.Contains(helperTypeName);
+    }
 
     /// <summary>
     /// Returns true if the expression string is an integer or float literal.
@@ -423,6 +462,22 @@ public static class ExpressionTransformerHelpers
         if (context.SemanticModel == null)
             return false;
 
+        if (expression is IdentifierNameSyntax aliasIdentifier)
+        {
+            var aliasInfo = context.SemanticModel.GetAliasInfo(aliasIdentifier);
+            if (aliasInfo?.Target is INamedTypeSymbol aliasedType)
+            {
+                // When the alias name collides with an instance property/field on the
+                // enclosing type (e.g. "using Label = X;" + "public Label Label {…}"),
+                // the user intended an instance access, not a static type reference.
+                if (HasEnclosingTypeMember(aliasIdentifier))
+                    return false;
+
+                typeSymbol = aliasedType;
+                return true;
+            }
+        }
+
         var symbolInfo = context.SemanticModel.GetSymbolInfo(expression);
         var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
 
@@ -680,7 +735,7 @@ public static class ExpressionTransformerHelpers
                 builder.Append(ch);
         }
 
-        return builder.ToString();
+        return depth == 0 ? builder.ToString() : typeName;
     }
 
     /// <summary>

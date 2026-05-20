@@ -236,6 +236,13 @@ public class TypeMappingRegistry
     }
 
     /// <summary>
+    /// Returns true when <paramref name="csharpType"/> has an explicit type mapping entry.
+    /// This is useful for distinguishing framework/BCL mappings from project types that
+    /// merely fall back to their simple name.
+    /// </summary>
+    public bool HasTypeMapping(string csharpType) => _typeMappings.ContainsKey(csharpType);
+
+    /// <summary>
     /// Fuzzy type lookup by simple name with optional generic arity.
     /// Uses an O(1) lazy-built index; falls back to linear scan only if the index somehow misses.
     /// </summary>
@@ -408,7 +415,18 @@ public class TypeMappingRegistry
     private static MethodMappingEntry? ResolveMethodEntry(List<MethodMappingEntry> entries, int? paramCount)
     {
         if (entries.Count == 1)
-            return entries[0];
+        {
+            var entry = entries[0];
+            if (paramCount.HasValue
+                && entry.Signature != null
+                && int.TryParse(entry.Signature, out var sigParamCount)
+                && sigParamCount != paramCount.Value)
+            {
+                return null;
+            }
+
+            return entry;
+        }
 
         // If paramCount is provided, try to match entries with a signature that specifies param count
         if (paramCount.HasValue)
@@ -431,7 +449,12 @@ public class TypeMappingRegistry
                 return entry;
         }
 
-        // If all entries have signatures but none matched, return the first one
+        // If the caller supplied an arity and every candidate is signature-constrained,
+        // a mismatch means this mapping does not apply to the overload being converted.
+        if (paramCount.HasValue)
+            return null;
+
+        // Without arity information, preserve the historical fallback.
         return entries[0];
     }
 

@@ -97,6 +97,37 @@ class C {
         Assert.DoesNotContain("System.out.println(\"never\")", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PlainSwitch_PreservesExplicitCaseBlocks_ForLocalVariableScope()
+    {
+        var result = Convert(@"
+class C {
+    int Test(string x) {
+        int total = 0;
+        switch (x) {
+            case ""a"":
+                {
+                    int value = 1;
+                    total += value;
+                    break;
+                }
+            case ""b"":
+                {
+                    int value = 2;
+                    total += value;
+                    break;
+                }
+        }
+        return total;
+    }
+}");
+        Assert.True(result.Success);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("case \"a\":", code, StringComparison.Ordinal);
+        Assert.Matches("case \"a\":\\s*\\{\\s*int value = 1;", code);
+        Assert.Matches("case \"b\":\\s*\\{\\s*int value = 2;", code);
+    }
+
     private static ConversionResult Convert(string csharpCode)
     {
         var pipeline = new ConversionPipeline();

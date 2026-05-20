@@ -20,7 +20,7 @@ public partial class StatementTransformer : IStatementTransformer
     {
         return node.Kind() switch
         {
-            SyntaxKind.Block => new JavaStatementNode(TransformBlock(node as BlockSyntax, context)),
+            SyntaxKind.Block => TransformNestedBlock(node as BlockSyntax, context),
             SyntaxKind.ExpressionStatement => TransformExpressionStatement(node as ExpressionStatementSyntax, context),
             SyntaxKind.ReturnStatement => TransformReturnStatement(node as ReturnStatementSyntax, context),
             SyntaxKind.ThrowStatement => TransformThrowStatement(node as ThrowStatementSyntax, context),
@@ -64,6 +64,14 @@ public partial class StatementTransformer : IStatementTransformer
         var statements = TransformStatements(block.Statements, context);
         context.MethodState.PopScope();
         return string.Join("\n        ", statements);
+    }
+
+    private JavaSyntaxNode TransformNestedBlock(BlockSyntax? block, ConversionContext context)
+    {
+        if (block == null)
+            return new JavaStatementNode("{ }");
+
+        return new JavaStatementNode($"{{\n        {TransformBlock(block, context)}\n    }}");
     }
 
     /// <summary>

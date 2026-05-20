@@ -114,5 +114,9 @@ public sealed class MemberwiseCloneRewriter : JavaSyntaxRewriter
         {
             node.Body = $"try {{\n        {node.Body}\n    }} catch (Exception e) {{\n        throw new RuntimeException(e);\n    }}";
         }
+        else if (!string.IsNullOrEmpty(node.Initializer))
+        {
+            node.StructuredBody = new JavaMethodBody();
+        }
     }
 }

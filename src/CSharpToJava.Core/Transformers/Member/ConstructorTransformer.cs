@@ -34,6 +34,14 @@ public class ConstructorTransformer : IMemberTransformer
             return staticBlock;
         }
 
+        if (IsDotNetSerializationConstructor(ctorDecl, context))
+        {
+            context.Diagnostics.Info(
+                ".NET serialization constructor omitted; Java serialization does not use SerializationInfo/StreamingContext constructors.",
+                ctorDecl.GetLocation());
+            return new JavaMemberCollection();
+        }
+
         var className = context.CurrentType?.Name ?? ctorDecl.Identifier.Text;
 
         var javaCtor = new JavaConstructorDeclaration
@@ -66,23 +74,21 @@ public class ConstructorTransformer : IMemberTransformer
         }
 
         // 处理初始值设定项
-        var initializerStatements = new List<string>();
-
         if (ctorDecl.Initializer != null)
         {
             var args = GetInitializerArguments(ctorDecl.Initializer, context);
 
-            // Issue 3: Only emit this()/super() when there are actual arguments.
-            // Java implicitly calls super() with no args, so an empty super() call is redundant.
+            // Java implicitly calls super() only for constructors with no explicit initializer.
+            // Preserve explicit C# base(...) calls even when the sole argument is null.
             if (args.Count > 0)
             {
                 if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
                 {
-                    initializerStatements.Add($"this({string.Join(", ", args)});");
+                    javaCtor.Initializer = $"this({string.Join(", ", args)})";
                 }
                 else if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
                 {
-                    initializerStatements.Add($"super({string.Join(", ", args)});");
+                    javaCtor.Initializer = $"super({string.Join(", ", args)})";
                 }
             }
         }
@@ -112,15 +118,14 @@ public class ConstructorTransformer : IMemberTransformer
         }
 
         // 组合初始值设定项和主体
-        if (initializerStatements.Count > 0 || bodyStatements.Count > 0)
+        if (bodyStatements.Count > 0)
         {
-            var allStatements = initializerStatements.Concat(bodyStatements);
             javaCtor.StructuredBody = new Java.JavaMethodBody(
-                allStatements.Select(s => (Java.JavaStatement)new Java.JavaRawStatement(s)));
+                bodyStatements.Select(s => (Java.JavaStatement)new Java.JavaRawStatement(s)));
         }
-        else if (ctorDecl.Body != null)
+        else if (ctorDecl.Body != null || javaCtor.Initializer != null)
         {
-            // Empty block body (e.g., public Set() {}) → generate empty body, not abstract semicolon
+            // Empty block body or initializer-only constructor → generate a body, not an abstract semicolon.
             javaCtor.StructuredBody = new Java.JavaMethodBody();
         }
 
@@ -178,7 +183,56 @@ public class ConstructorTransformer : IMemberTransformer
             argStartIndex: 0,
             methodSymbol: ctorSymbol);
 
-        return transformed.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        return string.IsNullOrWhiteSpace(transformed)
+            ? new List<string>()
+            : SplitTopLevelArguments(transformed);
+    }
+
+    private static List<string> SplitTopLevelArguments(string arguments)
+    {
+        var result = new List<string>();
+        var start = 0;
+        var depth = 0;
+        var inString = false;
+        var escaped = false;
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var ch = arguments[i];
+            if (inString)
+            {
+                escaped = ch == '\\' && !escaped;
+                if (ch == '"' && !escaped)
+                    inString = false;
+                if (ch != '\\')
+                    escaped = false;
+                continue;
+            }
+
+            switch (ch)
+            {
+                case '"':
+                    inString = true;
+                    break;
+                case '<':
+                case '(':
+                case '[':
+                    depth++;
+                    break;
+                case '>':
+                case ')':
+                case ']':
+                    depth--;
+                    break;
+                case ',' when depth == 0:
+                    result.Add(arguments[start..i].Trim());
+                    start = i + 1;
+                    break;
+            }
+        }
+
+        result.Add(arguments[start..].Trim());
+        return result.Where(arg => arg.Length > 0).ToList();
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
@@ -221,5 +275,44 @@ public class ConstructorTransformer : IMemberTransformer
     {
         return modifiers.Any(m => m.IsKind(SyntaxKind.ProtectedKeyword))
             && modifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword));
+    }
+
+    private static bool IsDotNetSerializationConstructor(
+        ConstructorDeclarationSyntax ctorDecl,
+        ConversionContext context)
+    {
+        var parameters = ctorDecl.ParameterList?.Parameters;
+        if (parameters == null || parameters.Value.Count != 2)
+            return false;
+
+        if (ctorDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+            return false;
+
+        return IsSerializationType(parameters.Value[0].Type, context, "SerializationInfo")
+            && IsSerializationType(parameters.Value[1].Type, context, "StreamingContext");
+    }
+
+    private static bool IsSerializationType(
+        TypeSyntax? typeSyntax,
+        ConversionContext context,
+        string expectedName)
+    {
+        if (typeSyntax == null)
+            return false;
+
+        var type = context.SemanticModel?.GetTypeInfo(typeSyntax).Type;
+        if (type != null)
+        {
+            var display = type.ToDisplayString();
+            if (display == $"System.Runtime.Serialization.{expectedName}"
+                || display == expectedName)
+            {
+                return true;
+            }
+        }
+
+        var syntaxText = typeSyntax.ToString();
+        return syntaxText == expectedName
+            || syntaxText.EndsWith($".{expectedName}", StringComparison.Ordinal);
     }
 }

@@ -12,4 +12,12 @@ public final class Match {
         this.Success = success;
         this.Groups = new GroupCollection(matcher, success);
     }
+
+    public boolean getSuccess() {
+        return Success;
+    }
+
+    public GroupCollection getGroups() {
+        return Groups;
+    }
 }

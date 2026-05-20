@@ -950,6 +950,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
             }
 
+            if (originalMethodName == "Parse")
+            {
+                var primitiveParseHelper = MapPrimitiveParseHelper(primTypeSyntax.Keyword.Text);
+                if (primitiveParseHelper != null)
+                {
+                    var parseArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    return $"{primitiveParseHelper}({parseArgs})";
+                }
+            }
+
             var boxedReceiver = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
             var mappedMethod  = MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, originalMethodName);
             var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
@@ -1029,6 +1039,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && methodSymbol is { IsExtensionMethod: false }
             && methodSymbol.ReturnType is IArrayTypeSymbol instanceArrayType)
         {
+            if (!IsFrameworkCollectionToArray(methodSymbol))
+                return $"{receiver}.toArray()";
             return TransformInstanceCollectionToArray(receiver, instanceArrayType.ElementType, context);
         }
 
@@ -1560,7 +1572,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 mapped = context.TypeMappings.MapMethod(fqn, originalMethodName, paramCount);
             }
             if (mapped != null)
+            {
+                ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                 methodName = mapped;
+            }
         }
 
         // AddRange(IEnumerable<T>) → Java addAll(Collection<T>): when the argument
@@ -1592,15 +1607,102 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // stripped of its type arguments by the fix above (e.g. DemoSet<string> → DemoSet),
         // and MapType on the containing type would re-introduce them (DemoSet<T>).
         // Guard: only for static methods — instance methods must keep the original receiver.
+        INamedTypeSymbol? staticReceiverTypeSymbol = null;
         if (methodSymbol is { IsStatic: true }
             && ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
                 memberAccess.Expression,
                 context,
                 boxJavaPrimitiveType: true,
                 out var semanticStaticReceiver,
-                out _))
+                out var resolvedStaticReceiverType))
         {
+            staticReceiverTypeSymbol = resolvedStaticReceiverType;
             receiver = semanticStaticReceiver;
+
+            if (methodName == originalMethodName)
+            {
+                var staticReceiverTypeName = resolvedStaticReceiverType.ToDisplayString();
+                var mappedStaticMethod = context.TypeMappings.MapMethod(
+                    staticReceiverTypeName,
+                    originalMethodName,
+                    methodSymbol.Parameters.Length);
+                if (mappedStaticMethod == null)
+                {
+                    var fqn = $"{resolvedStaticReceiverType.ContainingNamespace}.{resolvedStaticReceiverType.Name}";
+                    mappedStaticMethod = context.TypeMappings.MapMethod(
+                        fqn,
+                        originalMethodName,
+                        methodSymbol.Parameters.Length);
+                }
+                if (mappedStaticMethod != null)
+                {
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedStaticMethod, context);
+                    methodName = mappedStaticMethod;
+                }
+            }
+        }
+
+        if (!ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(methodName)
+            && ExpressionTransformerHelpers.TryGetStaticReceiverType(
+                memberAccess.Expression,
+                context,
+                out var staticReceiverTypeForMapping))
+        {
+            var staticReceiverTypeName = staticReceiverTypeForMapping.ToDisplayString();
+            var mappedStaticReceiverMethod = context.TypeMappings.MapMethod(
+                staticReceiverTypeName,
+                originalMethodName,
+                methodSymbol?.Parameters.Length);
+            if (mappedStaticReceiverMethod == null)
+            {
+                var fqn = $"{staticReceiverTypeForMapping.ContainingNamespace}.{staticReceiverTypeForMapping.Name}";
+                mappedStaticReceiverMethod = context.TypeMappings.MapMethod(
+                    fqn,
+                    originalMethodName,
+                    methodSymbol?.Parameters.Length);
+            }
+            if (mappedStaticReceiverMethod != null)
+            {
+                ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedStaticReceiverMethod, context);
+                methodName = mappedStaticReceiverMethod;
+
+                if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+                    memberAccess.Expression,
+                    context,
+                    boxJavaPrimitiveType: true,
+                    out var semanticStaticReceiverForMapping,
+                    out _))
+                {
+                    receiver = semanticStaticReceiverForMapping;
+                }
+            }
+        }
+
+        if (!ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(methodName)
+            && memberAccess.Expression is IdentifierNameSyntax aliasReceiverForMapping
+            && context.ResolveAlias(aliasReceiverForMapping.Identifier.Text) is ITypeSymbol aliasTargetForMapping)
+        {
+            var aliasTargetName = aliasTargetForMapping.ToDisplayString();
+            var aliasMapped = context.TypeMappings.MapMethod(
+                aliasTargetName,
+                originalMethodName,
+                methodSymbol?.Parameters.Length);
+            if (aliasMapped == null)
+            {
+                var fqn = $"{aliasTargetForMapping.ContainingNamespace}.{aliasTargetForMapping.Name}";
+                aliasMapped = context.TypeMappings.MapMethod(
+                    fqn,
+                    originalMethodName,
+                    methodSymbol?.Parameters.Length);
+            }
+            if (aliasMapped != null)
+            {
+                ExpressionTransformerHelpers.AddImportForMappedHelperMethod(aliasMapped, context);
+                methodName = aliasMapped;
+                var mappedReceiverType = context.TypeMappings.MapType(aliasTargetName);
+                if (mappedReceiverType != aliasTargetName)
+                    receiver = mappedReceiverType;
+            }
         }
 
         // System.Convert static methods → Java boxed-type equivalents (semantic-resolved path)
@@ -1663,6 +1765,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var mappedByReceiverType = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
                     if (mappedByReceiverType != null)
                     {
+                        ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedByReceiverType, context);
                         methodName = mappedByReceiverType;
                         var mappedReceiverType = context.TypeMappings.MapType(receiverTypeName);
                         if (mappedReceiverType != receiverTypeName)
@@ -1709,6 +1812,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var syntacticMapped = context.TypeMappings.MapMethod(syntacticReceiver, originalMethodName);
             if (syntacticMapped != null)
             {
+                ExpressionTransformerHelpers.AddImportForMappedHelperMethod(syntacticMapped, context);
                 methodName = syntacticMapped;
                 var mappedReceiverType = context.TypeMappings.MapType(syntacticReceiver);
                 if (mappedReceiverType != syntacticReceiver)
@@ -1722,6 +1826,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var consoleMapped = context.TypeMappings.MapMethod("System.Console", originalMethodName);
                 if (consoleMapped != null)
                 {
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(consoleMapped, context);
                     methodName = consoleMapped;
                     receiver = context.TypeMappings.MapType("System.Console");
                 }
@@ -1747,6 +1852,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var stringMapped = context.TypeMappings.MapMethod("System.String", originalMethodName);
                 if (stringMapped != null)
                 {
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(stringMapped, context);
                     methodName = stringMapped;
                     receiver = context.TypeMappings.MapType("System.String");
                 }
@@ -1760,7 +1866,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var aliasMethod = MapPrimitiveStaticMethodName(primitiveForAlias, originalMethodName);
                 if (aliasMethod != originalMethodName)
                 {
-                    methodName = aliasMethod;
+                    methodName = originalMethodName == "Parse"
+                        ? MapPrimitiveParseHelper(primitiveForAlias) ?? aliasMethod
+                        : aliasMethod;
                     receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias);
                 }
             }
@@ -2111,11 +2219,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Double.MathHelper.tryParseDouble(...).
         if (methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("EnumHelper.", StringComparison.Ordinal)
-            || methodName.StartsWith("StringHelper.", StringComparison.Ordinal))
+            || methodName.StartsWith("StringHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("Regex.", StringComparison.Ordinal)
+            || methodName.StartsWith("Encoding.", StringComparison.Ordinal)
+            || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal))
         {
             var helperArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
             return $"{methodName}({helperArgs})";
+        }
+
+        if (originalMethodName == "Parse"
+            && methodName is "parseInt" or "parseLong" or "parseDouble" or "parseFloat"
+            && TryGetParseHelperMethod(memberAccess.Expression, context, out var earlyParseHelper))
+        {
+            var helperArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            return $"{earlyParseHelper}({helperArgs})";
         }
 
         // Regex.Split(input, pattern) -> input.split(pattern)
@@ -3613,6 +3733,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             argStartIndex = node.ArgumentList.Arguments.Count; // skip all args
         }
 
+        if (originalMethodName == "ToString"
+            && methodName == "substring"
+            && node.ArgumentList.Arguments.Count - argStartIndex == 2
+            && IsSystemTextStringBuilder(context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type))
+        {
+            var start = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+            var length = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
+            return $"{receiver}.substring({start}, {start} + {length})";
+        }
+
+        // Custom collection types can define a parameterless ToArray(). Do not apply Java Stream
+        // generator arguments unless the method is actually LINQ Enumerable.ToArray().
+        if (originalMethodName == "ToArray"
+            && node.ArgumentList.Arguments.Count - argStartIndex == 0
+            && methodSymbol?.ContainingType?.ToDisplayString() is not "System.Linq.Enumerable")
+        {
+            return $"{receiver}.{methodName}()";
+        }
+
         // Strip trailing IFormatProvider/CultureInfo/NumberStyles arguments from Parse methods.
         // Java's Integer.parseInt, Double.parseDouble, etc. do not accept locale/style parameters.
         int parseStripCount = 0;
@@ -3632,12 +3771,48 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        if (originalMethodName == "Parse"
+            && !methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
+            && TryGetParseHelperMethod(memberAccess.Expression, context, out var parseHelper))
+        {
+            methodName = parseHelper;
+        }
+
+        if (originalMethodName == "Parse"
+            && methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
+        {
+            int lastArgIdx = node.ArgumentList.Arguments.Count - 1;
+            if (HasIFormatProviderOrNumberStylesArg(node.ArgumentList.Arguments[lastArgIdx].Expression, context))
+            {
+                parseStripCount = 1;
+                if (node.ArgumentList.Arguments.Count - argStartIndex >= 3
+                    && HasIFormatProviderOrNumberStylesArg(node.ArgumentList.Arguments[lastArgIdx - 1].Expression, context))
+                    parseStripCount = 2;
+            }
+        }
+
         var args = parseStripCount > 0
             ? ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol,
                 maxArgCount: node.ArgumentList.Arguments.Count - parseStripCount)
             : ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+
+        if (originalMethodName == "Parse" && methodName.StartsWith("MathHelper.", StringComparison.Ordinal))
+            return $"{methodName}({args})";
+
+        if (methodName.StartsWith("Encoding.", StringComparison.Ordinal)
+            || methodName.StartsWith("Regex.", StringComparison.Ordinal)
+            || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal))
+            return $"{methodName}({args})";
+
+        if (originalMethodName == "Parse"
+            && methodName is "parseInt" or "parseLong" or "parseDouble" or "parseFloat"
+            && TryGetParseHelperMethod(memberAccess.Expression, context, out var lateParseHelper))
+        {
+            return $"{lateParseHelper}({args})";
+        }
 
         // List<Integer>.remove(int) 歧义修复：C# Remove(int item) 按值删除，
         // Java remove(int) 按索引删除。需要包装为 Integer.valueOf() 以调用 remove(Object)。
@@ -3937,10 +4112,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (string.IsNullOrEmpty(ch))
             return ch;
 
-        if (ch.Length == 1 && "\\^-]".Contains(ch[0]))
-            return "\\" + ch;
+        var regexText = ch.Length == 1 && "\\^-]".Contains(ch[0])
+            ? "\\" + ch
+            : ch;
 
-        return ch;
+        return StringEscapeHelper.EscapeJavaString(regexText);
     }
 
     /// <summary>
@@ -3950,8 +4126,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     private static string EscapeRegexChar(string ch)
     {
         if (ch.Length == 1 && @"\.^$*+?{}[]|()".Contains(ch[0]))
-            return @"\" + ch;
-        return ch;
+            return StringEscapeHelper.EscapeJavaString(@"\" + ch);
+        return StringEscapeHelper.EscapeJavaString(ch);
     }
 
     /// <summary>
@@ -4460,6 +4636,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             _ => methodName
         };
 
+    private static string? MapPrimitiveParseHelper(string primitiveKeyword)
+        => primitiveKeyword switch
+        {
+            "int" => "MathHelper.parseInt",
+            "long" => "MathHelper.parseLong",
+            "double" => "MathHelper.parseDouble",
+            "float" => "MathHelper.parseFloat",
+            _ => null
+        };
+
     /// <summary>
     /// Returns the Java boxed-class name for a C# numeric or boolean primitive SpecialType,
     /// or null when the type is not a primitive that requires static-wrapper conversion.
@@ -4726,6 +4912,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return typeSymbol?.SpecialType == SpecialType.System_String;
     }
 
+    private static bool IsSystemTextStringBuilder(ITypeSymbol? typeSymbol)
+    {
+        return typeSymbol?.ToDisplayString() == "System.Text.StringBuilder";
+    }
+
+    private static bool IsFrameworkCollectionToArray(IMethodSymbol methodSymbol)
+    {
+        var ns = methodSymbol.ContainingType?.ContainingNamespace?.ToDisplayString();
+        return ns != null
+            && (ns == "System.Collections.Generic"
+                || ns == "System.Collections"
+                || ns == "System.Linq"
+                || ns.StartsWith("System.Collections.", StringComparison.Ordinal));
+    }
+
     private static bool IsSystemStringMethod(
         IMethodSymbol? methodSymbol,
         ExpressionSyntax receiverExpression,
@@ -4765,6 +4966,37 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return "MathHelper.tryParseBool";
 
         return null;
+    }
+
+    private static bool TryGetParseHelperMethod(ExpressionSyntax receiverExpression, ConversionContext context, out string helper)
+    {
+        helper = string.Empty;
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Double", "double", "System.Double"))
+        {
+            helper = "MathHelper.parseDouble";
+            return true;
+        }
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Single", "Float", "float", "System.Single"))
+        {
+            helper = "MathHelper.parseFloat";
+            return true;
+        }
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int32", "Integer", "int", "System.Int32"))
+        {
+            helper = "MathHelper.parseInt";
+            return true;
+        }
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int64", "Long", "long", "System.Int64"))
+        {
+            helper = "MathHelper.parseLong";
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryGetStringComparisonIgnoreCase(ExpressionSyntax expression, SemanticModel? semanticModel, out bool ignoreCase)

@@ -757,7 +757,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             var typeName = methodGroupSym.ContainingType.ToDisplayString();
             var mapped = context.TypeMappings.MapMethod(typeName, memberName);
             if (mapped != null)
+            {
+                ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                 javaMethodName = mapped;
+            }
 
             // Fix: For EventHandler-compatible method groups (void return, 2 params),
             // use an explicit lambda instead of a bare method reference.
@@ -857,18 +860,21 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (!string.IsNullOrEmpty(mappedType) && mappedType != fqnForRemap)
                     target = mappedType;
             }
-            if (mappedMethod != null)
-            {
-                if (mappedMethod == "getValues")
-                    return $"{target}.values()";
-                if (mappedMethod == "getKeys")
-                    return $"{target}.keySet()";
-                if (mappedMethod.StartsWith("get", StringComparison.Ordinal)
-                    && mappedMethod.Length > 3
-                    && prop.Name == mappedMethod[3..])
-                    return $"{target}.{mappedMethod}()";
+                if (mappedMethod != null)
+                {
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedMethod, context);
+                    if (mappedMethod == "getValues")
+                        return $"{target}.values()";
+                    if (mappedMethod == "getKeys")
+                        return $"{target}.keySet()";
+                    if (IsJavaFieldMapping(mappedMethod))
+                        return mappedMethod.Contains('.') ? mappedMethod : $"{target}.{mappedMethod}";
+                    if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mappedMethod))
+                        return prop.IsStatic || IsStaticReceiverExpression(node.Expression, context)
+                            ? $"{mappedMethod}()"
+                            : $"{mappedMethod}({target})";
 
-                // If the mapped value is a fully-qualified Java field (contains a dot, e.g.
+                    // If the mapped value is a fully-qualified Java field (contains a dot, e.g.
                 // "java.util.Locale.ROOT") emit it directly without a receiver prefix or ().
                 // For array.length: Java arrays expose length as a public final field, not a
                 // method — emit without parentheses.
@@ -892,6 +898,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
             if (!isLhsOfAssignment)
             {
+                if (prop.Name == "Length" && IsSystemStringType(prop.ContainingType))
+                    return $"{target}.length()";
+
                 // For anonymous types synthesized as Java records, use camelCase accessor (e.g. id() not getId())
                 if (prop.ContainingType.IsAnonymousType
                     && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java25)
@@ -933,6 +942,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (memberName == "Current" && IsEnumeratorLikeType(exprType))
                     return $"{target}.next()";
 
+                if (memberName == "Length" && IsSystemStringType(exprType))
+                    return $"{target}.length()";
+
                 // KeyValuePair<K,V>.Key/.Value → getKey()/getValue()
                 if (exprType is INamedTypeSymbol kvpType
                     && kvpType.Name == "KeyValuePair"
@@ -968,8 +980,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
                 if (mm3 != null)
                 {
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mm3, context);
                     if (mm3 == "getValues") return $"{target}.values()";
                     if (mm3 == "getKeys") return $"{target}.keySet()";
+                    if (IsJavaFieldMapping(mm3)) return mm3.Contains('.') ? mm3 : $"{target}.{mm3}";
+                    if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mm3))
+                        return IsStaticReceiverExpression(node.Expression, context) ? $"{mm3}()" : $"{mm3}({target})";
                     return mm3.Contains('.') ? mm3 : $"{target}.{mm3}()";
                 }
 
@@ -1026,6 +1042,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Count") return $"{target}.size()";
         if (memberName == "Position" && IsSystemIoStreamType(receiverType)) return $"{target}.getPosition()";
         if (memberName == "Length" && IsSystemIoStreamType(receiverType)) return $"{target}.getLength()";
+        if (memberName == "Length" && IsSystemStringType(receiverType)) return $"{target}.length()";
         if (memberName == "Length") return $"{target}.length";
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         // Only apply when receiver type is CONFIRMED to be KeyValuePair/IGrouping/Map.Entry.
@@ -1215,6 +1232,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             or IPropertySymbol { IsStatic: true }
             or IFieldSymbol { IsStatic: true };
 
+    private static bool IsJavaFieldMapping(string mappedMember)
+        => mappedMember is "out" or "err" or "in"
+            || mappedMember.EndsWith(".out", StringComparison.Ordinal)
+            || mappedMember.EndsWith(".err", StringComparison.Ordinal)
+            || mappedMember.EndsWith(".in", StringComparison.Ordinal);
+
     private static bool IsAssignmentLeftHandSide(ExpressionSyntax expression)
         => expression.Parent is AssignmentExpressionSyntax assignment && assignment.Left == expression;
 
@@ -1223,6 +1246,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private static string MapStaticTypeReceiver(ITypeSymbol typeSymbol, ConversionContext context)
         => ExpressionTransformerHelpers.StripTypeArguments(context.MapType(typeSymbol));
+
+    private static bool IsStaticReceiverExpression(ExpressionSyntax expression, ConversionContext context)
+        => ExpressionTransformerHelpers.TryGetStaticReceiverType(expression, context, out _);
 
     private static string MapAliasTypeReceiver(string javaType, ConversionContext context)
     {
@@ -1364,6 +1390,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (receiverType is not INamedTypeSymbol namedReceiver)
             return null;
 
+        if (memberName == "Length" && IsSystemStringType(namedReceiver))
+            return $"{target}.length()";
+
         // Collect all types to check: receiverType + base types + all interfaces
         var typesToCheck = new List<INamedTypeSymbol> { namedReceiver };
         var baseType = namedReceiver.BaseType;
@@ -1401,8 +1430,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     }
                     if (mapped != null)
                     {
+                        ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                         if (mapped == "getValues") return $"{target}.values()";
                         if (mapped == "getKeys") return $"{target}.keySet()";
+                        if (IsJavaFieldMapping(mapped))
+                            return mapped.Contains('.') ? mapped : $"{target}.{mapped}";
+                        if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mapped))
+                            return foundProp.IsStatic
+                                ? $"{mapped}()"
+                                : $"{mapped}({target})";
                         if (mapped.StartsWith("get", StringComparison.Ordinal)
                             && mapped.Length > 3
                             && memberName == mapped[3..])
@@ -1444,6 +1480,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
         return false;
     }
+
+    private static bool IsSystemStringType(ITypeSymbol? type)
+        => type?.SpecialType == SpecialType.System_String
+            || type?.ToDisplayString() is "string" or "System.String";
 
     /// <summary>
     /// Maps C# primitive-type static field/property names to their Java equivalents.

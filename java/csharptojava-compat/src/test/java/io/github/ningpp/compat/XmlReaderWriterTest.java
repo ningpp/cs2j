@@ -438,6 +438,38 @@ class XmlReaderWriterTest {
         assertEquals(ReadState.Closed, ReadState.getClosed());
     }
 
+    // ---- LINQ to XML wrappers ----
+
+    @Test
+    void xDocument_parse_descendantsAndAttributes() {
+        XDocument doc = XDocument.parse("""
+            <DirectedGraph>
+              <Nodes><Node Id="A" Label="Alpha"/></Nodes>
+              <Links><Link Source="A" Target="B"/></Links>
+            </DirectedGraph>
+            """);
+
+        int nodeCount = 0;
+        int linkCount = 0;
+        for (XElement element : doc.descendants()) {
+            if ("Node".equals(element.getName().getLocalName())) {
+                nodeCount++;
+                assertEquals("A", element.attribute("Id").getValue());
+                assertEquals("Alpha", element.attribute("Label").getValue());
+                assertEquals("Node", element.Name.LocalName);
+                assertEquals("A", element.attribute("Id").Value);
+            }
+            if ("Link".equals(element.getName().getLocalName())) {
+                linkCount++;
+                assertEquals("A", element.attribute("Source").getValue());
+                assertEquals("B", element.attribute("Target").getValue());
+            }
+        }
+
+        assertEquals(1, nodeCount);
+        assertEquals(1, linkCount);
+    }
+
     // ---- Round-trip: write then read ----
 
     @Test

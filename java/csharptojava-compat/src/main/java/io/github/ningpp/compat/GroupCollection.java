@@ -22,4 +22,8 @@ public final class GroupCollection {
         try { return new Group(matcher.group(index)); }
         catch (Exception ex) { return Group.Empty; }
     }
+
+    public Group getItem(int index) {
+        return get(index);
+    }
 }

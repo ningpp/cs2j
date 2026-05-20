@@ -11,6 +11,14 @@ public final class Group {
         this.Length = this.Value.length();
     }
 
+    public String getValue() {
+        return Value;
+    }
+
+    public int getLength() {
+        return Length;
+    }
+
     @Override
     public String toString() {
         return Value;

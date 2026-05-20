@@ -142,4 +142,26 @@ public class MethodOverloadResolutionTests
         // No paramCount, no fallback entry → returns first entry
         Assert.Equal("convertA", registry.MapMethod("MyLib.Converter", "Convert"));
     }
+
+    [Fact]
+    public void MapMethod_MultipleSignaturedEntries_ParamCountMismatch_ReturnsNull()
+    {
+        var config = new TypeMappingConfig
+        {
+            MethodMappings = new()
+            {
+                new MethodMappingEntry
+                {
+                    TypeName = "System.Text.StringBuilder",
+                    MethodName = "ToString",
+                    JavaMethodName = "substring",
+                    Signature = "2",
+                },
+            }
+        };
+        var registry = new TypeMappingRegistry(config);
+
+        Assert.Null(registry.MapMethod("System.Text.StringBuilder", "ToString", 0));
+        Assert.Equal("substring", registry.MapMethod("System.Text.StringBuilder", "ToString", 2));
+    }
 }

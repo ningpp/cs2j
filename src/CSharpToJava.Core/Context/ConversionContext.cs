@@ -56,6 +56,7 @@ public class ConversionContext
     }
 
     public HashSet<string> ImportedTypes { get; } = new();
+    public Dictionary<string, string> PreferredJavaTypeImports { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Method-level mutable state (pre/post statements, ref holders, stream vars).
@@ -183,7 +184,7 @@ public class ConversionContext
 
     public void AddImport(string typeName)
     {
-        if (typeName.StartsWith("java.lang.")) return;
+        if (IsImplicitJavaLangType(typeName)) return;
         // Reject bare package names (e.g. "java.util.stream") — Java requires class-level
         // or wildcard imports ("java.util.stream.Collectors" or "java.util.stream.*").
         // Bare package imports like "import java.util.stream;" are compile errors.
@@ -196,9 +197,19 @@ public class ConversionContext
         ImportedTypes.Add(typeName);
     }
 
+    private static bool IsImplicitJavaLangType(string typeName)
+    {
+        if (!typeName.StartsWith("java.lang.", StringComparison.Ordinal))
+            return false;
+
+        var remainder = typeName["java.lang.".Length..];
+        return !remainder.Contains('.', StringComparison.Ordinal);
+    }
+
     public void ClearImports()
     {
         ImportedTypes.Clear();
+        PreferredJavaTypeImports.Clear();
         // Clearing cache ensures each type group re-triggers import additions.
         TypeMapper.ClearCache();
     }
@@ -253,7 +264,46 @@ public class ConversionContext
     // ─── Facade properties/methods delegating to AliasRegistry ───
     public IReadOnlyDictionary<string, UsingAliasRegistry.UsingAliasInfo> UsingAliases => AliasRegistry.Aliases;
     public bool RegisterUsingAlias(string aliasName, ITypeSymbol targetType, Location? location)
-        => AliasRegistry.Register(aliasName, targetType, location, Diagnostics, CurrentNamespace, GlobalNamespace, TypeCache);
+    {
+        var registered = AliasRegistry.Register(aliasName, targetType, location, Diagnostics, CurrentNamespace, GlobalNamespace, TypeCache);
+        if (registered)
+        {
+            var mapped = MapType(targetType);
+            var importName = BuildImportName(targetType, mapped);
+            if (!string.IsNullOrWhiteSpace(importName))
+                PreferredJavaTypeImports[aliasName] = importName!;
+        }
+        return registered;
+    }
+
+    private string? BuildImportName(ITypeSymbol targetType, string mappedType)
+    {
+        var bareMappedType = StripTypeArguments(mappedType);
+        if (bareMappedType.Contains('.'))
+            return bareMappedType;
+
+        var ns = targetType.ContainingNamespace?.ToDisplayString();
+        if (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>")
+            return null;
+
+        var fullName = $"{ns}.{targetType.Name}";
+        var configuredImports = TypeMappings.GetRequiredImports(fullName);
+        if (configuredImports.Count > 0)
+        {
+            var exactImport = configuredImports.FirstOrDefault(i =>
+                string.Equals(i[(i.LastIndexOf('.') + 1)..], bareMappedType, StringComparison.Ordinal));
+            return exactImport ?? configuredImports[0];
+        }
+
+        var mappedNs = NamespaceToPackage(ns);
+        return string.IsNullOrWhiteSpace(mappedNs) ? null : $"{mappedNs}.{bareMappedType}";
+    }
+
+    private static string StripTypeArguments(string typeName)
+    {
+        var idx = typeName.IndexOf('<');
+        return idx > 0 ? typeName[..idx] : typeName;
+    }
     public bool IsAlias(string identifier) => AliasRegistry.IsAlias(identifier);
     public ITypeSymbol? ResolveAlias(string aliasName) => AliasRegistry.Resolve(aliasName);
     public void ClearAliases() => AliasRegistry.Clear();
