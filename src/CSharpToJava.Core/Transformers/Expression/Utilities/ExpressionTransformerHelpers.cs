@@ -103,7 +103,9 @@ public static class ExpressionTransformerHelpers
             if (targetType.ToDisplayString() == "System.IO.Stream"
                 && sourceType.ToDisplayString() != "System.IO.Stream")
             {
-                return $"StreamWrapper.of({transformedExpression})";
+                return sourceType.ToDisplayString() == "System.IO.MemoryStream"
+                    ? transformedExpression
+                    : $"StreamWrapper.of({transformedExpression})";
             }
             return transformedExpression;
         }

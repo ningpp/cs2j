@@ -33,7 +33,8 @@ public class DotNetCorePack : ICompatibilityPack
             "StringHelper", "MathHelper", "EnumHelper", "FileHelper",
             "FileMode", "CultureInfo", "IEqualityComparer",
             "LinkedListNode", "LinkedListWithNodes",
-            "InvalidDataException", "TextReader", "ThreadHelper", "ArrayHelper");
+            "InvalidDataException", "MemoryStream", "StreamReader", "StreamWriter",
+            "TextReader", "ThreadHelper", "ArrayHelper");
     }
 }
 
@@ -106,7 +107,7 @@ public class TracePack : ICompatibilityPack
 public class IoPack : ICompatibilityPack
 {
     public string Id => "io";
-    public string Description => "File I/O compatibility (FileHelper, FileMode, TextReader)";
+    public string Description => "File I/O compatibility (FileHelper, FileMode, TextReader, StreamReader/Writer, MemoryStream)";
     public IReadOnlyList<string> MavenDependencies => [];
 
     public bool IsApplicable(CompatibilityPackContext context)

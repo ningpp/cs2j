@@ -863,6 +863,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     return $"{target}.values()";
                 if (mappedMethod == "getKeys")
                     return $"{target}.keySet()";
+                if (mappedMethod.StartsWith("get", StringComparison.Ordinal)
+                    && mappedMethod.Length > 3
+                    && prop.Name == mappedMethod[3..])
+                    return $"{target}.{mappedMethod}()";
 
                 // If the mapped value is a fully-qualified Java field (contains a dot, e.g.
                 // "java.util.Locale.ROOT") emit it directly without a receiver prefix or ().
@@ -877,6 +881,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
                 return $"{target}.{mappedMethod}()";
             }
+
+            if (prop.Name == "Position" && IsSystemIoStreamType(prop.ContainingType))
+                return $"{target}.getPosition()";
+
+            if (prop.Name == "Length" && IsSystemIoStreamType(prop.ContainingType))
+                return $"{target}.getLength()";
 
             // Fix 2: no mapping configured — generate getXxx() for read accesses
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
@@ -984,6 +994,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (memberName == "Length" && exprType is IArrayTypeSymbol)
                     return $"{target}.length";
 
+                if (memberName == "Position" && IsSystemIoStreamType(exprType))
+                    return $"{target}.getPosition()";
+                if (memberName == "Length" && IsSystemIoStreamType(exprType))
+                    return $"{target}.getLength()";
+
             }
         }
 
@@ -1009,6 +1024,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         // Last-resort generic fallback for known C#→Java property mappings
         if (memberName == "Count") return $"{target}.size()";
+        if (memberName == "Position" && IsSystemIoStreamType(receiverType)) return $"{target}.getPosition()";
+        if (memberName == "Length" && IsSystemIoStreamType(receiverType)) return $"{target}.getLength()";
         if (memberName == "Length") return $"{target}.length";
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         // Only apply when receiver type is CONFIRMED to be KeyValuePair/IGrouping/Map.Entry.
@@ -1386,8 +1403,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     {
                         if (mapped == "getValues") return $"{target}.values()";
                         if (mapped == "getKeys") return $"{target}.keySet()";
+                        if (mapped.StartsWith("get", StringComparison.Ordinal)
+                            && mapped.Length > 3
+                            && memberName == mapped[3..])
+                            return $"{target}.{mapped}()";
                         return mapped.Contains('.') ? mapped : $"{target}.{mapped}()";
                     }
+
+                    if (memberName == "Position" && IsSystemIoStreamType(foundProp.ContainingType))
+                        return $"{target}.getPosition()";
+                    if (memberName == "Length" && IsSystemIoStreamType(foundProp.ContainingType))
+                        return $"{target}.getLength()";
 
                     if (memberName == "Current"
                         && (IsEnumeratorLikeType(foundProp.ContainingType)
@@ -1407,6 +1433,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         return null; // member not found in any type
+    }
+
+    private static bool IsSystemIoStreamType(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.IO.Stream")
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

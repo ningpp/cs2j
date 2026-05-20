@@ -1,6 +1,5 @@
 package io.github.ningpp.compat;
 
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
 import javax.xml.stream.*;
@@ -19,7 +18,9 @@ public class XmlWriter {
     public static XmlWriter create(Object output, Object settings) {
         try {
             XMLOutputFactory factory = XMLOutputFactory.newInstance();
-            if (output instanceof OutputStream) {
+            if (output instanceof StreamWrapper) {
+                return new XmlWriter(factory.createXMLStreamWriter(((StreamWrapper) output).outputStream(), "UTF-8"));
+            } else if (output instanceof OutputStream) {
                 return new XmlWriter(factory.createXMLStreamWriter((OutputStream) output, "UTF-8"));
             } else if (output instanceof Writer) {
                 return new XmlWriter(factory.createXMLStreamWriter((Writer) output));

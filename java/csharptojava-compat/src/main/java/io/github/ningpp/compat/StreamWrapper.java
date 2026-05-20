@@ -18,7 +18,7 @@ public class StreamWrapper implements AutoCloseable {
     private final InputStream inputStream;
     private final OutputStream outputStream;
 
-    private StreamWrapper(InputStream in, OutputStream out) {
+    protected StreamWrapper(InputStream in, OutputStream out) {
         this.inputStream = in;
         this.outputStream = out;
     }
@@ -29,6 +29,10 @@ public class StreamWrapper implements AutoCloseable {
 
     public static StreamWrapper of(OutputStream out) {
         return new StreamWrapper(null, out);
+    }
+
+    public static StreamWrapper of(StreamWrapper stream) {
+        return stream;
     }
 
     public InputStream inputStream() {
@@ -60,6 +64,11 @@ public class StreamWrapper implements AutoCloseable {
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
     }
 
+    public int read(byte[] buffer, int offset, int count) {
+        try { return inputStream().read(buffer, offset, count); }
+        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
     public void write(int value) {
         try { outputStream().write(value); }
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
@@ -70,10 +79,27 @@ public class StreamWrapper implements AutoCloseable {
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
     }
 
+    public void write(byte[] buffer, int offset, int count) {
+        try { outputStream().write(buffer, offset, count); }
+        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
     public void flush() {
         try {
             if (outputStream != null) outputStream.flush();
         } catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    public long getPosition() {
+        throw new UnsupportedOperationException("This stream does not support Position");
+    }
+
+    public void setPosition(long value) {
+        throw new UnsupportedOperationException("This stream does not support Position");
+    }
+
+    public long getLength() {
+        throw new UnsupportedOperationException("This stream does not support Length");
     }
 
     @Override

@@ -228,6 +228,18 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     return $"{receiver}.ensureCapacity({rightCapacity})";
                 }
 
+                if (prop.Name == "Position"
+                    && IsSystemIoStreamType(prop.ContainingType))
+                {
+                    var rightPosition = facade.Transform(rightNode, context);
+                    rightPosition = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        rightNode,
+                        rightPosition,
+                        prop.Type,
+                        context);
+                    return $"{receiver}.setPosition({rightPosition})";
+                }
+
                 // If RHS is itself a property setter assignment, hoist to avoid void-return nesting
                 // e.g. p1.X = p2.X = p3.X  →  var _chainVal0 = p3.getX(); p2.setX(_chainVal0); p1.setX(_chainVal0)
                 var right = IsPropertySetterAssignment(rightNode, context)
@@ -625,6 +637,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return false;
 
         return string.Equals(currentMethod.Name, "Set" + property.Name, StringComparison.Ordinal);
+    }
+
+    private static bool IsSystemIoStreamType(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.IO.Stream")
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

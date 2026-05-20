@@ -976,9 +976,9 @@
                          },
                          {
                              "csharp":  "System.IO.MemoryStream",
-                             "java":  "ByteArrayInputStream",
+                             "java":  "MemoryStream",
                              "imports":  [
-                                             "java.io.ByteArrayInputStream"
+                                             "io.github.ningpp.compat.MemoryStream"
                                          ]
                          },
                          {
@@ -997,16 +997,16 @@
                          },
                          {
                              "csharp":  "System.IO.StreamReader",
-                             "java":  "BufferedReader",
+                             "java":  "StreamReader",
                              "imports":  [
-                                             "java.io.BufferedReader"
+                                             "io.github.ningpp.compat.StreamReader"
                                          ]
                          },
                          {
                              "csharp":  "System.IO.StreamWriter",
-                             "java":  "PrintWriter",
+                             "java":  "StreamWriter",
                              "imports":  [
-                                             "java.io.PrintWriter"
+                                             "io.github.ningpp.compat.StreamWriter"
                                          ]
                          },
                          {
@@ -3218,6 +3218,11 @@
                            },
                            {
                                "type":  "System.IO.StreamWriter",
+                               "method":  "BaseStream",
+                               "javaMethod":  "getBaseStream"
+                           },
+                           {
+                               "type":  "System.IO.StreamWriter",
                                "method":  "WriteLine",
                                "javaMethod":  "println"
                            },
@@ -3235,6 +3240,36 @@
                                "type":  "System.IO.TextWriter",
                                "method":  "Write",
                                "javaMethod":  "print"
+                           },
+                           {
+                               "type":  "System.IO.StreamReader",
+                               "method":  "ReadToEnd",
+                               "javaMethod":  "readToEnd"
+                           },
+                           {
+                               "type":  "System.IO.StreamReader",
+                               "method":  "ReadLine",
+                               "javaMethod":  "readLine"
+                           },
+                           {
+                               "type":  "System.IO.StreamReader",
+                               "method":  "Peek",
+                               "javaMethod":  "peek"
+                           },
+                           {
+                               "type":  "System.IO.TextReader",
+                               "method":  "ReadToEnd",
+                               "javaMethod":  "readToEnd"
+                           },
+                           {
+                               "type":  "System.IO.TextReader",
+                               "method":  "ReadLine",
+                               "javaMethod":  "readLine"
+                           },
+                           {
+                               "type":  "System.IO.TextReader",
+                               "method":  "Peek",
+                               "javaMethod":  "peek"
                            },
                            {
                                "type":  "System.IO.StringWriter",

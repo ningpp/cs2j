@@ -336,8 +336,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        // C# StreamReader/TextReader patterns may be mapped to BufferedReader with a string path.
-        // Java BufferedReader expects a Reader, so wrap string path with FileReader.
+        // C# StreamReader/TextReader patterns used to be mapped to BufferedReader with
+        // a string path. Keep the adapter for that legacy mapping only.
         if (argumentList.Arguments.Count == 1 && typeName.EndsWith("BufferedReader", StringComparison.Ordinal))
         {
             var argType = context.SemanticModel?.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
