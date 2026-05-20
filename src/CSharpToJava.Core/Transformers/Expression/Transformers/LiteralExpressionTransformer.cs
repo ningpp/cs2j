@@ -179,6 +179,10 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             "'\\r'" => "'\\r'",
             "'\\t'" => "'\\t'",
             "'\\0'" => "'\\0'",
+            "'\\b'" => "'\\b'",
+            "'\\f'" => "'\\f'",
+            "'\\a'" => "'\\u0007'",
+            "'\\v'" => "'\\u000B'",
             _ => node.Token.Text
         };
     }

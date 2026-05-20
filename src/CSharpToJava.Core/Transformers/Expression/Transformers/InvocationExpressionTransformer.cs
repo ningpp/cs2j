@@ -3795,8 +3795,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        // Syntactic fallback: check for common CultureInfo patterns
-        var argText = firstArg.ToString();
+        // Syntactic fallback: check for common CultureInfo patterns.
+        // Unwrap cast expressions like (IFormatProvider) CultureInfo.InvariantCulture
+        var argExpr = firstArg;
+        if (argExpr is CastExpressionSyntax castExpr)
+        {
+            var castTypeName = castExpr.Type.ToString();
+            if (castTypeName is "IFormatProvider" or "System.IFormatProvider")
+                return true;
+            argExpr = castExpr.Expression;
+        }
+        var argText = argExpr.ToString();
         if (argText.StartsWith("CultureInfo.", System.StringComparison.Ordinal)
             || argText == "NumberFormatInfo.InvariantInfo"
             || argText.StartsWith("NumberFormatInfo.", System.StringComparison.Ordinal))
@@ -3829,8 +3838,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        // Syntactic fallback
-        var argText = expr.ToString();
+        // Syntactic fallback — unwrap cast expressions
+        var innerExpr = expr;
+        if (innerExpr is CastExpressionSyntax castExpr)
+        {
+            var castTypeName = castExpr.Type.ToString();
+            if (castTypeName is "IFormatProvider" or "System.IFormatProvider")
+                return true;
+            innerExpr = castExpr.Expression;
+        }
+        var argText = innerExpr.ToString();
         if (argText.StartsWith("CultureInfo.", System.StringComparison.Ordinal)
             || argText.StartsWith("NumberFormatInfo.", System.StringComparison.Ordinal)
             || argText.StartsWith("NumberStyles.", System.StringComparison.Ordinal)

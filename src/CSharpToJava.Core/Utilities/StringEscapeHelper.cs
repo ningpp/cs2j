@@ -9,6 +9,8 @@ internal static class StringEscapeHelper
             .Replace("\"", "\\\"")
             .Replace("\t", "\\t")
             .Replace("\n", "\\n")
-            .Replace("\r", "\\r");
+            .Replace("\r", "\\r")
+            .Replace("\a", "\\u0007")
+            .Replace("\v", "\\u000B");
     }
 }
