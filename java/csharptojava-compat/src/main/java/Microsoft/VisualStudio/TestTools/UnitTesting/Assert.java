@@ -5,6 +5,10 @@ import java.util.Objects;
 public final class Assert {
     private Assert() {}
 
+    public static void areSame(Object expected, Object actual) {
+        areSame(expected, actual, (String) null);
+    }
+
     public static void areSame(Object expected, Object actual, String message) {
         if (expected != actual) {
             fail(format(message, "Expected references to be identical."));
@@ -13,6 +17,10 @@ public final class Assert {
 
     public static void areSame(Object expected, Object actual, String message, Object... args) {
         areSame(expected, actual, formatMessage(message, args));
+    }
+
+    public static void areNotSame(Object notExpected, Object actual) {
+        areNotSame(notExpected, actual, (String) null);
     }
 
     public static void areNotSame(Object notExpected, Object actual, String message) {
@@ -25,6 +33,10 @@ public final class Assert {
         areNotSame(notExpected, actual, formatMessage(message, args));
     }
 
+    public static void areEqual(Object expected, Object actual) {
+        areEqual(expected, actual, (String) null);
+    }
+
     public static void areEqual(Object expected, Object actual, String message) {
         if (!Objects.equals(expected, actual)) {
             fail(format(message, "Expected <" + expected + "> but was <" + actual + ">."));
@@ -33,6 +45,10 @@ public final class Assert {
 
     public static void areEqual(Object expected, Object actual, String message, Object... args) {
         areEqual(expected, actual, formatMessage(message, args));
+    }
+
+    public static void areEqual(double expected, double actual, double delta) {
+        areEqual(expected, actual, delta, (String) null);
     }
 
     public static void areEqual(double expected, double actual, double delta, String message) {
@@ -61,6 +77,10 @@ public final class Assert {
         areEqual(expected, actual, ignoreCase, culture, formatMessage(message, args));
     }
 
+    public static void areNotEqual(Object notExpected, Object actual) {
+        areNotEqual(notExpected, actual, (String) null);
+    }
+
     public static void areNotEqual(Object notExpected, Object actual, String message) {
         if (Objects.equals(notExpected, actual)) {
             fail(format(message, "Did not expect <" + actual + ">."));
@@ -69,6 +89,10 @@ public final class Assert {
 
     public static void areNotEqual(Object notExpected, Object actual, String message, Object... args) {
         areNotEqual(notExpected, actual, formatMessage(message, args));
+    }
+
+    public static void isTrue(boolean condition) {
+        isTrue(condition, (String) null);
     }
 
     public static void isTrue(boolean condition, String message) {
@@ -81,6 +105,10 @@ public final class Assert {
         isTrue(condition, formatMessage(message, args));
     }
 
+    public static void isFalse(boolean condition) {
+        isFalse(condition, (String) null);
+    }
+
     public static void isFalse(boolean condition, String message) {
         if (condition) {
             fail(format(message, "Expected condition to be false."));
@@ -89,6 +117,10 @@ public final class Assert {
 
     public static void isFalse(boolean condition, String message, Object... args) {
         isFalse(condition, formatMessage(message, args));
+    }
+
+    public static void isNull(Object value) {
+        isNull(value, (String) null);
     }
 
     public static void isNull(Object value, String message) {
@@ -101,6 +133,10 @@ public final class Assert {
         isNull(value, formatMessage(message, args));
     }
 
+    public static void isNotNull(Object value) {
+        isNotNull(value, (String) null);
+    }
+
     public static void isNotNull(Object value, String message) {
         if (value == null) {
             fail(format(message, "Expected value to be non-null."));
@@ -109,6 +145,10 @@ public final class Assert {
 
     public static void isNotNull(Object value, String message, Object... args) {
         isNotNull(value, formatMessage(message, args));
+    }
+
+    public static void fail() {
+        fail((String) null);
     }
 
     public static void fail(String message) {
