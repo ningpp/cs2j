@@ -3377,7 +3377,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Reverse() → collect to list, reverse in-place.
             // When chained into further LINQ operations (e.g., .Reverse().ToList()), return list.stream()
             // so subsequent stream operators can chain.  When used standalone (method argument, assignment,
-            // foreach), return list directly.
+            // foreach), return list directly — cast to Iterable<E> to avoid ambiguity with varargs overloads.
             if (originalMethodName == "Reverse")
             {
                 context.AddImport("java.util.stream.Collectors");
@@ -3385,10 +3385,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.Collections");
                 bool isChained = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax parentAccess
                     && parentAccess.Expression == node;
-                // When standalone, resolve element type and cast to Iterable<E> to avoid ambiguity
-                // with varargs constructors that also match raw types.
                 var finisher = isChained ? "return list.stream();" : "return list;";
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); {finisher} }}))";
+                var collectExpr = $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); {finisher} }}))";
+                bool isStatement = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax;
+                if (!isChained && !isStatement && methodSymbol?.TypeArguments.Length >= 1)
+                {
+                    var elemJavaType = context.MapType(methodSymbol.TypeArguments[0]);
+                    if (!string.IsNullOrEmpty(elemJavaType))
+                        collectExpr = $"(Iterable<{elemJavaType}>) {collectExpr}";
+                }
+                return collectExpr;
             }
 
             // Append(item) → Stream.concat(stream, Stream.of(item))
