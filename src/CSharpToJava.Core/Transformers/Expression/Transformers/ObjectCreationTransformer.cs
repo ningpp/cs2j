@@ -832,9 +832,20 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Java forbids generic array creation (e.g. new ArrayList<T>[n] is illegal due to type
         // erasure). Use the raw type (strip type arguments) in the new-expression only.
         string rawElementType = elementType;
-        int genericArgStart = elementType.IndexOf('<');
-        if (genericArgStart > 0)
-            rawElementType = elementType.Substring(0, genericArgStart);
+        // Java forbids generic array creation with explicit sizes (new ArrayList<T>[n]),
+        // but allows it for initializer-only arrays (new ArrayList<T>[] { ... }) and
+        // zero-length arrays (new ArrayList<T>[0]).
+        bool hasSizes = sizes.Any(s => !string.IsNullOrEmpty(s));
+        if (!hasSizes)
+        {
+            // Keep generic type for initializer-only and zero-size arrays
+        }
+        else
+        {
+            int genericArgStart = elementType.IndexOf('<');
+            if (genericArgStart > 0)
+                rawElementType = elementType.Substring(0, genericArgStart);
+        }
 
         // Fix: Java doesn't allow creating arrays of type parameters (e.g., new T[n]).
         // Use (T[]) new Object[n] cast pattern for all type parameter array creation.

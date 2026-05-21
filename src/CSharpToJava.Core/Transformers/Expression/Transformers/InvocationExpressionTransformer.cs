@@ -3385,7 +3385,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.Collections");
                 bool isChained = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax parentAccess
                     && parentAccess.Expression == node;
-                var finisher = isChained ? "return list.stream();" : "return list;";
+                // When standalone (not chained), cast to Iterable to avoid ambiguity with varargs
+                // constructors that would otherwise match both Iterable and T... parameter lists.
+                var finisher = isChained ? "return list.stream();" : "return (java.lang.Iterable) list;";
                 return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); {finisher} }}))";
             }
 
@@ -3542,13 +3544,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                          + $" _left -> {{ var _right = {zipOtherListExpr};"
                          + $" return IntStream.range(0, Math.min(_left.size(), _right.size()))"
-                         + $".mapToObj(_i -> {{ var {zipP0} = _left.get(_i); var {zipP1} = _right.get(_i); return {zipBody}; }}); }}))";
+                         + $".mapToObj(_i -> {{ var {zipP0} = _left.get(_i); var {zipP1} = _right.get(_i); return {zipBody}; }})"
+                         + $".collect(Collectors.toList()); }}))";
                 }
                 // Fallback: no two-param lambda recognised
                 var zipSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                 return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                      + $" _left -> {{ var _right = {zipOtherListExpr};"
-                     + $" return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> _left.get(_i)); }}))";
+                     + $" return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> _left.get(_i))"
+                     + $".collect(Collectors.toList()); }}))";
             }
 
             // Union(other) → Stream.concat + distinct
