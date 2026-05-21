@@ -2551,14 +2551,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             if (!IsReceiverLinqExtension(memberAccess.Expression, context))
             {
-                var linqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
-                receiver = BuildStreamReceiverExpression(
-                    receiver,
-                    linqReceiverType,
-                    context,
-                    boxPrimitiveArrayElements: false,
-                    preserveGroupingValueStream: true,
-                    receiverSyntaxNode: memberAccess.Expression);
+                // Extension method called as static (e.g. Enumerable.Reverse(points)):
+                // the first argument is the real receiver/data source, not the type name.
+                if (methodSymbol.MethodKind != MethodKind.ReducedExtension
+                    && node.ArgumentList.Arguments.Count > 0)
+                {
+                    var firstArg = node.ArgumentList.Arguments[0];
+                    receiver = facade.Transform(firstArg.Expression, context);
+                    var firstArgType = context.SemanticModel.GetTypeInfo(firstArg.Expression).Type;
+                    receiver = BuildStreamReceiverExpression(
+                        receiver,
+                        firstArgType,
+                        context,
+                        boxPrimitiveArrayElements: false,
+                        preserveGroupingValueStream: true,
+                        receiverSyntaxNode: firstArg.Expression);
+                    isExtensionInStaticPath = true;
+                }
+                else
+                {
+                    var linqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                    receiver = BuildStreamReceiverExpression(
+                        receiver,
+                        linqReceiverType,
+                        context,
+                        boxPrimitiveArrayElements: false,
+                        preserveGroupingValueStream: true,
+                        receiverSyntaxNode: memberAccess.Expression);
+                }
             }
 
             // ToList → collect(Collectors.toCollection(() -> new ArrayList<>()))
