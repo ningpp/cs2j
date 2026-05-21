@@ -2118,7 +2118,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // MethodKind.DelegateInvoke (e.g. in project pipeline with incomplete assembly refs),
         // use InferSamMethodName heuristic based on argument count and expression position.
         // .Invoke() is almost exclusively used for C# delegate invocations.
-        if (methodName == "Invoke" && methodName == originalMethodName)
+        // System.Reflection.MethodInfo.Invoke is NOT a delegate invocation — skip it.
+        if (methodName == "Invoke" && methodName == originalMethodName
+            && !IsMethodInfoReceiver(memberAccess.Expression, context))
         {
             bool seemsVoid = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax;
             int paramCount = node.ArgumentList.Arguments.Count;
@@ -4533,6 +4535,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var typeInfo = context.SemanticModel?.GetTypeInfo(receiver);
         return typeInfo?.Type?.ToDisplayString() == typeName
             || typeInfo?.ConvertedType?.ToDisplayString() == typeName;
+    }
+
+    private static bool IsMethodInfoReceiver(ExpressionSyntax expr, ConversionContext context)
+    {
+        // Check via the semantic symbol first
+        if (context.SemanticModel?.GetSymbolInfo(expr).Symbol is IMethodSymbol ms
+            && ms.ContainingType.ToDisplayString() == "System.Reflection.MethodInfo")
+            return true;
+        // Fall back to type info on the receiver expression
+        return IsReceiverOfType(expr, "System.Reflection.MethodInfo", context);
     }
 
     /// <summary>
