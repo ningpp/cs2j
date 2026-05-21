@@ -373,6 +373,9 @@ public static class ExpressionTransformerHelpers
             "char" => "Character",
             "short" => "Short",
             "byte" => "Byte",
+            "uint" => "Integer",
+            "ulong" => "Long",
+            "ushort" => "Short",
             "string" => "String",
             "object" => "Object",
             _ => node.Keyword.Text

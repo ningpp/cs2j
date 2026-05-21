@@ -36,6 +36,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ["Int16"]   = "short",
         ["Byte"]    = "byte",
         ["SByte"]   = "byte",
+        ["UInt32"]  = "int",
+        ["UInt64"]  = "long",
+        ["UInt16"]  = "short",
         ["Single"]  = "float",
         ["Double"]  = "double",
         ["Boolean"] = "boolean",
@@ -4690,6 +4693,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "long" => "MathHelper.parseLong",
             "double" => "MathHelper.parseDouble",
             "float" => "MathHelper.parseFloat",
+            "uint" => "Integer.parseUnsignedInt",
+            "ulong" => "Long.parseUnsignedLong",
+            "ushort" => "Integer.parseUnsignedInt",
             _ => null
         };
 
