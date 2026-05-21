@@ -60,6 +60,34 @@ public class PlanningTests
     }
 
     [Fact]
+    public void MavenPomGenerator_GenerateModuleBuildFile_DeclaresCompilerPluginVersionAndValidJavacArgs()
+    {
+        var module = new JavaModulePlan
+        {
+            ModuleName = "demo-module",
+            IsTestOnly = false,
+        };
+
+        var plan = new JavaWorkspacePlan
+        {
+            GroupId = "com.example",
+            ArtifactId = "demo-parent",
+            Version = "1.0-SNAPSHOT",
+            JavaVersion = "Java25",
+            Modules = [module],
+        };
+
+        var generator = new MavenPomGenerator();
+        var pom = generator.GenerateModuleBuildFile(plan, module);
+
+        Assert.Contains("<artifactId>maven-compiler-plugin</artifactId>", pom, StringComparison.Ordinal);
+        Assert.Contains("<version>3.13.0</version>", pom, StringComparison.Ordinal);
+        Assert.Contains("<arg>-Xmaxerrs</arg>", pom, StringComparison.Ordinal);
+        Assert.DoesNotContain("<maxerrs>", pom, StringComparison.Ordinal);
+        Assert.DoesNotContain("<maxwarns>", pom, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void JavaWorkspacePlanJsonSerializer_SerializesModulesDependenciesCompatPacksAndRuntimeBridges()
     {
         var jsonBridge = new JavaRuntimeBridgeRequirement

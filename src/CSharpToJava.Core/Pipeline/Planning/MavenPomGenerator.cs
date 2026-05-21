@@ -196,12 +196,11 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
     private static string CompilerPlugin(int javaVer) => $@"<plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
                 <configuration>
                     <source>${{java.version}}</source>
                     <target>${{java.version}}</target>
                     <encoding>UTF-8</encoding>
-                    <maxerrs>1000000</maxerrs>
-                    <maxwarns>0</maxwarns>
                     <compilerArgs>
                         <arg>-Xmaxerrs</arg>
                         <arg>1000000</arg>
