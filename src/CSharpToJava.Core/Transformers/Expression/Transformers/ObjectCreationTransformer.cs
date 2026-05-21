@@ -991,17 +991,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         // Java forbids generic array creation (e.g. new Pair<K,V>[] {...}).
-        // For implicit arrays with generic element types, use Arrays.asList() to
-        // preserve generic type arguments that would be lost in raw array creation.
-        if (elementType.Contains('<') && node.Initializer != null)
-        {
-            context.AddImport("java.util.Arrays");
-            var elemExprs = node.Initializer.Expressions
-                .Select(e => ExpressionTransformerFacade.Instance.Transform(e, context));
-            var initArgs = string.Join(", ", elemExprs);
-            return $"Arrays.asList({initArgs})";
-        }
-
+        // For implicit arrays, use the raw component type in the new-expression.
         var rawElementType = elementType;
         var genericStart = rawElementType.IndexOf('<');
         if (genericStart > 0)
