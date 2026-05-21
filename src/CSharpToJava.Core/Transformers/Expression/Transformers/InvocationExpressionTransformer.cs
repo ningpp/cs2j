@@ -3387,11 +3387,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && parentAccess.Expression == node;
                 // When standalone, resolve element type and cast to Iterable<E> to avoid ambiguity
                 // with varargs constructors that also match raw types.
-                // When standalone, cast through Object to disambiguate Iterable from
-                // varargs constructors (e.g. Polyline(Iterable<T>) vs Polyline(T...)).
-                var finisher = isChained
-                    ? "return list.stream();"
-                    : "return (Iterable)(Object) list;";
+                var finisher = isChained ? "return list.stream();" : "return list;";
                 return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); {finisher} }}))";
             }
 
