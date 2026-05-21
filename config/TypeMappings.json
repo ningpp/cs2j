@@ -3097,14 +3097,19 @@
                                "javaMethod":  "collect"
                            },
                            {
+                               "type":  "System.Guid",
+                               "method":  "NewGuid",
+                               "javaMethod":  "randomUUID"
+                           },
+                           {
                                "type":  "System.IO.Directory",
                                "method":  "GetDirectories",
-                               "javaMethod":  "DirectoryInfo.getDirectories"
+                               "javaMethod":  "getDirectories"
                            },
                            {
                                "type":  "System.IO.Directory",
                                "method":  "GetFiles",
-                               "javaMethod":  "DirectoryInfo.getFiles"
+                               "javaMethod":  "getFiles"
                            },
                            {
                                "type":  "System.IO.DirectoryInfo",
