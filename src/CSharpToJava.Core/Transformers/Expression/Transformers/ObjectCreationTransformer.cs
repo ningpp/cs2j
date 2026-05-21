@@ -385,6 +385,26 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
 
             args = CoerceSingleStreamArgForCollectionCtor(argumentList.Arguments, args, context);
+
+            // When the single constructor argument is not a Java Collection (e.g. RbTree,
+            // which implements Iterable but not Collection), wrap with stream materialization.
+            if (argumentList.Arguments.Count == 1 && context.SemanticModel != null)
+            {
+                var singleArg = argumentList.Arguments[0].Expression;
+                var argType = context.SemanticModel.GetTypeInfo(singleArg).Type;
+                if (argType != null
+                    && argType is not IArrayTypeSymbol
+                    && !IsCSharpCollectionType(argType)
+                    && argType.AllInterfaces.Any(i =>
+                        i.OriginalDefinition.ToDisplayString() is "System.Collections.IEnumerable"
+                            or "System.Collections.Generic.IEnumerable<T>"))
+                {
+                    context.AddImport("java.util.stream.StreamSupport");
+                    context.AddImport("java.util.stream.Collectors");
+                    context.AddImport("java.util.ArrayList");
+                    args = $"StreamSupport.stream({args}.spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                }
+            }
         }
 
         // Java StringWriter has no constructor accepting Locale/CultureInfo.
@@ -440,6 +460,19 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             bare = bare[(bare.LastIndexOf('.') + 1)..];
         return bare is "ArrayList" or "HashSet" or "TreeSet" or "LinkedList"
             or "ArrayDeque" or "LinkedHashSet" or "PriorityQueue" or "Stack";
+    }
+
+    /// Returns true if the C# type implements ICollection/ICollection<T>.
+    private static bool IsCSharpCollectionType(ITypeSymbol type)
+    {
+        var originalDisplay = type.OriginalDefinition.ToDisplayString();
+        return originalDisplay is "System.Collections.Generic.ICollection<T>"
+            or "System.Collections.Generic.IList<T>"
+            or "System.Collections.Generic.ISet<T>"
+            or "System.Collections.Generic.IDictionary<TKey,TValue>"
+            || type.AllInterfaces.Any(i =>
+                i.OriginalDefinition.ToDisplayString() is "System.Collections.Generic.ICollection<T>"
+                    or "System.Collections.Generic.IList<T>");
     }
 
     /// <summary>
