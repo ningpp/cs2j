@@ -1458,13 +1458,13 @@
                                          ]
                          },
                          {
-                        {
                             "csharp":  "System.Reflection.BindingFlags",
                             "java":  "BindingFlags",
                             "imports":  [
                                             "io.github.ningpp.compat.BindingFlags"
                                         ]
                         },
+                        {
                              "csharp":  "System.Reflection.ParameterInfo",
                              "java":  "Parameter",
                              "imports":  [
