@@ -830,10 +830,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         // Build array creation string.
         // Java forbids generic array creation (e.g. new ArrayList<T>[n] is illegal due to type
-        // erasure). Use the raw type (strip type arguments) in the new-expression only.
+        // erasure). Use the raw type (strip type arguments) in the new-expression and add an
+        // unchecked cast to preserve generic type information for downstream consumers.
         string rawElementType = elementType;
         int genericArgStart = elementType.IndexOf('<');
-        if (genericArgStart > 0)
+        bool needsGenericArrayCast = genericArgStart > 0;
+        if (needsGenericArrayCast)
             rawElementType = elementType.Substring(0, genericArgStart);
 
         // Fix: Java doesn't allow creating arrays of type parameters (e.g., new T[n]).
@@ -880,6 +882,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
         else
         {
+            if (needsGenericArrayCast)
+            {
+                result.Append('(');
+                result.Append(elementType);
+                for (int i = 0; i < sizes.Count; i++)
+                    result.Append("[]");
+                result.Append(") ");
+            }
             result.Append("new ");
             result.Append(rawElementType);
         }
@@ -991,13 +1001,26 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         // Java forbids generic array creation (e.g. new Pair<K,V>[] {...}).
-        // For implicit arrays, use the raw component type in the new-expression.
+        // For implicit arrays, use the raw component type in the new-expression
+        // and add an unchecked cast to preserve generic type information for
+        // downstream consumers (e.g. Arrays.stream() type inference).
         var rawElementType = elementType;
         var genericStart = rawElementType.IndexOf('<');
-        if (genericStart > 0)
+        bool needsGenericCast = genericStart > 0;
+        if (needsGenericCast)
             rawElementType = rawElementType[..genericStart];
 
-        var result = new StringBuilder("new ");
+        var result = new StringBuilder();
+        if (needsGenericCast)
+        {
+            result.Append('(');
+            result.Append(elementType);
+            for (int i = 0; i < node.Commas.Count + 1; i++)
+                result.Append("[]");
+            result.Append(") ");
+        }
+
+        result.Append("new ");
         result.Append(rawElementType);
 
         // Add dimension brackets based on the number of commas
