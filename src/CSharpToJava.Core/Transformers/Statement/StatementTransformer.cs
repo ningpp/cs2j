@@ -134,6 +134,9 @@ public partial class StatementTransformer : IStatementTransformer
                     results.Add(AttachStatementComments(statement, stmtText));
                 }
             }
+
+            if (IsUnconditionalJump(statement))
+                break;
         }
 
         return results;
@@ -181,6 +184,9 @@ public partial class StatementTransformer : IStatementTransformer
                     results.Add(new Java.JavaRawStatement(text));
                 }
             }
+
+            if (IsUnconditionalJump(statement))
+                break;
         }
 
         return results;
@@ -211,5 +217,11 @@ public partial class StatementTransformer : IStatementTransformer
             && !statementText.TrimStart().StartsWith("#")
             && !statementText.TrimStart().StartsWith("/* TODO: UncheckedStatement");
     }
+
+    private static bool IsUnconditionalJump(StatementSyntax statement)
+        => statement is ReturnStatementSyntax
+            or ThrowStatementSyntax
+            or BreakStatementSyntax
+            or ContinueStatementSyntax;
 
 }

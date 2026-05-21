@@ -20,6 +20,9 @@ public class HIRStatementGenerator
         {
             var irStmt = Generate(stmt);
             if (irStmt != null) block.Statements.Add(irStmt);
+            if (stmt is ReturnStatementSyntax or ThrowStatementSyntax
+                or BreakStatementSyntax or ContinueStatementSyntax)
+                break;
         }
         return block;
     }
