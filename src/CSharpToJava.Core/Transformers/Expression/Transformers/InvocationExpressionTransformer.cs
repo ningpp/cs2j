@@ -312,8 +312,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Explicit .Invoke() on a delegate when semantic analysis cannot resolve the delegate type.
         // In C#, delegate.Invoke(args) is always valid. In Java, the method depends on the functional
         // interface — we use a heuristic based on argument count and value/statement context.
+        // System.Reflection.MethodInfo.Invoke is NOT a delegate invocation — skip it.
         if (node.Expression is MemberAccessExpressionSyntax explicitInvokeMa
-            && explicitInvokeMa.Name.Identifier.Text == "Invoke")
+            && explicitInvokeMa.Name.Identifier.Text == "Invoke"
+            && !IsReceiverOfType(explicitInvokeMa.Expression, "System.Reflection.MethodInfo", context))
         {
             int argCount = node.ArgumentList.Arguments.Count;
             bool isStatementContext = node.Parent is ExpressionStatementSyntax;
@@ -528,6 +530,27 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (originalMethodName == "GetEnumerator" && IsDictionaryLikeExpression(memberAccess.Expression, context))
         {
             return $"{receiver}.entrySet().iterator()";
+        }
+
+        // C# Type.GetMethod(name, BindingFlags) → Java Class.getDeclaredMethod(name).
+        // BindingFlags (Static, NonPublic, etc.) have no Java equivalent — strip them
+        // and use getDeclaredMethod which finds non-public members.
+        if (originalMethodName == "GetMethod"
+            && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Type"
+            && node.ArgumentList.Arguments.Count >= 2)
+        {
+            var methodNameArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            // Check if any argument after the first is of BindingFlags type
+            bool hasBindingFlags = false;
+            if (earlyMethodSymbol.Parameters.Length >= 2
+                && earlyMethodSymbol.Parameters[1].Type.ToDisplayString() == "System.Reflection.BindingFlags")
+            {
+                hasBindingFlags = true;
+            }
+            if (hasBindingFlags)
+            {
+                return $"{receiver}.getDeclaredMethod({methodNameArg})";
+            }
         }
 
         if (originalMethodName == "Exit"
@@ -4484,6 +4507,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static string InferSamMethodName(IMethodSymbol delegateInvoke) =>
         Type.DelegateTransformer.InferSamMethodName(delegateInvoke.ReturnsVoid, delegateInvoke.Parameters.Length);
+
+    private static bool IsReceiverOfType(ExpressionSyntax receiver, string typeName, ConversionContext context)
+    {
+        var typeInfo = context.SemanticModel?.GetTypeInfo(receiver);
+        return typeInfo?.Type?.ToDisplayString() == typeName
+            || typeInfo?.ConvertedType?.ToDisplayString() == typeName;
+    }
 
     /// <summary>
     /// Returns the primitive-stream category ("int", "long", "double") for a C# SpecialType,
