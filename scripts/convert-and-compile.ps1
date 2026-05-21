@@ -1,7 +1,7 @@
 param(
     [string]$RunLabel = (Get-Date -Format "yyyyMMdd_HHmmss"),
     [string]$SourcePath = "E:\agl-master\GraphLayout\GraphLayout.sln",
-    [string]$DestinationPath = "E:\jmsagl521",
+    [string]$DestinationPath = "E:\jagl521",
     [switch]$SkipConverterBuild,
     [switch]$SkipCompatInstall,
     [switch]$KeepDestination
