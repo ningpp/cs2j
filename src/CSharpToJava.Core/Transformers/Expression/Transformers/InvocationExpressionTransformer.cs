@@ -2444,6 +2444,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Array.Empty<T>() → new T[0]
+        if (methodSymbol is { IsStatic: true, IsExtensionMethod: false }
+            && originalMethodName == "Empty"
+            && methodSymbol.ContainingType.ToDisplayString() == "System.Array")
+        {
+            if (node.Expression is MemberAccessExpressionSyntax ma
+                && ma.Name is GenericNameSyntax gns
+                && gns.TypeArgumentList.Arguments.Count > 0)
+            {
+                var typeArg = facade.Transform(gns.TypeArgumentList.Arguments[0], context);
+                return $"new {typeArg}[0]";
+            }
+            return "new Object[0]";
+        }
+
         // AsQueryable/AsEnumerable → identity transform: strip the wrapper and return the receiver.
         // In Java, IEnumerable<T> and IQueryable<T> both map to Stream/collection operations;
         // subsequent LINQ calls on the result are handled identically via the same Stream API path.
