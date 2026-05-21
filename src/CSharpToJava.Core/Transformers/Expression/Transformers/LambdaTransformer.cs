@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Transformers.Statement;
 using System.Collections.Generic;
 using System.Linq;
@@ -65,7 +66,8 @@ public class LambdaTransformer : IIRExpressionTransformer
                             string name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
                             if (p.Type != null)
                             {
-                                string javaType = context.MapTypeFromSyntax(p.Type);
+                                string javaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(
+                                    context.MapTypeFromSyntax(p.Type));
                                 return $"{javaType} {name}";
                             }
                             return name;
@@ -122,7 +124,8 @@ public class LambdaTransformer : IIRExpressionTransformer
                 // Fix 2: emit explicit type when the parameter carries a declared type
                 if (p.Type != null)
                 {
-                    string javaType = context.MapTypeFromSyntax(p.Type);
+                    string javaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(
+                        context.MapTypeFromSyntax(p.Type));
                     return $"{javaType} {name}";
                 }
                 return name;
