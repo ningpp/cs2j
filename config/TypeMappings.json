@@ -2071,6 +2071,11 @@
                                "javaMethod":  "compare"
                            },
                            {
+                               "type":  "System.Collections.Generic.SortedList`2",
+                               "method":  "Add",
+                               "javaMethod":  "put"
+                           },
+                           {
                                "type":  "System.Collections.Generic.Dictionary",
                                "method":  "Add",
                                "javaMethod":  "put"

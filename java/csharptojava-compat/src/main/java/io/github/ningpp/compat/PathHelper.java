@@ -29,4 +29,18 @@ public class PathHelper {
         int dot = name.lastIndexOf('.');
         return dot > 0 ? name.substring(0, dot) : name;
     }
+    /** Mirrors Path.Combine(string, string) */
+    public static String combine(String path1, String path2) {
+        if (path1 == null || path1.isEmpty()) return path2;
+        if (path2 == null || path2.isEmpty()) return path1;
+        if (Paths.get(path2).isAbsolute()) return path2;
+        return Paths.get(path1, path2).toString();
+    }
+    /** Mirrors Path.GetExtension */
+    public static String getExtension(String path) {
+        String name = getFileName(path);
+        if (name == null) return null;
+        int dot = name.lastIndexOf('.');
+        return dot >= 0 ? name.substring(dot) : "";
+    }
 }

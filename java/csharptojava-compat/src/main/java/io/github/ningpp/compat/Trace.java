@@ -12,6 +12,10 @@ public final class Trace {
 
     private Trace() {}
 
+    public static ListenerCollection Listeners() {
+        return Listeners;
+    }
+
     public static final class ListenerCollection extends ArrayList<Object> {
         public <T> Iterable<T> ofType() {
             List<T> result = new ArrayList<>();
