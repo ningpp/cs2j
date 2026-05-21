@@ -48,6 +48,10 @@ public class MathHelper {
         return Integer.parseInt(s);
     }
 
+    public static int parseInt(String s, int style) {
+        return parseIntWithStyle(s, style);
+    }
+
     public static int parseInt(String s, CultureInfo culture) {
         return parseInt(s);
     }
@@ -66,6 +70,10 @@ public class MathHelper {
 
     public static long parseLong(String s) {
         return Long.parseLong(s);
+    }
+
+    public static long parseLong(String s, int style) {
+        return parseLongWithStyle(s, style);
     }
 
     public static long parseLong(String s, CultureInfo culture) {

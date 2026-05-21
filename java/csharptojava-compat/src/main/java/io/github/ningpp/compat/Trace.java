@@ -6,6 +6,10 @@ import java.util.List;
 public final class Trace {
     public static final ListenerCollection Listeners = new ListenerCollection();
 
+    static {
+        Listeners.add(new DefaultTraceListener());
+    }
+
     private Trace() {}
 
     public static final class ListenerCollection extends ArrayList<Object> {

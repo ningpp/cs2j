@@ -1000,12 +1000,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        // MSTest Assert.* -> JUnit Assertions.*
-        if (TryMapMSTestAssertInvocation(memberAccess.Expression, context, originalMethodName, methodSymbol, out var junitAssertName))
+        // MSTest Assert.* -> MSTest compatibility Assert.*.
+        // JUnit Assertions has different overloads and exception behavior, while
+        // MSTest callers may pass formatted messages and catch UnitTestAssertException.
+        if (TryMapMSTestAssertInvocation(memberAccess.Expression, context, originalMethodName, methodSymbol, out var mstestAssertName))
         {
             var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-            context.AddImport("org.junit.jupiter.api.Assertions");
-            return $"Assertions.{junitAssertName}({assertArgs})";
+            context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.Assert");
+            return $"Assert.{mstestAssertName}({assertArgs})";
         }
 
         // C# String.Format(...) -> Java String.format(...)
@@ -2165,6 +2167,33 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var concatArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
             return $"StringHelper.concat({concatArgs})";
+        }
+
+        // Static Regex.Match(input, pattern) / Regex.IsMatch(input, pattern) use helper
+        // factory methods. Instance regex.Match(input) / regex.IsMatch(input) must stay
+        // as receiver.method(input); TypeMappings maps both names to the instance form.
+        if (methodSymbol is { IsStatic: true }
+            && methodSymbol.ContainingType.ToDisplayString() == "System.Text.RegularExpressions.Regex"
+            && originalMethodName is "Match" or "IsMatch")
+        {
+            var helperArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            var helperMethod = originalMethodName == "Match" ? "match" : "isMatch";
+            return $"Regex.{helperMethod}({helperArgs})";
+        }
+
+        // When project compilation leaves Regex instance methods unresolved, TypeMappings
+        // can still map Match/IsMatch to the instance Java names.  Use the transformed
+        // receiver rather than emitting Regex.match(input), which is the static overload.
+        if (methodSymbol == null
+            && originalMethodName is "Match" or "IsMatch"
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 1
+            && LooksLikeRegexInstanceExpression(memberAccess.Expression, context))
+        {
+            var regexArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            var regexMethod = originalMethodName == "Match" ? "match" : "isMatch";
+            return $"{receiver}.{regexMethod}({regexArgs})";
         }
 
         // Fallback: unresolved numeric TryParse static calls.
@@ -3792,6 +3821,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        if (originalMethodName == "Parse"
+            && methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
+            && node.ArgumentList.Arguments.Count - argStartIndex == 2
+            && IsNumberStylesArgument(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+            var styleArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
+            return $"{methodName}({valueArg}, {styleArg})";
+        }
+
         var args = parseStripCount > 0
             ? ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol,
@@ -4715,9 +4754,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ConversionContext context,
         string originalMethodName,
         IMethodSymbol? methodSymbol,
-        out string junitMethodName)
+        out string mstestMethodName)
     {
-        junitMethodName = string.Empty;
+        mstestMethodName = string.Empty;
 
         var isAssertReceiver = ExpressionTransformerHelpers.StaticReceiverMatches(
             receiverExpression,
@@ -4731,19 +4770,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
         }
 
-        junitMethodName = originalMethodName switch
+        mstestMethodName = originalMethodName switch
         {
-            "AreEqual" => "assertEquals",
-            "AreNotEqual" => "assertNotEquals",
-            "IsTrue" => "assertTrue",
-            "IsFalse" => "assertFalse",
-            "IsNull" => "assertNull",
-            "IsNotNull" => "assertNotNull",
+            "AreEqual" => "areEqual",
+            "AreNotEqual" => "areNotEqual",
+            "AreSame" => "areSame",
+            "AreNotSame" => "areNotSame",
+            "IsTrue" => "isTrue",
+            "IsFalse" => "isFalse",
+            "IsNull" => "isNull",
+            "IsNotNull" => "isNotNull",
             "Fail" => "fail",
             _ => string.Empty,
         };
 
-        return !string.IsNullOrEmpty(junitMethodName);
+        return !string.IsNullOrEmpty(mstestMethodName);
     }
 
     /// <summary>
@@ -4997,6 +5038,54 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return false;
+    }
+
+    private static bool LooksLikeRegexInstanceExpression(ExpressionSyntax receiverExpression, ConversionContext context)
+    {
+        if (context.SemanticModel != null)
+        {
+            var receiverType = context.SemanticModel.GetTypeInfo(receiverExpression).Type;
+            if (receiverType?.ToDisplayString() == "System.Text.RegularExpressions.Regex")
+                return true;
+        }
+
+        if (receiverExpression is MemberAccessExpressionSyntax
+            {
+                Expression: IdentifierNameSyntax,
+                Name: IdentifierNameSyntax memberName
+            }
+            && memberName.Identifier.Text.Length > 0)
+        {
+            var receiverText = receiverExpression.ToString();
+            if (receiverText.EndsWith("." + memberName.Identifier.Text, StringComparison.Ordinal)
+                && memberName.Identifier.Text.StartsWith("Parse", StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        if (receiverExpression is MemberAccessExpressionSyntax memberAccess)
+        {
+            var name = memberAccess.Name.Identifier.Text;
+            return name.Length > 0 && char.IsUpper(name[0]);
+        }
+
+        return false;
+    }
+
+    private static bool IsNumberStylesArgument(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (context.SemanticModel != null)
+        {
+            var typeName = context.SemanticModel.GetTypeInfo(expr).Type?.ToDisplayString();
+            if (typeName == "System.Globalization.NumberStyles")
+                return true;
+        }
+
+        var text = expr.ToString();
+        return text.StartsWith("NumberStyles.", StringComparison.Ordinal)
+            || text.StartsWith("System.Globalization.NumberStyles.", StringComparison.Ordinal)
+            || text.Contains("NumberStyles.", StringComparison.Ordinal);
     }
 
     private static bool TryGetStringComparisonIgnoreCase(ExpressionSyntax expression, SemanticModel? semanticModel, out bool ignoreCase)

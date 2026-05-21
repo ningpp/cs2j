@@ -572,15 +572,14 @@ public class TypeMappingRegistry
             return null;
         }
 
-        foreach (var (pattern, replacement) in _namespaceMappings)
-        {
-            if (!string.IsNullOrEmpty(pattern) && ns.StartsWith(pattern))
-            {
-                return ns.Replace(pattern, replacement);
-            }
-        }
+        var bestMatch = _namespaceMappings
+            .Where(kvp => !string.IsNullOrEmpty(kvp.Key) && ns.StartsWith(kvp.Key, StringComparison.Ordinal))
+            .OrderByDescending(kvp => kvp.Key.Length)
+            .FirstOrDefault();
 
-        return null;
+        return string.IsNullOrEmpty(bestMatch.Key)
+            ? null
+            : ns.Replace(bestMatch.Key, bestMatch.Value);
     }
 
     private string ExtractGenericArgument(string type)

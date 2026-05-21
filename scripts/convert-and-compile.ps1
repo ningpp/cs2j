@@ -13,6 +13,19 @@ $repoRoot = Split-Path -Parent $scriptDir
 $logDir = Join-Path $repoRoot ("iteration-logs\{0}" -f $RunLabel)
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
+function Join-CommandArguments {
+    param([Parameter(Mandatory = $true)][string[]]$Arguments)
+
+    return ($Arguments | ForEach-Object {
+        if ($_ -match '^[A-Za-z0-9_./:=+\-\\]+$') {
+            $_
+        }
+        else {
+            '"' + ($_ -replace '\\(?=")', '\\' -replace '"', '\"') + '"'
+        }
+    }) -join ' '
+}
+
 function Invoke-LoggedCommand {
     param(
         [Parameter(Mandatory = $true)][string]$StepName,
@@ -24,21 +37,66 @@ function Invoke-LoggedCommand {
     )
 
     $mergedPath = Join-Path $logDir ($LogFileName + ".log")
+    $argumentLine = Join-CommandArguments -Arguments $Arguments
 
-    Write-Host "[$StepName] $FileName $($Arguments -join ' ')"
-    Push-Location -LiteralPath $WorkingDirectory
-    $oldErrorActionPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = "Continue"
-        & $FileName @Arguments > $mergedPath 2>&1
-        $exitCode = $LASTEXITCODE
-        if ($null -eq $exitCode) {
-            $exitCode = if ($?) { 0 } else { 1 }
+    Write-Host "[$StepName] $FileName $argumentLine"
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $FileName
+    $psi.Arguments = $argumentLine
+    $psi.WorkingDirectory = $WorkingDirectory
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
+    $syncRoot = New-Object Object
+    $writer = New-Object System.IO.StreamWriter($mergedPath, $false, [System.Text.Encoding]::UTF8)
+    $handler = [System.Diagnostics.DataReceivedEventHandler]{
+        param($sender, $eventArgs)
+        if ($null -ne $eventArgs.Data) {
+            [System.Threading.Monitor]::Enter($syncRoot)
+            try {
+                $writer.WriteLine($eventArgs.Data)
+                $writer.Flush()
+            }
+            finally {
+                [System.Threading.Monitor]::Exit($syncRoot)
+            }
         }
     }
+
+    try {
+        $writer.WriteLine("[$StepName] $FileName $argumentLine")
+        $writer.WriteLine("WorkingDirectory: $WorkingDirectory")
+        $writer.WriteLine("")
+        $writer.Flush()
+
+        $process.add_OutputDataReceived($handler)
+        $process.add_ErrorDataReceived($handler)
+
+        if (-not $process.Start()) {
+            throw "$StepName failed to start."
+        }
+
+        $process.BeginOutputReadLine()
+        $process.BeginErrorReadLine()
+
+        while (-not $process.WaitForExit(5000)) {
+            $elapsed = (Get-Date) - $process.StartTime
+            Write-Host ("[{0}] still running for {1:n0}s; log: {2}" -f $StepName, $elapsed.TotalSeconds, $mergedPath)
+        }
+
+        $process.WaitForExit()
+        $exitCode = $process.ExitCode
+    }
     finally {
-        $ErrorActionPreference = $oldErrorActionPreference
-        Pop-Location
+        $process.remove_OutputDataReceived($handler)
+        $process.remove_ErrorDataReceived($handler)
+        $writer.Dispose()
+        $process.Dispose()
     }
 
     $exitPath = Join-Path $logDir ($LogFileName + ".exitcode.txt")
@@ -121,8 +179,13 @@ if (-not $SkipCompatInstall) {
 }
 
 if (-not $KeepDestination -and (Test-Path -LiteralPath $DestinationPath)) {
-    Write-Host "[3/5 clean destination] $DestinationPath"
-    Remove-Item -LiteralPath $DestinationPath -Recurse -Force
+    $resolvedDestination = (Resolve-Path -LiteralPath $DestinationPath).Path
+    if ([string]::IsNullOrWhiteSpace($resolvedDestination) -or $resolvedDestination -match '^[A-Za-z]:\\?$') {
+        throw "Refusing to recursively delete unsafe destination path: $DestinationPath"
+    }
+
+    Write-Host "[3/5 clean destination] $resolvedDestination"
+    Remove-Item -LiteralPath $resolvedDestination -Recurse -Force
 }
 
 $cliProject = Join-Path $repoRoot "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj"
@@ -150,14 +213,14 @@ if (-not (Test-Path -LiteralPath (Join-Path $DestinationPath "pom.xml"))) {
 }
 
 $mavenExit = Invoke-LoggedCommand `
-    -StepName "5/5 maven compile" `
+    -StepName "5/5 maven package" `
     -FileName "mvn" `
-    -Arguments @("clean", "compile", "-e") `
+    -Arguments @("clean", "package", "-e") `
     -WorkingDirectory $DestinationPath `
-    -LogFileName "04-maven-compile" `
+    -LogFileName "04-maven-package" `
     -IgnoreExitCode
 
-$mavenLog = Join-Path $logDir "04-maven-compile.log"
+$mavenLog = Join-Path $logDir "04-maven-package.log"
 Write-MavenErrorSummary -MavenLogPath $mavenLog
 
 $result = if ($mavenExit -eq 0) { "SUCCESS" } else { "FAILED" }

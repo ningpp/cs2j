@@ -1074,23 +1074,30 @@
                          },
                          {
                              "csharp":  "System.IO.Directory",
-                             "java":  "Files",
+                             "java":  "DirectoryInfo",
                              "imports":  [
-                                             "java.nio.file.Files"
+                                             "io.github.ningpp.compat.DirectoryInfo"
                                          ]
                          },
                          {
                              "csharp":  "System.IO.DirectoryInfo",
-                             "java":  "Path",
+                             "java":  "DirectoryInfo",
                              "imports":  [
-                                             "java.nio.file.Path"
+                                             "io.github.ningpp.compat.DirectoryInfo"
                                          ]
                          },
                          {
                              "csharp":  "System.IO.FileInfo",
-                             "java":  "Path",
+                             "java":  "FileSystemInfo",
                              "imports":  [
-                                             "java.nio.file.Path"
+                                             "io.github.ningpp.compat.FileSystemInfo"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.FileSystemInfo",
+                             "java":  "FileSystemInfo",
+                             "imports":  [
+                                             "io.github.ningpp.compat.FileSystemInfo"
                                          ]
                          },
                          {
@@ -1577,6 +1584,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Text.RegularExpressions.RegexOptions",
+                             "java":  "RegexOptions",
+                             "imports":  [
+                                             "io.github.ningpp.compat.RegexOptions"
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Linq.IOrderedEnumerable`1",
                              "java":  "Stream",
                              "imports":  [
@@ -1872,9 +1886,23 @@
                          },
                          {
                              "csharp":  "System.Diagnostics.Trace",
-                             "java":  "System",
+                             "java":  "Trace",
                              "imports":  [
-
+                                             "io.github.ningpp.compat.Trace"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Diagnostics.Debugger",
+                             "java":  "Debugger",
+                             "imports":  [
+                                             "io.github.ningpp.compat.Debugger"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Diagnostics.DefaultTraceListener",
+                             "java":  "DefaultTraceListener",
+                             "imports":  [
+                                             "io.github.ningpp.compat.DefaultTraceListener"
                                          ]
                          },
                          {
@@ -2819,6 +2847,16 @@
                                "javaMethod":  "out.println"
                            },
                            {
+                               "type":  "System.Diagnostics.Trace",
+                               "method":  "Listeners",
+                               "javaMethod":  "Listeners"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Debugger",
+                               "method":  "Break",
+                               "javaMethod":  "breakValue"
+                           },
+                           {
                                "type":  "System.Collections.Generic.HashSet`1",
                                "method":  "Add",
                                "javaMethod":  "add"
@@ -3059,15 +3097,40 @@
                                "javaMethod":  "collect"
                            },
                            {
-                               "type":  "System.Text.RegularExpressions.Regex",
-                               "method":  "Match",
-                               "javaMethod":  "Regex.match"
+                               "type":  "System.IO.Directory",
+                               "method":  "GetDirectories",
+                               "javaMethod":  "DirectoryInfo.getDirectories"
                            },
                            {
-                               "type":  "System.Text.RegularExpressions.Regex",
-                               "method":  "IsMatch",
-                               "javaMethod":  "Regex.isMatch"
+                               "type":  "System.IO.Directory",
+                               "method":  "GetFiles",
+                               "javaMethod":  "DirectoryInfo.getFiles"
                            },
+                           {
+                               "type":  "System.IO.DirectoryInfo",
+                               "method":  "GetFileSystemInfos",
+                               "javaMethod":  "getFileSystemInfos"
+                           },
+                           {
+                               "type":  "System.IO.FileSystemInfo",
+                               "method":  "FullName",
+                               "javaMethod":  "getFullName"
+                           },
+                           {
+                               "type":  "System.IO.FileSystemInfo",
+                               "method":  "Name",
+                               "javaMethod":  "getName"
+                           },
+                          {
+                              "type":  "System.Text.RegularExpressions.Regex",
+                              "method":  "Match",
+                              "javaMethod":  "match"
+                          },
+                          {
+                              "type":  "System.Text.RegularExpressions.Regex",
+                              "method":  "IsMatch",
+                              "javaMethod":  "isMatch"
+                          },
                            {
                                "type":  "System.Reflection.FieldInfo",
                                "method":  "GetValue",
