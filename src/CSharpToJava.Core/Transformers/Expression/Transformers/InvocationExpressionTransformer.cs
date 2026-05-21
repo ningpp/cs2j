@@ -3387,20 +3387,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && parentAccess.Expression == node;
                 // When standalone, resolve element type and cast to Iterable<E> to avoid ambiguity
                 // with varargs constructors that also match raw types.
-                string finisher;
-                if (isChained)
-                {
-                    finisher = "return list.stream();";
-                }
-                else
-                {
-                    var elemType = methodSymbol?.TypeArguments.FirstOrDefault();
-                    var javaElem = elemType != null ? context.TypeMapper.MapType(elemType) : null;
-                    var boxedElem = javaElem != null ? ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaElem) : null;
-                    finisher = boxedElem != null
-                        ? $"return (java.lang.Iterable<{boxedElem}>) list;"
-                        : "return (java.lang.Iterable<?>) list;";
-                }
+                // When chained, return list.stream() for further stream ops.
+                // When standalone, return list.toArray() to unambiguously match
+                // T... varargs constructors (avoids ambiguity with Iterable constructors).
+                var finisher = isChained ? "return list.stream();" : "return list.toArray();";
                 return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); {finisher} }}))";
             }
 

@@ -907,8 +907,13 @@ public static class ExpressionTransformerHelpers
         // Check if this is a C# primitive type that needs special handling
         if (!IsPrimitiveSpecialTypeForArrayStream(elemSt))
         {
-            // Not a primitive (reference type, struct, enum, etc.) → Java reference T[] always works
+            // Non-primitive (reference type, struct, enum, etc.). Add a type witness to
+            // preserve generic element types when the array expression uses raw types
+            // (Java forbids generic array creation, so new Foo<Bar>[]{...} is invalid).
             context.AddImport("java.util.Arrays");
+            var elemType = context.MapType(arrayType.ElementType);
+            if (elemType != null && elemType.Contains('<'))
+                return $"Arrays.<{elemType}>stream({expr})";
             return $"Arrays.stream({expr})";
         }
 
