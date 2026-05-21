@@ -1001,12 +1001,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             elementType = record.RecordName;
         }
 
-        // Java forbids generic array creation (e.g. new Pair<K,V>[] {...}).
-        // For implicit arrays, use the raw component type in the new-expression.
+        // Java forbids generic array creation with explicit sizes (e.g. new Pair<K,V>[n]),
+        // but allows generic types in initializer-only arrays (e.g. new Pair<K,V>[] { ... }).
+        // For implicit arrays (which always use initializers), keep the generic type.
         var rawElementType = elementType;
-        var genericStart = rawElementType.IndexOf('<');
-        if (genericStart > 0)
-            rawElementType = rawElementType[..genericStart];
 
         var result = new StringBuilder("new ");
         result.Append(rawElementType);

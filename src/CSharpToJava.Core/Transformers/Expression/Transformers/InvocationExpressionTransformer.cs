@@ -3377,7 +3377,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Reverse() → collect to list, reverse in-place.
             // When chained into further LINQ operations (e.g., .Reverse().ToList()), return list.stream()
             // so subsequent stream operators can chain.  When used standalone (method argument, assignment,
-            // foreach), return list directly — List<T> IS Iterable<T>.
+            // foreach), return list directly.
             if (originalMethodName == "Reverse")
             {
                 context.AddImport("java.util.stream.Collectors");
@@ -3385,9 +3385,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.Collections");
                 bool isChained = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax parentAccess
                     && parentAccess.Expression == node;
-                // When standalone (not chained), cast to Iterable to avoid ambiguity with varargs
-                // constructors that would otherwise match both Iterable and T... parameter lists.
-                var finisher = isChained ? "return list.stream();" : "return (java.lang.Iterable) list;";
+                // When standalone, resolve element type and cast to Iterable<E> to avoid ambiguity
+                // with varargs constructors that also match raw types.
+                string finisher;
+                if (isChained)
+                {
+                    finisher = "return list.stream();";
+                }
+                else
+                {
+                    var elemType = methodSymbol?.TypeArguments.FirstOrDefault();
+                    var javaElem = elemType != null ? context.TypeMapper.MapType(elemType) : null;
+                    var boxedElem = javaElem != null ? ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaElem) : null;
+                    finisher = boxedElem != null
+                        ? $"return (java.lang.Iterable<{boxedElem}>) list;"
+                        : "return (java.lang.Iterable<?>) list;";
+                }
                 return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()), list -> {{ Collections.reverse(list); {finisher} }}))";
             }
 
