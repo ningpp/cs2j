@@ -2596,9 +2596,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         if (methodSymbol.TypeArguments.Length >= 1)
                         {
                             var srcType = methodSymbol.TypeArguments[0];
-                            var javaElem = context.TypeMappings.MapType(srcType.ToDisplayString());
-                            if (string.IsNullOrEmpty(javaElem) || javaElem == srcType.ToDisplayString())
-                                javaElem = context.TypeMappings.MapType($"{srcType.ContainingNamespace}.{srcType.Name}");
+                            var javaElem = context.TypeMapper.MapType(srcType);
                             if (!string.IsNullOrEmpty(javaElem))
                             {
                                 var boxedElem = ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaElem);
@@ -2615,10 +2613,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     {
                         var srcType  = methodSymbol.TypeArguments[0];
                         var keyType  = methodSymbol.TypeArguments[1];
-                        var javaElem = context.TypeMappings.MapType(srcType.ToDisplayString());
-                        // Alias types like "string" won't map — retry with FQN (e.g. "System.String" → "String")
-                        if (string.IsNullOrEmpty(javaElem) || javaElem == srcType.ToDisplayString())
-                            javaElem = context.TypeMappings.MapType($"{srcType.ContainingNamespace}.{srcType.Name}");
+                        var javaElem = context.TypeMapper.MapType(srcType);
                         var comparingFn = keyType.SpecialType switch
                         {
                             SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte => "comparingInt",
@@ -2671,9 +2666,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     {
                         var srcType = methodSymbol.TypeArguments[0];
                         var keyType = methodSymbol.TypeArguments[1];
-                        var javaElem = context.TypeMappings.MapType(srcType.ToDisplayString());
-                        if (string.IsNullOrEmpty(javaElem) || javaElem == srcType.ToDisplayString())
-                            javaElem = context.TypeMappings.MapType($"{srcType.ContainingNamespace}.{srcType.Name}");
+                        var javaElem = context.TypeMapper.MapType(srcType);
 
                         var comparingFn = keyType.SpecialType switch
                         {
