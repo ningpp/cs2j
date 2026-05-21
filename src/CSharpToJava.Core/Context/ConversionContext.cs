@@ -221,7 +221,31 @@ public class ConversionContext
         if (AliasRegistry.Resolve(typeSymbol.Name) is ITypeSymbol aliasTarget
             && aliasTarget.Name != typeSymbol.Name)
             return TypeMapper.MapType(aliasTarget);
-        return TypeMapper.MapType(typeSymbol);
+        var result = TypeMapper.MapType(typeSymbol);
+        // When the mapped type's simple name collides with the current class name,
+        // use the fully-qualified Java name (package prefixed) to avoid ambiguity.
+        if (CurrentType != null && typeSymbol is INamedTypeSymbol)
+        {
+            var simpleName = typeSymbol.Name;
+            if (simpleName == CurrentType.Name)
+            {
+                var ns = typeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
+                if (!string.IsNullOrEmpty(ns) && ns != "<global namespace>")
+                {
+                    var javaPkg = TypeMapper.NamespaceToPackage(ns);
+                    if (!string.IsNullOrEmpty(javaPkg))
+                    {
+                        var idx = result.IndexOf('<');
+                        var baseName = idx >= 0 ? result.Substring(0, idx) : result;
+                        var genArgs = idx >= 0 ? result.Substring(idx) : "";
+                        // Only prefix with package if not already qualified
+                        if (!baseName.Contains('.'))
+                            result = $"{javaPkg}.{baseName}{genArgs}";
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     // ─── Facade methods delegating to TypeMapper for backward compatibility ───
@@ -235,7 +259,7 @@ public class ConversionContext
         {
             var typeInfo = SemanticModel.GetTypeInfo(typeSyntax);
             if (typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol)
-                return TypeMapper.MapType(typeInfo.Type);
+                return MapType(typeInfo.Type);
         }
         return TypeMapper.MapTypeFromSyntax(typeSyntax);
     }
