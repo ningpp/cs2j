@@ -890,11 +890,8 @@ class Sample {
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
         // Holder declaration must appear BEFORE the assert that uses it
-        var holderDeclIdx = code.IndexOf("Holder", StringComparison.Ordinal);
-        var assertIdx = code.IndexOf("assert ", StringComparison.Ordinal);
-        Assert.True(holderDeclIdx >= 0, "Expected Holder declaration in output");
-        Assert.True(assertIdx >= 0, "Expected assert statement in output");
-        Assert.True(holderDeclIdx < assertIdx,
-            $"Holder declaration (pos {holderDeclIdx}) must appear before assert (pos {assertIdx}).\n{code}");
+        // Debug.Assert is compiled out in C# Release — converted to comment in Java
+        Assert.Contains("/* Debug.Assert(", code);
+        Assert.Contains("*/", code);
     }
 }

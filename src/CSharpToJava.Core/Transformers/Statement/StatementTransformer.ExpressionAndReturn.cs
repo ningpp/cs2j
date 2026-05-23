@@ -137,35 +137,37 @@ public partial class StatementTransformer
             }
         }
 
-        // Special case: Debug.Assert / Trace.Assert / Contract.Requires / Contract.Assert
-        // Java's 'assert' is a statement keyword, not a callable method — emit it directly
-        // so the call never reaches the generic name-lowering + EscapeJavaKeyword path that
-        // would produce the wrong "System.assertValue(...)" output.
+        // Debug.Assert / Trace.Assert / Contract.Requires / Contract.Assert
+        // Debug.Assert is compiled out in C# Release builds ([Conditional("DEBUG")]).
+        // Trace.Assert remains in Release. Contract.Assert/Requires require CONTRACTS_FULL symbol.
+        // Java's 'assert' is runtime-gated (-ea), not equivalent to compile-time removal.
+        // → strip Debug/Contract asserts as comments; keep Trace.Assert as `assert`.
         if (stmt.Expression is InvocationExpressionSyntax assertInvoc &&
             assertInvoc.Expression is MemberAccessExpressionSyntax assertMa &&
             assertInvoc.ArgumentList.Arguments.Count >= 1 &&
             assertMa.Name.Identifier.Text is "Assert" or "Requires")
         {
-            bool isAssertLike = false;
+            bool isTrace = false;
+            bool isDebugOrContract = false;
             if (context.SemanticModel != null &&
                 context.SemanticModel.GetSymbolInfo(assertInvoc).Symbol is IMethodSymbol assertSym)
             {
                 var typeName = assertSym.ContainingType.ToDisplayString();
-                isAssertLike = typeName is "System.Diagnostics.Debug"
-                                         or "System.Diagnostics.Trace"
-                                         or "System.Diagnostics.Contracts.Contract";
+                isTrace = typeName == "System.Diagnostics.Trace";
+                isDebugOrContract = typeName is "System.Diagnostics.Debug"
+                                             or "System.Diagnostics.Contracts.Contract";
             }
-            if (!isAssertLike)
+            if (!isTrace && !isDebugOrContract)
             {
                 // Syntactic fallback: semantic model absent or couldn't resolve the symbol
                 var receiver = assertMa.Expression.ToString();
-                isAssertLike = receiver is "Debug" or "Trace" or "Contract"
-                                         or "System.Diagnostics.Debug"
-                                         or "System.Diagnostics.Trace"
-                                         or "System.Diagnostics.Contracts.Contract";
+                isTrace = receiver is "Trace" or "System.Diagnostics.Trace";
+                isDebugOrContract = receiver is "Debug" or "Contract"
+                                             or "System.Diagnostics.Debug"
+                                             or "System.Diagnostics.Contracts.Contract";
             }
 
-            if (isAssertLike)
+            if (isTrace)
             {
                 var condition = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[0].Expression, context);
                 string assertStmt;
@@ -180,7 +182,6 @@ public partial class StatementTransformer
                 }
 
                 // Drain any pre/post statements emitted during condition/message transformation
-                // (e.g., ref/out Holder declarations must precede the assert statement)
                 if (context.HasPendingPreStatements || context.HasPendingPostStatements)
                 {
                     var sb = new System.Text.StringBuilder();
@@ -199,6 +200,27 @@ public partial class StatementTransformer
                 }
 
                 return new JavaStatementNode(assertStmt);
+            }
+
+            if (isDebugOrContract)
+            {
+                // Debug.Assert / Contract.Assert/Requires → comment (matching C# Release semantics)
+                var condition = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[0].Expression, context);
+                string comment;
+                if (assertInvoc.ArgumentList.Arguments.Count >= 2)
+                {
+                    var message = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[1].Expression, context);
+                    comment = $"/* Debug.Assert({condition}, {message}); */";
+                }
+                else
+                {
+                    comment = $"/* Debug.Assert({condition}); */";
+                }
+                // Drain pre/post statements even for comments (they were emitted during transform)
+                // but discard them since the assert is a no-op
+                if (context.HasPendingPreStatements) context.DrainPreStatements();
+                if (context.HasPendingPostStatements) context.DrainPostStatements();
+                return new JavaStatementNode(comment);
             }
         }
 

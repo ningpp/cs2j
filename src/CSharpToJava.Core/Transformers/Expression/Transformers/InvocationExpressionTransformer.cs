@@ -599,8 +599,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 : $"throw new RuntimeException({failArgs})";
         }
 
-        // Debug.Assert / Trace.Assert → Java assert keyword
-        // C# Debug.Assert(condition) / Debug.Assert(condition, message)
+        // Debug.Assert / Trace.Assert / Contract.Assert
+        // Debug.Assert is compiled out in C# Release builds ([Conditional("DEBUG")]).
+        // Trace.Assert remains in Release. Contract.Assert requires CONTRACTS_FULL symbol.
+        // Java assert is runtime-gated (-ea), which is not equivalent to compile-time removal.
+        // → strip Debug.Assert / Contract.Assert as comments; keep Trace.Assert as `assert`.
         if (originalMethodName == "Assert"
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() is "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
                     or "System.Diagnostics.Contracts.Contract"
@@ -615,13 +618,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "System.Diagnostics.Contracts.Contract"))
             && node.ArgumentList.Arguments.Count >= 1)
         {
+            bool isTrace = earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Diagnostics.Trace"
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression, context, "Trace", "System.Diagnostics.Trace");
             var condition = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            if (node.ArgumentList.Arguments.Count >= 2)
+            string message = node.ArgumentList.Arguments.Count >= 2
+                ? facade.Transform(node.ArgumentList.Arguments[1].Expression, context)
+                : "";
+            if (isTrace)
             {
-                var message = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"assert {condition} : {message}";
+                return message.Length > 0
+                    ? $"assert {condition} : {message}"
+                    : $"assert {condition}";
             }
-            return $"assert {condition}";
+            // Debug.Assert / Contract.Assert → comment (matching C# Release semantics)
+            return message.Length > 0
+                ? $"/* Debug.Assert({condition}, {message}); */"
+                : $"/* Debug.Assert({condition}); */";
         }
 
         if (originalMethodName == "GetTempPath"
