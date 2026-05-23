@@ -875,6 +875,10 @@ public class ClassTransformer : ITypeTransformer
     /// <summary>
     /// When a C# class implements IEnumerator&lt;T&gt; (mapped to Java Iterator&lt;T&gt;),
     /// add hasNext() and next() bridge methods so the class satisfies the Iterator contract.
+    ///
+    /// C# IEnumerator uses MoveNext() (advances + returns bool) + Current (reads).
+    /// Java Iterator requires hasNext() (idempotent check) + next() (advances + returns).
+    /// This method restructures the class to match Java semantics via a lookahead pattern.
     /// </summary>
     private static void AddIteratorBridgeMethods(JavaClassDeclaration javaClass)
     {
@@ -882,7 +886,6 @@ public class ClassTransformer : ITypeTransformer
             t == "Iterator" || t.StartsWith("Iterator<"));
         if (iteratorType == null) return;
 
-        // Extract the element type from "Iterator<T>" or fall back to "Object"
         string elementType = "Object";
         if (iteratorType.StartsWith("Iterator<") && iteratorType.EndsWith(">"))
             elementType = iteratorType.Substring(9, iteratorType.Length - 10);
@@ -892,79 +895,101 @@ public class ClassTransformer : ITypeTransformer
         bool hasMoveNext = javaClass.Methods.Any(m => m.Name == "moveNext");
         bool hasGetCurrent = javaClass.Methods.Any(m => m.Name == "getCurrent");
 
-        // If hasNext exists (from TypeMappings MoveNext→hasNext) but next() doesn't,
-        // we need to add the next() bridge and the backing field.
+        // Already complete — nothing to do.
         if (hasHasNext && hasNext) return;
 
-        if (!hasHasNext && !hasMoveNext)
-        {
-            // No iteration method at all — nothing to bridge
-            return;
-        }
+        if (!hasHasNext && !hasMoveNext) return;
 
-        // The advancing method name: either moveNext (renamed by MethodTransformer)
-        // or hasNext (renamed by TypeMappings).
         string advanceMethod = hasHasNext ? "hasNext" : "moveNext";
 
-        // When hasNext was directly mapped from MoveNext via TypeMappings, its body already
-        // contains the advancing logic. We wrap it with caching so repeated calls are safe.
+        // Case 1: has MoveNext but no hasNext → wrap moveNext with a caching hasNext.
         if (!hasHasNext)
         {
             javaClass.Fields.Add(new JavaFieldDeclaration
             {
-                Modifiers = JavaModifiers.Private,
-                Type = "boolean",
-                Name = "_iteratorHasNext",
-                Initializer = "false"
+                Modifiers = JavaModifiers.Private, Type = "boolean",
+                Name = "_iteratorHasNext", Initializer = "false"
             });
-
             javaClass.Methods.Insert(0, new JavaMethodDeclaration
             {
-                Modifiers = JavaModifiers.Public,
-                ReturnType = "boolean",
-                Name = "hasNext",
+                Modifiers = JavaModifiers.Public, ReturnType = "boolean", Name = "hasNext",
                 Body = $"if (_iteratorHasNext) return true;\n        _iteratorHasNext = {advanceMethod}();\n        return _iteratorHasNext;"
             });
         }
 
-        if (!hasNext && hasGetCurrent)
+        // Case 2: has hasNext (from MoveNext rename) + getCurrent but no next().
+        // C# pattern: MoveNext (advances) + Current (reads). Java needs: hasNext (idempotent) + next (advances+returns).
+        // Solution: lookahead pattern. Private _advance() does the actual advancing.
+        // hasNext() calls _advance() once to prime the lookahead, then returns the cached result.
+        // next() returns getCurrent(), then calls _advance() for the next element.
+        if (!hasNext && hasGetCurrent && hasHasNext)
         {
-            if (hasHasNext)
+            var oldHasNext = javaClass.Methods.First(m => m.Name == "hasNext");
+
+            // Extract the original advancing body (string or structured).
+            string advanceBody;
+            if (oldHasNext.StructuredBody != null)
             {
-                // hasNext() is the direct MoveNext with advancing logic.
-                // next() must call hasNext() to advance, then return getCurrent().
-                // Use a flag to avoid double-advancing on hasNext()+next() sequences.
-                javaClass.Fields.Add(new JavaFieldDeclaration
-                {
-                    Modifiers = JavaModifiers.Private,
-                    Type = "boolean",
-                    Name = "_iteratorAdvanced",
-                    Initializer = "false"
-                });
-
-                // Wrap the existing hasNext to track advancement
-                var existingHasNext = javaClass.Methods.First(m => m.Name == "hasNext");
-                var originalBody = existingHasNext.Body ?? "";
-                existingHasNext.Body = $"_iteratorAdvanced = true;\n        {originalBody}";
-
-                javaClass.Methods.Add(new JavaMethodDeclaration
-                {
-                    Modifiers = JavaModifiers.Public,
-                    ReturnType = elementType,
-                    Name = "next",
-                    Body = $"if (!_iteratorAdvanced) {{ if (!hasNext()) throw new java.util.NoSuchElementException(); }}\n        _iteratorAdvanced = false;\n        return getCurrent();"
-                });
+                advanceBody = oldHasNext.StructuredBody.ToString("        ");
+                oldHasNext.StructuredBody = null;
             }
             else
             {
-                javaClass.Methods.Insert(1, new JavaMethodDeclaration
-                {
-                    Modifiers = JavaModifiers.Public,
-                    ReturnType = elementType,
-                    Name = "next",
-                    Body = $"if (!_iteratorHasNext && !{advanceMethod}()) throw new java.util.NoSuchElementException();\n        _iteratorHasNext = false;\n        return getCurrent();"
-                });
+                advanceBody = oldHasNext.Body ?? "";
             }
+            oldHasNext.Modifiers = JavaModifiers.Private;
+            oldHasNext.Name = "_advance";
+            oldHasNext.Body = advanceBody;
+            oldHasNext.IsBodyExpression = false;
+
+            javaClass.Fields.Add(new JavaFieldDeclaration
+            {
+                Modifiers = JavaModifiers.Private, Type = "boolean",
+                Name = "_lookaheadValid", Initializer = "false"
+            });
+            javaClass.Fields.Add(new JavaFieldDeclaration
+            {
+                Modifiers = JavaModifiers.Private, Type = "boolean",
+                Name = "_lookaheadValue", Initializer = "false"
+            });
+
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Modifiers = JavaModifiers.Public, ReturnType = "boolean", Name = "hasNext",
+                Body = "if (!_lookaheadValid) {\n            _lookaheadValue = _advance();\n            _lookaheadValid = true;\n        }\n        return _lookaheadValue;"
+            });
+
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Modifiers = JavaModifiers.Public, ReturnType = elementType, Name = "next",
+                Body = "if (!_lookaheadValid && !hasNext()) throw new java.util.NoSuchElementException();\n        _lookaheadValid = false;\n        return getCurrent();"
+            });
+
+            // Patch reset() to also clear the lookahead cache.
+            var resetMethod = javaClass.Methods.FirstOrDefault(m => m.Name == "reset");
+            if (resetMethod != null)
+            {
+                string resetBody;
+                if (resetMethod.StructuredBody != null)
+                {
+                    resetBody = resetMethod.StructuredBody.ToString("        ");
+                    resetMethod.StructuredBody = null;
+                }
+                else
+                {
+                    resetBody = resetMethod.Body ?? "";
+                }
+                resetMethod.Body = resetBody + "\n        _lookaheadValid = false;";
+                resetMethod.IsBodyExpression = false;
+            }
+        }
+        else if (!hasNext && hasGetCurrent && !hasHasNext)
+        {
+            javaClass.Methods.Insert(1, new JavaMethodDeclaration
+            {
+                Modifiers = JavaModifiers.Public, ReturnType = elementType, Name = "next",
+                Body = $"if (!_iteratorHasNext && !{advanceMethod}()) throw new java.util.NoSuchElementException();\n        _iteratorHasNext = false;\n        return getCurrent();"
+            });
         }
     }
 

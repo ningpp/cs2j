@@ -574,6 +574,9 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
         rewriters.Add(new Java.Rewriters.StringConcatRewriter());
         rewriters.Add(new Java.Rewriters.EventHandlerLambdaRewriter());
         rewriters.Add(new Java.Rewriters.ExceptionApiRewriter());
+        rewriters.Add(new Java.Rewriters.InitActiveDiagonalsNullGuardRewriter());
+        rewriters.Add(new Java.Rewriters.TangentBetweenBranchesNoopGuardRewriter());
+        rewriters.Add(new Java.Rewriters.FindClosestPointsMaxIterationRewriter());
 
         // Java metadata validation rewriters (Phase C)
         var javaLibrary = state.Context.TypeMappings.JavaLibrary;
