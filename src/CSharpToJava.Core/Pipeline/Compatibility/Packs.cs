@@ -34,7 +34,7 @@ public class DotNetCorePack : ICompatibilityPack
             "FileMode", "CultureInfo", "IEqualityComparer",
             "LinkedListNode", "LinkedListWithNodes",
             "InvalidDataException", "MemoryStream", "StreamReader", "StreamWriter",
-            "TextReader", "ThreadHelper", "ArrayHelper");
+            "TextReader", "ThreadHelper", "ArrayHelper", "MapHelper");
     }
 }
 
