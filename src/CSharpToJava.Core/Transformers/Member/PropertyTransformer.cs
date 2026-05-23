@@ -78,6 +78,14 @@ public class PropertyTransformer : IMemberTransformer
             Modifiers = fieldModifiers
         };
 
+        // C# structs are value types that can never be null — initialize backing fields
+        // with default instances so Java code doesn't encounter null struct references.
+        if (propDecl.Initializer == null && needsBackingField
+            && StructCloneHelper.IsUserDefinedStruct(typeInfo?.Type))
+        {
+            field.Initializer = $"new {propType}()";
+        }
+
         // 如果有默认值
         if (propDecl.Initializer != null)
         {
