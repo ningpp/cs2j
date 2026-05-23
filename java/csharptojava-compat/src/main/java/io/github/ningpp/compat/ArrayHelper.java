@@ -1,5 +1,6 @@
 package io.github.ningpp.compat;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -7,6 +8,19 @@ import java.util.Arrays;
  * Provides parallel-sort to replace C# Array.Sort(keys, items).
  */
 public class ArrayHelper {
+
+    /**
+     * Null-safe array to mutable List.
+     * Returns an empty ArrayList for null input; each element (including null)
+     * is preserved. Unlike {@code Arrays.asList}, the returned list is fully
+     * mutable (supports add/remove/clear) and independent from the source array.
+     */
+    public static <T> ArrayList<T> toList(T[] array) {
+        if (array == null) return new ArrayList<>();
+        var list = new ArrayList<T>(array.length);
+        for (T item : array) list.add(item);
+        return list;
+    }
     /** Mirrors C# Array.Sort(double[] keys, int[] items): sorts keys ascending, reorders items to match. */
     public static void sortParallel(double[] keys, int[] items) {
         int n = keys.length;
