@@ -297,24 +297,26 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     var containerType = (ITypeSymbol?)indexerSymbol?.ContainingType
                         ?? context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
                     string method = "set"; // default for indexers
+                    bool isKnownDictionary = false;
+                    bool isKnownList = false;
                     if (containerType is INamedTypeSymbol namedContainer)
                     {
                         var fullName = namedContainer.OriginalDefinition.ToDisplayString();
-                        bool isDictionaryContainer = IsDictionaryLikeContainer(namedContainer);
-                        bool isListContainer = fullName is
+                        isKnownDictionary = IsDictionaryLikeContainer(namedContainer);
+                        isKnownList = fullName is
                             "System.Collections.Generic.List<T>"
                             or "System.Collections.Generic.IList<T>"
                             or "System.Collections.Generic.IReadOnlyList<T>"
                             or "System.Collections.Immutable.ImmutableArray<T>";
-                        if (isDictionaryContainer) method = "put";
-                        else if (isListContainer) method = "set";
+                        if (isKnownDictionary) method = "put";
+                        else if (isKnownList) method = "set";
 
-                        if (namedContainer.TypeArguments.Length >= 2 && isDictionaryContainer)
+                        if (namedContainer.TypeArguments.Length >= 2 && isKnownDictionary)
                         {
                             keyType ??= namedContainer.TypeArguments[0];
                             valueType ??= namedContainer.TypeArguments[1];
                         }
-                        else if (namedContainer.TypeArguments.Length >= 1 && isListContainer)
+                        else if (namedContainer.TypeArguments.Length >= 1 && isKnownList)
                         {
                             valueType ??= namedContainer.TypeArguments[0];
                         }
@@ -324,10 +326,23 @@ public class AssignmentTransformer : IIRExpressionTransformer
                         // Semantic model failed to resolve (common in partial/incomplete compilations);
                         // for map-like indexers this should be put(key, value) instead of get(key)=value.
                         method = "put";
+                        isKnownDictionary = true;
                     }
                     var arg0 = facade.Transform(argExpr, context);
                     arg0 = ExpressionTransformerHelpers.AdaptExpressionToTargetType(argExpr, arg0, keyType, context);
                     right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, valueType, context);
+                    // When the assignment result is used as an expression value
+                    // (not a standalone statement), Java's map.put() / list.set()
+                    // return the OLD value, but C# assignment semantics require
+                    // the NEW value. Use MapHelper to bridge the gap.
+                    if (node.Parent is not ExpressionStatementSyntax
+                        && (isKnownDictionary || isKnownList))
+                    {
+                        context.AddImport("io.github.ningpp.compat.MapHelper");
+                        return isKnownDictionary
+                            ? $"MapHelper.putValue({target}, {arg0}, {right})"
+                            : $"MapHelper.setValue({target}, {arg0}, {right})";
+                    }
                     return $"{target}.{method}({arg0}, {right})";
                 }
 
