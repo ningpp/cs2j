@@ -330,18 +330,32 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
                 var refHolderType = HolderTypeResolver.GetHolderType(javaType);
-                // When the variable is declared without an initializer (e.g. `double t;`
-                // used as an `out` parameter captured by the LINQ rewriter), use the
-                // no-args constructor instead of the value-initializing constructor to
-                // avoid referencing an uninitialized variable.
+                // Determine whether the variable has a known value at this point.
+                // Prefer Roslyn DataFlowAnalysis: it tracks assignments through out
+                // parameters, so `out` then `ref` on the same variable correctly
+                // passes the out-assigned value into the ref holder.
                 var localSym = context.SemanticModel?.GetSymbolInfo(refIdent).Symbol as ILocalSymbol;
-                var isUninitialized = localSym?.DeclaringSyntaxReferences
-                    .Select(r => r.GetSyntax())
-                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax>()
-                    .Any(d => d.Initializer == null) == true;
-                var refHolderInit = isUninitialized
-                    ? HolderTypeResolver.GetHolderInstantiation(refHolderType)
-                    : HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName);
+                bool isDefinitelyAssigned = false;
+                if (localSym != null && context.SemanticModel != null)
+                {
+                    var stmt = refIdent.FirstAncestorOrSelf<StatementSyntax>();
+                    if (stmt != null)
+                    {
+                        var dfa = context.SemanticModel.AnalyzeDataFlow(stmt);
+                        isDefinitelyAssigned = dfa.Succeeded && dfa.DefinitelyAssignedOnEntry.Contains(localSym);
+                    }
+                    // Fallback: when DFA is unavailable, check the declaration initializer
+                    if (!isDefinitelyAssigned)
+                    {
+                        isDefinitelyAssigned = localSym.DeclaringSyntaxReferences
+                            .Select(r => r.GetSyntax())
+                            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax>()
+                            .All(d => d.Initializer != null);
+                    }
+                }
+                var refHolderInit = isDefinitelyAssigned
+                    ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName)
+                    : HolderTypeResolver.GetHolderInstantiation(refHolderType);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
                 context.AddPostStatement($"{ConversionContext.EscapeJavaKeyword(varName)} = {refHolderName}.value");
                 return refHolderName;
