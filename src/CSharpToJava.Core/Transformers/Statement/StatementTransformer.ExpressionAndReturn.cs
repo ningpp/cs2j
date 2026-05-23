@@ -289,6 +289,35 @@ public partial class StatementTransformer
         }
 
         var exprTransformer = ExpressionTransformerFacade.Instance;
+
+        // Special case: return dict.TryGetValue(key, out T v) ? v : null;
+        // The generic out-var path produces convoluted holder-based code; replace with
+        // a clean dict.get(key) which is semantically equivalent (both return null when
+        // the key is absent or the value is null).
+        if (stmt.Expression is ConditionalExpressionSyntax ternary
+            && ternary.WhenTrue is IdentifierNameSyntax trueIdent
+            && ternary.WhenFalse.IsKind(SyntaxKind.NullLiteralExpression)
+            && ternary.Condition is InvocationExpressionSyntax tryGetInvoke
+            && tryGetInvoke.Expression is MemberAccessExpressionSyntax tryGetMa
+            && tryGetMa.Name.Identifier.Text == "TryGetValue"
+            && tryGetInvoke.ArgumentList.Arguments.Count == 2
+            && tryGetInvoke.ArgumentList.Arguments[1].Expression is DeclarationExpressionSyntax outDecl
+            && outDecl.Designation is SingleVariableDesignationSyntax svd
+            && svd.Identifier.Text == trueIdent.Identifier.Text)
+        {
+            var dictExpr = exprTransformer.Transform(tryGetMa.Expression, context);
+            var keyExpr = exprTransformer.Transform(tryGetInvoke.ArgumentList.Arguments[0].Expression, context);
+            var typeInfo = context.SemanticModel?.GetTypeInfo(outDecl.Type);
+            var javaType = (typeInfo.HasValue && typeInfo.Value.Type != null)
+                ? context.MapType(typeInfo.Value.Type) : "var";
+            var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
+            var defaultVal = GetValueTypeDefault(typeInfo?.Type, javaType);
+            var getCall = defaultVal != null
+                ? $"{dictExpr}.getOrDefault({keyExpr}, {defaultVal})"
+                : $"{dictExpr}.get({keyExpr})";
+            return new JavaStatementNode($"{javaType} {varName} = {getCall};\nreturn {varName};");
+        }
+
         var expr = exprTransformer.Transform(stmt.Expression, context);
         var returnTargetType = ResolveReturnTargetType(stmt, context);
 
