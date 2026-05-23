@@ -4,7 +4,7 @@ using CSharpToJava.Core.Pipeline;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests that AsEnumerable() on arrays is not simply stripped but wrapped with Arrays.asList(),
+/// Tests that AsEnumerable() on arrays is not simply stripped but wrapped with ArrayHelper.toList(),
 /// since Java arrays don't implement Iterable (unlike C# where arrays implement IEnumerable).
 /// Reproduces: ProcrustesCircleConstraint.java — Node[] cannot be converted to Iterable&lt;Node&gt;
 /// </summary>
@@ -12,7 +12,7 @@ public class AsEnumerableArrayWrappingTests
 {
     /// <summary>
     /// Property-style: return V.AsEnumerable() where V is T[] and return type is IEnumerable&lt;T&gt;.
-    /// After stripping AsEnumerable, V should be wrapped with Arrays.asList(V).
+    /// After stripping AsEnumerable, V should be wrapped with ArrayHelper.toList(V).
     /// </summary>
     [Fact]
     public void AsEnumerable_OnArrayField_InReturn_WrapsWithArraysAsList()
@@ -28,12 +28,12 @@ class Constraint
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("AsEnumerable", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Method returning array.AsEnumerable() should also wrap with Arrays.asList().
+    /// Method returning array.AsEnumerable() should also wrap with ArrayHelper.toList().
     /// </summary>
     [Fact]
     public void AsEnumerable_OnArrayField_InMethod_WrapsWithArraysAsList()
@@ -49,7 +49,7 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ class Graph
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.DoesNotContain("AsEnumerable", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

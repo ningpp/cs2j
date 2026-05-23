@@ -231,9 +231,10 @@ public partial class StatementTransformer
                 // Fix: C# arrays implement IEnumerable/ICollection/IList, so assigning an array directly
                 // to IList<T>/ICollection<T> is valid C#. In Java, arrays are NOT Collection subtypes.
                 // When the declared Java type is a collection interface and the initializer is an array,
-                // wrap with Arrays.asList() (reference) or Arrays.stream().boxed().collect() (primitives).
+                // wrap with ArrayHelper.toList() (reference) or Arrays.stream().boxed().collect() (primitives).
                 if (context.SemanticModel != null
                     && IsJavaCollectionOrListType(javaType)
+                    && !initExpr.Contains("ArrayHelper.toList(")
                     && !initExpr.Contains("Arrays.asList(")
                     && !initExpr.Contains("Arrays.stream(")
                     && !initExpr.Contains("IntStream.range(")
@@ -288,8 +289,9 @@ public partial class StatementTransformer
                     // C# arrays implement IEnumerable<T>/ICollection<T>/IList<T> implicitly.
                     // When the declared C# type was IEnumerable<T> (→ javaType was "Iterable<T>",
                     // then lowered to "var"), the initializer may be an array. Java arrays do NOT
-                    // implement Iterable, so we must wrap with Arrays.asList() / Arrays.stream().
+                    // implement Iterable, so we must wrap with ArrayHelper.toList() / Arrays.stream().
                     if (semanticTypeIsEnumerableLike
+                        && !initExpr.Contains("ArrayHelper.toList(")
                         && !initExpr.Contains("Arrays.asList(")
                         && !initExpr.Contains("Arrays.stream(")
                         && !initExpr.Contains("IntStream.range(")

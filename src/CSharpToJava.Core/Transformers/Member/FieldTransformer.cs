@@ -132,8 +132,8 @@ public class FieldTransformer : IMemberTransformer
                     }
                     else
                     {
-                        context.AddImport("java.util.Arrays");
-                        javaField.Initializer = $"Arrays.asList({javaField.Initializer})";
+                        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                        javaField.Initializer = $"ArrayHelper.toList({javaField.Initializer})";
                     }
                 }
 

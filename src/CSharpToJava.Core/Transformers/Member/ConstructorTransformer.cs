@@ -168,7 +168,7 @@ public class ConstructorTransformer : IMemberTransformer
             return new List<string>();
 
         // Resolve the target constructor symbol for argument type coercion
-        // (e.g., arrays passed to IEnumerable<T> params need Arrays.asList() wrapping).
+        // (e.g., arrays passed to IEnumerable<T> params need ArrayHelper.toList() wrapping).
         IMethodSymbol? ctorSymbol = null;
         if (context.SemanticModel != null)
         {

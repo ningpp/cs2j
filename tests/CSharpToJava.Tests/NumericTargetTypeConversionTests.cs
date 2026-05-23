@@ -104,7 +104,7 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("Arrays.asList(1L, 2L)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(1L, 2L)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("put(3L, 4L);", result.GeneratedCode, StringComparison.Ordinal);
     }
 

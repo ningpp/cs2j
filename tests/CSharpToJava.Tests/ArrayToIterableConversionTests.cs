@@ -27,7 +27,7 @@ class Constraint
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -52,11 +52,11 @@ class Layout
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         // The array literal should be wrapped when passed to IEnumerable parameter
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Method returning array field as IEnumerable should wrap with Arrays.asList().
+    /// Method returning array field as IEnumerable should wrap with ArrayHelper.toList().
     /// </summary>
     [Fact]
     public void Method_ReturningArrayField_AsIEnumerable_Wraps()
@@ -71,7 +71,7 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

@@ -387,7 +387,7 @@ public class ArgumentTransformer
     /// <summary>
     /// Coerces an argument expression when the C# argument type does not directly match
     /// the Java target parameter type. Handles three scenarios:
-    /// 1. Array passed where Iterable/Collection is expected → Arrays.asList(...) or stream boxing
+    /// 1. Array passed where Iterable/Collection is expected → ArrayHelper.toList(...) or stream boxing
     /// 2. IEnumerable (Iterable) passed where Java method needs Collection → wrap to materialize
     /// 3. byte/short parameter receives an int/long literal → insert narrowing cast (byte)/short)
     ///    (C# allows this implicitly, Java requires explicit cast)

@@ -100,8 +100,8 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // String[] (reference type) → Arrays.asList()
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        // String[] (reference type) → ArrayHelper.toList()
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -245,7 +245,7 @@ class Sample
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         // Arrays are directly iterable in Java foreach — must NOT be wrapped
-        Assert.DoesNotContain("Arrays.asList", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArrayHelper.toList", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain(".collect(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -279,7 +279,7 @@ class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         // void method — no collect/asList wrapping
         Assert.DoesNotContain(".collect(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Arrays.asList", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArrayHelper.toList", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

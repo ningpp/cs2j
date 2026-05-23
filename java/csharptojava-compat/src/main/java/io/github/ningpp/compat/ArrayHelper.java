@@ -10,15 +10,16 @@ import java.util.Arrays;
 public class ArrayHelper {
 
     /**
-     * Null-safe array to mutable List.
+     * Null-safe array/varargs to mutable List.
      * Returns an empty ArrayList for null input; each element (including null)
      * is preserved. Unlike {@code Arrays.asList}, the returned list is fully
      * mutable (supports add/remove/clear) and independent from the source array.
      */
-    public static <T> ArrayList<T> toList(T[] array) {
-        if (array == null) return new ArrayList<>();
-        var list = new ArrayList<T>(array.length);
-        for (T item : array) list.add(item);
+    @SafeVarargs
+    public static <T> ArrayList<T> toList(T... items) {
+        if (items == null) return new ArrayList<>();
+        var list = new ArrayList<T>(items.length);
+        for (T item : items) list.add(item);
         return list;
     }
     /** Mirrors C# Array.Sort(double[] keys, int[] items): sorts keys ascending, reorders items to match. */

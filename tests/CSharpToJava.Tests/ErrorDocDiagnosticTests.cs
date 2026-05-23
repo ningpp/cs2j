@@ -249,9 +249,9 @@ class Sample {
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
         // Returning an array where Iterable expected needs wrapping
-        bool hasAsList = code.Contains("Arrays.asList(");
+        bool hasToList = code.Contains("ArrayHelper.toList(");
         bool hasListOf = code.Contains("List.of(");
-        Assert.True(hasAsList || hasListOf,
+        Assert.True(hasToList || hasListOf,
             $"Array→Iterable return should be wrapped. Got: {code}");
     }
 
@@ -312,9 +312,9 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Arrays.asList(new int[]{node}) would return List<int[]>
+        // ArrayHelper.toList(new int[]{node}) would return List<int[]>
         // Should use List.of(node) or similar
-        Assert.DoesNotContain("Arrays.asList(new int[]", code);
+        Assert.DoesNotContain("ArrayHelper.toList(new int[]", code);
     }
 
     // Error 01: Missing return statement when ICollection.Add (void) → Collection.add (boolean)
@@ -364,7 +364,7 @@ class Container {
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
         // Node[] can't be directly returned as Iterable<Node>
-        // Should wrap with Arrays.asList() or similar
+        // Should wrap with ArrayHelper.toList() or similar
         Assert.DoesNotMatch(@"return\s+items\s*;", code);
     }
 
@@ -426,8 +426,8 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Should create array directly, not use Arrays.asList
-        Assert.DoesNotContain("Arrays.asList(new ArrayList", code);
+        // Should create array directly, not use ArrayHelper.toList
+        Assert.DoesNotContain("ArrayHelper.toList(new ArrayList", code);
     }
 
     // Error 24e: Array.spliterator() - arrays don't have instance spliterator
@@ -506,7 +506,7 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Should wrap array to Iterable somehow (Arrays.asList, Arrays.stream, etc.)
+        // Should wrap array to Iterable somehow (ArrayHelper.toList, Arrays.stream, etc.)
         Assert.DoesNotContain("return data;", code);
     }
 

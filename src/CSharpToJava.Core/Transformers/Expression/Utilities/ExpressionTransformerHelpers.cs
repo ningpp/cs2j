@@ -932,7 +932,7 @@ public static class ExpressionTransformerHelpers
     /// <summary>
     /// Builds a Java Collection expression for a C# array expression.
     /// For C# primitive arrays, boxes elements and collects to ArrayList.
-    /// For reference-type or struct arrays, uses <c>Arrays.asList()</c>.
+    /// For reference-type or struct arrays, uses <c>ArrayHelper.toList()</c>.
     /// </summary>
     public static string BuildArrayToCollectionExpression(
         string expr, IArrayTypeSymbol arrayType, ConversionContext context)
@@ -945,8 +945,8 @@ public static class ExpressionTransformerHelpers
             return $"{stream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
         }
 
-        context.AddImport("java.util.Arrays");
-        return $"Arrays.asList({expr})";
+        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+        return $"ArrayHelper.toList({expr})";
     }
 
     /// <summary>

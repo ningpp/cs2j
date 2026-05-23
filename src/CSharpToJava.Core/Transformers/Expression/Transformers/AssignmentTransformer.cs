@@ -246,7 +246,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     ? HoistChainedPropertyAssignment(rightNode, context)
                     : facade.Transform(rightNode, context);
 
-                // Fix: Array assignment to IList/ICollection property - wrap with Arrays.asList()
+                // Fix: Array assignment to IList/ICollection property - wrap with ArrayHelper.toList()
                 if (context.SemanticModel != null && op == "=")
                 {
                     var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
@@ -431,7 +431,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     ? HoistChainedPropertyAssignment(rightNode, context)
                     : facade.Transform(rightNode, context);
 
-                // Fix: Array assignment to IList/ICollection property - wrap with Arrays.asList()
+                // Fix: Array assignment to IList/ICollection property - wrap with ArrayHelper.toList()
                 if (context.SemanticModel != null)
                 {
                     var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
@@ -556,7 +556,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         // Fix: Array assignment to IList/ICollection property or variable
         // In C#, arrays implement IList<T>, so assigning an array to an IList<T> variable/property is valid.
-        // In Java, arrays don't implement List<T>, so we must wrap with Arrays.asList().
+        // In Java, arrays don't implement List<T>, so we must wrap with ArrayHelper.toList().
         if (op == "=" && context.SemanticModel != null)
         {
             var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;

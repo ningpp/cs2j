@@ -320,8 +320,8 @@ public partial class StatementTransformer
                     retNamed.Name is "IList" or "ICollection" or "List" or "Collection"
                         or "IEnumerable" or "Iterable")
                 {
-                    // Primitive arrays (int[], double[], etc.) can't use Arrays.asList() directly
-                    // because Arrays.asList(int[]) returns List<int[]>, not List<Integer>.
+                    // Primitive arrays (int[], double[], etc.) can't use ArrayHelper.toList() directly
+                    // because ArrayHelper.toList(int[]) returns List<int[]>, not List<Integer>.
                     if (arrayType.ElementType.SpecialType is
                         SpecialType.System_Int32 or SpecialType.System_Int64 or
                         SpecialType.System_Double or SpecialType.System_Single or
@@ -338,8 +338,8 @@ public partial class StatementTransformer
                     }
                     else
                     {
-                        expr = $"Arrays.asList({expr})";
-                        context.AddImport("java.util.Arrays");
+                        expr = $"ArrayHelper.toList({expr})";
+                        context.AddImport("io.github.ningpp.compat.ArrayHelper");
                     }
                 }
             }

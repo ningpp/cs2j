@@ -16,7 +16,7 @@ namespace CSharpToJava.Tests;
 ///
 /// Fix: in the "var" block of StatementTransformer.TransformLocalDeclaration, detect when
 /// the semantic declared type is IEnumerable-like and the initializer is an array, then
-/// wrap with Arrays.asList() (reference types) or Arrays.stream().boxed().collect() (primitives).
+/// wrap with ArrayHelper.toList() (reference types) or Arrays.stream().boxed().collect() (primitives).
 /// </summary>
 public class ArrayToIterableTests
 {
@@ -52,8 +52,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // Reference type String[] → Arrays.asList()
-        Assert.Contains("Arrays.asList(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        // Reference type String[] → ArrayHelper.toList()
+        Assert.Contains("ArrayHelper.toList(arr)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -71,8 +71,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // Struct arrays are reference-type arrays in Java → Arrays.asList()
-        Assert.Contains("Arrays.asList(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        // Struct arrays are reference-type arrays in Java → ArrayHelper.toList()
+        Assert.Contains("ArrayHelper.toList(arr)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ class Sample
 
         Assert.True(result.Success);
         // Method argument wrapping works when method symbol is resolved
-        Assert.Contains("Arrays.asList", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("Arrays.asList", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -135,7 +135,7 @@ class Sample
 
         Assert.True(result.Success);
         // Must NOT double-wrap
-        Assert.DoesNotContain("Arrays.asList(Arrays.asList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArrayHelper.toList(ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

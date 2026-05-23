@@ -478,7 +478,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     /// <summary>
     /// When the constructor symbol is unavailable, scan each argument for array types.
     /// Any array argument passed to a Java collection constructor must be wrapped:
-    ///   • reference-type arrays  → Arrays.asList(expr)
+    ///   • reference-type arrays  → ArrayHelper.toList(expr)
     ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toCollection(() -> new ArrayList<>()))
     /// Returns the updated comma-separated argument string.
     /// </summary>
@@ -522,8 +522,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
             else if (LooksLikeArrayMemberAccess(arg.Expression) && !IsArrayAlreadyWrappedForCollectionArg(expr))
             {
-                context.AddImport("java.util.Arrays");
-                expr = $"Arrays.asList({expr})";
+                context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                expr = $"ArrayHelper.toList({expr})";
                 changed = true;
             }
             parts.Add(expr);
@@ -565,7 +565,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     private static bool IsArrayAlreadyWrappedForCollectionArg(string expr)
     {
         var trimmed = expr.Trim();
-        return trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
+        return trimmed.StartsWith("ArrayHelper.toList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
             || trimmed.StartsWith("IntStream.range(", StringComparison.Ordinal);
@@ -1172,13 +1173,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.Set");
                 return $"new {typeName}(Set.of({itemsStr}))";
             }
-            context.AddImport("java.util.Arrays");
-            return $"new {typeName}(Arrays.asList({itemsStr}))";
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            return $"new {typeName}(ArrayHelper.toList({itemsStr}))";
         }
 
         // Default: List-like
-        context.AddImport("java.util.Arrays");
-        return $"new {typeName}(Arrays.asList({itemsStr}))";
+        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+        return $"new {typeName}(ArrayHelper.toList({itemsStr}))";
     }
 
     /// <summary>

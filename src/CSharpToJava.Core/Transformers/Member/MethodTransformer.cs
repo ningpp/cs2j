@@ -660,11 +660,11 @@ public class MethodTransformer : IMemberTransformer
 
         var exprType = context.SemanticModel.GetTypeInfo(csExpression).Type;
 
-        // Case 1: Expression returns an array — wrap with Arrays.asList() or stream boxing
+        // Case 1: Expression returns an array — wrap with ArrayHelper.toList() or stream boxing
         if (exprType is IArrayTypeSymbol arrayType)
         {
             // Don't double-wrap
-            if (exprBody.Contains("Arrays.asList(") || exprBody.Contains("Arrays.stream(")
+            if (exprBody.Contains("ArrayHelper.toList(") || exprBody.Contains("Arrays.asList(") || exprBody.Contains("Arrays.stream(")
                 || exprBody.Contains("IntStream.range(") || exprBody.Contains(".collect("))
                 return exprBody;
             return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(exprBody, arrayType, context);
