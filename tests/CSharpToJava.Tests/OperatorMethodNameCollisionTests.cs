@@ -376,6 +376,153 @@ public struct Point
         Assert.Contains("p.X / c", code, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// operator+(Point,Point) → add(Point,Point) does NOT collide with Add(Point,int)
+    /// because the second parameter type differs (Point vs int). Same param count (2),
+    /// but different erased signature → no collision → user method stays camelCase.
+    /// </summary>
+    [Fact]
+    public void SameParamCount_DifferentTypes_NoCollision_StaysCamelCase()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public double X, Y;
+    public Point(double x, double y) { X = x; Y = y; }
+
+    public static Point operator +(Point a, Point b)
+    {
+        return new Point(a.X + b.X, a.Y + b.Y);
+    }
+
+    // Same param count (2) as operator+, but different 2nd param type (int ≠ Point)
+    public static Point Add(Point a, int b)
+    {
+        return new Point(a.X + b, a.Y + b);
+    }
+
+    // Call site that invokes Add — should use camelCase
+    public static Point Caller(Point p)
+    {
+        return Add(p, 5);
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        // Operator-generated method
+        Assert.Contains("public static Point add(Point a, Point b)", code, StringComparison.Ordinal);
+        // User method: no collision → stays camelCase
+        Assert.Contains("public static Point add(Point a, int b)", code, StringComparison.Ordinal);
+        // Call site uses camelCase
+        Assert.Contains("return add(p, 5)", code, StringComparison.Ordinal);
+        // PascalCase must NOT appear
+        Assert.DoesNotContain("public static Point Add(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("return Add(p", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// When a user-defined method collides with an operator (same name + same erased
+    /// signature), the operator body that calls the user method must use the PascalCase
+    /// name — not the camelCase operator name. Otherwise the operator recursively calls
+    /// itself, causing StackOverflowError at runtime.
+    ///
+    /// This is the scenario from PlaneTransformation.multiply() in MSAGL.
+    /// </summary>
+    [Fact]
+    public void OperatorBody_CallsCollidingUserMethod_UsesPascalCaseName()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public double X, Y;
+    public Point(double x, double y) { X = x; Y = y; }
+
+    // operator* delegates to Multiply
+    public static Point operator *(double c, Point p)
+    {
+        return Multiply(c, p);
+    }
+
+    // User method with actual implementation — collides with operator*
+    public static Point Multiply(double c, Point p)
+    {
+        return new Point(c * p.X, c * p.Y);
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        // Operator-generated method
+        Assert.Contains("public static Point multiply(double c, Point p)", code, StringComparison.Ordinal);
+        // User method renamed to PascalCase (collision resolution)
+        Assert.Contains("public static Point Multiply(double c, Point p)", code, StringComparison.Ordinal);
+        // Operator body MUST call Multiply (PascalCase), NOT multiply (itself → recursion)
+        Assert.Contains("return Multiply(c, p)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("return multiply(c, p)", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// When a class has multiple operator overloads with the same Java name but different
+    /// parameter types, the collision check must match parameter TYPES, not just count.
+    /// Example: Matrix has operator*(Matrix,Matrix) and operator*(Matrix,Point) — both
+    /// generate Java method "multiply" with 2 params. The user method Multiply(Matrix,Point)
+    /// collides ONLY with the second operator, not the first.
+    /// </summary>
+    [Fact]
+    public void MultipleOperators_OneCollidesByType_UsesPascalCaseForCorrectCall()
+    {
+        var result = Convert(@"
+public struct Matrix
+{
+    public double M00, M01, M02, M10, M11, M12;
+    public double X, Y;
+    public Matrix(double m00, double m01, double m02, double m10, double m11, double m12)
+    {
+        M00 = m00; M01 = m01; M02 = m02;
+        M10 = m10; M11 = m11; M12 = m12;
+        X = 0; Y = 0;
+    }
+
+    // operator* on Matrix×Matrix (2 params, both Matrix)
+    public static Matrix operator *(Matrix a, Matrix b)
+    {
+        return new Matrix(
+            a.M00 * b.M00 + a.M01 * b.M10, a.M00 * b.M01 + a.M01 * b.M11,
+            a.M00 * b.M02 + a.M01 * b.M12 + a.M02,
+            a.M10 * b.M00 + a.M11 * b.M10, a.M10 * b.M01 + a.M11 * b.M11,
+            a.M10 * b.M02 + a.M11 * b.M12 + a.M12);
+    }
+
+    // operator* on Matrix×Point (2 params, Matrix+Point) — delegates to user Multiply
+    public static Point operator *(Matrix a, Point p)
+    {
+        return Multiply(a, p);
+    }
+
+    // User method — same signature as Matrix×Point operator
+    public static Point Multiply(Matrix a, Point p)
+    {
+        return new Point(
+            a.M00 * p.X + a.M01 * p.Y + a.M02,
+            a.M10 * p.X + a.M11 * p.Y + a.M12);
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        // Both operators generate multiply with different erased signatures
+        Assert.Contains("multiply(Matrix a, Matrix b)", code, StringComparison.Ordinal);
+        Assert.Contains("multiply(Matrix a, Point p)", code, StringComparison.Ordinal);
+        // User Multiply(Matrix, Point) collides with operator*(Matrix, Point) — renamed to PascalCase
+        Assert.Contains("public static Point Multiply(Matrix a, Point p)", code, StringComparison.Ordinal);
+        // The Matrix×Point operator body calls Multiply (PascalCase), not multiply
+        Assert.Contains("return Multiply(a, p)", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

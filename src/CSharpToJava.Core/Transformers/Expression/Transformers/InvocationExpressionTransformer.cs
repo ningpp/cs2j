@@ -7,6 +7,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Utilities;
+using CSharpToJava.Core.Transformers.Member;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -386,6 +387,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var mapped = context.TypeMappings.MapMethod(typeName, originalName);
             if (mapped != null)
                 return ConversionContext.EscapeJavaKeyword(mapped);
+
+            // When a non-operator method's camelCase name would collide with an auto-generated
+            // operator method in the same class (e.g. Multiply -> multiply collides with
+            // operator *), keep the PascalCase name. The method declaration will be renamed
+            // to PascalCase by AddMethodIfNotDuplicate collision resolution, so the call site
+            // must use PascalCase too — otherwise it would incorrectly self-recurse into the
+            // operator method.
+            if (sym.MethodKind != MethodKind.UserDefinedOperator
+                && originalName.Length > 0 && char.IsUpper(originalName[0]))
+            {
+                var camelName = char.ToLowerInvariant(originalName[0]) + originalName[1..];
+                if (WouldCollideWithOperatorInType(sym.ContainingType, camelName, sym))
+                    return ConversionContext.EscapeJavaKeyword(originalName);
+            }
         }
 
         // Apply the same well-known renames + camelCase used in TransformMemberInvocation
@@ -2132,27 +2147,42 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // hand-crafted renames (e.g. Add → add) are never double-processed.
         if (methodName == originalMethodName)
         {
-            methodName = methodName switch
+            // When a non-operator method's camelCase name would collide with an auto-generated
+            // operator method in the same class, keep the PascalCase name — the method declaration
+            // will be renamed to PascalCase by AddMethodIfNotDuplicate collision resolution.
+            bool wouldCollideWithOp = false;
+            if (methodSymbol != null
+                && methodSymbol.MethodKind != MethodKind.UserDefinedOperator
+                && originalMethodName.Length > 0 && char.IsUpper(originalMethodName[0]))
             {
-                "GetHashCode"   => "hashCode",
-                "GetEnumerator" => "iterator",
-                "GetType"       => "getClass",
-                "Dispose"       => "close",
-                "ToLower"       => "toLowerCase",
-                "ToUpper"       => "toUpperCase",
-                "ToLowerInvariant" => "toLowerCase",
-                "ToUpperInvariant" => "toUpperCase",
-                // Math method names that differ from simple camelCase
-                // Note: "Sign" → "signum" is handled specifically for System.Math / System.MathF
-                // at the call site above (around line 1407).  Do NOT add a universal
-                // "Sign" → "signum" mapping here — it would rewrite custom types' Sign()
-                // methods too (e.g. ApproximateComparer.Sign()).
-                "Ceiling"       => "ceil",
-                "Truncate"      => "truncate",
-                _ when methodName.Length > 0
-                    => char.ToLowerInvariant(methodName[0]) + methodName[1..],
-                _ => methodName
-            };
+                var camelName = char.ToLowerInvariant(originalMethodName[0]) + originalMethodName[1..];
+                wouldCollideWithOp = WouldCollideWithOperatorInType(methodSymbol.ContainingType, camelName, methodSymbol);
+            }
+
+            if (!wouldCollideWithOp)
+            {
+                methodName = methodName switch
+                {
+                    "GetHashCode"   => "hashCode",
+                    "GetEnumerator" => "iterator",
+                    "GetType"       => "getClass",
+                    "Dispose"       => "close",
+                    "ToLower"       => "toLowerCase",
+                    "ToUpper"       => "toUpperCase",
+                    "ToLowerInvariant" => "toLowerCase",
+                    "ToUpperInvariant" => "toUpperCase",
+                    // Math method names that differ from simple camelCase
+                    // Note: "Sign" → "signum" is handled specifically for System.Math / System.MathF
+                    // at the call site above (around line 1407).  Do NOT add a universal
+                    // "Sign" → "signum" mapping here — it would rewrite custom types' Sign()
+                    // methods too (e.g. ApproximateComparer.Sign()).
+                    "Ceiling"       => "ceil",
+                    "Truncate"      => "truncate",
+                    _ when methodName.Length > 0
+                        => char.ToLowerInvariant(methodName[0]) + methodName[1..],
+                    _ => methodName
+                };
+            }
         }
 
         methodName = ConversionContext.EscapeJavaKeyword(methodName);
@@ -5220,6 +5250,43 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         if (type.AllInterfaces.Any(i => i.ToDisplayString().StartsWith(interfaceFullName))) return true;
         if (type.ToDisplayString().StartsWith(interfaceFullName)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether a camelCase Java method name would collide with an auto-generated
+    /// operator method in the given containing type. A real collision requires the same
+    /// Java name AND the same erased parameter signature (count + types). When true,
+    /// non-operator methods should keep their PascalCase name at call sites because
+    /// AddMethodIfNotDuplicate will rename the declaration to PascalCase.
+    /// </summary>
+    private static bool WouldCollideWithOperatorInType(INamedTypeSymbol? containingType, string camelCaseName, IMethodSymbol methodSymbol)
+    {
+        if (containingType == null) return false;
+        foreach (var member in containingType.GetMembers())
+        {
+            if (member is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } ms
+                && Member.OperatorTransformer.OpSymbolToJavaName.TryGetValue(ms.Name, out var opJavaName)
+                && opJavaName == camelCaseName
+                && ms.Parameters.Length == methodSymbol.Parameters.Length)
+            {
+                // Erased parameter types must also match for AddMethodIfNotDuplicate
+                // to flag this as a true collision.
+                bool typesMatch = true;
+                for (int i = 0; i < ms.Parameters.Length; i++)
+                {
+                    if (!SymbolEqualityComparer.Default.Equals(
+                        ms.Parameters[i].Type,
+                        methodSymbol.Parameters[i].Type))
+                    {
+                        typesMatch = false;
+                        break;
+                    }
+                }
+                if (typesMatch)
+                    return true;
+            }
+        }
         return false;
     }
 }
