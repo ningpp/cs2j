@@ -331,10 +331,6 @@ public final class Assert {
         }
     }
 
-    public static void isTrue(Boolean condition, String message, Object... args) {
-        isTrue(condition, formatMessage(message, args));
-    }
-
     // ── IsFalse ───────────────────────────────────────────────────────
 
     public static void isFalse(boolean condition) {
@@ -359,10 +355,6 @@ public final class Assert {
         if (!Boolean.FALSE.equals(condition)) {
             fail(format(message, "Expected condition to be false."));
         }
-    }
-
-    public static void isFalse(Boolean condition, String message, Object... args) {
-        isFalse(condition, formatMessage(message, args));
     }
 
     // ── IsNull ────────────────────────────────────────────────────────
