@@ -1437,9 +1437,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
         }
 
-        // Dictionary.TryGetValue(key, out value) -> containsKey check + get assignment.
-        // Must check containsKey FIRST to avoid NPE from auto-unboxing null to primitive
-        // when the out variable is a holder's .value field (e.g. IntHolder.value is int).
+        // Dictionary.TryGetValue(key, out value) -> containsKey check + out assignment.
+        // C# assigns the out variable on both success and failure.  Java definite
+        // assignment follows short-circuit branches, so the expression must assign
+        // in both arms while still checking containsKey before any primitive unboxing.
         if (originalMethodName == "TryGetValue"
             && node.ArgumentList.Arguments.Count == 2)
         {
@@ -1462,9 +1463,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     isHolder = context.TryGetActiveRefHolder(outHolderArg, out _);
             }
             var assignTarget = isHolder ? $"{outHolderArg}.value" : outHolderArg;
-            // containsKey && (assign = get(key)) == assign  — short-circuits safely:
-            // get() only runs when key exists, avoiding NPE from auto-unboxing null.
-            return $"({receiver}.containsKey({keyArg}) && ({assignTarget} = {receiver}.get({keyArg})) == {assignTarget})";
+            var defaultValue = GetTryGetValueOutDefault(outArg.Expression, context);
+
+            // Each branch has an assignment as the first evaluated operation, then
+            // collapses to the required boolean.  Objects.equals is used only as a
+            // sequencing vehicle so the assignment target is evaluated once per arm.
+            var successAssign = $"(java.util.Objects.equals(({assignTarget} = {receiver}.get({keyArg})), null) || true)";
+            var missAssign = $"(java.util.Objects.equals(({assignTarget} = {defaultValue}), null) && false)";
+            return $"({receiver}.containsKey({keyArg}) ? {successAssign} : {missAssign})";
         }
 
         // Fix: Array.GetLength(dim) → Java dimensional length access.
@@ -4574,6 +4580,73 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return true;
+    }
+
+    private static string GetTryGetValueOutDefault(ExpressionSyntax outExpression, ConversionContext context)
+    {
+        var typeSymbol = ResolveTryGetValueOutType(outExpression, context);
+        if (typeSymbol == null)
+            return "null";
+
+        var javaType = context.MapType(typeSymbol);
+        if (string.IsNullOrWhiteSpace(javaType))
+            return "null";
+
+        return GetDefaultValueForMappedType(javaType, typeSymbol, context);
+    }
+
+    private static ITypeSymbol? ResolveTryGetValueOutType(ExpressionSyntax outExpression, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return null;
+
+        if (outExpression is DeclarationExpressionSyntax decl)
+        {
+            var declType = context.SemanticModel.GetTypeInfo(decl.Type).Type
+                ?? context.SemanticModel.GetTypeInfo(decl).Type;
+            if (declType != null)
+                return declType;
+        }
+
+        var typeInfo = context.SemanticModel.GetTypeInfo(outExpression);
+        return typeInfo.Type ?? typeInfo.ConvertedType;
+    }
+
+    private static string GetDefaultValueForMappedType(string javaType, ITypeSymbol typeSymbol, ConversionContext context)
+    {
+        if (typeSymbol is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
+            return "null";
+
+        return javaType switch
+        {
+            "int" or "Integer" => "0",
+            "long" or "Long" => "0L",
+            "short" or "Short" => "(short)0",
+            "byte" or "Byte" => "(byte)0",
+            "float" or "Float" => "0.0f",
+            "double" or "Double" => "0.0",
+            "boolean" or "Boolean" => "false",
+            "char" or "Character" => "'\\0'",
+            _ => GetNonPrimitiveDefaultValue(javaType, typeSymbol, context)
+        };
+    }
+
+    private static string GetNonPrimitiveDefaultValue(string javaType, ITypeSymbol typeSymbol, ConversionContext context)
+    {
+        if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            && !context.IsFlagsEnum(enumType.Name)
+            && !context.IsFlagsEnum(enumType.ToDisplayString()))
+        {
+            return $"{javaType}.values()[0]";
+        }
+
+        if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Struct } namedStruct
+            && namedStruct.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T)
+        {
+            return $"new {javaType}()";
+        }
+
+        return "null";
     }
 
     /// <summary>

@@ -134,4 +134,37 @@ class Curve
         // The REF holder for x must be new ObjectHolder<>(x) not new ObjectHolder<>()
         Assert.Contains("new ObjectHolder<>(x)", code);
     }
+
+    /// <summary>
+    /// Regression for MSAGL Curve.CrossOverIntervals:
+    /// a non-ref method parameter passed to a ref method is already initialized
+    /// and must seed the holder with the current parameter value.
+    /// </summary>
+    [Fact]
+    public void RefParameter_FromOrdinaryParameter_InitializesHolderWithCurrentValue()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+
+class Curve
+{
+    static List<string> CrossOverIntervals(List<string> intersections)
+    {
+        GoDeeper(ref intersections);
+        return intersections;
+    }
+
+    static void GoDeeper(ref List<string> intersections)
+    {
+        intersections.Add(""x"");
+    }
+}");
+
+        Assert.True(result.Success, "Conversion should succeed");
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
+        Assert.DoesNotContain("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>();", code);
+        Assert.Contains("intersections = _intersectionsRef.value;", code);
+    }
 }

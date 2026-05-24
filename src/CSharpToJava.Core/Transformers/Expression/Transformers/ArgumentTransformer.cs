@@ -330,30 +330,32 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
                 var refHolderType = HolderTypeResolver.GetHolderType(javaType);
-                // Determine whether the variable has a known value at this point.
-                // Prefer Roslyn DataFlowAnalysis: it tracks assignments through out
-                // parameters, so `out` then `ref` on the same variable correctly
-                // passes the out-assigned value into the ref holder.
-                var localSym = context.SemanticModel?.GetSymbolInfo(refIdent).Symbol as ILocalSymbol;
-                bool isDefinitelyAssigned = false;
-                if (localSym != null && context.SemanticModel != null)
+                // `ref` is read/write: the callee must receive the caller's current value.
+                // Parameters are always initialized on method entry. Locals need a definite
+                // assignment check because `out` variables intentionally use empty holders.
+                var semanticModel = context.SemanticModel;
+                var symbol = semanticModel?.GetSymbolInfo(refIdent).Symbol;
+                bool hasCurrentValue = symbol is IParameterSymbol;
+                if (!hasCurrentValue && symbol is ILocalSymbol localSym && semanticModel != null)
                 {
                     var stmt = refIdent.FirstAncestorOrSelf<StatementSyntax>();
                     if (stmt != null)
                     {
-                        var dfa = context.SemanticModel.AnalyzeDataFlow(stmt);
-                        isDefinitelyAssigned = dfa.Succeeded && dfa.DefinitelyAssignedOnEntry.Contains(localSym);
+                        var dfa = semanticModel.AnalyzeDataFlow(stmt);
+                        hasCurrentValue = dfa != null
+                            && dfa.Succeeded
+                            && dfa.DefinitelyAssignedOnEntry.Contains(localSym);
                     }
                     // Fallback: when DFA is unavailable, check the declaration initializer
-                    if (!isDefinitelyAssigned)
+                    if (!hasCurrentValue)
                     {
-                        isDefinitelyAssigned = localSym.DeclaringSyntaxReferences
+                        hasCurrentValue = localSym.DeclaringSyntaxReferences
                             .Select(r => r.GetSyntax())
                             .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax>()
                             .All(d => d.Initializer != null);
                     }
                 }
-                var refHolderInit = isDefinitelyAssigned
+                var refHolderInit = hasCurrentValue
                     ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName)
                     : HolderTypeResolver.GetHolderInstantiation(refHolderType);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");

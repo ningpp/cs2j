@@ -209,7 +209,7 @@ class Sample {
     public void TryGetValue_ExpressionContext_UsesContainsKeyFirst()
     {
         // TryGetValue used as an expression (not in if condition) should use
-        // containsKey && get() order to avoid NPE for primitive holders.
+        // containsKey before get() to avoid NPE for primitive holders.
         var result = Convert(@"
 using System.Collections.Generic;
 class Sample {
@@ -225,6 +225,73 @@ class Sample {
         Assert.Contains("containsKey(", code, StringComparison.Ordinal);
         // Must NOT use the old pattern: get() != null || containsKey()
         Assert.DoesNotContain("!= null ||", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryGetValue_TernaryWithReferenceOut_AssignsOutVariableOnMiss()
+    {
+        // Regression for MSAGL SplineRouter.FillVisibilityGraphUnderShape:
+        // C# TryGetValue assigns the out variable even when the key is absent.
+        // Java must therefore assign null in the false arm of expression-form TryGetValue,
+        // otherwise a later use of the local fails definite-assignment analysis.
+        var result = Convert(@"
+using System.Collections.Generic;
+class TightLooseCouple { public string LooseShape; }
+class Shape { }
+class Sample {
+    Dictionary<Shape, TightLooseCouple> map;
+    string M(Shape shape, string looseRoot) {
+        TightLooseCouple tightLooseCouple;
+        string looseBoundary = map.TryGetValue(shape, out tightLooseCouple) ? tightLooseCouple.LooseShape : null;
+        string looseShape = tightLooseCouple != null ? tightLooseCouple.LooseShape : looseRoot;
+        return looseShape;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        Assert.Contains("map.containsKey(shape) ?", code, StringComparison.Ordinal);
+        Assert.Contains("(tightLooseCouple = map.get(shape))", code, StringComparison.Ordinal);
+        Assert.Contains("(tightLooseCouple = null)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryGetValue_ExpressionContext_ValueTypeLocal_AssignsDefaultOnMiss()
+    {
+        // Locals used as out variables for value-type dictionary values are boxed in Java,
+        // but C# still requires default(T) on miss rather than null.
+        var result = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    int M(Dictionary<string, int> d) {
+        int value;
+        bool found = d.TryGetValue(""a"", out value);
+        return found ? value : value;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        Assert.Contains("(value = d.get(\"a\"))", code, StringComparison.Ordinal);
+        Assert.Contains("(value = 0)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("(value = null)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryGetValue_ExpressionContext_NullableValueTypeLocal_AssignsNullOnMiss()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    int? M(Dictionary<string, int?> d) {
+        int? value;
+        bool found = d.TryGetValue(""a"", out value);
+        return value;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        Assert.Contains("(value = d.get(\"a\"))", code, StringComparison.Ordinal);
+        Assert.Contains("(value = null)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("(value = 0)", code, StringComparison.Ordinal);
     }
 
     [Fact]
