@@ -276,9 +276,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
             if (!isLhsOfAssignment)
             {
-                // Special case: IEnumerator.Current → next() (Java Iterator convention)
+                // C# IEnumerator.Current is a stable read after MoveNext().
                 if (identProp.Name == "Current" && IsEnumeratorLikeType(identProp.ContainingType))
-                    return "next()";
+                    return "getCurrent()";
 
                 var getter = "get" + char.ToUpperInvariant(identProp.Name[0]) + identProp.Name[1..];
                 return $"{getter}()";
@@ -797,7 +797,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
-                return $"{target}.next()";
+                return $"{target}.getCurrent()";
 
             var propContainer = prop.ContainingType;
             bool isGenericDictionaryLike =
@@ -908,13 +908,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     var recordAccessor = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"{target}.{recordAccessor}()";
                 }
-                // Special case: IEnumerator.Current → next() (Java Iterator convention)
+                // C# IEnumerator.Current is a stable read after MoveNext().
                 if (prop.Name == "Current"
                     && (IsEnumeratorLikeType(prop.ContainingType)
                         || IsEnumeratorLikeType(receiverType)
                         || (receiverType != null
                             && context.TypeMappings.MapType(receiverType.ToDisplayString()) is "Iterator" or "Iterator<T>")))
-                    return $"{target}.next()";
+                    return $"{target}.getCurrent()";
 
                 var getter = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
                 return $"{target}.{getter}()";
@@ -940,7 +940,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (exprType != null)
             {
                 if (memberName == "Current" && IsEnumeratorLikeType(exprType))
-                    return $"{target}.next()";
+                    return $"{target}.getCurrent()";
 
                 if (memberName == "Length" && IsSystemStringType(exprType))
                     return $"{target}.length()";
@@ -1034,7 +1034,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        if (memberName == "Current") return $"{target}.next()";
+        if (memberName == "Current") return $"{target}.getCurrent()";
         if (memberName == "Values") return $"{target}.values()";
         if (memberName == "Keys") return $"{target}.keySet()";
 
@@ -1172,7 +1172,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (preferredSymbol is IPropertySymbol propertySymbol && !IsAssignmentLeftHandSide(receiver))
         {
             if (propertySymbol.Name == "Current" && IsEnumeratorLikeType(propertySymbol.ContainingType))
-                transformedReceiver = "next()";
+                transformedReceiver = "getCurrent()";
             else
                 transformedReceiver = GetterCall(propertySymbol.Name);
             return true;
@@ -1454,7 +1454,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     if (memberName == "Current"
                         && (IsEnumeratorLikeType(foundProp.ContainingType)
                             || IsEnumeratorLikeType(namedReceiver)))
-                        return $"{target}.next()";
+                        return $"{target}.getCurrent()";
 
                     // Default: generate getXxx() getter
                     var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];

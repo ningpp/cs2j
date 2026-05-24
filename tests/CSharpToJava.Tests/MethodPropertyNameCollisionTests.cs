@@ -126,6 +126,125 @@ class Container
     }
 
     /// <summary>
+    /// The declaration-side collision fix must be mirrored at call sites. Otherwise
+    /// a C# call to SetFirstEdge(...) is emitted as setFirstEdge(...), which invokes
+    /// the auto-generated property setter instead of the user method.
+    /// </summary>
+    [Fact]
+    public void SetterAndMethodCollision_CallSiteUsesRenamedUserMethod()
+    {
+        var result = Convert(@"
+namespace Demo
+{
+    class Path
+    {
+        internal PathEdge FirstEdge { get; set; }
+        internal PathEdge LastEdge { get; set; }
+
+        internal void SetFirstEdge(PathEdge edge)
+        {
+            LastEdge = FirstEdge = edge;
+            edge.Path = this;
+        }
+    }
+
+    class PathEdge
+    {
+        internal Path Path { get; set; }
+    }
+
+    class Walker
+    {
+        internal void Walk(Path path, PathEdge edge)
+        {
+            path.SetFirstEdge(edge);
+        }
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        Assert.Contains("void SetFirstEdge(PathEdge edge)", code, StringComparison.Ordinal);
+        Assert.Contains("path.SetFirstEdge(edge)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("path.setFirstEdge(edge)", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Private auto-property accessors are dropped in favor of an accessible user method
+    /// with the same Java Bean name. Calls must therefore keep camelCase.
+    /// </summary>
+    [Fact]
+    public void PrivateSetterAndMethodCollision_CallSiteUsesCamelCaseUserMethod()
+    {
+        var result = Convert(@"
+namespace Demo
+{
+    class Constraint
+    {
+        internal int VectorIndex { get; private set; }
+
+        internal void SetVectorIndex(int vectorIndex)
+        {
+            this.VectorIndex = vectorIndex;
+        }
+    }
+
+    class ConstraintVector
+    {
+        internal void Add(Constraint constraint)
+        {
+            constraint.SetVectorIndex(1);
+        }
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        Assert.Contains("void setVectorIndex(int vectorIndex)", code, StringComparison.Ordinal);
+        Assert.Contains("constraint.setVectorIndex(1)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("constraint.SetVectorIndex(1)", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The private-accessor collision rule must be independent of declaration order.
+    /// </summary>
+    [Fact]
+    public void PrivateSetterAndMethodCollision_MethodBeforeProperty_KeepsCamelCaseUserMethod()
+    {
+        var result = Convert(@"
+namespace Demo
+{
+    class Constraint
+    {
+        internal void SetVectorIndex(int vectorIndex)
+        {
+            this.VectorIndex = vectorIndex;
+        }
+
+        internal int VectorIndex { get; private set; }
+    }
+
+    class ConstraintVector
+    {
+        internal void Add(Constraint constraint)
+        {
+            constraint.SetVectorIndex(1);
+        }
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        Assert.Contains("void setVectorIndex(int vectorIndex)", code, StringComparison.Ordinal);
+        Assert.Contains("constraint.setVectorIndex(1)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("void SetVectorIndex(int vectorIndex)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("constraint.SetVectorIndex(1)", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Edge case: method has same name as property setter but DIFFERENT parameter types.
     /// Since ErasedParamSig checks parameter types (not just count), these should NOT collide
     /// and both should keep the same name as valid Java overloads.

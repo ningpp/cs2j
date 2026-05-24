@@ -22,11 +22,11 @@ public class IteratorBridgeTests
     }
 
     /// <summary>
-    /// C# IEnumerator with explicit interface impl: MoveNext renamed to hasNext by TypeMappings.
-    /// The converter must NOT just rename — it must restructure to lookahead pattern.
+    /// C# IEnumerator with explicit interface impl maps to CSharpEnumerator<T>.
+    /// The converted type must also expose Java Iterator-compatible hasNext()/next().
     /// </summary>
     [Fact]
-    public void ExplicitIEnumerator_MoveNextRenamed_MustUseLookahead()
+    public void ExplicitIEnumerator_ImplementsCSharpEnumeratorAndJavaIteratorBridge()
     {
         var r = Convert(@"
 using System.Collections;
@@ -51,19 +51,13 @@ class MyEnumerator : IEnumerator<int>
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        // When MoveNext is explicit interface impl, TypeMappings renames it to hasNext.
-        // The bridge must restructure: hasNext becomes private _advance(),
-        // and new idempotent hasNext() + next() are generated with lookahead caching.
-        Assert.Contains("private boolean _advance()", code);
-        Assert.Contains("_lookaheadValid", code);
-        Assert.Contains("_lookaheadValue", code);
+        Assert.Contains("implements CSharpEnumerator<Integer>", code);
+        Assert.Contains("public boolean moveNext()", code);
+        Assert.Contains("public Integer getCurrent()", code);
+        Assert.Contains("_iteratorHasNext", code);
         Assert.Contains("public boolean hasNext()", code);
         Assert.Contains("public Integer next()", code);
-        Assert.Contains("_lookaheadValid = false", code);
-        Assert.Contains("_lookaheadValue = _advance()", code);
-
-        // reset() must also clear lookahead
-        Assert.Contains("_lookaheadValid = false;", code);
+        Assert.Contains("_iteratorHasNext = false;", code);
     }
 
     /// <summary>
@@ -95,8 +89,197 @@ class MyIter : IEnumerator<string>
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        // hasNext must delegate to _advance, not contain advancing logic directly
-        Assert.Contains("private boolean _advance()", code);
-        Assert.Contains("_lookaheadValue = _advance()", code);
+        // hasNext must cache the MoveNext result and be safe to call repeatedly.
+        Assert.Contains("if (_iteratorHasNext) return true;", code);
+        Assert.Contains("_iteratorHasNext = moveNext()", code);
+        Assert.Contains("public String next()", code);
+    }
+
+    /// <summary>
+    /// C# IEnumerator.Current is a stable read after MoveNext(); Java Iterator.next()
+    /// advances, so explicit GetEnumerator/MoveNext/Current code must use a C#-style
+    /// enumerator adapter instead of translating Current to next().
+    /// </summary>
+    [Fact]
+    public void ExplicitGetEnumerator_CurrentDoesNotAdvance()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+
+class Walker
+{
+    public int Sum(IEnumerable<int> values)
+    {
+        var en = values.GetEnumerator();
+        en.MoveNext();
+        var first = en.Current;
+        var again = en.Current;
+        return first + again;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("CSharpEnumerator.from(values.iterator())", code);
+        Assert.Contains("en.moveNext()", code);
+        Assert.Contains("en.getCurrent()", code);
+        Assert.DoesNotContain("en.next()", code);
+    }
+
+    [Fact]
+    public void ExplicitIEnumeratorLocalWithoutInitializer_UsesCSharpEnumeratorType()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+
+class Walker
+{
+    public int First(IEnumerable<int> values)
+    {
+        IEnumerator<int> en;
+        en = values.GetEnumerator();
+        en.MoveNext();
+        return en.Current;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("CSharpEnumerator<Integer> en;", code);
+        Assert.Contains("en = CSharpEnumerator.from(values.iterator())", code);
+        Assert.Contains("en.moveNext()", code);
+        Assert.Contains("en.getCurrent()", code);
+        Assert.DoesNotContain("Iterator<Integer> en;", code);
+    }
+
+    [Fact]
+    public void ExplicitIEnumeratorParameter_UsesCSharpEnumeratorType()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+
+class Walker
+{
+    public int First(IEnumerator<int> en)
+    {
+        return en.MoveNext() ? en.Current : 0;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("int first(CSharpEnumerator<Integer> en)", code);
+        Assert.Contains("en.moveNext()", code);
+        Assert.Contains("en.getCurrent()", code);
+        Assert.DoesNotContain("Iterator<Integer> en", code);
+    }
+
+    [Fact]
+    public void ExplicitIEnumeratorFieldAndConstructor_UseCSharpEnumeratorType()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+
+class Walker
+{
+    private IEnumerator<int> en;
+
+    public Walker(IEnumerator<int> en)
+    {
+        this.en = en;
+    }
+
+    public int First()
+    {
+        en.MoveNext();
+        return en.Current;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("private CSharpEnumerator<Integer> en;", code);
+        Assert.Contains("public Walker(CSharpEnumerator<Integer> en)", code);
+        Assert.Contains("this.en = en;", code);
+        Assert.Contains("en.moveNext()", code);
+        Assert.Contains("en.getCurrent()", code);
+        Assert.DoesNotContain("Iterator<Integer> en", code);
+    }
+
+    [Fact]
+    public void YieldIteratorMethodOnEnumerable_UsesIterableElementType()
+    {
+        var r = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+class Numbers : IEnumerable<int>
+{
+    public IEnumerator<int> GetEnumerator()
+    {
+        yield return 1;
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("implements Iterable<Integer>", code);
+        Assert.Contains("public CSharpEnumerator<Integer> iterator()", code);
+        Assert.Contains("ArrayList<Integer> _yieldResult", code);
+        Assert.Contains("return CSharpEnumerator.from(_yieldResult.iterator())", code);
+        Assert.DoesNotContain("Iterator<Object> iterator()", code);
+    }
+
+    [Fact]
+    public void PatternGetEnumeratorClass_StillImplementsIterable()
+    {
+        var r = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+class SuccEnumerator : IEnumerator<int>
+{
+    public bool MoveNext() { return false; }
+    public int Current { get { return 0; } }
+    object IEnumerator.Current { get { return Current; } }
+    public void Reset() { }
+    public void Dispose() { }
+}
+
+class Succ
+{
+    public IEnumerator<int> GetEnumerator()
+    {
+        return new SuccEnumerator();
+    }
+}
+
+class Walker
+{
+    public int Sum()
+    {
+        var sum = 0;
+        foreach (int v in new Succ())
+            sum += v;
+        return sum;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("class Succ implements Iterable<Integer>", code);
+        Assert.Contains("public CSharpEnumerator<Integer> iterator()", code);
+        Assert.Contains("for (int v : new Succ())", code);
     }
 }

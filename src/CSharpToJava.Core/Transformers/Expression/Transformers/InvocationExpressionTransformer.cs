@@ -398,8 +398,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && originalName.Length > 0 && char.IsUpper(originalName[0]))
             {
                 var camelName = char.ToLowerInvariant(originalName[0]) + originalName[1..];
-                if (WouldCollideWithOperatorInType(sym.ContainingType, camelName, sym))
+                if (WouldCollideWithOperatorInType(sym.ContainingType, camelName, sym)
+                    || WouldCollideWithPropertyAccessorInType(sym.ContainingType, camelName, sym, context))
+                {
                     return ConversionContext.EscapeJavaKeyword(originalName);
+                }
             }
         }
 
@@ -544,7 +547,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (originalMethodName == "GetEnumerator" && IsDictionaryLikeExpression(memberAccess.Expression, context))
         {
-            return $"{receiver}.entrySet().iterator()";
+            context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
+            return $"CSharpEnumerator.from({receiver}.entrySet().iterator())";
+        }
+
+        if (originalMethodName == "GetEnumerator" && IsExplicitEnumeratorGetEnumeratorInvocation(node, context))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
+            return $"CSharpEnumerator.from({BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)})";
         }
 
         // C# Type.GetMethod(name, BindingFlags) → Java Class.getDeclaredMethod(name).
@@ -667,7 +677,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (originalMethodName == "MoveNext" && node.ArgumentList.Arguments.Count == 0
             && IsEnumeratorMoveNextInvocation(node, context))
         {
-            return $"{receiver}.hasNext()";
+            return $"{receiver}.moveNext()";
         }
 
         // Java21+ semantic mapping for System.Random.Next overloads.
@@ -2171,15 +2181,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // operator method in the same class, keep the PascalCase name — the method declaration
             // will be renamed to PascalCase by AddMethodIfNotDuplicate collision resolution.
             bool wouldCollideWithOp = false;
+            bool wouldCollideWithPropertyAccessor = false;
             if (methodSymbol != null
                 && methodSymbol.MethodKind != MethodKind.UserDefinedOperator
                 && originalMethodName.Length > 0 && char.IsUpper(originalMethodName[0]))
             {
                 var camelName = char.ToLowerInvariant(originalMethodName[0]) + originalMethodName[1..];
                 wouldCollideWithOp = WouldCollideWithOperatorInType(methodSymbol.ContainingType, camelName, methodSymbol);
+                wouldCollideWithPropertyAccessor = WouldCollideWithPropertyAccessorInType(
+                    methodSymbol.ContainingType,
+                    camelName,
+                    methodSymbol,
+                    context);
             }
 
-            if (!wouldCollideWithOp)
+            if (!wouldCollideWithOp && !wouldCollideWithPropertyAccessor)
             {
                 methodName = methodName switch
                 {
@@ -5142,6 +5158,58 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return t.AllInterfaces.Any(IsEnumerator);
     }
 
+    private static bool IsExplicitEnumeratorGetEnumeratorInvocation(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        var method = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        if (method == null || method.Name != "GetEnumerator" || method.Parameters.Length != 0)
+            return false;
+
+        return IsCSharpEnumeratorType(method.ReturnType);
+    }
+
+    private static string BuildIteratorExpressionForExplicitGetEnumerator(
+        string receiver,
+        ExpressionSyntax receiverSyntax,
+        ConversionContext context)
+    {
+        var receiverType = context.SemanticModel?.GetTypeInfo(receiverSyntax).Type;
+        if (receiverType is IArrayTypeSymbol arrayType)
+        {
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            return $"ArrayHelper.toList({receiver}).iterator()";
+        }
+
+        return $"{receiver}.iterator()";
+    }
+
+    private static bool IsCSharpEnumeratorType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        return IsCSharpEnumeratorNamedType(named);
+    }
+
+    private static bool IsCSharpEnumeratorNamedType(INamedTypeSymbol type)
+    {
+        static bool IsEnumerator(INamedTypeSymbol nt)
+        {
+            var ns = nt.ContainingNamespace?.ToDisplayString();
+            return nt.Name == "IEnumerator"
+                && (ns is "System.Collections" or "System.Collections.Generic");
+        }
+
+        if (IsEnumerator(type))
+            return true;
+
+        var original = type.OriginalDefinition;
+        if (!SymbolEqualityComparer.Default.Equals(original, type) && IsEnumerator(original))
+            return true;
+
+        return type.AllInterfaces.Any(iface =>
+            IsEnumerator(iface) || IsEnumerator(iface.OriginalDefinition));
+    }
+
     private static bool IsStaticNullSafeEqualsMethod(IMethodSymbol? methodSymbol)
     {
         if (methodSymbol is null || !methodSymbol.IsStatic || methodSymbol.Name != "Equals" || methodSymbol.Parameters.Length != 2)
@@ -5375,5 +5443,60 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// Mirrors ClassTransformer.AddMethodIfNotDuplicateInternal for user methods whose
+    /// normal camelCase Java name collides with an auto-generated property accessor.
+    /// In that case the declaration is renamed back to PascalCase, so call sites must
+    /// keep PascalCase as well.
+    /// </summary>
+    private static bool WouldCollideWithPropertyAccessorInType(
+        INamedTypeSymbol? containingType,
+        string camelCaseName,
+        IMethodSymbol methodSymbol,
+        ConversionContext context)
+    {
+        if (containingType == null) return false;
+
+        foreach (var member in containingType.GetMembers())
+        {
+            if (member is not IPropertySymbol property)
+                continue;
+
+            var propertyName = ConversionContext.EscapeJavaKeyword(property.Name);
+            var accessorSuffix = ToPascalCase(propertyName);
+
+            if (property.GetMethod != null
+                && camelCaseName == "get" + accessorSuffix
+                && methodSymbol.Parameters.Length == 0)
+            {
+                return !AccessorIsPrivate(property.GetMethod, methodSymbol);
+            }
+
+            if (property.SetMethod != null
+                && camelCaseName == "set" + accessorSuffix
+                && methodSymbol.Parameters.Length == 1
+                && ErasedJavaType(context.MapType(methodSymbol.Parameters[0].Type))
+                    == ErasedJavaType(context.MapType(property.Type)))
+            {
+                return !AccessorIsPrivate(property.SetMethod, methodSymbol);
+            }
+        }
+
+        return false;
+    }
+
+    private static bool AccessorIsPrivate(IMethodSymbol accessor, IMethodSymbol methodSymbol)
+        => accessor.DeclaredAccessibility == Accessibility.Private
+            && methodSymbol.DeclaredAccessibility != Accessibility.Private;
+
+    private static string ToPascalCase(string name)
+        => string.IsNullOrEmpty(name) ? name : char.ToUpperInvariant(name[0]) + name[1..];
+
+    private static string ErasedJavaType(string type)
+    {
+        var idx = type.IndexOf('<');
+        return idx >= 0 ? type[..idx].TrimEnd() : type;
     }
 }

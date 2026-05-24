@@ -604,7 +604,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (symbol is IPropertySymbol asProp)
             {
                 if (asProp.Name == "Current" && IsEnumeratorRelated(asProp.ContainingType))
-                    return $"{receiver}.next()";
+                    return $"{receiver}.getCurrent()";
                 var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
                 return $"{receiver}.{getter}()";
             }
@@ -624,7 +624,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (recvType is INamedTypeSymbol { TypeKind: not TypeKind.Error } named)
             {
                 if (memberName == "Current" && IsEnumeratorRelated(named))
-                    return $"{receiver}.next()";
+                    return $"{receiver}.getCurrent()";
                 foreach (var m in named.GetMembers(memberName))
                 {
                     if (m is IPropertySymbol)
@@ -642,7 +642,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if ((recvType == null || recvType.TypeKind == TypeKind.Error) && char.IsUpper(memberName[0]))
             {
                 if (memberName == "Current")
-                    return $"{receiver}.next()";
+                    return $"{receiver}.getCurrent()";
                 var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
                 return $"{receiver}.{getter}()";
             }

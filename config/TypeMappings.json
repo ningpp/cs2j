@@ -380,9 +380,9 @@
                          },
                          {
                              "csharp":  "System.Collections.IEnumerator",
-                             "java":  "Iterator",
+                             "java":  "CSharpEnumerator",
                              "imports":  [
-                                             "java.util.Iterator"
+                                             "io.github.ningpp.compat.CSharpEnumerator"
                                          ]
                          },
                          {
@@ -415,9 +415,9 @@
                          },
                          {
                              "csharp":  "System.Collections.Generic.IEnumerator`1",
-                             "java":  "Iterator",
+                             "java":  "CSharpEnumerator",
                              "imports":  [
-                                             "java.util.Iterator"
+                                             "io.github.ningpp.compat.CSharpEnumerator"
                                          ]
                          },
                          {
@@ -2035,22 +2035,22 @@
                            {
                                "type":  "System.Collections.Generic.IEnumerator`1",
                                "method":  "MoveNext",
-                               "javaMethod":  "hasNext"
+                               "javaMethod":  "moveNext"
                            },
                            {
                                "type":  "System.Collections.Generic.IEnumerator`1",
                                "method":  "Current",
-                               "javaMethod":  "next"
+                               "javaMethod":  "getCurrent"
                            },
                            {
                                "type":  "System.Collections.IEnumerator",
                                "method":  "MoveNext",
-                               "javaMethod":  "hasNext"
+                               "javaMethod":  "moveNext"
                            },
                            {
                                "type":  "System.Collections.IEnumerator",
                                "method":  "Current",
-                               "javaMethod":  "next"
+                               "javaMethod":  "getCurrent"
                            },
                            {
                                "type":  "System.Collections.Generic.IComparer",

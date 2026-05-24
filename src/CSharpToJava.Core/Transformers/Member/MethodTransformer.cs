@@ -113,11 +113,12 @@ public class MethodTransformer : IMemberTransformer
                 context.IsInYieldMethod = true;
                 context.AddImport("java.util.ArrayList");
                 var elemType = ExtractElementType(javaMethod.ReturnType);
+                elemType ??= ExtractCSharpEnumeratorElementType(methodInfo?.ReturnType, context);
                 bool isIteratorReturn = javaMethod.Name == "iterator";
                 if (isIteratorReturn)
                 {
-                    context.AddImport("java.util.Iterator");
-                    javaMethod.ReturnType = $"Iterator<{elemType ?? "Object"}>";
+                    context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
+                    javaMethod.ReturnType = $"CSharpEnumerator<{elemType ?? "Object"}>";
                 }
                 else
                 {
@@ -143,7 +144,7 @@ public class MethodTransformer : IMemberTransformer
                 }
 
                 var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
-                var returnStmt = isIteratorReturn ? "return _yieldResult.iterator();" : "return _yieldResult;";
+                var returnStmt = isIteratorReturn ? "return CSharpEnumerator.from(_yieldResult.iterator());" : "return _yieldResult;";
                 javaMethod.Body = $"{listType} _yieldResult = new {listType}();\n        {body}\n        {returnStmt}";
                 context.IsInYieldMethod = false;
             }
@@ -564,8 +565,30 @@ public class MethodTransformer : IMemberTransformer
     private static string? ExtractElementType(string javaType)
     {
         var m = System.Text.RegularExpressions.Regex.Match(javaType,
-            @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
+            @"^(?:Iterable|Iterator|CSharpEnumerator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
         return m.Success ? m.Groups[1].Value : null;
+    }
+
+    private static string? ExtractCSharpEnumeratorElementType(ITypeSymbol? csharpType, ConversionContext context)
+    {
+        if (csharpType is not INamedTypeSymbol namedType)
+            return null;
+
+        static bool IsGenericEnumerator(INamedTypeSymbol type)
+            => type.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+               && type.Name == "IEnumerator"
+               && type.TypeArguments.Length == 1;
+
+        if (IsGenericEnumerator(namedType))
+            return context.MapType(namedType.TypeArguments[0]);
+
+        foreach (var iface in namedType.AllInterfaces)
+        {
+            if (IsGenericEnumerator(iface))
+                return context.MapType(iface.TypeArguments[0]);
+        }
+
+        return null;
     }
 
     /// <summary>
