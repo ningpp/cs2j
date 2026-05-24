@@ -4455,8 +4455,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             javaType = "Object";
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
-            // Java cannot create typed arrays for type parameters due to erasure;
-            // use lambda-based toArray with unchecked cast: toArray(size -> (T[]) new Object[size])
+            if (TryBuildTypeParameterArrayGenerator(elementType, javaType, context, out var generator))
+                return $"{receiver}.toArray({generator})";
+
             return $"{receiver}.toArray(size -> ({javaType}[]) new Object[size])";
         }
         if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
@@ -4485,9 +4486,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
-            // Java cannot create typed arrays for type parameters due to erasure;
-            // use lambda-based toArray with unchecked cast
             var javaTypeParam = context.MapType(elementType);
+            if (TryBuildTypeParameterArrayGenerator(elementType, javaTypeParam, context, out var generator))
+                return $"{receiver}.stream().toArray({generator})";
+
             return $"{receiver}.stream().toArray(size -> ({javaTypeParam}[]) new Object[size])";
         }
         var javaType = context.MapType(elementType);
@@ -4499,6 +4501,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return $"{receiver}.toArray()";
+    }
+
+    private static bool TryBuildTypeParameterArrayGenerator(
+        ITypeSymbol elementType,
+        string javaType,
+        ConversionContext context,
+        out string generator)
+    {
+        generator = "";
+        if (elementType is not ITypeParameterSymbol typeParameter)
+            return false;
+
+        if (!context.TryGetRuntimeClassParameter(typeParameter.Name, out var runtimeClassParameter))
+            return false;
+
+        generator = $"size -> ({javaType}[]) java.lang.reflect.Array.newInstance({runtimeClassParameter}, size)";
+        return true;
     }
 
     private static bool TryTransformArrayToArrayCopy(

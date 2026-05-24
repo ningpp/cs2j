@@ -433,6 +433,55 @@ class Demo<T> {
         Assert.DoesNotContain("Array.newInstance", code);
     }
 
+    [Fact]
+    public void LinqToArrayReturningClassTypeParameterArray_UsesRuntimeClassField()
+    {
+        var result = Convert("""
+using System.Collections.Generic;
+using System.Linq;
+
+class Tree<T> {
+    public T[] GetAllIntersecting(IEnumerable<T> items)
+    {
+        return items.ToArray();
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("private final Class<?> tClass;", code);
+        Assert.Contains("public Tree(Class<?> tClass)", code);
+        Assert.Contains("java.lang.reflect.Array.newInstance(tClass, size)", code);
+        Assert.DoesNotContain("new Object[size]", code);
+        Assert.DoesNotContain("T.class", code);
+    }
+
+    [Fact]
+    public void LinqToArrayReturningMethodTypeParameterArray_UsesRuntimeClassParameter()
+    {
+        var result = Convert("""
+using System.Collections.Generic;
+using System.Linq;
+
+class Demo {
+    public T[] Copy<T>(IEnumerable<T> items)
+    {
+        return items.ToArray();
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("public <T> T[] copy(Iterable<T> items, Class<?> clazz)", code);
+        Assert.Contains("java.lang.reflect.Array.newInstance(clazz, size)", code);
+        Assert.DoesNotContain("new Object[size]", code);
+        Assert.DoesNotContain("T.class", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

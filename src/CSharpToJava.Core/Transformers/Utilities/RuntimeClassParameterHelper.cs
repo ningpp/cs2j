@@ -153,11 +153,13 @@ internal static class RuntimeClassParameterHelper
             {
                 case MethodDeclarationSyntax methodDeclaration:
                     AddDirectArrayRequirements(methodDeclaration, semanticModel, originalMethod, required);
+                    AddFrameworkToArrayRequirements(methodDeclaration, semanticModel, originalMethod, required);
                     AddForwardedInvocationRequirements(methodDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(methodDeclaration, semanticModel, originalMethod, context, required);
                     break;
                 case ConstructorDeclarationSyntax constructorDeclaration:
                     AddDirectArrayRequirements(constructorDeclaration, semanticModel, originalMethod, required);
+                    AddFrameworkToArrayRequirements(constructorDeclaration, semanticModel, originalMethod, required);
                     AddForwardedInvocationRequirements(constructorDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(constructorDeclaration, semanticModel, originalMethod, context, required);
                     break;
@@ -211,6 +213,64 @@ internal static class RuntimeClassParameterHelper
                 AddUnique(required, typeParameter);
             }
         }
+    }
+
+    private static void AddFrameworkToArrayRequirements(
+        MethodDeclarationSyntax declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        AddFrameworkToArrayRequirements((SyntaxNode)declaration, semanticModel, originalMethod, required);
+    }
+
+    private static void AddFrameworkToArrayRequirements(
+        ConstructorDeclarationSyntax declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        AddFrameworkToArrayRequirements((SyntaxNode)declaration, semanticModel, originalMethod, required);
+    }
+
+    private static void AddFrameworkToArrayRequirements(
+        SyntaxNode declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        foreach (var invocation in declaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (!IsFrameworkToArrayInvocation(invocation, semanticModel))
+                continue;
+
+            var typeInfo = semanticModel.GetTypeInfo(invocation);
+            var arrayType = typeInfo.Type as IArrayTypeSymbol
+                ?? typeInfo.ConvertedType as IArrayTypeSymbol;
+            if (arrayType?.ElementType is ITypeParameterSymbol typeParameter
+                && IsOwnedByMethodOrType(typeParameter, originalMethod))
+            {
+                AddUnique(required, typeParameter);
+            }
+        }
+    }
+
+    private static bool IsFrameworkToArrayInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        if (semanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol methodSymbol)
+            return false;
+
+        if (methodSymbol.Name != "ToArray")
+            return false;
+
+        if (methodSymbol.ReturnType is not IArrayTypeSymbol)
+            return false;
+
+        var containingType = methodSymbol.ContainingType?.OriginalDefinition.ToDisplayString();
+        return containingType is "System.Linq.Enumerable"
+            or "System.Collections.Generic.List<T>";
     }
 
     private static void AddBaseClassForwardingRequirements(
