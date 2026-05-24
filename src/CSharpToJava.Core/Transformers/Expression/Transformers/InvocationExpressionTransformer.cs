@@ -1437,8 +1437,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
         }
 
-        // Dictionary.TryGetValue(key, out value) -> assign holder from get + containsKey check.
-        // This keeps short-circuit boolean semantics and avoids invalid Java get(key, out) calls.
+        // Dictionary.TryGetValue(key, out value) -> containsKey check + get assignment.
+        // Must check containsKey FIRST to avoid NPE from auto-unboxing null to primitive
+        // when the out variable is a holder's .value field (e.g. IntHolder.value is int).
         if (originalMethodName == "TryGetValue"
             && node.ArgumentList.Arguments.Count == 2)
         {
@@ -1446,8 +1447,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var outArg = node.ArgumentList.Arguments[1];
             var outHolderArg = facade.Transform(outArg.Expression, context);
             // Detect whether the out argument is a holder variable (needs .value access).
-            // This can be: (a) an explicitly-allocated holder (_xxxHolder), or
-            // (b) a method parameter that was converted from C# out/ref to a Java holder type.
             bool isHolder = false;
             if (IsSimpleIdentifier(outHolderArg))
             {
@@ -1463,7 +1462,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     isHolder = context.TryGetActiveRefHolder(outHolderArg, out _);
             }
             var assignTarget = isHolder ? $"{outHolderArg}.value" : outHolderArg;
-            return $"(({assignTarget} = {receiver}.get({keyArg})) != null || {receiver}.containsKey({keyArg}))";
+            // containsKey && (assign = get(key)) == assign  — short-circuits safely:
+            // get() only runs when key exists, avoiding NPE from auto-unboxing null.
+            return $"({receiver}.containsKey({keyArg}) && ({assignTarget} = {receiver}.get({keyArg})) == {assignTarget})";
         }
 
         // Fix: Array.GetLength(dim) → Java dimensional length access.

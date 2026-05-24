@@ -248,7 +248,34 @@ public partial class StatementTransformer
                 }
 
                 var ifSb4 = new System.Text.StringBuilder();
-                ifSb4.Append($"{assignTarget} = {tvTarget2}.get({tvKey2});\nif ({tvTarget2}.containsKey({tvKey2})) {thenBody2}");
+                // When the out variable is a primitive holder (assignTarget ends with .value),
+                // the get() must go inside the if block to avoid NPE from auto-unboxing null.
+                // For reference-type variables, assign before the if for Java definite assignment.
+                if (assignTarget.EndsWith(".value"))
+                {
+                    // Primitive holder: containsKey guards the get() so unboxing is safe.
+                    // The holder already has default(T) from its initialization, so definite
+                    // assignment after the if block is satisfied.
+                    string thenBodyWithAssign;
+                    if (stmt.Statement is BlockSyntax tvIfThenBlock4_2)
+                    {
+                        var bodyStr2 = TransformBlock(tvIfThenBlock4_2, context);
+                        thenBodyWithAssign = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr2}\n    }}";
+                    }
+                    else
+                    {
+                        var bodyStr2 = tvStmtTransformer4.Transform(stmt.Statement, context).ToString("");
+                        thenBodyWithAssign = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr2}\n    }}";
+                    }
+                    ifSb4.Append($"if ({tvTarget2}.containsKey({tvKey2})) {thenBodyWithAssign}");
+                }
+                else
+                {
+                    // Reference type: get() before if for definite assignment.
+                    // get() may return null (no NPE for reference types), containsKey
+                    // still guards the body to preserve semantics when map stores null.
+                    ifSb4.Append($"{assignTarget} = {tvTarget2}.get({tvKey2});\nif ({tvTarget2}.containsKey({tvKey2})) {thenBody2}");
+                }
 
                 if (stmt.Else != null)
                 {
