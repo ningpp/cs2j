@@ -64,4 +64,29 @@ public class GeneratedProjectAssetsTests
             }
         }
     }
+
+    [Fact]
+    public async Task WriteMavenConfigFile_AddsAlsoMakeToGeneratedWorkspace()
+    {
+        var destinationRoot = Path.Combine(Path.GetTempPath(), "cs2j-generated-assets-maven-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var session = OutputIncrementalWriteSession.Create(destinationRoot, destinationRoot);
+            GeneratedProjectAssets.WriteMavenConfigFile(destinationRoot, session);
+            await session.SaveAsync();
+
+            var generatedPath = Path.Combine(destinationRoot, ".mvn", "maven.config");
+            Assert.True(File.Exists(generatedPath));
+            var content = await File.ReadAllTextAsync(generatedPath);
+            Assert.Contains("--also-make", content, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(destinationRoot))
+            {
+                Directory.Delete(destinationRoot, recursive: true);
+            }
+        }
+    }
 }

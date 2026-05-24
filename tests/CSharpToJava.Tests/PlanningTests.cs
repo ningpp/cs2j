@@ -60,6 +60,16 @@ public class PlanningTests
     }
 
     [Fact]
+    public void MavenPomGenerator_GenerateMavenConfig_AddsAlsoMakeForMultiModuleWorkspaces()
+    {
+        var generator = new MavenPomGenerator();
+        var config = generator.GenerateMavenConfig();
+
+        Assert.Contains("--also-make", config, StringComparison.Ordinal);
+        Assert.Contains("-am", config, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MavenPomGenerator_GenerateModuleBuildFile_DeclaresCompilerPluginVersionAndValidJavacArgs()
     {
         var module = new JavaModulePlan

@@ -9,6 +9,12 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
 {
     public string BuildFileName => "pom.xml";
 
+    public string GenerateMavenConfig() => """
+# Keep selected-module builds inside the generated reactor.
+# Equivalent to -am.
+--also-make
+""";
+
     public string GenerateRootBuildFile(JavaWorkspacePlan plan, bool genParentPom)
     {
         if (!genParentPom && plan.IsSingleModule)

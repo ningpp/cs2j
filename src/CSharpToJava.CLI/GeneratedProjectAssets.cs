@@ -9,6 +9,7 @@ internal static class GeneratedProjectAssets
     public static void WriteRootFiles(string destinationRoot, OutputIncrementalWriteSession outputSession)
     {
         WriteGitIgnoreFile(destinationRoot, outputSession, ResolveRequiredGitIgnoreTemplatePath());
+        WriteMavenConfigFile(destinationRoot, outputSession);
     }
 
     public static IReadOnlyList<string> GetTemplateAssetPaths()
@@ -31,6 +32,16 @@ internal static class GeneratedProjectAssets
         var outputPath = Path.Combine(destinationRoot, GitIgnoreFileName);
         var content = File.ReadAllText(fullTemplatePath);
         outputSession.WriteTextFile(outputPath, content, OutputIncrementalEntryKind.BuildFile);
+    }
+
+    internal static void WriteMavenConfigFile(string destinationRoot, OutputIncrementalWriteSession outputSession)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentNullException.ThrowIfNull(outputSession);
+
+        var generator = new MavenPomGenerator();
+        var outputPath = Path.Combine(destinationRoot, ".mvn", "maven.config");
+        outputSession.WriteTextFile(outputPath, generator.GenerateMavenConfig(), OutputIncrementalEntryKind.BuildFile);
     }
 
     internal static string ResolveRequiredGitIgnoreTemplatePath(string? currentDirectory = null, string? appBaseDirectory = null)
