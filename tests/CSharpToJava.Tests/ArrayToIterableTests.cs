@@ -109,7 +109,7 @@ class Sample
     }
 
     [Fact]
-    public void IEnumerableReturn_FromArray_WrapsWithAsList()
+    public void IEnumerableReturn_FromArray_UsesLiveView()
     {
         var result = Convert(@"
 using System.Collections.Generic;
@@ -119,7 +119,7 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("ArrayHelper.toList", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.asListView", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

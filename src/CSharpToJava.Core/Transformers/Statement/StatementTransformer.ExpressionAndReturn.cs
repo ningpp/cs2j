@@ -389,8 +389,7 @@ public partial class StatementTransformer
                     }
                     else
                     {
-                        expr = $"ArrayHelper.toList({expr})";
-                        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                        expr = ExpressionTransformerHelpers.BuildArrayToCollectionViewExpression(expr, arrayType, context);
                     }
                 }
             }

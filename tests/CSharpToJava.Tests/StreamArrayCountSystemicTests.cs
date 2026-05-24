@@ -100,8 +100,8 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // String[] (reference type) → ArrayHelper.toList()
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+        // String[] (reference type) -> live array-backed view
+        Assert.Contains("ArrayHelper.asListView(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.asListView(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

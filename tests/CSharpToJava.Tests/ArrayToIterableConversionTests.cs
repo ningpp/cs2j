@@ -27,7 +27,7 @@ class Constraint
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.asListView(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ class Layout
     }
 
     /// <summary>
-    /// Method returning array field as IEnumerable should wrap with ArrayHelper.toList().
+    /// Method returning array field as IEnumerable should wrap with a live array view.
     /// </summary>
     [Fact]
     public void Method_ReturningArrayField_AsIEnumerable_Wraps()
@@ -71,7 +71,33 @@ class Graph
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.asListView(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Reproduces the MSAGL failure mode: a property backed by an array and exposed
+    /// as IList<T> must return a live view, so indexed writes mutate the same array.
+    /// </summary>
+    [Fact]
+    public void Property_ReturningArray_AsIList_UsesLiveView()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Node { }
+class Graph
+{
+    Node[] nodes;
+    public IList<Node> Nodes { get { return nodes; } set { nodes = value as Node[]; } }
+    void M()
+    {
+        Nodes = new Node[2];
+        Nodes[0] = new Node();
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("ArrayHelper.asListView(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArrayHelper.toList(nodes)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

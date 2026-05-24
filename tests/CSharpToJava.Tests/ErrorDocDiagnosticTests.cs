@@ -250,8 +250,9 @@ class Sample {
         var code = r.GeneratedCode ?? "";
         // Returning an array where Iterable expected needs wrapping
         bool hasToList = code.Contains("ArrayHelper.toList(");
+        bool hasListView = code.Contains("ArrayHelper.asListView(");
         bool hasListOf = code.Contains("List.of(");
-        Assert.True(hasToList || hasListOf,
+        Assert.True(hasToList || hasListView || hasListOf,
             $"Array→Iterable return should be wrapped. Got: {code}");
     }
 

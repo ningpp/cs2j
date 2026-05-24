@@ -950,6 +950,21 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Builds a null-preserving, fixed-size collection view backed by the same Java array.
+    /// Use this for C# arrays exposed through IList/ICollection/IEnumerable returns, where
+    /// callers may mutate elements through the interface and expect the array to change.
+    /// </summary>
+    public static string BuildArrayToCollectionViewExpression(
+        string expr, IArrayTypeSymbol arrayType, ConversionContext context)
+    {
+        if (IsPrimitiveSpecialTypeForArrayStream(arrayType.ElementType.SpecialType))
+            return BuildArrayToCollectionExpression(expr, arrayType, context);
+
+        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+        return $"ArrayHelper.asListView({expr})";
+    }
+
+    /// <summary>
     /// Returns true if the given SpecialType is a C# primitive type that maps to a
     /// Java primitive type. These are the types where Arrays.stream() support matters:
     /// int, short, byte, long, double, float, boolean, char.

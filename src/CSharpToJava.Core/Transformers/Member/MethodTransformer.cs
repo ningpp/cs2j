@@ -660,14 +660,15 @@ public class MethodTransformer : IMemberTransformer
 
         var exprType = context.SemanticModel.GetTypeInfo(csExpression).Type;
 
-        // Case 1: Expression returns an array — wrap with ArrayHelper.toList() or stream boxing
+        // Case 1: Expression returns an array. Return a backed list view so IList<T>
+        // semantics preserve indexed writes to the original array.
         if (exprType is IArrayTypeSymbol arrayType)
         {
             // Don't double-wrap
             if (exprBody.Contains("ArrayHelper.toList(") || exprBody.Contains("Arrays.asList(") || exprBody.Contains("Arrays.stream(")
-                || exprBody.Contains("IntStream.range(") || exprBody.Contains(".collect("))
+                || exprBody.Contains("ArrayHelper.asListView(") || exprBody.Contains("IntStream.range(") || exprBody.Contains(".collect("))
                 return exprBody;
-            return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(exprBody, arrayType, context);
+            return ExpressionTransformerHelpers.BuildArrayToCollectionViewExpression(exprBody, arrayType, context);
         }
 
         // Case 2: Expression produces a Stream (LINQ chain) — add .collect()
