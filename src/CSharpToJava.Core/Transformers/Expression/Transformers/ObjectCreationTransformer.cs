@@ -850,6 +850,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (isTypeParameterArray && sizes.Count == 1 && node.Initializer == null)
         {
             var sizeExpr = sizes[0];
+            if (elemSemType is ITypeParameterSymbol typeParameterForRuntimeClass
+                && context.TryGetRuntimeClassParameter(typeParameterForRuntimeClass.Name, out var runtimeClassParameter))
+            {
+                var lengthExpr = string.IsNullOrEmpty(sizeExpr) ? "0" : sizeExpr;
+                return $"({elementType}[]) java.lang.reflect.Array.newInstance({runtimeClassParameter}, {lengthExpr})";
+            }
+
             var runtimeType = string.IsNullOrEmpty(constrainedArrayElementType) ? "Object" : constrainedArrayElementType;
             if (string.IsNullOrEmpty(sizeExpr) || sizeExpr == "0")
             {

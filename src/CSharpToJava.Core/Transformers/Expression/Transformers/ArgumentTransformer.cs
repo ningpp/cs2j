@@ -8,6 +8,7 @@ using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -43,10 +44,16 @@ public class ArgumentTransformer
     /// </param>
     public static string TransformArgumentList(ArgumentListSyntax? argumentList, ConversionContext context, IExpressionTransformer transformer, int argStartIndex = 0, IMethodSymbol? methodSymbol = null, int maxArgCount = -1)
     {
-        if (argumentList == null) return "";
+        if (argumentList == null)
+        {
+            return string.Join(", ", GetRuntimeClassArguments(methodSymbol, context));
+        }
 
         var args = argumentList.Arguments;
-        if (args.Count <= argStartIndex) return "";
+        if (args.Count <= argStartIndex)
+        {
+            return string.Join(", ", GetRuntimeClassArguments(methodSymbol, context));
+        }
 
         // When maxArgCount is specified, limit the arguments taken from the list
         int effectiveEnd = maxArgCount >= 0 ? Math.Min(args.Count, maxArgCount) : args.Count;
@@ -107,9 +114,14 @@ public class ArgumentTransformer
             }
 
             return result;
-        });
+        }).ToList();
+
+        transformed.AddRange(GetRuntimeClassArguments(methodSymbol, context));
         return string.Join(", ", transformed);
     }
+
+    private static IReadOnlyList<string> GetRuntimeClassArguments(IMethodSymbol? methodSymbol, ConversionContext context)
+        => RuntimeClassParameterHelper.GetRuntimeClassArguments(methodSymbol, context);
 
     /// <summary>
     /// Reorders named arguments to match the target method's positional parameter order.

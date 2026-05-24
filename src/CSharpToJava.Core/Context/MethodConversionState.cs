@@ -142,6 +142,18 @@ public class MethodConversionState
     /// </summary>
     public Dictionary<string, string> QueryLetAliases { get; set; } = new();
 
+    // ─── Runtime Class Parameters For Type-Parameter Arrays ────────
+
+    private readonly Dictionary<string, string> _runtimeClassParametersByTypeParameter = new(StringComparer.Ordinal);
+
+    public void RegisterRuntimeClassParameter(string typeParameterName, string parameterName)
+    {
+        _runtimeClassParametersByTypeParameter[typeParameterName] = parameterName;
+    }
+
+    public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)
+        => _runtimeClassParametersByTypeParameter.TryGetValue(typeParameterName, out parameterName!);
+
     // ─── Lambda Capture Registry ────────────────────────────────────
 
     /// <summary>
@@ -279,6 +291,7 @@ public class MethodConversionState
         _lambdaCaptureRegistry.Clear();
         _pendingLambdaCaptureHolders.Clear();
         _activeLambdaCaptureHolders.Clear();
+        _runtimeClassParametersByTypeParameter.Clear();
         LambdaCapturePreScanDone = false;
 
         if (readOnlyRefStructParamNames != null)

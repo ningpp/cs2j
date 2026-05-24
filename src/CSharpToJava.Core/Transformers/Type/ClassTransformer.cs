@@ -26,6 +26,7 @@ public class ClassTransformer : ITypeTransformer
         }
 
         context.EnterType(CreatePlaceholderClass(classDecl.Identifier.Text));
+        var previousEnclosingRoslynType = context.CurrentEnclosingRoslynType;
         context.CurrentEnclosingRoslynType = mergedType.TypeSymbol;
 
         var javaClass = new JavaClassDeclaration
@@ -282,6 +283,7 @@ public class ClassTransformer : ITypeTransformer
         AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
+        context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
         return javaClass;
@@ -305,6 +307,7 @@ public class ClassTransformer : ITypeTransformer
         }
 
         context.EnterType(CreatePlaceholderClass(classDecl.Identifier.Text));
+        var previousEnclosingRoslynType = context.CurrentEnclosingRoslynType;
 
         var javaClass = new JavaClassDeclaration
         {
@@ -315,6 +318,7 @@ public class ClassTransformer : ITypeTransformer
         ApplyTypeLevelTestAnnotations(new[] { classDecl }, javaClass, context);
 
         var classSymbol = context.SemanticModel?.GetDeclaredSymbol(classDecl);
+        context.CurrentEnclosingRoslynType = classSymbol;
         // Ensure abstract modifier is set from the semantic symbol
         if (classSymbol?.IsAbstract == true)
             javaClass.Modifiers |= JavaModifiers.Abstract;
@@ -476,6 +480,7 @@ public class ClassTransformer : ITypeTransformer
             });
         }
 
+        context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
         return javaClass;

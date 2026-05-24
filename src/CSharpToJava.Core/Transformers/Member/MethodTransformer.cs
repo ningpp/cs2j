@@ -93,6 +93,8 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.Parameters.Add(converted);
         }
 
+        AddRuntimeClassParametersForTypeParameterArrays(javaMethod, context);
+
         // Fix 1: When promoting an extension method to an instance method, strip the 'this' (receiver) parameter.
         if (isExtensionMethod && context.Options.RewriteExtensionMethods)
             javaMethod.Parameters.RemoveAt(0);
@@ -556,6 +558,42 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return javaParam;
+    }
+
+    private static void AddRuntimeClassParametersForTypeParameterArrays(
+        JavaMethodDeclaration javaMethod,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return;
+
+        var neededTypeParameters = RuntimeClassParameterHelper.GetRequiredTypeParameters(context.CurrentMethod, context);
+        foreach (var typeParameterName in neededTypeParameters.Select(tp => tp.Name))
+        {
+            var parameterName = AllocateRuntimeClassParameterName(typeParameterName, javaMethod);
+            javaMethod.Parameters.Add(new JavaParameter($"Class<{typeParameterName}>", parameterName));
+            context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
+        }
+    }
+
+    private static string AllocateRuntimeClassParameterName(string typeParameterName, JavaMethodDeclaration javaMethod)
+    {
+        var baseName = typeParameterName.Length == 1
+            ? "clazz"
+            : char.ToLowerInvariant(typeParameterName[0]) + typeParameterName[1..] + "Class";
+        baseName = ConversionContext.EscapeJavaKeyword(baseName);
+
+        var usedNames = javaMethod.Parameters.Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+        if (!usedNames.Contains(baseName))
+            return baseName;
+
+        var suffix = 2;
+        while (usedNames.Contains(baseName + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+        {
+            suffix++;
+        }
+
+        return baseName + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>

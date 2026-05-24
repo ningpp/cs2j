@@ -126,6 +126,10 @@ public class ConversionContext
     public bool TryGetActiveRefHolder(string varName, out string holderName) => MethodState.TryGetActiveRefHolder(varName, out holderName);
     public void SetActiveRefHolder(string varName, string holderName) => MethodState.SetActiveRefHolder(varName, holderName);
     public string AllocateRefHolderName(string varName) => MethodState.AllocateRefHolderName(varName);
+    public void RegisterRuntimeClassParameter(string typeParameterName, string parameterName)
+        => MethodState.RegisterRuntimeClassParameter(typeParameterName, parameterName);
+    public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)
+        => MethodState.TryGetRuntimeClassParameter(typeParameterName, out parameterName);
 
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
     {
