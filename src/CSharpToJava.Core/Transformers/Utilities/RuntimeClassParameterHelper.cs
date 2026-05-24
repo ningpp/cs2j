@@ -44,8 +44,13 @@ internal static class RuntimeClassParameterHelper
         ConversionContext context,
         HashSet<IMethodSymbol> visiting)
     {
+        if (context.TryGetCachedRuntimeClassRequiredTypeParameters(originalMethod, out var cached))
+            return cached;
+
         if (!visiting.Add(originalMethod))
             return Array.Empty<ITypeParameterSymbol>();
+
+        context.CacheRuntimeClassRequiredTypeParameters(originalMethod, Array.Empty<ITypeParameterSymbol>());
 
         try
         {
@@ -65,9 +70,11 @@ internal static class RuntimeClassParameterHelper
             AddDirectArrayRequirements(declaration, semanticModel, originalMethod, required);
             AddForwardedInvocationRequirements(declaration, semanticModel, originalMethod, context, visiting, required);
 
-            return required
+            var result = required
                 .OrderBy(tp => tp.Name, StringComparer.Ordinal)
                 .ToList();
+            context.CacheRuntimeClassRequiredTypeParameters(originalMethod, result);
+            return result;
         }
         finally
         {

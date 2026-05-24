@@ -1,5 +1,7 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using System.Diagnostics;
+using System.Text;
 using Xunit;
 
 namespace CSharpToJava.Tests;
@@ -81,6 +83,54 @@ class Demo<T> {
         Assert.Contains("public T[] twice(T value, Class<T> clazz)", code);
         Assert.Contains("repeat(value, 2, clazz)", code);
         Assert.DoesNotContain("T.class", code);
+    }
+
+    [Fact]
+    public void SharedGenericArrayFactoryInDenseCallGraph_ConvertsWithoutRepeatedRecursiveScans()
+    {
+        var source = new StringBuilder("""
+class Demo<T> {
+    public T[] Repeat(T value, int count)
+    {
+        return new T[count];
+    }
+
+""");
+
+        source.AppendLine("""
+    public T[] Wrapper0(T value)
+    {
+        return Repeat(value, 1);
+    }
+
+""");
+
+        for (var i = 1; i < 24; i++)
+        {
+            var calls = string.Join(Environment.NewLine, Enumerable.Range(0, i).Select(j => $"        Wrapper{j}(value);"));
+            source.AppendLine($$"""
+    public T[] Wrapper{{i}}(T value)
+    {
+{{calls}}
+        return Repeat(value, {{i + 1}});
+    }
+
+""");
+        }
+
+        source.AppendLine("}");
+
+        var stopwatch = Stopwatch.StartNew();
+        var result = Convert(source.ToString());
+        stopwatch.Stop();
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.True(stopwatch.ElapsedMilliseconds < 5000, $"Conversion took {stopwatch.ElapsedMilliseconds} ms");
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("public T[] repeat(T value, int count, Class<T> clazz)", code);
+        Assert.Contains("public T[] wrapper23(T value, Class<T> clazz)", code);
+        Assert.Contains("repeat(value, 24, clazz)", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

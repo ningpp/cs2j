@@ -131,6 +131,21 @@ public class ConversionContext
     public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)
         => MethodState.TryGetRuntimeClassParameter(typeParameterName, out parameterName);
 
+    private readonly Dictionary<IMethodSymbol, IReadOnlyList<ITypeParameterSymbol>> _runtimeClassRequiredTypeParametersCache =
+        new(SymbolEqualityComparer.Default);
+
+    public bool TryGetCachedRuntimeClassRequiredTypeParameters(
+        IMethodSymbol methodSymbol,
+        out IReadOnlyList<ITypeParameterSymbol> typeParameters)
+        => _runtimeClassRequiredTypeParametersCache.TryGetValue(methodSymbol.OriginalDefinition, out typeParameters!);
+
+    public void CacheRuntimeClassRequiredTypeParameters(
+        IMethodSymbol methodSymbol,
+        IReadOnlyList<ITypeParameterSymbol> typeParameters)
+    {
+        _runtimeClassRequiredTypeParametersCache[methodSymbol.OriginalDefinition] = typeParameters;
+    }
+
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
     {
         Options = options;
