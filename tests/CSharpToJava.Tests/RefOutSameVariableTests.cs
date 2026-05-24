@@ -167,4 +167,37 @@ class Curve
         Assert.DoesNotContain("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>();", code);
         Assert.Contains("intersections = _intersectionsRef.value;", code);
     }
+
+    /// <summary>
+    /// C# ref arguments are always read/write; fields have a current value too
+    /// even when there is no local definite-assignment fact to prove.
+    /// </summary>
+    [Fact]
+    public void RefParameter_FromField_InitializesHolderWithCurrentValue()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+
+class Curve
+{
+    private List<string> intersections = new List<string>();
+
+    void Cross()
+    {
+        GoDeeper(ref intersections);
+    }
+
+    static void GoDeeper(ref List<string> intersections)
+    {
+        intersections.Add(""x"");
+    }
+}");
+
+        Assert.True(result.Success, "Conversion should succeed");
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
+        Assert.DoesNotContain("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>();", code);
+        Assert.Contains("intersections = _intersectionsRef.value;", code);
+    }
 }

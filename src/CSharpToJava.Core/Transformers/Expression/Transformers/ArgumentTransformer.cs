@@ -330,34 +330,12 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
                 var refHolderType = HolderTypeResolver.GetHolderType(javaType);
-                // `ref` is read/write: the callee must receive the caller's current value.
-                // Parameters are always initialized on method entry. Locals need a definite
-                // assignment check because `out` variables intentionally use empty holders.
-                var semanticModel = context.SemanticModel;
-                var symbol = semanticModel?.GetSymbolInfo(refIdent).Symbol;
-                bool hasCurrentValue = symbol is IParameterSymbol;
-                if (!hasCurrentValue && symbol is ILocalSymbol localSym && semanticModel != null)
-                {
-                    var stmt = refIdent.FirstAncestorOrSelf<StatementSyntax>();
-                    if (stmt != null)
-                    {
-                        var dfa = semanticModel.AnalyzeDataFlow(stmt);
-                        hasCurrentValue = dfa != null
-                            && dfa.Succeeded
-                            && dfa.DefinitelyAssignedOnEntry.Contains(localSym);
-                    }
-                    // Fallback: when DFA is unavailable, check the declaration initializer
-                    if (!hasCurrentValue)
-                    {
-                        hasCurrentValue = localSym.DeclaringSyntaxReferences
-                            .Select(r => r.GetSyntax())
-                            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax>()
-                            .All(d => d.Initializer != null);
-                    }
-                }
-                var refHolderInit = hasCurrentValue
-                    ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName)
-                    : HolderTypeResolver.GetHolderInstantiation(refHolderType);
+                // `ref` is read/write: unlike `out`, C# requires the caller's
+                // variable to be definitely assigned before the call. Do not
+                // gate this on Roslyn DFA; large-project rewrites can leave
+                // semantic data incomplete, and an empty holder would erase
+                // the caller's current reference value.
+                var refHolderInit = HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
                 context.AddPostStatement($"{ConversionContext.EscapeJavaKeyword(varName)} = {refHolderName}.value");
                 return refHolderName;
