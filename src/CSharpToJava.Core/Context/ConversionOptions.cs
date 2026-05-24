@@ -78,6 +78,8 @@ public class ConversionOptions
     /// while merging results back in deterministic order.
     /// </summary>
     public bool EnableParallelProjectPasses { get; set; } = true;
+
+    internal RuntimeClassParameterRegistry RuntimeClassParameters { get; } = new();
 }
 
 /// <summary>

@@ -16,6 +16,7 @@ public class ConversionContext
     private readonly Stack<string> _namespaceStack = new();
     private readonly Stack<JavaTypeDeclaration> _typeStack = new();
     private readonly Stack<IMethodSymbol?> _methodStack = new();
+    private readonly Stack<Dictionary<string, string>> _runtimeClassFieldsStack = new();
 
     public ConversionOptions Options { get; }
     public SemanticModel? SemanticModel { get; set; }
@@ -129,9 +130,29 @@ public class ConversionContext
     public void RegisterRuntimeClassParameter(string typeParameterName, string parameterName)
         => MethodState.RegisterRuntimeClassParameter(typeParameterName, parameterName);
     public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)
-        => MethodState.TryGetRuntimeClassParameter(typeParameterName, out parameterName);
+    {
+        if (MethodState.TryGetRuntimeClassParameter(typeParameterName, out parameterName))
+            return true;
+
+        foreach (var fields in _runtimeClassFieldsStack)
+        {
+            if (fields.TryGetValue(typeParameterName, out parameterName!))
+                return true;
+        }
+
+        parameterName = string.Empty;
+        return false;
+    }
+
+    public void RegisterRuntimeClassField(string typeParameterName, string fieldName)
+    {
+        if (_runtimeClassFieldsStack.Count > 0)
+            _runtimeClassFieldsStack.Peek()[typeParameterName] = fieldName;
+    }
 
     private readonly Dictionary<IMethodSymbol, IReadOnlyList<ITypeParameterSymbol>> _runtimeClassRequiredTypeParametersCache =
+        new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<INamedTypeSymbol, IReadOnlyList<ITypeParameterSymbol>> _runtimeClassRequiredTypeParametersByTypeCache =
         new(SymbolEqualityComparer.Default);
 
     public bool TryGetCachedRuntimeClassRequiredTypeParameters(
@@ -144,6 +165,18 @@ public class ConversionContext
         IReadOnlyList<ITypeParameterSymbol> typeParameters)
     {
         _runtimeClassRequiredTypeParametersCache[methodSymbol.OriginalDefinition] = typeParameters;
+    }
+
+    public bool TryGetCachedRuntimeClassRequiredTypeParameters(
+        INamedTypeSymbol typeSymbol,
+        out IReadOnlyList<ITypeParameterSymbol> typeParameters)
+        => _runtimeClassRequiredTypeParametersByTypeCache.TryGetValue(typeSymbol.OriginalDefinition, out typeParameters!);
+
+    public void CacheRuntimeClassRequiredTypeParameters(
+        INamedTypeSymbol typeSymbol,
+        IReadOnlyList<ITypeParameterSymbol> typeParameters)
+    {
+        _runtimeClassRequiredTypeParametersByTypeCache[typeSymbol.OriginalDefinition] = typeParameters;
     }
 
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
@@ -171,12 +204,19 @@ public class ConversionContext
             _namespaceStack.Pop();
     }
 
-    public void EnterType(JavaTypeDeclaration type) => _typeStack.Push(type);
+    public void EnterType(JavaTypeDeclaration type)
+    {
+        _typeStack.Push(type);
+        _runtimeClassFieldsStack.Push(new Dictionary<string, string>(StringComparer.Ordinal));
+    }
 
     public void LeaveType()
     {
         if (_typeStack.Count > 0)
+        {
             _typeStack.Pop();
+            _runtimeClassFieldsStack.Pop();
+        }
     }
 
     public void EnterMethod(IMethodSymbol? method)

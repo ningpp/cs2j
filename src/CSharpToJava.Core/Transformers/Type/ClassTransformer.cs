@@ -6,6 +6,7 @@ using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
+using CSharpToJava.Core.Transformers.Utilities;
 using System.Text;
 
 namespace CSharpToJava.Core.Transformers.Type;
@@ -224,6 +225,8 @@ public class ClassTransformer : ITypeTransformer
         foreach (var tp in javaClass.TypeParameters)
             context.CurrentType!.TypeParameters.Add(tp);
 
+        var runtimeClassTypeParameters = AddRuntimeClassFields(javaClass, mergedType.TypeSymbol, context);
+
         // Process members from original syntax nodes (not the synthetic merged node).
         // Original nodes are from the compilation trees, so semantic model works correctly.
         var seenMemberKeys = new HashSet<string>();
@@ -261,6 +264,8 @@ public class ClassTransformer : ITypeTransformer
                     ProcessMember(member, javaClass, context);
             }
         }
+
+        AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, mergedType.TypeSymbol, context);
 
         // static class → private no-arg constructor to prevent instantiation (Java has no static class keyword)
         if (classDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) && javaClass.Constructors.Count == 0)
@@ -452,11 +457,15 @@ public class ClassTransformer : ITypeTransformer
         foreach (var tp in javaClass.TypeParameters)
             context.CurrentType!.TypeParameters.Add(tp);
 
+        var runtimeClassTypeParameters = AddRuntimeClassFields(javaClass, classSymbol, context);
+
         // 处理成员
         foreach (var member in classDecl.Members)
         {
             ProcessMember(member, javaClass, context);
         }
+
+        AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, classSymbol, context);
 
         RemoveCompareToBridgeConflicts(javaClass);
         RemoveCloneBridgeConflicts(javaClass);
@@ -502,6 +511,303 @@ public class ClassTransformer : ITypeTransformer
     private JavaClassDeclaration CreatePlaceholderClass(string name)
     {
         return new JavaClassDeclaration { Name = name };
+    }
+
+    private static IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> AddRuntimeClassFields(
+        JavaClassDeclaration javaClass,
+        INamedTypeSymbol? typeSymbol,
+        ConversionContext context)
+    {
+        if (typeSymbol == null)
+            return Array.Empty<(ITypeParameterSymbol, string, string)>();
+
+        var fields = new List<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)>();
+        var typeParameters = RuntimeClassParameterHelper.GetRequiredTypeParameters(typeSymbol, context)
+            .Where(tp => tp.DeclaringMethod == null)
+            .ToList();
+
+        foreach (var typeParameter in typeParameters)
+        {
+            var fieldName = AllocateRuntimeClassFieldName(typeParameter.Name, javaClass);
+            if (!javaClass.Fields.Any(field => field.Name == fieldName))
+            {
+                javaClass.Fields.Add(new JavaFieldDeclaration
+                {
+                    Modifiers = JavaModifiers.Private | JavaModifiers.Final,
+                    Type = "Class<?>",
+                    Name = fieldName
+                });
+            }
+
+            context.RegisterRuntimeClassField(typeParameter.Name, fieldName);
+            fields.Add((typeParameter, fieldName, RuntimeClassParameterName(typeParameter.Name)));
+        }
+
+        return fields;
+    }
+
+    private static void AddRuntimeClassConstructorParameters(
+        JavaClassDeclaration javaClass,
+        IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields,
+        INamedTypeSymbol? typeSymbol,
+        ConversionContext context)
+    {
+        var baseRuntimeArgs = GetBaseRuntimeClassArguments(typeSymbol, context);
+        var liftedFieldInitializers = LiftRuntimeClassFieldInitializers(javaClass, runtimeClassFields);
+        if (runtimeClassFields.Count == 0 && baseRuntimeArgs.Count == 0 && liftedFieldInitializers.Count == 0)
+            return;
+
+        if (javaClass.Constructors.Count == 0)
+        {
+            var ctor = new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = javaClass.Modifiers.HasFlag(JavaModifiers.Abstract) ? JavaModifiers.Protected : JavaModifiers.Public,
+                StructuredBody = new JavaMethodBody()
+            };
+
+            if (baseRuntimeArgs.Count > 0)
+                ctor.Initializer = $"super({string.Join(", ", baseRuntimeArgs)})";
+
+            foreach (var item in runtimeClassFields)
+            {
+                ctor.Parameters.Add(new JavaParameter("Class<?>", item.ParameterName));
+                ctor.StructuredBody.Statements.Add(
+                    new JavaRawStatement($"this.{item.FieldName} = {item.ParameterName};"));
+            }
+
+            foreach (var initializer in liftedFieldInitializers)
+                ctor.StructuredBody.Statements.Add(new JavaRawStatement(initializer));
+
+            javaClass.Constructors.Add(ctor);
+            return;
+        }
+
+        foreach (var ctor in javaClass.Constructors)
+        {
+            foreach (var item in runtimeClassFields)
+            {
+                if (!ctor.Parameters.Any(p => p.Name == item.ParameterName))
+                    ctor.Parameters.Add(new JavaParameter("Class<?>", item.ParameterName));
+            }
+
+            if (!string.IsNullOrWhiteSpace(ctor.Initializer)
+                && ctor.Initializer.TrimStart().StartsWith("this(", StringComparison.Ordinal))
+            {
+                ctor.Initializer = AppendArgumentsToConstructorCall(
+                    ctor.Initializer,
+                    runtimeClassFields
+                        .Select(p => p.ParameterName)
+                        .Where(arg => !ConstructorCallContainsArgument(ctor.Initializer, arg)));
+                continue;
+            }
+
+            EnsureBaseRuntimeClassInitializer(ctor, baseRuntimeArgs);
+
+            EnsureStructuredBody(ctor);
+            for (var i = liftedFieldInitializers.Count - 1; i >= 0; i--)
+            {
+                var initializer = liftedFieldInitializers[i];
+                if (!ConstructorBodyContains(ctor, initializer))
+                    ctor.StructuredBody!.Statements.Insert(0, new JavaRawStatement(initializer));
+            }
+
+            for (var i = runtimeClassFields.Count - 1; i >= 0; i--)
+            {
+                var item = runtimeClassFields[i];
+                var assignment = $"this.{item.FieldName} = {item.ParameterName};";
+                if (!ConstructorBodyContains(ctor, assignment))
+                {
+                    ctor.StructuredBody!.Statements.Insert(0, new JavaRawStatement(assignment));
+                }
+            }
+        }
+    }
+
+    private static IReadOnlyList<string> LiftRuntimeClassFieldInitializers(
+        JavaClassDeclaration javaClass,
+        IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields)
+    {
+        if (runtimeClassFields.Count == 0)
+            return Array.Empty<string>();
+
+        var runtimeClassFieldNames = runtimeClassFields
+            .Select(field => field.FieldName)
+            .ToHashSet(StringComparer.Ordinal);
+        var initializers = new List<string>();
+
+        foreach (var field in javaClass.Fields)
+        {
+            if (string.IsNullOrWhiteSpace(field.Initializer))
+                continue;
+            if (field.Modifiers.HasFlag(JavaModifiers.Static))
+                continue;
+            if (!runtimeClassFieldNames.Any(name => ContainsIdentifier(field.Initializer, name)))
+                continue;
+
+            initializers.Add($"this.{field.Name} = {field.Initializer};");
+            field.Initializer = null;
+        }
+
+        return initializers;
+    }
+
+    private static bool ContainsIdentifier(string text, string identifier)
+    {
+        var index = 0;
+        while ((index = text.IndexOf(identifier, index, StringComparison.Ordinal)) >= 0)
+        {
+            var beforeOk = index == 0 || !IsJavaIdentifierPart(text[index - 1]);
+            var after = index + identifier.Length;
+            var afterOk = after >= text.Length || !IsJavaIdentifierPart(text[after]);
+            if (beforeOk && afterOk)
+                return true;
+
+            index += identifier.Length;
+        }
+
+        return false;
+    }
+
+    private static bool IsJavaIdentifierPart(char value)
+        => char.IsLetterOrDigit(value) || value == '_' || value == '$';
+
+    private static IReadOnlyList<string> GetBaseRuntimeClassArguments(
+        INamedTypeSymbol? typeSymbol,
+        ConversionContext context)
+    {
+        var baseType = typeSymbol?.BaseType;
+        if (baseType == null || baseType.SpecialType == SpecialType.System_Object)
+            return Array.Empty<string>();
+
+        return RuntimeClassParameterHelper.GetRuntimeClassArguments(baseType, context);
+    }
+
+    private static void EnsureBaseRuntimeClassInitializer(
+        JavaConstructorDeclaration ctor,
+        IReadOnlyList<string> baseRuntimeArgs)
+    {
+        if (baseRuntimeArgs.Count == 0)
+            return;
+
+        if (string.IsNullOrWhiteSpace(ctor.Initializer))
+        {
+            ctor.Initializer = $"super({string.Join(", ", baseRuntimeArgs)})";
+            return;
+        }
+
+        if (!ctor.Initializer.TrimStart().StartsWith("super(", StringComparison.Ordinal))
+            return;
+
+        ctor.Initializer = AppendArgumentsToConstructorCall(
+            ctor.Initializer,
+            baseRuntimeArgs.Where(arg => !ConstructorCallContainsArgument(ctor.Initializer, arg)));
+    }
+
+    private static void EnsureStructuredBody(JavaConstructorDeclaration ctor)
+    {
+        if (ctor.StructuredBody != null)
+            return;
+
+        ctor.StructuredBody = new JavaMethodBody();
+        if (!string.IsNullOrWhiteSpace(ctor.Body))
+        {
+            ctor.StructuredBody.Statements.Add(new JavaRawStatement(ctor.Body));
+            ctor.Body = null;
+        }
+    }
+
+    private static bool ConstructorBodyContains(JavaConstructorDeclaration ctor, string statement)
+    {
+        var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? string.Empty;
+        return body.Contains(statement, StringComparison.Ordinal);
+    }
+
+    private static string AppendArgumentsToConstructorCall(string initializer, IEnumerable<string> arguments)
+    {
+        var argsToAppend = arguments.ToList();
+        if (argsToAppend.Count == 0)
+            return initializer;
+
+        var open = initializer.IndexOf('(');
+        var close = initializer.LastIndexOf(')');
+        if (open < 0 || close < open)
+            return initializer;
+
+        var existing = initializer[(open + 1)..close].Trim();
+        var combined = string.IsNullOrWhiteSpace(existing)
+            ? string.Join(", ", argsToAppend)
+            : existing + ", " + string.Join(", ", argsToAppend);
+
+        return initializer[..(open + 1)] + combined + initializer[close..];
+    }
+
+    private static bool ConstructorCallContainsArgument(string initializer, string argument)
+    {
+        var open = initializer.IndexOf('(');
+        var close = initializer.LastIndexOf(')');
+        if (open < 0 || close < open)
+            return false;
+
+        var existing = initializer[(open + 1)..close];
+        return SplitTopLevelArguments(existing).Any(arg => arg == argument);
+    }
+
+    private static List<string> SplitTopLevelArguments(string arguments)
+    {
+        var result = new List<string>();
+        var start = 0;
+        var depth = 0;
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            switch (arguments[i])
+            {
+                case '<':
+                case '(':
+                case '[':
+                    depth++;
+                    break;
+                case '>':
+                case ')':
+                case ']':
+                    depth--;
+                    break;
+                case ',' when depth == 0:
+                    result.Add(arguments[start..i].Trim());
+                    start = i + 1;
+                    break;
+            }
+        }
+
+        var tail = arguments[start..].Trim();
+        if (tail.Length > 0)
+            result.Add(tail);
+        return result;
+    }
+
+    private static string AllocateRuntimeClassFieldName(string typeParameterName, JavaClassDeclaration javaClass)
+    {
+        var baseName = RuntimeClassParameterName(typeParameterName);
+        var usedNames = javaClass.Fields.Select(f => f.Name).ToHashSet(StringComparer.Ordinal);
+        if (!usedNames.Contains(baseName))
+            return baseName;
+
+        var suffix = 2;
+        while (usedNames.Contains(baseName + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+        {
+            suffix++;
+        }
+
+        return baseName + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string RuntimeClassParameterName(string typeParameterName)
+    {
+        var baseName = typeParameterName.Length == 1
+            ? char.ToLowerInvariant(typeParameterName[0]) + "Class"
+            : char.ToLowerInvariant(typeParameterName[0]) + typeParameterName[1..] + "Class";
+        return ConversionContext.EscapeJavaKeyword(baseName);
     }
 
     private static void ApplyTypeLevelTestAnnotations(

@@ -42,13 +42,16 @@ public class ConstructorTransformer : IMemberTransformer
             return new JavaMemberCollection();
         }
 
+        var ctorSymbol = context.SemanticModel?.GetDeclaredSymbol(ctorDecl) as IMethodSymbol;
+        context.EnterMethod(ctorSymbol);
+
         var className = context.CurrentType?.Name ?? ctorDecl.Identifier.Text;
 
         var javaCtor = new JavaConstructorDeclaration
         {
             ClassName = className,
             Modifiers = ConvertModifiers(ctorDecl.Modifiers),
-            LeadingComment = context.GetDeclarationComments(ctorDecl, context.SemanticModel?.GetDeclaredSymbol(ctorDecl)).ToCombinedComment()
+            LeadingComment = context.GetDeclarationComments(ctorDecl, ctorSymbol).ToCombinedComment()
         };
 
         // 处理参数
@@ -152,21 +155,24 @@ public class ConstructorTransformer : IMemberTransformer
             context,
             ExpressionTransformerFacade.Instance);
 
+        JavaSyntaxNode result;
         if (ctorOverloads.Count > 0)
         {
             var allDeclarations = new List<JavaSyntaxNode> { javaCtor };
             allDeclarations.AddRange(ctorOverloads);
-            return new JavaMemberCollection(allDeclarations);
+            result = new JavaMemberCollection(allDeclarations);
+        }
+        else
+        {
+            result = javaCtor;
         }
 
-        return javaCtor;
+        context.LeaveMethod();
+        return result;
     }
 
     private List<string> GetInitializerArguments(ConstructorInitializerSyntax initializer, ConversionContext context)
     {
-        if (initializer.ArgumentList == null || initializer.ArgumentList.Arguments.Count == 0)
-            return new List<string>();
-
         // Resolve the target constructor symbol for argument type coercion
         // (e.g., arrays passed to IEnumerable<T> params need ArrayHelper.toList() wrapping).
         IMethodSymbol? ctorSymbol = null;

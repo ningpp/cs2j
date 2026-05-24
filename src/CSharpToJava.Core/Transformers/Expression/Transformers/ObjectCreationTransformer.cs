@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
+using CSharpToJava.Core.Transformers.Utilities;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -76,6 +77,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                         foreach (var arg in objCreation.ArgumentList.Arguments)
                             ir.Arguments.Add(facade.TransformToIR(arg.Expression, context));
                     }
+                    var runtimeClassArguments = RuntimeClassParameterHelper.GetRuntimeClassArguments(createdType as INamedTypeSymbol, context);
+                    foreach (var runtimeClassArgument in runtimeClassArguments)
+                        ir.Arguments.Add(new JavaRawExpression(runtimeClassArgument));
                     return ir;
                 }
             }
@@ -93,6 +97,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     var ir = new JavaNewExpression { Type = typeName };
                     foreach (var arg in implicitNew.ArgumentList.Arguments)
                         ir.Arguments.Add(facade.TransformToIR(arg.Expression, context));
+                    var runtimeClassArguments = RuntimeClassParameterHelper.GetRuntimeClassArguments(typeInfo.Value.Type as INamedTypeSymbol, context);
+                    foreach (var runtimeClassArgument in runtimeClassArguments)
+                        ir.Arguments.Add(new JavaRawExpression(runtimeClassArgument));
                     return ir;
                 }
             }
@@ -159,7 +166,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
             var typeName = context.MapType(typeInfo.Value.Type);
-            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context);
+            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context, typeInfo.Value.Type as INamedTypeSymbol);
         }
         return "new Object()";
     }
@@ -215,7 +222,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Check if there's an object initializer
         if (node.Initializer != null && node.Initializer.Kind() == SyntaxKind.ObjectInitializerExpression)
         {
-            return TransformObjectCreationWithInitializer(typeName, node.ArgumentList, node.Initializer, context);
+            return TransformObjectCreationWithInitializer(typeName, node.ArgumentList, node.Initializer, context, createdTypeSymbol as INamedTypeSymbol);
         }
 
         // Check if there's a collection initializer
@@ -232,7 +239,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
         }
 
-        return TransformObjectCreationWithArgs(typeName, node.ArgumentList, node.Type as TypeSyntax, context);
+            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, node.Type as TypeSyntax, context, createdTypeSymbol as INamedTypeSymbol);
     }
 
     private static bool HasCollectionConstraint(ITypeParameterSymbol typeParameter)
@@ -251,7 +258,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         });
     }
 
-    private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, TypeSyntax? typeSyntax, ConversionContext context)
+    private string TransformObjectCreationWithArgs(
+        string typeName,
+        ArgumentListSyntax? argumentList,
+        TypeSyntax? typeSyntax,
+        ConversionContext context,
+        INamedTypeSymbol? createdTypeSymbol = null)
     {
         // Map.Entry is an interface — instantiate via AbstractMap.SimpleEntry instead.
         // This handles C# `new KeyValuePair<K,V>(key, value)` construction.
@@ -297,7 +309,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         if (argumentList == null || argumentList.Arguments.Count == 0)
-            return $"new {typeName}()";
+        {
+            var runtimeArgs = RuntimeClassParameterHelper.GetRuntimeClassArguments(createdTypeSymbol, context);
+            return runtimeArgs.Count == 0
+                ? $"new {typeName}()"
+                : $"new {typeName}({string.Join(", ", runtimeArgs)})";
+        }
 
         // Resolve constructor/delegate symbol early so delegate construction can be handled
         // as a functional value assignment instead of Java object instantiation.
@@ -319,6 +336,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         var args = ArgumentTransformer.TransformArgumentList(
             argumentList, context, ExpressionTransformerFacade.Instance, methodSymbol: ctorSymbol);
+
+        if (ctorSymbol == null)
+            AppendRuntimeClassArguments(createdTypeSymbol, context, ref args);
 
         if (ctorSymbol != null
             && ctorSymbol.ContainingType.Name == "Rectangle"
@@ -435,6 +455,21 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         return $"new {typeName}({args})";
+    }
+
+    private static void AppendRuntimeClassArguments(
+        INamedTypeSymbol? createdTypeSymbol,
+        ConversionContext context,
+        ref string args)
+    {
+        var runtimeArgs = RuntimeClassParameterHelper.GetRuntimeClassArguments(createdTypeSymbol, context);
+        if (runtimeArgs.Count == 0)
+            return;
+
+        var runtimeArgsText = string.Join(", ", runtimeArgs);
+        args = string.IsNullOrWhiteSpace(args)
+            ? runtimeArgsText
+            : args + ", " + runtimeArgsText;
     }
 
     private static bool IsJavaFunctionalInterfaceType(string typeName)
@@ -628,15 +663,20 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         return result;
     }
 
-    private string TransformObjectCreationWithInitializer(string typeName, ArgumentListSyntax? argumentList, InitializerExpressionSyntax initializer, ConversionContext context)
+    private string TransformObjectCreationWithInitializer(
+        string typeName,
+        ArgumentListSyntax? argumentList,
+        InitializerExpressionSyntax initializer,
+        ConversionContext context,
+        INamedTypeSymbol? createdType)
     {
         var facade = ExpressionTransformerFacade.Instance;
 
         // Build constructor arguments (with narrowing-cast coercion via ArgumentTransformer)
         string ctorArgs = "";
+        IMethodSymbol? ctorSymbol = null;
         if (argumentList != null && argumentList.Arguments.Count > 0)
         {
-            IMethodSymbol? ctorSymbol = null;
             if (context.SemanticModel != null && argumentList.Parent != null)
             {
                 var symInfo = context.SemanticModel.GetSymbolInfo(argumentList.Parent);
@@ -644,6 +684,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
             ctorArgs = ArgumentTransformer.TransformArgumentList(
                 argumentList, context, facade, methodSymbol: ctorSymbol);
+        }
+
+        if (argumentList == null || argumentList.Arguments.Count == 0 || ctorSymbol == null)
+        {
+            AppendRuntimeClassArguments(createdType, context, ref ctorArgs);
         }
 
         // Emit the object creation and setter calls as pre-statements, then return the temp var.

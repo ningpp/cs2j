@@ -567,11 +567,16 @@ public class MethodTransformer : IMemberTransformer
         if (context.SemanticModel == null)
             return;
 
-        var neededTypeParameters = RuntimeClassParameterHelper.GetRequiredTypeParameters(context.CurrentMethod, context);
+        var currentMethod = context.CurrentMethod?.OriginalDefinition;
+        if (currentMethod == null)
+            return;
+
+        var neededTypeParameters = RuntimeClassParameterHelper.GetRequiredTypeParameters(context.CurrentMethod, context)
+            .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod));
         foreach (var typeParameterName in neededTypeParameters.Select(tp => tp.Name))
         {
             var parameterName = AllocateRuntimeClassParameterName(typeParameterName, javaMethod);
-            javaMethod.Parameters.Add(new JavaParameter($"Class<{typeParameterName}>", parameterName));
+            javaMethod.Parameters.Add(new JavaParameter("Class<?>", parameterName));
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
         }
     }

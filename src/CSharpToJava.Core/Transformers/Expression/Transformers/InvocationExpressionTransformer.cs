@@ -4075,7 +4075,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{hostTypeName}.{methodName}({allArgs})";
         }
 
-        return $"{ExpressionTransformerHelpers.StripTypeArguments(receiver)}.{methodName}({args})";
+        return $"{receiver}.{methodName}({args})";
     }
 
     /// <summary>
