@@ -93,6 +93,15 @@ public class FieldTransformer : IMemberTransformer
             }
             declaredNames.Add(variable.Identifier.Text);
 
+            // C# structs are value types that can never be null — initialize fields
+            // with default instances so Java code doesn't encounter null struct references.
+            if (variable.Initializer == null
+                && fieldTypeSymbol != null
+                && StructCloneHelper.IsUserDefinedStruct(fieldTypeSymbol))
+            {
+                javaField.Initializer = $"new {javaType}()";
+            }
+
             if (variable.Initializer != null)
             {
                 javaField.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(variable.Initializer.Value, context);

@@ -585,8 +585,8 @@ public struct Outer
 }");
 
         Assert.True(result.Success);
-        // Should generate explicit default ctor that initializes Inner Data
-        Assert.Contains("this.Data = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
+        // Struct-typed field should be initialized at declaration (C# value type semantics)
+        Assert.Contains("public Inner Data = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -606,11 +606,11 @@ public struct Wrapper
 }");
 
         Assert.True(result.Success);
-        // Should have both ctors
+        // Should have both ctors (explicit one + auto-generated default)
         Assert.Contains("public Wrapper()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("public Wrapper(int count)", result.GeneratedCode, StringComparison.Ordinal);
-        // Default ctor should initialize struct fields
-        Assert.Contains("this.Info = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
+        // Struct-typed field should be initialized at declaration (C# value type semantics)
+        Assert.Contains("public Inner Info = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -626,9 +626,9 @@ public struct Transform
 }");
 
         Assert.True(result.Success);
-        // Both struct-typed fields should be initialized
-        Assert.Contains("this.Position = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("this.Scale = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
+        // Both struct-typed fields should be initialized at declaration (C# value type semantics)
+        Assert.Contains("public Vec2 Position = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Vec2 Scale = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -644,6 +644,78 @@ public struct Simple
         // No need for explicit default ctor when there are no struct fields
         // (Java's default ctor will zero-initialize primitive fields)
         Assert.DoesNotContain("public Simple()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Struct field initialization in non-struct classes (FieldTransformer) ──────
+
+    [Fact]
+    public void Class_WithStructFieldNoInitializer_FieldInitializedAtDeclaration()
+    {
+        var result = Convert(@"
+public struct Inner { public int Value; }
+public class Wrapper
+{
+    public Inner Data;
+    public int Count;
+}");
+
+        Assert.True(result.Success);
+        // Struct-typed field in a class should be initialized to prevent null reference in Java
+        Assert.Contains("public Inner Data = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
+        // Primitive fields should NOT get a default initializer
+        Assert.DoesNotContain("public int Count = ", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Class_WithStructFieldWithInitializer_PreservesOriginalInitializer()
+    {
+        var result = Convert(@"
+public struct Vec2 { public float X, Y; }
+public class Entity
+{
+    public Vec2 Position = new Vec2 { X = 10, Y = 20 };
+}");
+
+        Assert.True(result.Success);
+        // Should preserve the explicit initializer, not replace it with new Vec2()
+        Assert.Contains("X = 10", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Y = 20", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Class_WithMultipleStructFields_AllInitialized()
+    {
+        var result = Convert(@"
+public struct Vec2 { public float X, Y; }
+public struct Rect { public Vec2 Min, Max; }
+public class Layout
+{
+    public Vec2 Origin;
+    public Rect Bounds;
+    public int Count;
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public Vec2 Origin = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Rect Bounds = new Rect()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("public int Count = ", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Class_WithoutStructFields_NoUnnecessaryInitializers()
+    {
+        var result = Convert(@"
+public class Simple
+{
+    public int X;
+    public string Name;
+    public double Value;
+}");
+
+        Assert.True(result.Success);
+        // Non-struct fields should never get auto-generated initializers
+        Assert.DoesNotContain("public int X = ", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("public double Value = ", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)
