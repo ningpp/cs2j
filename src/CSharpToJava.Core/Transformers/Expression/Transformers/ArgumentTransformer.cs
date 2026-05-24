@@ -330,12 +330,13 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
                 var refHolderType = HolderTypeResolver.GetHolderType(javaType);
-                // `ref` is read/write: unlike `out`, C# requires the caller's
-                // variable to be definitely assigned before the call. Do not
-                // gate this on Roslyn DFA; large-project rewrites can leave
-                // semantic data incomplete, and an empty holder would erase
-                // the caller's current reference value.
-                var refHolderInit = HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName);
+                // `ref` is normally read/write, but procedural LINQ extraction can
+                // turn an outer `out` write inside a lambda into a helper `ref`
+                // parameter. In that generated shape the caller local can be
+                // declared-but-unassigned, so reading it would create invalid Java.
+                var refHolderInit = ShouldSeedRefHolderFromCurrentValue(refIdent, context)
+                    ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName)
+                    : HolderTypeResolver.GetHolderInstantiation(refHolderType);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
                 context.AddPostStatement($"{ConversionContext.EscapeJavaKeyword(varName)} = {refHolderName}.value");
                 return refHolderName;
@@ -376,6 +377,58 @@ public class ArgumentTransformer
         }
 
         return transformer.Transform(arg.Expression, context);
+    }
+
+    private static bool ShouldSeedRefHolderFromCurrentValue(IdentifierNameSyntax refIdent, ConversionContext context)
+    {
+        var semanticModel = context.SemanticModel;
+        if (semanticModel == null)
+            return true;
+
+        if (semanticModel.GetSymbolInfo(refIdent).Symbol is not ILocalSymbol local)
+            return true;
+
+        var declarator = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+        if (declarator?.Initializer != null)
+            return true;
+
+        if (declarator?.Parent?.Parent is not StatementSyntax declarationStatement)
+            return true;
+
+        var currentStatement = refIdent.FirstAncestorOrSelf<StatementSyntax>();
+        if (currentStatement == null)
+            return true;
+
+        if (declarationStatement == currentStatement)
+            return false;
+
+        if (declarationStatement.Parent is not BlockSyntax declarationBlock
+            || currentStatement.Parent is not BlockSyntax currentBlock
+            || declarationBlock != currentBlock)
+            return true;
+
+        var start = declarationBlock.Statements.IndexOf(declarationStatement);
+        var end = declarationBlock.Statements.IndexOf(currentStatement);
+        if (start < 0 || end <= start)
+            return true;
+
+        if (end == start + 1)
+            return false;
+
+        try
+        {
+            var analysis = semanticModel.AnalyzeDataFlow(
+                declarationBlock.Statements[start + 1],
+                declarationBlock.Statements[end - 1]);
+            if (analysis == null || !analysis.Succeeded)
+                return true;
+
+            return analysis.AlwaysAssigned.Any(symbol => SymbolEqualityComparer.Default.Equals(symbol, local));
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
     }
 
     /// <summary>

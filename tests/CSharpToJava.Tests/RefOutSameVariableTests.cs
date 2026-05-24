@@ -200,4 +200,35 @@ class Curve
         Assert.DoesNotContain("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>();", code);
         Assert.Contains("intersections = _intersectionsRef.value;", code);
     }
+
+    [Fact]
+    public void RefParameter_AfterOutAssignmentInSameBlock_InitializesHolderWithCurrentValue()
+    {
+        var result = Convert(@"
+class C
+{
+    static void Assign(out double value)
+    {
+        value = 1.0;
+    }
+
+    static void Mutate(ref double value)
+    {
+        value = value + 1.0;
+    }
+
+    void Run()
+    {
+        double value;
+        Assign(out value);
+        Mutate(ref value);
+    }
+}");
+
+        Assert.True(result.Success, "Conversion should succeed");
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("DoubleHolder _valueRef = new DoubleHolder(value);", code);
+        Assert.DoesNotContain("DoubleHolder _valueRef = new DoubleHolder();", code);
+    }
 }

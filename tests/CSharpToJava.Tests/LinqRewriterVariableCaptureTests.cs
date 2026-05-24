@@ -7,7 +7,7 @@ namespace CSharpToJava.Tests;
 public class LinqRewriterVariableCaptureTests
 {
     [Fact]
-    public void OutParameterInWhereLambda_IsCapturedAsRefParameter()
+    public void OutParameterInWhereLambda_UsesEmptyHolderForUnassignedOuterLocal()
     {
         // Simulates SteinerCdt: double t; vts.Where(p => Method(p, out t) < eps).ToList()
         var csharp = @"
@@ -30,10 +30,9 @@ public class C
 }";
         var result = ConvertProcedural(csharp);
         Assert.True(result.Success, result.GeneratedCode);
-        // 't' should be captured as a ref parameter in the extracted method
         Assert.Contains("ProceduralLinq", result.GeneratedCode);
-        // 't' should appear as a parameter (DoubleHolder or ref), not be undefined
-        Assert.DoesNotContain("找不到符号", result.GeneratedCode);
+        Assert.Contains("DoubleHolder _tRef = new DoubleHolder();", result.GeneratedCode);
+        Assert.DoesNotContain("DoubleHolder _tRef = new DoubleHolder(t);", result.GeneratedCode);
     }
 
     [Fact]
