@@ -211,7 +211,8 @@ public partial class StatementTransformer
                     if (invSym2?.OriginalDefinition.ReturnType is IArrayTypeSymbol origRetArr2
                         && origRetArr2.ElementType is ITypeParameterSymbol
                         // Skip if already converted by TransformLinqToArray (contains mapToDouble/mapToInt etc.)
-                        && !initExpr.Contains(".mapToDouble(") && !initExpr.Contains(".mapToInt(") && !initExpr.Contains(".mapToLong("))
+                        && !initExpr.Contains(".mapToDouble(") && !initExpr.Contains(".mapToInt(") && !initExpr.Contains(".mapToLong(")
+                        && !initExpr.Contains("ArrayHelper.", StringComparison.Ordinal))
                     {
                         // The method returns T[] in Java (boxed array, e.g. Integer[]); use Arrays.stream() to unbox.
                         // Java Arrays.stream only supports int[], long[], double[] for primitive arrays.

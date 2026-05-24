@@ -8,6 +8,7 @@ using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Utilities;
 using CSharpToJava.Core.Transformers.Member;
+using CSharpToJava.Core.Transformers;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -1062,6 +1063,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // LINQ extension methods are handled by the dedicated Stream API block below.
                 isExtensionInStaticPath = !isLinqExtension;
             }
+        }
+
+        if (originalMethodName == "ToArray"
+            && node.ArgumentList.Arguments.Count == 0
+            && TryTransformArrayToArrayCopy(
+                receiver,
+                methodSymbol,
+                node,
+                memberAccess,
+                context,
+                out var arrayToArrayCopy))
+        {
+            return arrayToArrayCopy;
         }
 
         // MSTest Assert.* -> MSTest compatibility Assert.*.
@@ -4485,6 +4499,88 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return $"{receiver}.toArray()";
+    }
+
+    private static bool TryTransformArrayToArrayCopy(
+        string receiver,
+        IMethodSymbol? methodSymbol,
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        out string result)
+    {
+        result = "";
+
+        if (context.SemanticModel == null)
+            return false;
+
+        var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+        if (receiverType is IArrayTypeSymbol receiverArray)
+        {
+            var sourceIsGenericArrayReturn = ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(
+                memberAccess.Expression,
+                context,
+                requireActualTypeParam: false);
+            var factoryElement = sourceIsGenericArrayReturn
+                ? ResolveTargetArrayElementType(node, context)
+                : null;
+            result = BuildArrayCopyExpression(receiver, receiverArray.ElementType, factoryElement, context);
+            return true;
+        }
+        return false;
+    }
+
+    private static string BuildArrayCopyExpression(
+        string receiver,
+        ITypeSymbol elementType,
+        ITypeSymbol? factoryElementType,
+        ConversionContext context)
+    {
+        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+
+        if (TryGetPrimitiveArrayHelper(elementType.SpecialType, out var primitiveHelper))
+            return factoryElementType == null || primitiveHelper == "copyArray"
+                ? $"ArrayHelper.copyArray({receiver})"
+                : $"ArrayHelper.{primitiveHelper}({receiver})";
+
+        var javaType = context.MapType(factoryElementType ?? elementType);
+        if (string.IsNullOrEmpty(javaType) || javaType == "Object")
+            return $"ArrayHelper.copyArray({receiver})";
+
+        var arrayTypeRef = javaType.Contains('<') ? javaType[..javaType.IndexOf('<')] : javaType;
+        if (StructCloneHelper.IsUserDefinedStruct(elementType))
+            return $"ArrayHelper.copyStructArray({receiver}, {arrayTypeRef}[]::new, item -> item.clone())";
+
+        return factoryElementType == null
+            ? $"ArrayHelper.copyArray({receiver})"
+            : $"ArrayHelper.copyArray({receiver}, {arrayTypeRef}[]::new)";
+    }
+
+    private static ITypeSymbol? ResolveTargetArrayElementType(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return null;
+
+        var typeInfo = context.SemanticModel.GetTypeInfo(node);
+        return (typeInfo.ConvertedType as IArrayTypeSymbol)?.ElementType
+            ?? (typeInfo.Type as IArrayTypeSymbol)?.ElementType;
+    }
+
+    private static bool TryGetPrimitiveArrayHelper(SpecialType specialType, out string helper)
+    {
+        helper = specialType switch
+        {
+            SpecialType.System_Int32 => "toIntArray",
+            SpecialType.System_Int64 => "toLongArray",
+            SpecialType.System_Double => "toDoubleArray",
+            SpecialType.System_Single => "toFloatArray",
+            SpecialType.System_Boolean => "toBooleanArray",
+            SpecialType.System_Byte => "toByteArray",
+            SpecialType.System_Int16 => "toShortArray",
+            SpecialType.System_Char => "toCharArray",
+            _ => ""
+        };
+        return helper.Length > 0;
     }
 
     /// <summary>

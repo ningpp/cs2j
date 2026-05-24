@@ -29,6 +29,24 @@ class Sample {
         Assert.DoesNotContain("instanceof", result.GeneratedCode);
     }
 
+    [Fact]
+    public void IEnumerableToArray_DoesNotUseArrayCopyHelper()
+    {
+        var source = @"
+using System.Collections.Generic;
+using System.Linq;
+
+class Sample {
+    int[] M(IEnumerable<int> items) {
+        return items.ToArray();
+    }
+}";
+        var result = Convert(source);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Contains("StreamSupport.stream(items.spliterator(), false).mapToInt(Integer::intValue).toArray()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArrayHelper.toIntArray(items)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
